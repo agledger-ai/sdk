@@ -1,0 +1,71 @@
+{
+  "name": "@agledger/sdk",
+  "version": "1.0.0",
+  "description": "AGLedger™ SDK — Accountability and audit infrastructure for agentic systems.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./webhooks": {
+      "types": "./dist/webhooks/verify.d.ts",
+      "import": "./dist/webhooks/verify.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/__tests__",
+    "!dist/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "agledger",
+    "agentic",
+    "accountability",
+    "audit",
+    "mandate",
+    "verification",
+    "governance",
+    "a2a",
+    "sdk",
+    "ai-agent",
+    "ai-governance",
+    "ai-safety",
+    "compliance",
+    "eu-ai-act",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agledger-ai/sdk"
+  },
+  "homepage": "https://agledger.ai",
+  "bugs": {
+    "url": "https://github.com/agledger-ai/sdk/issues"
+  },
+  "author": "AGLedger LLC",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
