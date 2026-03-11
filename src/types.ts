@@ -124,6 +124,8 @@ export type ContractType =
   | 'ACH-AUTH-v1'
   | 'ACH-INFRA-v1'
   | 'ACH-DEL-v1'
+  | 'ACH-ANALYZE-v1'
+  | 'ACH-COORD-v1'
   // Forward compatibility: accept any string the API returns
   | (string & {});
 
@@ -218,6 +220,27 @@ export interface InfrastructureCriteria {
   environment?: string;
   region?: string;
   rollback_possible?: boolean;
+}
+
+/** ACH-ANALYZE-v1: Analysis, research, synthesis, and evaluation tasks. */
+export interface AnalyzeCriteria {
+  objective: string;
+  scope?: string;
+  output_format?: string;
+  depth?: 'overview' | 'standard' | 'deep_dive';
+  constraints?: { max_sources?: number; time_budget_seconds?: number; cost_budget?: Denomination };
+  evaluation_criteria?: string[];
+  deadline?: string;
+}
+
+/** ACH-COORD-v1: Multi-agent coordination, planning, and orchestration. */
+export interface CoordinationCriteria {
+  objective: string;
+  participants?: string[];
+  deliverables?: string[];
+  success_criteria?: Record<string, unknown>;
+  budget?: Denomination;
+  deadline?: string;
 }
 
 /** ACH-DEL-v1: Deletions, cancellations, and reversals. */
@@ -332,6 +355,27 @@ export interface InfrastructureEvidence {
   performed_at?: string;
 }
 
+/** ACH-ANALYZE-v1 receipt evidence. */
+export interface AnalyzeEvidence {
+  deliverable: string;
+  deliverable_type: string;
+  summary: string;
+  sources_consulted?: number;
+  confidence_score?: number;
+  submitted_at?: string;
+}
+
+/** ACH-COORD-v1 receipt evidence. */
+export interface CoordinationEvidence {
+  deliverable: string;
+  deliverable_type: string;
+  summary: string;
+  participants_engaged?: number;
+  sub_mandates_created?: number;
+  sub_mandates_fulfilled?: number;
+  submitted_at?: string;
+}
+
 /** ACH-DEL-v1 receipt evidence. */
 export interface DestructiveEvidence {
   action: string;
@@ -360,6 +404,8 @@ export interface CriteriaMap {
   'ACH-AUTH-v1': AuthorizationCriteria;
   'ACH-INFRA-v1': InfrastructureCriteria;
   'ACH-DEL-v1': DestructiveCriteria;
+  'ACH-ANALYZE-v1': AnalyzeCriteria;
+  'ACH-COORD-v1': CoordinationCriteria;
 }
 
 /** Maps known contract type strings to their evidence interfaces. */
@@ -373,6 +419,8 @@ export interface EvidenceMap {
   'ACH-AUTH-v1': AuthorizationEvidence;
   'ACH-INFRA-v1': InfrastructureEvidence;
   'ACH-DEL-v1': DestructiveEvidence;
+  'ACH-ANALYZE-v1': AnalyzeEvidence;
+  'ACH-COORD-v1': CoordinationEvidence;
 }
 
 /** Resolves to the typed criteria for known contract types, or Record<string, unknown> for unknown types. */
@@ -475,9 +523,12 @@ export interface Mandate {
   euAiActDomain?: string;
   humanOversight?: Record<string, unknown>;
   acceptanceStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED';
+  projectRef?: string;
   parentMandateId?: string;
   rootMandateId?: string;
   chainDepth?: number;
+  lastTransitionReason?: string | null;
+  lastTransitionBy?: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -491,6 +542,7 @@ export interface CreateMandateParams {
   contractVersion: string;
   platform: string;
   platformRef?: string;
+  projectRef?: string;
   criteria: Record<string, unknown>;
   tolerance?: Record<string, unknown>;
   deadline?: string;
@@ -542,6 +594,7 @@ export interface CreateAgentMandateParams {
   contractType: ContractType;
   contractVersion: string;
   platform?: string;
+  projectRef?: string;
   criteria: Record<string, unknown>;
   tolerance?: Record<string, unknown>;
   parentMandateId?: string;
@@ -579,6 +632,7 @@ export interface Receipt {
   verificationOutcome?: VerificationOutcome;
   verificationCompletedAt?: string;
   validationErrors?: string[] | null;
+  mandateStatus?: MandateStatus;
   idempotencyKey?: string | null;
   createdAt: string;
   updatedAt?: string;
