@@ -176,6 +176,20 @@ export type {
   MandateSummary,
   AlignmentAnalysis,
 
+  // Notarization (OpenClaw Agent-to-Agent Agreements)
+  NotarizeStatus,
+  NotarizedMandate,
+  NotarizeTransition,
+  NotarizeMandateParams,
+  NotarizeMandateResult,
+  NotarizeCounterProposeParams,
+  NotarizeReceiptParams,
+  NotarizeReceiptResult,
+  NotarizeVerdictParams,
+  NotarizeVerifyParams,
+  NotarizeVerifyResult,
+  NotarizeHistory,
+
   // Errors
   ApiErrorResponse,
   ValidationErrorDetail,

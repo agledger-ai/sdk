@@ -1320,6 +1320,88 @@ export interface AlignmentAnalysis {
 }
 
 // ---------------------------------------------------------------------------
+// Notarization (OpenClaw Agent-to-Agent Agreements)
+// ---------------------------------------------------------------------------
+
+export type NotarizeStatus =
+  | 'NOTARIZED'
+  | 'ACCEPTED'
+  | 'COUNTER_PROPOSED'
+  | 'RECEIPT_SUBMITTED'
+  | 'VERDICT_PASS'
+  | 'VERDICT_FAIL'
+  | (string & {});
+
+export interface NotarizedMandate {
+  id: string;
+  hash: string;
+  contractType: ContractType;
+  principalId: string;
+  performerId?: string;
+  status: NotarizeStatus;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotarizeTransition {
+  status: NotarizeStatus;
+  actor: string;
+  hash?: string;
+  timestamp: string;
+}
+
+export interface NotarizeMandateParams {
+  contractType: ContractType;
+  payload: Record<string, unknown>;
+  performerHint?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface NotarizeMandateResult {
+  mandate: NotarizedMandate;
+  payload: Record<string, unknown>;
+}
+
+export interface NotarizeCounterProposeParams {
+  payload: Record<string, unknown>;
+  reason?: string;
+}
+
+export interface NotarizeReceiptParams {
+  payload: Record<string, unknown>;
+}
+
+export interface NotarizeReceiptResult {
+  receiptId: string;
+  hash: string;
+  mandateId: string;
+  mandate: NotarizedMandate;
+  payload: Record<string, unknown>;
+}
+
+export interface NotarizeVerdictParams {
+  outcome: 'PASS' | 'FAIL';
+  reason?: string;
+}
+
+export interface NotarizeVerifyParams {
+  id: string;
+  payload: Record<string, unknown>;
+}
+
+export interface NotarizeVerifyResult {
+  match: boolean;
+  storedHash: string;
+  providedHash: string;
+}
+
+export interface NotarizeHistory {
+  mandateId: string;
+  transitions: NotarizeTransition[];
+}
+
+// ---------------------------------------------------------------------------
 // API Error Response
 // ---------------------------------------------------------------------------
 
