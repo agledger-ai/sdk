@@ -35,7 +35,7 @@ export class WebhooksResource {
   }
 
   async delete(webhookId: string, options?: RequestOptions): Promise<void> {
-    return this.http.delete(`/v1/webhooks/${webhookId}`, options);
+    return this.http.delete(`/v1/webhooks/${webhookId}`, undefined, options);
   }
 
   /** Rotate webhook secret. Returns new secret. */

@@ -986,6 +986,10 @@ export interface AccountProfile {
   enterpriseId?: string;
   capabilities?: ContractType[];
   sandboxMode?: boolean;
+  /** API key scopes. Null = full access for the role. */
+  scopes?: string[] | null;
+  /** Scope profile name if key was created with a profile. */
+  scopeProfile?: string | null;
   createdAt: string;
 }
 
@@ -1051,8 +1055,26 @@ export interface AdminApiKey {
   ownerId: string;
   ownerType: AccountType;
   active: boolean;
+  /** API key scopes. Null = full access for the role. */
+  scopes?: string[] | null;
+  /** Scope profile name if created with a profile. */
+  scopeProfile?: string | null;
   createdAt: string;
   lastUsedAt?: string;
+  expiresAt?: string | null;
+}
+
+export interface CreateApiKeyParams {
+  ownerId: string;
+  ownerType: AccountType;
+  /** Explicit scopes to set on the key. */
+  scopes?: string[];
+  /** Convenience profile name — expands to a predefined scope array. Takes precedence over `scopes`. */
+  scopeProfile?: string;
+  /** Optional expiration date (ISO 8601). */
+  expiresAt?: string;
+  /** IP allowlist. Null = any IP. */
+  allowedIps?: string[];
 }
 
 export interface WebhookDlqEntry {
@@ -1400,6 +1422,38 @@ export interface NotarizeHistory {
   mandateId: string;
   transitions: NotarizeTransition[];
 }
+
+// ---------------------------------------------------------------------------
+// Enterprise Agent Approval Registry
+// ---------------------------------------------------------------------------
+
+export type EnterpriseAgentStatus = 'approved' | 'suspended' | 'revoked' | (string & {});
+
+export interface EnterpriseAgentRecord {
+  enterpriseId: string;
+  agentId: string;
+  status: EnterpriseAgentStatus;
+  approvedBy: string | null;
+  approvedAt: string;
+  suspendedAt: string | null;
+  revokedAt: string | null;
+  reason: string | null;
+}
+
+export interface ApprovalConfig {
+  agentApprovalRequired: boolean;
+  allowSelfApproval: boolean;
+}
+
+export interface ApproveAgentParams { reason?: string; }
+export interface RevokeAgentParams { reason?: string; }
+export interface UpdateAgentStatusParams { status: 'suspended' | 'approved'; reason?: string; }
+export interface BulkApproveAgentParams { agents: Array<{ agentId: string; reason?: string }>; }
+export interface BulkApproveResult {
+  results: Array<{ agentId: string; status: 'approved' | 'failed'; error?: string }>;
+  summary: { total: number; approved: number; failed: number };
+}
+export interface ListEnterpriseAgentsParams extends ListParams { status?: EnterpriseAgentStatus; }
 
 // ---------------------------------------------------------------------------
 // API Error Response

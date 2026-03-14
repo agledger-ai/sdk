@@ -86,6 +86,18 @@ describe('HttpClient', () => {
     expect(init.headers['Idempotency-Key']).toBeDefined();
   });
 
+  it('sends JSON body on PUT and includes Idempotency-Key', async () => {
+    const fetch = mockFetch({ json: { ok: true } });
+    const client = createClient(fetch);
+    await client.put('/test', { key: 'value' });
+
+    const [, init] = fetch.mock.calls[0];
+    expect(init.method).toBe('PUT');
+    expect(init.headers['Content-Type']).toBe('application/json');
+    expect(init.headers['Idempotency-Key']).toBeDefined();
+    expect(init.body).toBe('{"key":"value"}');
+  });
+
   it('includes Idempotency-Key on DELETE', async () => {
     const fetch = mockFetch({ status: 204, ok: true });
     const client = createClient(fetch);
@@ -163,6 +175,46 @@ describe('HttpClient', () => {
       });
       const client = createClient(fetch);
       await expect(client.get('/test')).rejects.toThrow(PermissionError);
+    });
+
+    it('PermissionError exposes missingScopes and keyScopes from 403', async () => {
+      const fetch = mockFetch({
+        ok: false,
+        status: 403,
+        json: {
+          error: 'INSUFFICIENT_SCOPE',
+          message: "This endpoint requires scope 'agents:manage'.",
+          details: {
+            missingScopes: ['agents:manage'],
+            keyScopes: ['mandates:read', 'mandates:write'],
+          },
+        },
+      });
+      const client = createClient(fetch);
+      try {
+        await client.get('/test');
+      } catch (err) {
+        expect(err).toBeInstanceOf(PermissionError);
+        const pe = err as PermissionError;
+        expect(pe.missingScopes).toEqual(['agents:manage']);
+        expect(pe.keyScopes).toEqual(['mandates:read', 'mandates:write']);
+      }
+    });
+
+    it('PermissionError has empty missingScopes when not a scope error', async () => {
+      const fetch = mockFetch({
+        ok: false,
+        status: 403,
+        json: { error: 'forbidden', message: 'Agent not approved' },
+      });
+      const client = createClient(fetch);
+      try {
+        await client.get('/test');
+      } catch (err) {
+        const pe = err as PermissionError;
+        expect(pe.missingScopes).toEqual([]);
+        expect(pe.keyScopes).toBeNull();
+      }
     });
 
     it('throws NotFoundError on 404', async () => {

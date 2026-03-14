@@ -399,6 +399,28 @@ describe('AdminResource', () => {
     await client.admin.getSystemHealth();
     expect(fetch.mock.calls[0][0]).toContain('/v1/admin/system-health');
   });
+
+  it('creates API key with scopes', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.createApiKey({
+      ownerId: 'ent-1',
+      ownerType: 'enterprise',
+      scopes: ['mandates:read', 'mandates:write'],
+    });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.scopes).toEqual(['mandates:read', 'mandates:write']);
+  });
+
+  it('creates API key with scope profile', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.createApiKey({
+      ownerId: 'ent-1',
+      ownerType: 'enterprise',
+      scopeProfile: 'sidecar',
+    });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.scopeProfile).toBe('sidecar');
+  });
 });
 
 describe('A2aResource', () => {
@@ -438,6 +460,91 @@ describe('CapabilitiesResource', () => {
     await client.capabilities.set('agent-123', { capabilities: ['ACH-PROC-v1', 'ACH-DATA-v1'] });
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.capabilities).toEqual(['ACH-PROC-v1', 'ACH-DATA-v1']);
+  });
+});
+
+describe('EnterprisesResource', () => {
+  it('approves an agent via PUT', async () => {
+    const { client, fetch } = createMockClient();
+    await client.enterprises.approveAgent('ent-1', 'agent-1', { reason: 'Trusted partner' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/enterprises/ent-1/agents/agent-1');
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body)).toHaveProperty('reason', 'Trusted partner');
+  });
+
+  it('revokes an agent via DELETE', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: vi.fn(),
+      headers: new Headers(),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+    await client.enterprises.revokeAgent('ent-1', 'agent-1');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/enterprises/ent-1/agents/agent-1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('updates agent status via PATCH', async () => {
+    const { client, fetch } = createMockClient();
+    await client.enterprises.updateAgentStatus('ent-1', 'agent-1', { status: 'suspended', reason: 'Policy violation' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/enterprises/ent-1/agents/agent-1');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body);
+    expect(body.status).toBe('suspended');
+    expect(body.reason).toBe('Policy violation');
+  });
+
+  it('bulk approves agents via POST', async () => {
+    const { client, fetch } = createMockClient();
+    await client.enterprises.bulkApprove('ent-1', { agents: [{ agentId: 'a1' }, { agentId: 'a2', reason: 'OK' }] });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/enterprises/ent-1/agents/bulk');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body).agents).toHaveLength(2);
+  });
+
+  it('lists agents with page mock', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.enterprises.listAgents('ent-1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/enterprises/ent-1/agents');
+  });
+
+  it('lists agents with status filter', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.enterprises.listAgents('ent-1', { status: 'suspended' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('status=suspended');
+  });
+
+  it('gets a single agent', async () => {
+    const { client, fetch } = createMockClient();
+    await client.enterprises.getAgent('ent-1', 'agent-1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/enterprises/ent-1/agents/agent-1');
+  });
+
+  it('gets approval config', async () => {
+    const { client, fetch } = createMockClient();
+    await client.enterprises.getApprovalConfig('ent-1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/enterprises/ent-1/approval-config');
+  });
+
+  it('sets approval config via PUT', async () => {
+    const { client, fetch } = createMockClient();
+    await client.enterprises.setApprovalConfig('ent-1', { agentApprovalRequired: true, allowSelfApproval: false });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/enterprises/ent-1/approval-config');
+    expect(init.method).toBe('PUT');
+    const body = JSON.parse(init.body);
+    expect(body.agentApprovalRequired).toBe(true);
+    expect(body.allowSelfApproval).toBe(false);
   });
 });
 

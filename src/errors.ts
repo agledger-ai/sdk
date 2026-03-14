@@ -73,9 +73,17 @@ export class AuthenticationError extends AgledgerApiError {
 }
 
 export class PermissionError extends AgledgerApiError {
+  /** Scopes required by the endpoint but missing from the key. Empty if not a scope error. */
+  readonly missingScopes: string[];
+  /** Scopes the key has. Null if not included in the response. */
+  readonly keyScopes: string[] | null;
+
   constructor(body: ApiErrorResponse) {
     super(403, body);
     this.name = 'PermissionError';
+    const details = body.details as Record<string, unknown> | undefined;
+    this.missingScopes = Array.isArray(details?.missingScopes) ? details.missingScopes as string[] : [];
+    this.keyScopes = Array.isArray(details?.keyScopes) ? details.keyScopes as string[] : null;
   }
 }
 

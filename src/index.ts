@@ -142,6 +142,7 @@ export type {
   AdminEnterprise,
   AdminAgent,
   AdminApiKey,
+  CreateApiKeyParams,
   WebhookDlqEntry,
   SystemHealth,
   UpdateTrustLevelParams,
@@ -190,6 +191,17 @@ export type {
   NotarizeVerifyResult,
   NotarizeHistory,
 
+  // Enterprise Agent Approval Registry
+  EnterpriseAgentStatus,
+  EnterpriseAgentRecord,
+  ApprovalConfig,
+  ApproveAgentParams,
+  RevokeAgentParams,
+  UpdateAgentStatusParams,
+  BulkApproveAgentParams,
+  BulkApproveResult,
+  ListEnterpriseAgentsParams,
+
   // Errors
   ApiErrorResponse,
   ValidationErrorDetail,
@@ -218,3 +230,7 @@ export {
   ConnectionError,
   TimeoutError,
 } from './errors.js';
+
+// Scopes
+export { Scopes, ScopeProfiles } from './scopes.js';
+export type { Scope, ScopeProfile, ScopeProfileName } from './scopes.js';

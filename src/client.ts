@@ -22,6 +22,7 @@ import { AdminResource } from './resources/admin.js';
 import { A2aResource } from './resources/a2a.js';
 import { CapabilitiesResource } from './resources/capabilities.js';
 import { NotarizeResource } from './resources/notarize.js';
+import { EnterprisesResource } from './resources/enterprises.js';
 
 export class AgledgerClient {
   private readonly http: HttpClient;
@@ -43,6 +44,7 @@ export class AgledgerClient {
   readonly a2a: A2aResource;
   readonly capabilities: CapabilitiesResource;
   readonly notarize: NotarizeResource;
+  readonly enterprises: EnterprisesResource;
 
   /** Rate limit info from the most recent API response. Null if headers not present. */
   get rateLimitInfo(): RateLimitInfo | null {
@@ -69,5 +71,6 @@ export class AgledgerClient {
     this.a2a = new A2aResource(http);
     this.capabilities = new CapabilitiesResource(http);
     this.notarize = new NotarizeResource(http);
+    this.enterprises = new EnterprisesResource(http);
   }
 }

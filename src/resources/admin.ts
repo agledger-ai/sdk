@@ -18,6 +18,7 @@ import type {
   ListParams,
   RequestOptions,
   ContractType,
+  CreateApiKeyParams,
 } from '../types.js';
 
 export class AdminResource {
@@ -53,7 +54,7 @@ export class AdminResource {
     return this.http.getPage<AdminApiKey>('/v1/admin/api-keys', params as Record<string, unknown>, options);
   }
 
-  async createApiKey(params: { ownerId: string; ownerType: string }, options?: RequestOptions): Promise<{ apiKey: string; keyId: string }> {
+  async createApiKey(params: CreateApiKeyParams, options?: RequestOptions): Promise<{ apiKey: string; keyId: string; scopes: string[] | null; scopeProfile: string | null }> {
     return this.http.post('/v1/admin/api-keys', params, options);
   }
 

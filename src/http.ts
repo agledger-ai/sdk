@@ -76,6 +76,15 @@ export class HttpClient {
     return this.request<T>('POST', url, body, options);
   }
 
+  async put<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions,
+  ): Promise<T> {
+    const url = this.buildUrl(path);
+    return this.request<T>('PUT', url, body, options);
+  }
+
   async patch<T>(
     path: string,
     body?: unknown,
@@ -85,9 +94,9 @@ export class HttpClient {
     return this.request<T>('PATCH', url, body, options);
   }
 
-  async delete<T>(path: string, options?: RequestOptions): Promise<T> {
+  async delete<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
     const url = this.buildUrl(path);
-    return this.request<T>('DELETE', url, undefined, options);
+    return this.request<T>('DELETE', url, body, options);
   }
 
   /**
@@ -159,7 +168,7 @@ export class HttpClient {
     options?: RequestOptions,
   ): Promise<T> {
     // Idempotency keys for all mutating methods
-    const needsIdempotencyKey = method === 'POST' || method === 'PATCH' || method === 'DELETE';
+    const needsIdempotencyKey = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
     const idempotencyKey =
       options?.idempotencyKey ??
       (needsIdempotencyKey
