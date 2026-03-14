@@ -176,18 +176,17 @@ describe('MandatesResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/mandates/agent/proposals');
   });
 
-  it('createAndActivate creates then transitions', async () => {
+  it('createAndActivate creates then registers then activates', async () => {
     let callCount = 0;
     const fetch = vi.fn().mockImplementation(() => {
       callCount++;
+      const status = callCount === 1 ? 'DRAFT'
+        : callCount === 2 ? 'REGISTERED'
+        : 'ACTIVE';
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: vi.fn().mockResolvedValue(
-          callCount === 1
-            ? { id: 'mnd-new', status: 'REGISTERED' }
-            : { id: 'mnd-new', status: 'ACTIVE' },
-        ),
+        json: vi.fn().mockResolvedValue({ id: 'mnd-new', status }),
         headers: new Headers(),
       });
     });
@@ -204,9 +203,11 @@ describe('MandatesResource', () => {
       criteria: {},
     });
     expect(result.status).toBe('ACTIVE');
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledTimes(3);
     expect(fetch.mock.calls[1][0]).toContain('/mandates/mnd-new/transition');
-    expect(JSON.parse(fetch.mock.calls[1][1].body).action).toBe('activate');
+    expect(JSON.parse(fetch.mock.calls[1][1].body).action).toBe('register');
+    expect(fetch.mock.calls[2][0]).toContain('/mandates/mnd-new/transition');
+    expect(JSON.parse(fetch.mock.calls[2][1].body).action).toBe('activate');
   });
 
   it('getValidTransitions returns client-side transitions', () => {

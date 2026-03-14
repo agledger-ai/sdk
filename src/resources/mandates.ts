@@ -135,9 +135,10 @@ export class MandatesResource {
     return this.http.getPage<Mandate>('/v1/mandates/agent/proposals', undefined, options);
   }
 
-  /** Create a mandate and immediately activate it. Two API calls — if activation fails, the REGISTERED mandate ID is in the error. */
+  /** Create a mandate and immediately activate it. Three API calls (create → register → activate) — if a step fails, the mandate ID is in the error. */
   async createAndActivate(params: CreateMandateParams, options?: RequestOptions): Promise<Mandate> {
     const mandate = await this.create(params, options);
+    await this.transition(mandate.id, 'register', undefined, options);
     return this.transition(mandate.id, 'activate', undefined, options);
   }
 
