@@ -9,10 +9,12 @@ import type { HealthResponse, StatusResponse, ConformanceResponse, RequestOption
 export class HealthResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Quick health check (GET /health). */
   async check(options?: RequestOptions): Promise<HealthResponse> {
     return this.http.get<HealthResponse>('/health', undefined, options);
   }
 
+  /** Get detailed system status with component health (GET /status). */
   async status(options?: RequestOptions): Promise<StatusResponse> {
     return this.http.get<StatusResponse>('/status', undefined, options);
   }

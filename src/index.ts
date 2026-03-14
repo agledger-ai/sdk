@@ -144,6 +144,7 @@ export type {
   AdminAgent,
   AdminApiKey,
   CreateApiKeyParams,
+  CreateApiKeyResult,
   WebhookDlqEntry,
   SystemHealth,
   UpdateTrustLevelParams,
@@ -235,3 +236,15 @@ export {
 // Scopes
 export { Scopes, ScopeProfiles } from './scopes.js';
 export type { Scope, ScopeProfile, ScopeProfileName } from './scopes.js';
+
+// Mandate State Machine
+export {
+  MANDATE_TRANSITIONS,
+  TERMINAL_STATUSES,
+  canTransitionTo,
+  getValidTransitions,
+  isTerminalStatus,
+} from './mandate-lifecycle.js';
+
+// Prompt Context Builders
+export { mandateToContext, receiptToContext, errorToContext } from './prompt-context.js';

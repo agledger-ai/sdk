@@ -114,6 +114,7 @@ export interface BulkCreateResult {
 // Contract Types
 // ---------------------------------------------------------------------------
 
+/** Known values: ACH-PROC-v1, ACH-DLVR-v1, ACH-DATA-v1, ACH-TXN-v1, ACH-ORCH-v1, ACH-COMM-v1, ACH-AUTH-v1, ACH-INFRA-v1, ACH-DEL-v1, ACH-ANALYZE-v1, ACH-COORD-v1. Accepts any string for forward compatibility. */
 export type ContractType =
   | 'ACH-PROC-v1'
   | 'ACH-DLVR-v1'
@@ -126,7 +127,6 @@ export type ContractType =
   | 'ACH-DEL-v1'
   | 'ACH-ANALYZE-v1'
   | 'ACH-COORD-v1'
-  // Forward compatibility: accept any string the API returns
   | (string & {});
 
 // ---------------------------------------------------------------------------
@@ -466,6 +466,7 @@ export interface SchemaValidationResult {
 // Mandates
 // ---------------------------------------------------------------------------
 
+/** Known values: DRAFT, PROPOSED, ACCEPTED, COUNTER_PROPOSED, REJECTED, REGISTERED, ACTIVE, PENDING_VERIFICATION, FULFILLED, FAILED, DISPUTED, CANCELLED, REMEDIATED, EXPIRED, RECEIPT_INVALID, RECEIPT_ACCEPTED, VERIFYING, VERIFIED_PASS, VERIFIED_FAIL, CANCELLED_DRAFT, CANCELLED_PRE_WORK, CANCELLED_IN_PROGRESS. Accepts any string for forward compatibility. */
 export type MandateStatus =
   | 'DRAFT'
   | 'PROPOSED'
@@ -481,7 +482,6 @@ export type MandateStatus =
   | 'CANCELLED'
   | 'REMEDIATED'
   | 'EXPIRED'
-  // Internal/transitional states
   | 'RECEIPT_INVALID'
   | 'RECEIPT_ACCEPTED'
   | 'VERIFYING'
@@ -490,9 +490,9 @@ export type MandateStatus =
   | 'CANCELLED_DRAFT'
   | 'CANCELLED_PRE_WORK'
   | 'CANCELLED_IN_PROGRESS'
-  // Forward compatibility
   | (string & {});
 
+/** Known values: register, activate, settle, cancel, refund. Accepts any string for forward compatibility. */
 export type MandateTransitionAction =
   | 'register'
   | 'activate'
@@ -502,6 +502,7 @@ export type MandateTransitionAction =
   | (string & {});
 
 export type OperatingMode = 'standard' | 'encrypted' | 'cleartext';
+/** Known values: auto, principal, gated. Accepts any string for forward compatibility. */
 export type VerificationMode = 'auto' | 'principal' | 'gated' | (string & {});
 
 export type RiskClassification = 'unacceptable' | 'high' | 'limited' | 'minimal' | 'unclassified';
@@ -618,6 +619,7 @@ export interface RespondToMandateParams {
 // Receipts
 // ---------------------------------------------------------------------------
 
+/** Known values: SUBMITTED, ACCEPTED, REJECTED, INVALID. Accepts any string for forward compatibility. */
 export type ReceiptStatus =
   | 'SUBMITTED'
   | 'ACCEPTED'
@@ -660,7 +662,9 @@ export interface UpdateReceiptParams {
 // Verification
 // ---------------------------------------------------------------------------
 
+/** Known values: PASS, FAIL, REVIEW_REQUIRED. Accepts any string for forward compatibility. */
 export type VerificationOutcome = 'PASS' | 'FAIL' | 'REVIEW_REQUIRED' | (string & {});
+/** Known values: SETTLE, HOLD, RELEASE. Accepts any string for forward compatibility. */
 export type SettlementSignal = 'SETTLE' | 'HOLD' | 'RELEASE' | (string & {});
 
 export interface VerificationResult {
@@ -685,6 +689,7 @@ export interface VerificationStatus {
 // Disputes
 // ---------------------------------------------------------------------------
 
+/** Known values: OPEN, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, WITHDRAWN. Accepts any string for forward compatibility. */
 export type DisputeStatus =
   | 'OPEN'
   | 'TIER_1_REVIEW'
@@ -726,6 +731,7 @@ export interface ResolveDisputeParams {
 // Webhooks
 // ---------------------------------------------------------------------------
 
+/** Known values: receipt.submitted, receipt.verified, receipt.accepted, receipt.rejected, mandate.created, mandate.registered, mandate.activated, mandate.fulfilled, mandate.failed, mandate.cancelled, mandate.delegated, mandate.released, dispute.created, dispute.resolved, signal.emitted, verification.complete. Accepts any string for forward compatibility. */
 export type WebhookEventType =
   | 'receipt.submitted'
   | 'receipt.verified'
@@ -798,6 +804,7 @@ export interface WebhookTestResult {
 // Reputation
 // ---------------------------------------------------------------------------
 
+/** Known values: platinum, gold, silver, bronze. Accepts any string for forward compatibility. */
 export type ReputationTier = 'platinum' | 'gold' | 'silver' | 'bronze' | (string & {});
 
 export interface ReputationScore {
@@ -1083,6 +1090,14 @@ export interface CreateApiKeyParams {
   allowedIps?: string[];
 }
 
+/** Result of creating an API key via the admin endpoint. */
+export interface CreateApiKeyResult {
+  apiKey: string;
+  keyId: string;
+  scopes: string[] | null;
+  scopeProfile: string | null;
+}
+
 export interface WebhookDlqEntry {
   id: string;
   webhookId: string;
@@ -1149,6 +1164,7 @@ export interface JsonRpcResponse {
 // ---------------------------------------------------------------------------
 
 export type ProxyMode = 'observe' | 'advisory' | 'enforced';
+/** Known values: ALLOWED, BLOCKED, ANNOTATED. Accepts any string for forward compatibility. */
 export type InterceptorAction = 'ALLOWED' | 'BLOCKED' | 'ANNOTATED' | (string & {});
 export type ConfidenceLevel = 'low' | 'medium' | 'high';
 export type SidecarMandateStatus = 'SHADOW' | 'FORMALIZED' | 'DISMISSED';
@@ -1351,6 +1367,7 @@ export interface AlignmentAnalysis {
 // Notarization (OpenClaw Agent-to-Agent Agreements)
 // ---------------------------------------------------------------------------
 
+/** Known values: NOTARIZED, ACCEPTED, COUNTER_PROPOSED, RECEIPT_SUBMITTED, VERDICT_PASS, VERDICT_FAIL. Accepts any string for forward compatibility. */
 export type NotarizeStatus =
   | 'NOTARIZED'
   | 'ACCEPTED'
@@ -1433,6 +1450,7 @@ export interface NotarizeHistory {
 // Enterprise Agent Approval Registry
 // ---------------------------------------------------------------------------
 
+/** Known values: approved, suspended, revoked. Accepts any string for forward compatibility. */
 export type EnterpriseAgentStatus = 'approved' | 'suspended' | 'revoked' | (string & {});
 
 export interface EnterpriseAgentRecord {

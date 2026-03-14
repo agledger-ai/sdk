@@ -38,22 +38,22 @@ import type {
 export class ProxySessionsResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Create a new proxy session. */
   async create(params: CreateSessionParams, options?: RequestOptions): Promise<ProxySession> {
     return this.http.post<ProxySession>('/v1/proxy/sessions', params, options);
   }
 
+  /** Get a proxy session by ID. */
   async get(sessionId: string, options?: RequestOptions): Promise<ProxySession> {
     return this.http.get<ProxySession>(`/v1/proxy/sessions/${sessionId}`, undefined, options);
   }
 
+  /** List proxy sessions. */
   async list(params?: ListParams, options?: RequestOptions): Promise<Page<ProxySession>> {
     return this.http.getPage<ProxySession>('/v1/proxy/sessions', params as Record<string, unknown>, options);
   }
 
-  /**
-   * Unified sync: session + tool calls + sidecar mandates + sidecar receipts + tool catalog
-   * in a single request. Returns mandateIdMap mapping local SM-xxx IDs to backend UUIDs.
-   */
+  /** Unified sync: session + tool calls + sidecar mandates + sidecar receipts + tool catalog in a single request. */
   async sync(params: SyncSessionParams, options?: RequestOptions): Promise<SyncSessionResult> {
     return this.http.post<SyncSessionResult>(
       '/v1/proxy/sync',
@@ -70,6 +70,7 @@ export class ProxySessionsResource {
 export class ProxyToolCallsResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Ingest a batch of tool calls for a session. */
   async ingest(sessionId: string, items: ToolCallBatchItem[], options?: RequestOptions): Promise<BatchResult<ProxyToolCall>> {
     return this.http.post<BatchResult<ProxyToolCall>>(
       `/v1/proxy/sessions/${sessionId}/tool-calls`,
@@ -78,6 +79,7 @@ export class ProxyToolCallsResource {
     );
   }
 
+  /** List tool calls for a session. */
   async list(sessionId: string, params?: ListParams, options?: RequestOptions): Promise<Page<ProxyToolCall>> {
     return this.http.getPage<ProxyToolCall>(
       `/v1/proxy/sessions/${sessionId}/tool-calls`,
@@ -94,6 +96,7 @@ export class ProxyToolCallsResource {
 export class ProxySidecarMandatesResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Ingest a batch of sidecar mandates for a session. */
   async ingest(sessionId: string, items: SidecarMandateBatchItem[], options?: RequestOptions): Promise<BatchResult<ProxySidecarMandate>> {
     return this.http.post<BatchResult<ProxySidecarMandate>>(
       `/v1/proxy/sessions/${sessionId}/sidecar-mandates`,
@@ -102,6 +105,7 @@ export class ProxySidecarMandatesResource {
     );
   }
 
+  /** List sidecar mandates across sessions, optionally filtered by sessionId. */
   async list(params?: ListParams & { sessionId?: string }, options?: RequestOptions): Promise<Page<ProxySidecarMandate>> {
     return this.http.getPage<ProxySidecarMandate>(
       '/v1/proxy/sidecar-mandates',
@@ -110,6 +114,7 @@ export class ProxySidecarMandatesResource {
     );
   }
 
+  /** List sidecar mandates for a specific session. */
   async listBySession(sessionId: string, params?: ListParams, options?: RequestOptions): Promise<Page<ProxySidecarMandate>> {
     return this.http.getPage<ProxySidecarMandate>(
       `/v1/proxy/sessions/${sessionId}/sidecar-mandates`,
@@ -118,14 +123,17 @@ export class ProxySidecarMandatesResource {
     );
   }
 
+  /** Update a sidecar mandate (e.g., formalize or dismiss). */
   async update(id: string, params: UpdateSidecarMandateParams, options?: RequestOptions): Promise<ProxySidecarMandate> {
     return this.http.patch<ProxySidecarMandate>(`/v1/proxy/sidecar-mandates/${id}`, params, options);
   }
 
+  /** Formalize a sidecar mandate by linking it to a backend mandate ID. */
   async formalize(id: string, formalizedMandateId: string, options?: RequestOptions): Promise<ProxySidecarMandate> {
     return this.update(id, { status: 'FORMALIZED', formalizedMandateId }, options);
   }
 
+  /** Dismiss a sidecar mandate (mark as not actionable). */
   async dismiss(id: string, options?: RequestOptions): Promise<ProxySidecarMandate> {
     return this.update(id, { status: 'DISMISSED' }, options);
   }
@@ -138,6 +146,7 @@ export class ProxySidecarMandatesResource {
 export class ProxySidecarReceiptsResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Ingest a batch of sidecar receipts for a session. */
   async ingest(sessionId: string, items: SidecarReceiptBatchItem[], options?: RequestOptions): Promise<BatchResult<ProxySidecarReceipt>> {
     return this.http.post<BatchResult<ProxySidecarReceipt>>(
       `/v1/proxy/sessions/${sessionId}/sidecar-receipts`,
@@ -146,6 +155,7 @@ export class ProxySidecarReceiptsResource {
     );
   }
 
+  /** List sidecar receipts for a specific session. */
   async listBySession(sessionId: string, params?: ListParams, options?: RequestOptions): Promise<Page<ProxySidecarReceipt>> {
     return this.http.getPage<ProxySidecarReceipt>(
       `/v1/proxy/sessions/${sessionId}/sidecar-receipts`,
@@ -162,6 +172,7 @@ export class ProxySidecarReceiptsResource {
 export class ProxyToolCatalogResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Ingest a batch of tool catalog entries for a session. */
   async ingest(sessionId: string, items: ToolCatalogBatchItem[], options?: RequestOptions): Promise<BatchResult<ProxyToolCatalogEntry>> {
     return this.http.post<BatchResult<ProxyToolCatalogEntry>>(
       `/v1/proxy/sessions/${sessionId}/tool-catalog`,
@@ -170,6 +181,7 @@ export class ProxyToolCatalogResource {
     );
   }
 
+  /** List tool catalog entries for a session. */
   async list(sessionId: string, options?: RequestOptions): Promise<Page<ProxyToolCatalogEntry>> {
     return this.http.getPage<ProxyToolCatalogEntry>(
       `/v1/proxy/sessions/${sessionId}/tool-catalog`,
@@ -186,18 +198,22 @@ export class ProxyToolCatalogResource {
 export class ProxyAnalyticsResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Get analytics for a specific session. */
   async getSession(sessionId: string, options?: RequestOptions): Promise<SessionAnalytics> {
     return this.http.get<SessionAnalytics>(`/v1/proxy/sessions/${sessionId}/analytics`, undefined, options);
   }
 
+  /** Get aggregated analytics summary across sessions. */
   async getSummary(params?: { from?: string; to?: string }, options?: RequestOptions): Promise<AnalyticsSummary> {
     return this.http.get<AnalyticsSummary>('/v1/proxy/analytics', params as Record<string, unknown>, options);
   }
 
+  /** Get mandate summary for a session (detected vs formalized counts). */
   async getMandateSummary(sessionId: string, options?: RequestOptions): Promise<MandateSummary> {
     return this.http.get<MandateSummary>(`/v1/proxy/sessions/${sessionId}/mandate-summary`, undefined, options);
   }
 
+  /** Get alignment analysis for a session (coverage gaps, missing categories). */
   async getAlignment(sessionId: string, options?: RequestOptions): Promise<AlignmentAnalysis> {
     return this.http.get<AlignmentAnalysis>(`/v1/proxy/sessions/${sessionId}/alignment`, undefined, options);
   }

@@ -9,6 +9,7 @@ import type { VerificationResult, VerificationStatus, RequestOptions } from '../
 export class VerificationResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Trigger verification for a mandate, optionally specifying receipt IDs. */
   async verify(mandateId: string, receiptIds?: string[], options?: RequestOptions): Promise<VerificationResult> {
     return this.http.post<VerificationResult>(
       `/v1/mandates/${mandateId}/verify`,
@@ -17,6 +18,7 @@ export class VerificationResource {
     );
   }
 
+  /** Get the current verification status for a mandate. */
   async getStatus(mandateId: string, options?: RequestOptions): Promise<VerificationStatus> {
     return this.http.get<VerificationStatus>(`/v1/mandates/${mandateId}/verification-status`, undefined, options);
   }

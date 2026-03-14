@@ -175,6 +175,48 @@ describe('MandatesResource', () => {
     await client.mandates.listProposals();
     expect(fetch.mock.calls[0][0]).toContain('/mandates/agent/proposals');
   });
+
+  it('createAndActivate creates then transitions', async () => {
+    let callCount = 0;
+    const fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue(
+          callCount === 1
+            ? { id: 'mnd-new', status: 'REGISTERED' }
+            : { id: 'mnd-new', status: 'ACTIVE' },
+        ),
+        headers: new Headers(),
+      });
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+    const result = await client.mandates.createAndActivate({
+      enterpriseId: 'ent-1',
+      contractType: 'ACH-PROC-v1',
+      contractVersion: '1',
+      platform: 'test',
+      criteria: {},
+    });
+    expect(result.status).toBe('ACTIVE');
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch.mock.calls[1][0]).toContain('/mandates/mnd-new/transition');
+    expect(JSON.parse(fetch.mock.calls[1][1].body).action).toBe('activate');
+  });
+
+  it('getValidTransitions returns client-side transitions', () => {
+    const { client } = createMockClient();
+    const mandate = { status: 'DRAFT' } as import('../types.js').Mandate;
+    const transitions = client.mandates.getValidTransitions(mandate);
+    expect(transitions).toContain('REGISTERED');
+    expect(transitions).toContain('PROPOSED');
+    expect(transitions).not.toContain('ACTIVE');
+  });
 });
 
 describe('ReceiptsResource', () => {

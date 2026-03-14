@@ -20,6 +20,7 @@ import type {
   AutoPaginateOptions,
   TypedCreateMandateParams,
 } from '../types.js';
+import { getValidTransitions as getTransitions } from '../mandate-lifecycle.js';
 
 export class MandatesResource {
   constructor(private readonly http: HttpClient) {}
@@ -39,10 +40,12 @@ export class MandatesResource {
     return this.http.post<Mandate>('/v1/mandates/agent', params, options);
   }
 
+  /** Get a mandate by ID. */
   async get(id: string, options?: RequestOptions): Promise<Mandate> {
     return this.http.get<Mandate>(`/v1/mandates/${id}`, undefined, options);
   }
 
+  /** List mandates with optional filters. */
   async list(params: ListMandatesParams, options?: RequestOptions): Promise<Page<Mandate>> {
     return this.http.getPage<Mandate>('/v1/mandates', params as unknown as Record<string, unknown>, options);
   }
@@ -52,20 +55,24 @@ export class MandatesResource {
     return this.http.paginate<Mandate>('/v1/mandates', params as unknown as Record<string, unknown>, options);
   }
 
+  /** Search mandates with advanced filters (status, contract type, date range). */
   async search(params: SearchMandatesParams, options?: RequestOptions): Promise<Page<Mandate>> {
     return this.http.getPage<Mandate>('/v1/mandates/search', params as unknown as Record<string, unknown>, options);
   }
 
+  /** Update a mandate's mutable fields. */
   async update(id: string, params: UpdateMandateParams, options?: RequestOptions): Promise<Mandate> {
     return this.http.patch<Mandate>(`/v1/mandates/${id}`, params, options);
   }
 
+  /** Transition a mandate to a new state (register, activate, settle, cancel, refund). */
   async transition(id: string, action: MandateTransitionAction, reason?: string, options?: RequestOptions): Promise<Mandate> {
     const body: Record<string, unknown> = { action };
     if (reason) body.reason = reason;
     return this.http.post<Mandate>(`/v1/mandates/${id}/transition`, body, options);
   }
 
+  /** Cancel a mandate with an optional reason. */
   async cancel(id: string, reason?: string, options?: RequestOptions): Promise<Mandate> {
     return this.transition(id, 'cancel', reason, options);
   }
@@ -108,6 +115,7 @@ export class MandatesResource {
     } as CreateAgentMandateParams, options);
   }
 
+  /** Create multiple mandates in a single request. */
   async bulkCreate(mandates: CreateMandateParams[], options?: RequestOptions): Promise<BulkCreateResult> {
     return this.http.post<BulkCreateResult>('/v1/mandates/bulk', { mandates }, options);
   }
@@ -125,5 +133,16 @@ export class MandatesResource {
   /** List mandates proposed to the authenticated agent. */
   async listProposals(options?: RequestOptions): Promise<Page<Mandate>> {
     return this.http.getPage<Mandate>('/v1/mandates/agent/proposals', undefined, options);
+  }
+
+  /** Create a mandate and immediately activate it. Two API calls — if activation fails, the REGISTERED mandate ID is in the error. */
+  async createAndActivate(params: CreateMandateParams, options?: RequestOptions): Promise<Mandate> {
+    const mandate = await this.create(params, options);
+    return this.transition(mandate.id, 'activate', undefined, options);
+  }
+
+  /** Get valid transitions for a mandate's current status. Client-side lookup, no API call. */
+  getValidTransitions(mandate: Mandate): readonly string[] {
+    return getTransitions(mandate.status);
   }
 }

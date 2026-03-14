@@ -9,15 +9,18 @@ import type { ContractType, ContractSchema, SchemaValidationResult, Page, Reques
 export class SchemasResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** List available contract type schemas. */
   async list(options?: RequestOptions): Promise<Page<ContractType>> {
     
     return this.http.getPage<ContractType>('/v1/schemas', undefined, options);
   }
 
+  /** Get the full JSON Schema for a contract type. */
   async get(contractType: ContractType, options?: RequestOptions): Promise<ContractSchema> {
     return this.http.get<ContractSchema>(`/v1/schemas/${contractType}`, undefined, options);
   }
 
+  /** Get the verification rules for a contract type. */
   async getRules(contractType: ContractType, options?: RequestOptions): Promise<{ contractType: ContractType; syncRuleIds: string[]; asyncRuleIds: string[] }> {
     return this.http.get(`/v1/schemas/${contractType}/rules`, undefined, options);
   }

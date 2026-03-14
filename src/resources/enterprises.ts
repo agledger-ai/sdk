@@ -20,6 +20,7 @@ import type {
 export class EnterprisesResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** Approve an agent for an enterprise (idempotent PUT). */
   async approveAgent(
     enterpriseId: string,
     agentId: string,
@@ -33,6 +34,7 @@ export class EnterprisesResource {
     );
   }
 
+  /** Revoke an agent's approval for an enterprise. */
   async revokeAgent(
     enterpriseId: string,
     agentId: string,
@@ -46,6 +48,7 @@ export class EnterprisesResource {
     );
   }
 
+  /** Update an agent's status (e.g., suspend or reactivate). */
   async updateAgentStatus(
     enterpriseId: string,
     agentId: string,
@@ -59,6 +62,7 @@ export class EnterprisesResource {
     );
   }
 
+  /** Approve multiple agents at once. */
   async bulkApprove(
     enterpriseId: string,
     params: BulkApproveAgentParams,
@@ -71,6 +75,7 @@ export class EnterprisesResource {
     );
   }
 
+  /** List agents for an enterprise, optionally filtered by status. */
   async listAgents(
     enterpriseId: string,
     params?: ListEnterpriseAgentsParams,
@@ -83,6 +88,7 @@ export class EnterprisesResource {
     );
   }
 
+  /** Get a single agent's approval record. */
   async getAgent(
     enterpriseId: string,
     agentId: string,
@@ -95,6 +101,7 @@ export class EnterprisesResource {
     );
   }
 
+  /** Get the enterprise's agent approval configuration. */
   async getApprovalConfig(
     enterpriseId: string,
     options?: RequestOptions,
@@ -106,6 +113,7 @@ export class EnterprisesResource {
     );
   }
 
+  /** Set the enterprise's agent approval configuration. */
   async setApprovalConfig(
     enterpriseId: string,
     params: ApprovalConfig,

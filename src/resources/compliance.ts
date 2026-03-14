@@ -16,12 +16,12 @@ import type {
 export class ComplianceResource {
   constructor(private readonly http: HttpClient) {}
 
-  // --- Compliance Export ---
-
+  /** Start a compliance data export. */
   async export(params: ExportComplianceParams, options?: RequestOptions): Promise<ComplianceExport> {
     return this.http.post<ComplianceExport>('/v1/compliance/export', params, options);
   }
 
+  /** Check the status of a compliance export. */
   async getExportStatus(exportId: string, options?: RequestOptions): Promise<ComplianceExport> {
     return this.http.get<ComplianceExport>(`/v1/compliance/export/${exportId}`, undefined, options);
   }
@@ -49,26 +49,27 @@ export class ComplianceResource {
     throw new Error(`Export ${exportId} did not complete within ${timeout}ms`);
   }
 
-  // --- EU AI Act ---
-
+  /** Create an AI impact assessment for a mandate (EU AI Act). */
   async createAssessment(mandateId: string, params: CreateAiImpactAssessmentParams, options?: RequestOptions): Promise<AiImpactAssessment> {
     return this.http.post<AiImpactAssessment>(`/v1/mandates/${mandateId}/ai-impact-assessment`, params, options);
   }
 
+  /** Get the AI impact assessment for a mandate. */
   async getAssessment(mandateId: string, options?: RequestOptions): Promise<AiImpactAssessment> {
     return this.http.get<AiImpactAssessment>(`/v1/mandates/${mandateId}/ai-impact-assessment`, undefined, options);
   }
 
+  /** Get the EU AI Act compliance report for the enterprise. */
   async getEuAiActReport(params?: { from?: string; to?: string }, options?: RequestOptions): Promise<EuAiActReport> {
     return this.http.get<EuAiActReport>('/v1/compliance/eu-ai-act/report', params as Record<string, unknown>, options);
   }
 
-  // --- Audit Reports ---
-
+  /** Get the enterprise audit report. */
   async getEnterpriseReport(params?: { from?: string; to?: string; format?: string }, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.get('/v1/audit/enterprise-report', params as Record<string, unknown>, options);
   }
 
+  /** Trigger LLM-powered audit analysis for a mandate. */
   async analyzeAudit(mandateId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.post('/v1/audit/enterprise-report/analyze', { mandateId }, options);
   }

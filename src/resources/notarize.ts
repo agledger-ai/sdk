@@ -22,8 +22,7 @@ import type {
 export class NotarizeResource {
   constructor(private readonly http: HttpClient) {}
 
-  // --- Principal: create a notarized mandate ---
-
+  /** Create a notarized mandate (principal action). */
   async createMandate(
     params: NotarizeMandateParams,
     options?: RequestOptions,
@@ -31,26 +30,22 @@ export class NotarizeResource {
     return this.http.post<NotarizeMandateResult>('/v1/notarize/mandates', params, options);
   }
 
-  // --- Either party: get mandate metadata ---
-
+  /** Get a notarized mandate by ID. */
   async getMandate(id: string, options?: RequestOptions): Promise<NotarizedMandate> {
     return this.http.get<NotarizedMandate>(`/v1/notarize/mandates/${id}`, undefined, options);
   }
 
-  // --- Either party: get transition history ---
-
+  /** Get the transition history for a notarized mandate. */
   async getHistory(id: string, options?: RequestOptions): Promise<NotarizeHistory> {
     return this.http.get<NotarizeHistory>(`/v1/notarize/mandates/${id}/history`, undefined, options);
   }
 
-  // --- Performer: accept mandate ---
-
+  /** Accept a notarized mandate (performer action). */
   async acceptMandate(id: string, options?: RequestOptions): Promise<NotarizedMandate> {
     return this.http.post<NotarizedMandate>(`/v1/notarize/mandates/${id}/accept`, undefined, options);
   }
 
-  // --- Performer: counter-propose ---
-
+  /** Counter-propose new terms for a notarized mandate (performer action). */
   async counterPropose(
     id: string,
     params: NotarizeCounterProposeParams,
@@ -63,8 +58,7 @@ export class NotarizeResource {
     );
   }
 
-  // --- Performer: submit receipt ---
-
+  /** Submit a receipt against a notarized mandate (performer action). */
   async submitReceipt(
     id: string,
     params: NotarizeReceiptParams,
@@ -77,8 +71,7 @@ export class NotarizeResource {
     );
   }
 
-  // --- Principal: render verdict ---
-
+  /** Render a verdict on a notarized mandate (principal action). */
   async renderVerdict(
     id: string,
     params: NotarizeVerdictParams,
@@ -91,8 +84,7 @@ export class NotarizeResource {
     );
   }
 
-  // --- Any party: verify a local copy matches the notarized hash ---
-
+  /** Verify that a local copy matches the notarized hash. */
   async verify(
     params: NotarizeVerifyParams,
     options?: RequestOptions,

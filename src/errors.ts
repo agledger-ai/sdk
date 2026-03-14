@@ -49,6 +49,26 @@ export class AgledgerApiError extends AgledgerError {
     this.retryable = body.retryable ?? (status === 429 || status >= 500);
   }
 
+  /** Whether this error is retryable (429, 5xx, network errors). Delegates to the `retryable` property. */
+  isRetryable(): boolean {
+    return this.retryable;
+  }
+
+  /** Whether this is an input error (400) — the request itself is malformed; fix it and retry. */
+  isInputError(): boolean {
+    return this.status === 400;
+  }
+
+  /** Whether this is a state error (422) — the resource is in the wrong state; do not retry the same request. */
+  isStateError(): boolean {
+    return this.status === 422;
+  }
+
+  /** Whether this is an auth error (401/403) — check credentials or scopes. */
+  isAuthError(): boolean {
+    return this.status === 401 || this.status === 403;
+  }
+
   /** Field-level validation errors, normalized from various API formats. */
   get validationErrors(): ValidationErrorDetail[] {
     if (!this.details) return [];
