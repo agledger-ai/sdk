@@ -9,11 +9,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./webhooks": {
       "types": "./dist/webhooks/verify.d.ts",
-      "import": "./dist/webhooks/verify.js"
+      "import": "./dist/webhooks/verify.js",
+      "default": "./dist/webhooks/verify.js"
     }
   },
   "files": [
