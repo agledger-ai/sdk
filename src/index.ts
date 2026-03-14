@@ -64,6 +64,7 @@ export type {
   MandateStatus,
   MandateTransitionAction,
   OperatingMode,
+  VerificationMode,
   RiskClassification,
   Mandate,
   CreateMandateParams,

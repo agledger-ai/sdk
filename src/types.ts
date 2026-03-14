@@ -502,6 +502,7 @@ export type MandateTransitionAction =
   | (string & {});
 
 export type OperatingMode = 'standard' | 'encrypted' | 'cleartext';
+export type VerificationMode = 'auto' | 'principal' | 'gated' | (string & {});
 
 export type RiskClassification = 'unacceptable' | 'high' | 'limited' | 'minimal' | 'unclassified';
 
@@ -519,6 +520,8 @@ export interface Mandate {
   deadline?: string;
   commissionPct?: number;
   operatingMode?: OperatingMode;
+  /** Verification mode: auto (rules auto-settle), principal (hold for verdict), gated (rules then verdict). */
+  verificationMode?: VerificationMode;
   riskClassification?: RiskClassification;
   euAiActDomain?: string;
   humanOversight?: Record<string, unknown>;
@@ -549,6 +552,8 @@ export interface CreateMandateParams {
   agentId?: string;
   commissionPct?: number;
   operatingMode?: OperatingMode;
+  /** Verification mode: auto (default, rules auto-settle), principal (hold for verdict), gated (rules then verdict). */
+  verificationMode?: VerificationMode;
   riskClassification?: RiskClassification;
   euAiActDomain?: string;
   humanOversight?: Record<string, unknown>;
@@ -600,6 +605,7 @@ export interface CreateAgentMandateParams {
   parentMandateId?: string;
   commissionPct?: number;
   deadline?: string;
+  verificationMode?: VerificationMode;
 }
 
 export interface RespondToMandateParams {
