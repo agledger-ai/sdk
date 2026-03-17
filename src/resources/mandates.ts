@@ -79,12 +79,12 @@ export class MandatesResource {
 
   /** Accept a PROPOSED mandate (as performer). */
   async accept(id: string, options?: RequestOptions): Promise<Mandate> {
-    return this.http.post<Mandate>(`/v1/mandates/${id}/accept`, undefined, options);
+    return this.http.post<Mandate>(`/v1/mandates/${id}/accept`, {}, options);
   }
 
   /** Reject a PROPOSED mandate (as performer). */
   async reject(id: string, reason?: string, options?: RequestOptions): Promise<Mandate> {
-    return this.http.post<Mandate>(`/v1/mandates/${id}/reject`, reason ? { reason } : undefined, options);
+    return this.http.post<Mandate>(`/v1/mandates/${id}/reject`, reason ? { reason } : {}, options);
   }
 
   /** Respond to a PROPOSED mandate (accept, reject, or counter). */
@@ -94,7 +94,7 @@ export class MandatesResource {
 
   /** Accept a counter-proposal on a mandate. */
   async acceptCounter(id: string, options?: RequestOptions): Promise<Mandate> {
-    return this.http.post<Mandate>(`/v1/mandates/${id}/accept-counter`, undefined, options);
+    return this.http.post<Mandate>(`/v1/mandates/${id}/accept-counter`, {}, options);
   }
 
   /** Get the full delegation chain for a mandate. */
@@ -133,6 +133,11 @@ export class MandatesResource {
   /** List mandates proposed to the authenticated agent. */
   async listProposals(options?: RequestOptions): Promise<Page<Mandate>> {
     return this.http.getPage<Mandate>('/v1/mandates/agent/proposals', undefined, options);
+  }
+
+  /** Request revision after principal rejection (rework loop). Principal only. */
+  async requestRevision(id: string, reason?: string, options?: RequestOptions): Promise<Mandate> {
+    return this.http.post<Mandate>(`/v1/mandates/${id}/revision`, reason ? { reason } : {}, options);
   }
 
   /** Create a mandate and immediately activate it. Three API calls (create → register → activate) — if a step fails, the mandate ID is in the error. */
