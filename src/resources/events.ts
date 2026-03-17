@@ -4,7 +4,7 @@
  */
 
 import type { HttpClient } from '../http.js';
-import type { AgledgerEvent, AuditChain, Page, ListParams, RequestOptions } from '../types.js';
+import type { AgledgerEvent, AuditChain, Page, ListParams, RequestOptions, AutoPaginateOptions } from '../types.js';
 
 export class EventsResource {
   constructor(private readonly http: HttpClient) {}
@@ -18,6 +18,18 @@ export class EventsResource {
     options?: RequestOptions,
   ): Promise<Page<AgledgerEvent>> {
     return this.http.getPage<AgledgerEvent>(
+      '/v1/events',
+      params as unknown as Record<string, unknown>,
+      options,
+    );
+  }
+
+  /** Auto-paginating iterator. Yields individual events across all pages. */
+  listAll(
+    params: { since: string; order?: 'asc' | 'desc' } & ListParams,
+    options?: RequestOptions & AutoPaginateOptions,
+  ): AsyncGenerator<AgledgerEvent> {
+    return this.http.paginate<AgledgerEvent>(
       '/v1/events',
       params as unknown as Record<string, unknown>,
       options,

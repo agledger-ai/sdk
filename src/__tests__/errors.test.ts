@@ -76,4 +76,21 @@ describe('AgledgerApiError classifier methods', () => {
       expect(err.isAuthError()).toBe(false);
     });
   });
+
+  describe('docUrl', () => {
+    it('generates doc URL from error code', () => {
+      const err = new AgledgerApiError(422, { message: 'Wrong state', code: 'MANDATE_NOT_ACTIVE' });
+      expect(err.docUrl).toBe('https://docs.agledger.ai/errors/MANDATE_NOT_ACTIVE');
+    });
+
+    it('uses error field as fallback code', () => {
+      const err = new AgledgerApiError(400, { message: 'Bad', error: 'validation_error' });
+      expect(err.docUrl).toBe('https://docs.agledger.ai/errors/validation_error');
+    });
+
+    it('uses "unknown" when no code provided', () => {
+      const err = new AgledgerApiError(500, { message: 'Boom' });
+      expect(err.docUrl).toBe('https://docs.agledger.ai/errors/unknown');
+    });
+  });
 });

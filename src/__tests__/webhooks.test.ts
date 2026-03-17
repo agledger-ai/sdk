@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { signPayload, parseSignatureHeader, verifySignature } from '../webhooks/verify.js';
+import { signPayload, parseSignatureHeader, verifySignature, constructEvent } from '../webhooks/verify.js';
 
 describe('Webhook Verification', () => {
   const secret = 'whsec_test_secret_key';
@@ -84,6 +84,35 @@ describe('Webhook Verification', () => {
     it('rejects when no secret matches', () => {
       const { header } = signPayload(body, secret);
       expect(verifySignature(body, header, ['wrong1', 'wrong2'])).toBe(false);
+    });
+  });
+
+  describe('constructEvent', () => {
+    const eventBody = JSON.stringify({
+      type: 'mandate.created',
+      data: { id: 'mnd-123', status: 'DRAFT' },
+      timestamp: '2026-03-16T12:00:00Z',
+      id: 'evt-456',
+    });
+
+    it('verifies and parses in one step', () => {
+      const { header } = signPayload(eventBody, secret);
+      const event = constructEvent(eventBody, header, secret);
+      expect(event.type).toBe('mandate.created');
+      expect(event.data).toEqual({ id: 'mnd-123', status: 'DRAFT' });
+      expect(event.timestamp).toBe('2026-03-16T12:00:00Z');
+      expect(event.id).toBe('evt-456');
+    });
+
+    it('throws on invalid signature', () => {
+      const { header } = signPayload(eventBody, 'wrong_secret');
+      expect(() => constructEvent(eventBody, header, secret)).toThrow('Webhook signature verification failed');
+    });
+
+    it('throws on expired signature', () => {
+      const oldTs = Math.floor(Date.now() / 1000) - 600;
+      const { header } = signPayload(eventBody, secret, oldTs);
+      expect(() => constructEvent(eventBody, header, secret)).toThrow('Webhook signature verification failed');
     });
   });
 });

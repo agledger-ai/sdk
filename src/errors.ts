@@ -32,6 +32,9 @@ export class AgledgerApiError extends AgledgerError {
   readonly requestId?: string;
   readonly details?: ValidationErrorDetail[] | Record<string, unknown>;
 
+  /** Link to documentation for this error code. */
+  readonly docUrl: string;
+
   /**
    * Whether this error is retryable.
    * - Uses the API's `retryable` field if present
@@ -47,6 +50,7 @@ export class AgledgerApiError extends AgledgerError {
     this.requestId = body.requestId;
     this.details = body.details;
     this.retryable = body.retryable ?? (status === 429 || status >= 500);
+    this.docUrl = `https://docs.agledger.ai/errors/${this.code}`;
   }
 
   /** Whether this error is retryable (429, 5xx, network errors). Delegates to the `retryable` property. */

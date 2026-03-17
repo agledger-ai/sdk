@@ -15,7 +15,8 @@ describe('MANDATE_TRANSITIONS', () => {
     expect(statuses).toContain('FULFILLED');
     expect(statuses).toContain('VERIFYING');
     expect(statuses).toContain('REJECTED');
-    expect(statuses.length).toBe(16);
+    expect(statuses).toContain('REVISION_REQUESTED');
+    expect(statuses.length).toBe(17);
   });
 });
 
@@ -56,6 +57,18 @@ describe('canTransitionTo', () => {
 
   it('allows VERIFIED_FAIL → VERIFIED_PASS (re-verification)', () => {
     expect(canTransitionTo('VERIFIED_FAIL', 'VERIFIED_PASS')).toBe(true);
+  });
+
+  it('allows VERIFIED_FAIL → REVISION_REQUESTED (rework loop)', () => {
+    expect(canTransitionTo('VERIFIED_FAIL', 'REVISION_REQUESTED')).toBe(true);
+  });
+
+  it('allows REVISION_REQUESTED → RECEIPT_ACCEPTED (resubmission)', () => {
+    expect(canTransitionTo('REVISION_REQUESTED', 'RECEIPT_ACCEPTED')).toBe(true);
+  });
+
+  it('allows REVISION_REQUESTED → EXPIRED', () => {
+    expect(canTransitionTo('REVISION_REQUESTED', 'EXPIRED')).toBe(true);
   });
 
   it('rejects invalid transitions', () => {

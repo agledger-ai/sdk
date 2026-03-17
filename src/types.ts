@@ -490,6 +490,7 @@ export type MandateStatus =
   | 'CANCELLED_DRAFT'
   | 'CANCELLED_PRE_WORK'
   | 'CANCELLED_IN_PROGRESS'
+  | 'REVISION_REQUESTED'
   | (string & {});
 
 /** Known values: register, activate, settle, cancel, refund. Accepts any string for forward compatibility. */
@@ -507,56 +508,124 @@ export type VerificationMode = 'auto' | 'principal' | 'gated' | (string & {});
 
 export type RiskClassification = 'unacceptable' | 'high' | 'limited' | 'minimal' | 'unclassified';
 
+/**
+ * A mandate — a registered commitment between a principal and a performer.
+ * Records what was asked, by whom, and when. The contract is the product.
+ *
+ * @example
+ * ```ts
+ * const mandate = await client.mandates.create({
+ *   enterpriseId: 'ent_123',
+ *   contractType: 'ACH-PROC-v1',
+ *   contractVersion: '1',
+ *   platform: 'internal',
+ *   criteria: { item: 'widgets', maxQuantity: 100, maxUnitPrice: { amount: 20, currency: 'USD' } },
+ * });
+ * ```
+ */
 export interface Mandate {
+  /** Unique mandate ID (UUID). */
   id: string;
+  /** Enterprise that owns this mandate. */
   enterpriseId: string;
+  /** Agent assigned to this mandate, or null if unassigned. */
   agentId: string | null;
+  /** Agentic Contract Specification type (e.g., 'ACH-PROC-v1'). */
   contractType: ContractType;
+  /** Version of the contract schema. */
   contractVersion: string;
+  /** Platform where this mandate operates. */
   platform: string;
+  /** External reference ID on the platform. */
   platformRef?: string;
+  /** Current lifecycle status. Use `getValidTransitions()` to see allowed next states. */
   status: MandateStatus;
+  /** Acceptance criteria — what the performer must deliver. Typed per contract type. */
   criteria: Record<string, unknown>;
+  /** Tolerance bands for numeric criteria (e.g., quantity_pct: 5 allows 5% variance). */
   tolerance?: Record<string, unknown>;
+  /** ISO 8601 deadline for completion. */
   deadline?: string;
+  /** Commission percentage for the performing agent. */
   commissionPct?: number;
+  /** Operating mode: standard (default), encrypted, or cleartext. */
   operatingMode?: OperatingMode;
   /** Verification mode: auto (rules auto-settle), principal (hold for verdict), gated (rules then verdict). */
   verificationMode?: VerificationMode;
+  /** EU AI Act risk classification. */
   riskClassification?: RiskClassification;
+  /** EU AI Act domain (e.g., 'healthcare', 'finance'). */
   euAiActDomain?: string;
+  /** Human oversight configuration for EU AI Act compliance. */
   humanOversight?: Record<string, unknown>;
+  /** Performer's response to a proposed mandate. */
   acceptanceStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED';
+  /** Project grouping reference for related mandates. */
   projectRef?: string;
+  /** Parent mandate ID in a delegation chain. */
   parentMandateId?: string;
+  /** Root mandate ID at the top of the delegation chain. */
   rootMandateId?: string;
+  /** Depth in the delegation chain (0 = root). */
   chainDepth?: number;
+  /** Reason provided for the last state transition. */
   lastTransitionReason?: string | null;
+  /** Actor who triggered the last state transition. */
   lastTransitionBy?: string | null;
+  /** Number of receipt submissions so far. */
+  submissionCount: number;
+  /** Maximum allowed submissions, or null for unlimited. */
+  maxSubmissions: number | null;
+  /** Optimistic concurrency version. */
   version: number;
+  /** ISO 8601 creation timestamp. */
   createdAt: string;
+  /** ISO 8601 last update timestamp. */
   updatedAt: string;
+  /** ISO 8601 timestamp when the mandate was activated. */
   activatedAt?: string;
+  /** ISO 8601 timestamp when the mandate was fulfilled. */
   fulfilledAt?: string;
 }
 
+/**
+ * Parameters for creating a new mandate via enterprise auth.
+ * For agent-to-agent mandates, use {@link CreateAgentMandateParams} with `mandates.createAgent()`.
+ */
 export interface CreateMandateParams {
+  /** Enterprise ID that owns this mandate. */
   enterpriseId: string;
+  /** Contract type (e.g., 'ACH-PROC-v1'). Determines criteria schema. */
   contractType: ContractType;
+  /** Contract schema version. */
   contractVersion: string;
+  /** Platform identifier. */
   platform: string;
+  /** External reference ID on the platform. */
   platformRef?: string;
+  /** Project grouping reference. */
   projectRef?: string;
+  /** Acceptance criteria. Typed per contract type when using generic overload. */
   criteria: Record<string, unknown>;
+  /** Numeric tolerance bands (e.g., `{ quantity_pct: 5 }`). */
   tolerance?: Record<string, unknown>;
+  /** ISO 8601 deadline for completion. */
   deadline?: string;
+  /** Agent ID to assign as performer. */
   agentId?: string;
+  /** Commission percentage for the performing agent. */
   commissionPct?: number;
+  /** Max receipt submissions allowed (1-100). Null/omit for unlimited. */
+  maxSubmissions?: number;
+  /** Operating mode: standard (default), encrypted, or cleartext. */
   operatingMode?: OperatingMode;
   /** Verification mode: auto (default, rules auto-settle), principal (hold for verdict), gated (rules then verdict). */
   verificationMode?: VerificationMode;
+  /** EU AI Act risk classification. */
   riskClassification?: RiskClassification;
+  /** EU AI Act domain. */
   euAiActDomain?: string;
+  /** Human oversight configuration. */
   humanOversight?: Record<string, unknown>;
 }
 
@@ -571,6 +640,7 @@ export interface UpdateMandateParams {
 
 export interface ListMandatesParams extends ListParams {
   enterpriseId: string;
+  status?: MandateStatus;
 }
 
 export interface SearchMandatesParams extends ListParams {
@@ -605,6 +675,7 @@ export interface CreateAgentMandateParams {
   tolerance?: Record<string, unknown>;
   parentMandateId?: string;
   commissionPct?: number;
+  maxSubmissions?: number;
   deadline?: string;
   verificationMode?: VerificationMode;
 }
@@ -627,22 +698,42 @@ export type ReceiptStatus =
   | 'INVALID'
   | (string & {});
 
+/**
+ * A receipt — structured evidence submitted by a performer claiming completion of a mandate.
+ * The principal reviews the receipt and renders a verdict (accept/reject).
+ */
 export interface Receipt {
+  /** Unique receipt ID (UUID). */
   id: string;
+  /** Mandate this receipt is for. */
   mandateId: string;
+  /** Agent that submitted the receipt. */
   agentId: string;
+  /** Receipt processing status. */
   status: ReceiptStatus;
+  /** Evidence of completion. Typed per contract type. */
   evidence: Record<string, unknown>;
+  /** SHA-256 hash of the evidence payload. */
   evidenceHash?: string;
+  /** Free-text notes from the performer. */
   notes?: string;
+  /** Current verification phase (e.g., 'phase1', 'phase2'). */
   verificationPhase?: string;
+  /** Detailed verification rule results. */
   verificationResult?: Record<string, unknown>;
+  /** Overall verification outcome: PASS, FAIL, or REVIEW_REQUIRED. */
   verificationOutcome?: VerificationOutcome;
+  /** ISO 8601 timestamp when verification completed. */
   verificationCompletedAt?: string;
+  /** Schema validation errors, if the receipt was invalid. */
   validationErrors?: string[] | null;
+  /** Current status of the parent mandate (denormalized for convenience). */
   mandateStatus?: MandateStatus;
+  /** Idempotency key used when submitting. */
   idempotencyKey?: string | null;
+  /** ISO 8601 creation timestamp. */
   createdAt: string;
+  /** ISO 8601 last update timestamp. */
   updatedAt?: string;
 }
 
@@ -745,6 +836,7 @@ export type WebhookEventType =
   | 'mandate.cancelled'
   | 'mandate.delegated'
   | 'mandate.released'
+  | 'mandate.revision_requested'
   | 'dispute.created'
   | 'dispute.resolved'
   | 'signal.emitted'
@@ -1426,7 +1518,7 @@ export interface NotarizeReceiptResult {
 }
 
 export interface NotarizeVerdictParams {
-  outcome: 'PASS' | 'FAIL';
+  verdict: 'PASS' | 'FAIL';
   reason?: string;
 }
 

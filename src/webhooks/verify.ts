@@ -7,8 +7,63 @@
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { WebhookEventType, Mandate, Receipt, VerificationResult, Dispute } from '../types.js';
 
 const MAX_TOLERANCE_SECONDS = 300;
+
+/** A verified webhook event with typed payload. */
+export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
+  /** Event type (e.g., 'mandate.created', 'receipt.submitted'). */
+  type: T;
+  /** Event payload — the resource that triggered the event. */
+  data: T extends `mandate.${string}` ? Mandate
+    : T extends `receipt.${string}` ? Receipt
+    : T extends `verification.${string}` ? VerificationResult
+    : T extends `dispute.${string}` ? Dispute
+    : Record<string, unknown>;
+  /** ISO 8601 timestamp of the event. */
+  timestamp: string;
+  /** Unique event ID. */
+  id?: string;
+}
+
+/**
+ * Verify a webhook signature and parse the payload in one step.
+ *
+ * @param rawBody - The raw request body string (do NOT parse JSON first)
+ * @param header - The x-agledger-signature header value
+ * @param secrets - One or more webhook secrets (array for key rotation)
+ * @param toleranceSeconds - Max age in seconds (default/max: 300)
+ * @returns Parsed and typed webhook event
+ * @throws Error if signature is invalid or body cannot be parsed
+ *
+ * @example
+ * ```ts
+ * import { constructEvent } from '@agledger/sdk/webhooks';
+ *
+ * const event = constructEvent(rawBody, req.headers['x-agledger-signature'], secret);
+ * if (event.type === 'mandate.created') {
+ *   console.log(event.data.id); // typed as Mandate
+ * }
+ * ```
+ */
+export function constructEvent(
+  rawBody: string,
+  header: string,
+  secrets: string | string[],
+  toleranceSeconds?: number,
+): WebhookEvent {
+  if (!verifySignature(rawBody, header, secrets, toleranceSeconds)) {
+    throw new Error('Webhook signature verification failed');
+  }
+  const parsed = JSON.parse(rawBody);
+  return {
+    type: parsed.type ?? parsed.event ?? 'unknown',
+    data: parsed.data ?? parsed.payload ?? parsed,
+    timestamp: parsed.timestamp ?? parsed.created_at ?? new Date().toISOString(),
+    id: parsed.id ?? parsed.event_id,
+  };
+}
 
 export interface SignResult {
   header: string;
