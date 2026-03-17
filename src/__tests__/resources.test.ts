@@ -598,9 +598,134 @@ describe('SchemasResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/v1/schemas');
   });
 
+  it('gets a contract schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.get('ACH-PROC-v1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1');
+  });
+
+  it('gets rules for a contract type', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.getRules('ACH-PROC-v1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/rules');
+  });
+
   it('validates receipt against schema', async () => {
     const { client, fetch } = createMockClient();
     await client.schemas.validateReceipt('ACH-PROC-v1', { quantity: 100 });
     expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/validate');
+  });
+
+  it('gets meta-schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.getMetaSchema();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/meta-schema');
+  });
+
+  it('gets template for contract type', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.getTemplate('ACH-PROC-v1');
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1');
+    expect(url).toContain('format=template');
+  });
+
+  it('gets blank template', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.getBlankTemplate();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/_blank');
+  });
+
+  it('lists schema versions', async () => {
+    const { client, fetch } = createMockClient([]);
+    await client.schemas.getVersions('ACH-PROC-v1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/versions');
+  });
+
+  it('gets specific schema version', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.getVersion('ACH-PROC-v1', 1);
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/versions/1');
+  });
+
+  it('diffs two versions', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.diff('ACH-PROC-v1', 1, 2);
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1/diff');
+    expect(url).toContain('from=1');
+    expect(url).toContain('to=2');
+  });
+
+  it('previews a schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.preview({
+      contractType: 'ACH-CUSTOM-v1',
+      displayName: 'Custom',
+      mandateSchema: {},
+      receiptSchema: {},
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/preview');
+    expect(init.method).toBe('POST');
+  });
+
+  it('checks compatibility', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.checkCompatibility('ACH-PROC-v1', {
+      mandateSchema: {},
+      receiptSchema: {},
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1/check-compatibility');
+    expect(init.method).toBe('POST');
+  });
+
+  it('registers a schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.register({
+      contractType: 'ACH-CUSTOM-v1',
+      displayName: 'Custom',
+      mandateSchema: {},
+      receiptSchema: {},
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toHaveProperty('contractType', 'ACH-CUSTOM-v1');
+  });
+
+  it('updates a version', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.updateVersion('ACH-PROC-v1', 1, { status: 'DEPRECATED' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1/versions/1');
+    expect(init.method).toBe('PATCH');
+  });
+
+  it('exports a schema with versions param', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.exportSchema('ACH-PROC-v1', { versions: '1,2' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1/export');
+    expect(url).toContain('versions=1%2C2');
+    expect(init.method).toBe('POST');
+  });
+
+  it('imports a schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.importSchema({ exportVersion: 1, contractType: 'ACH-CUSTOM-v1', versions: [{}] });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/import');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toHaveProperty('contractType', 'ACH-CUSTOM-v1');
+  });
+
+  it('preview-imports with dryRun', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.previewImport({ exportVersion: 1, contractType: 'ACH-CUSTOM-v1', versions: [{}] });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/schemas/import');
+    expect(url).toContain('dryRun=true');
   });
 });

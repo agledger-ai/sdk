@@ -463,6 +463,213 @@ export interface SchemaValidationResult {
 }
 
 // ---------------------------------------------------------------------------
+// Schema Development Toolkit
+// ---------------------------------------------------------------------------
+
+/** Known values: ACTIVE, DEPRECATED, DELETED. Accepts any string for forward compatibility. */
+export type SchemaVersionStatus = 'ACTIVE' | 'DEPRECATED' | 'DELETED' | (string & {});
+
+/** Known values: FULL, BACKWARD, FORWARD, NONE. Accepts any string for forward compatibility. */
+export type SchemaCompatibilityMode = 'FULL' | 'BACKWARD' | 'FORWARD' | 'NONE' | (string & {});
+
+/** Meta-schema describing constraints and limits for custom schema authoring. */
+export interface MetaSchema {
+  constraints: {
+    maxDepth: number;
+    maxNodes: number;
+    maxSizeBytes: number;
+    maxCombinerEntries: number;
+    rootTypeMustBe: string;
+    rootMustHaveRequired: boolean;
+    blockedKeywords: string[];
+    [key: string]: unknown;
+  };
+  allowedFormats: string[];
+  allowedRefs: string[];
+  limits: {
+    contractTypeMaxLength: number;
+    maxFieldMappings: number;
+    ruleIdPattern: string;
+    ruleIdMaxLength: number;
+    reservedPrefixes: string[];
+  };
+  fieldMappingValueTypes: string[];
+  builtinRuleIds: string[];
+  sharedSchemas: Record<string, unknown>;
+  examples: {
+    minimalMandate: Record<string, unknown>;
+    minimalReceipt: Record<string, unknown>;
+  };
+}
+
+/** Field mapping between mandate criteria and receipt evidence for verification rules. */
+export interface SchemaFieldMapping {
+  ruleId: string;
+  criteriaPath: string;
+  evidencePath: string;
+  toleranceField?: string;
+  valueType: string;
+}
+
+/** Template for creating a new contract type schema. */
+export interface SchemaTemplate {
+  sourceType: ContractType | null;
+  template: {
+    contractType: string;
+    displayName: string;
+    description: string;
+    mandateSchema: Record<string, unknown>;
+    receiptSchema: Record<string, unknown>;
+    fieldMappings: SchemaFieldMapping[];
+  };
+}
+
+/** Input for previewing a schema before registration. */
+export interface SchemaPreviewInput {
+  contractType: string;
+  displayName: string;
+  description?: string;
+  category?: string;
+  mandateSchema: Record<string, unknown>;
+  receiptSchema: Record<string, unknown>;
+  fieldMappings?: SchemaFieldMapping[];
+  compatibilityMode?: SchemaCompatibilityMode;
+}
+
+/** Result of a schema preview or validation. */
+export interface SchemaPreviewResult {
+  valid: boolean;
+  compiled?: Record<string, unknown>;
+  errors?: SchemaPreviewError[];
+}
+
+/** Individual error from schema preview/validation. */
+export interface SchemaPreviewError {
+  code: string;
+  message: string;
+  path?: string;
+}
+
+/** Result of diffing two schema versions. */
+export interface SchemaDiffResult {
+  contractType: ContractType;
+  from: { version: number; createdAt: string; status: string };
+  to: { version: number; createdAt: string; status: string };
+  mandate: { changes: SchemaDiffChange[] };
+  receipt: { changes: SchemaDiffChange[] };
+  overallCompatibility: { backward: boolean; forward: boolean };
+}
+
+/** Individual change in a schema diff. */
+export interface SchemaDiffChange {
+  path: string;
+  type: string;
+  breaking: boolean;
+  detail: string;
+}
+
+/** Exported schema bundle for transfer between environments. */
+export interface SchemaExportResult {
+  exportVersion: number;
+  exportedAt: string;
+  contractType: ContractType;
+  displayName: string;
+  description: string;
+  category: string;
+  compatibilityMode: SchemaCompatibilityMode;
+  versions: SchemaExportVersion[];
+  sharedSchemas: Record<string, unknown>;
+}
+
+/** Individual version within a schema export. */
+export interface SchemaExportVersion {
+  version: number;
+  status: SchemaVersionStatus;
+  mandateSchema: Record<string, unknown>;
+  receiptSchema: Record<string, unknown>;
+  rulesConfig: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** Payload for importing a schema bundle. */
+export interface SchemaImportPayload {
+  exportVersion: number;
+  contractType: string;
+  versions: Record<string, unknown>[];
+  [key: string]: unknown;
+}
+
+/** Result of a schema import. */
+export interface SchemaImportResult {
+  imported: {
+    contractType: string;
+    versionsCreated: number[];
+    subjectIds: string[];
+  };
+}
+
+/** Result of a dry-run schema import. */
+export interface SchemaImportDryRunResult {
+  valid: boolean;
+  wouldCreate: {
+    contractType: string;
+    versions: number[];
+  };
+}
+
+/** Parameters for registering a new custom contract type schema. */
+export interface RegisterSchemaParams {
+  contractType: string;
+  displayName: string;
+  description?: string;
+  category?: string;
+  mandateSchema: Record<string, unknown>;
+  receiptSchema: Record<string, unknown>;
+  fieldMappings?: SchemaFieldMapping[];
+  compatibilityMode?: SchemaCompatibilityMode;
+}
+
+/** Detail for a specific schema version. */
+export interface SchemaVersionDetail {
+  id: string;
+  contractType: ContractType;
+  version: number;
+  enterpriseId: string | null;
+  displayName: string;
+  description: string;
+  category: string;
+  compatibilityMode: SchemaCompatibilityMode;
+  status: SchemaVersionStatus;
+  isBuiltin: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Parameters for updating a schema version. */
+export interface UpdateSchemaVersionParams {
+  status?: SchemaVersionStatus;
+  compatibilityMode?: SchemaCompatibilityMode;
+}
+
+/** Result of a compatibility check against an existing schema. */
+export interface SchemaCompatibilityResult {
+  mandate: { compatible: boolean; changes: SchemaDiffChange[] };
+  receipt: { compatible: boolean; changes: SchemaDiffChange[] };
+}
+
+/** Options for exporting a schema. */
+export interface ExportSchemaOptions {
+  versions?: string;
+  enterpriseId?: string;
+}
+
+/** Options for importing a schema. */
+export interface ImportSchemaOptions {
+  dryRun?: boolean;
+  enterpriseId?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Mandates
 // ---------------------------------------------------------------------------
 

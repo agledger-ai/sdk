@@ -71,8 +71,9 @@ export class HttpClient {
     path: string,
     body?: unknown,
     options?: RequestOptions,
+    params?: Record<string, unknown>,
   ): Promise<T> {
-    const url = this.buildUrl(path);
+    const url = this.buildUrl(path, params);
     return this.request<T>('POST', url, body, options);
   }
 
