@@ -728,4 +728,63 @@ describe('SchemasResource', () => {
     expect(url).toContain('/v1/schemas/import');
     expect(url).toContain('dryRun=true');
   });
+
+  it('registers a schema with expression field mapping', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.register({
+      contractType: 'ACH-CUSTOM-v1',
+      displayName: 'Custom Expression',
+      mandateSchema: {},
+      receiptSchema: {},
+      fieldMappings: [
+        {
+          ruleId: 'expr-amount-check',
+          criteriaPath: 'criteria.target',
+          evidencePath: 'evidence.amount',
+          valueType: 'expression',
+          expression: 'abs(evidence.amount - criteria.target) <= tolerance.amount',
+          toleranceField: 'criteria.tolerance',
+        },
+      ],
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body).toHaveProperty('contractType', 'ACH-CUSTOM-v1');
+    expect(body.fieldMappings).toHaveLength(1);
+    expect(body.fieldMappings[0]).toMatchObject({
+      ruleId: 'expr-amount-check',
+      valueType: 'expression',
+      expression: 'abs(evidence.amount - criteria.target) <= tolerance.amount',
+    });
+  });
+
+  it('previews a schema with expression field mapping', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.preview({
+      contractType: 'ACH-CUSTOM-v1',
+      displayName: 'Custom Expression Preview',
+      mandateSchema: {},
+      receiptSchema: {},
+      fieldMappings: [
+        {
+          ruleId: 'expr-budget-check',
+          criteriaPath: 'criteria.budget',
+          evidencePath: 'evidence.spent',
+          valueType: 'expression',
+          expression: 'abs(evidence.amount - criteria.target) <= tolerance.amount',
+        },
+      ],
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/preview');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.fieldMappings).toHaveLength(1);
+    expect(body.fieldMappings[0].valueType).toBe('expression');
+    expect(body.fieldMappings[0].expression).toBe(
+      'abs(evidence.amount - criteria.target) <= tolerance.amount',
+    );
+  });
 });

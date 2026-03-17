@@ -35,6 +35,7 @@ export type {
   SchemaCompatibilityMode,
   MetaSchema,
   SchemaFieldMapping,
+  SchemaFieldMappingValueType,
   SchemaTemplate,
   SchemaPreviewInput,
   SchemaPreviewResult,

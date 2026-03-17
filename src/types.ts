@@ -495,6 +495,14 @@ export interface MetaSchema {
   };
   fieldMappingValueTypes: string[];
   builtinRuleIds: string[];
+  expressionHelpers?: string[];
+  expressionLimits?: {
+    maxLength: number;
+    maxAstNodes: number;
+    maxAstDepth: number;
+    maxOperations: number;
+    allowedContexts: string[];
+  };
   sharedSchemas: Record<string, unknown>;
   examples: {
     minimalMandate: Record<string, unknown>;
@@ -502,13 +510,18 @@ export interface MetaSchema {
   };
 }
 
+/** Known values for SchemaFieldMapping.valueType. Accepts 'expression' for expression-based rules. */
+export type SchemaFieldMappingValueType = 'number' | 'denomination' | 'string' | 'boolean' | 'datetime' | 'expression';
+
 /** Field mapping between mandate criteria and receipt evidence for verification rules. */
 export interface SchemaFieldMapping {
   ruleId: string;
   criteriaPath: string;
   evidencePath: string;
   toleranceField?: string;
-  valueType: string;
+  valueType: SchemaFieldMappingValueType;
+  /** Safe expression string. Required when valueType is 'expression'. */
+  expression?: string;
 }
 
 /** Template for creating a new contract type schema. */
