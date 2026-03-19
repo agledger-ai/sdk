@@ -39,6 +39,12 @@ export const Scopes = {
   SIGNALS_READ: 'signals:read',
   REPUTATION_READ: 'reputation:read',
 
+  // Schemas
+  SCHEMAS_READ: 'schemas:read',
+  SCHEMAS_WRITE: 'schemas:write',
+  SCHEMAS_ADMIN: 'schemas:admin',
+  SCHEMAS_PUBLISH: 'schemas:publish',
+
   // Administration
   ADMIN_KEYS: 'admin:keys',
   ADMIN_SYSTEM: 'admin:system',
@@ -64,12 +70,12 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   dashboard: {
     name: 'dashboard',
     description: 'Read-only monitoring and audit',
-    scopes: [Scopes.DASHBOARD_READ, Scopes.AUDIT_READ, Scopes.EVENTS_READ, Scopes.SIGNALS_READ, Scopes.DISPUTES_READ, Scopes.REPUTATION_READ],
+    scopes: [Scopes.DASHBOARD_READ, Scopes.AUDIT_READ, Scopes.EVENTS_READ, Scopes.SIGNALS_READ, Scopes.DISPUTES_READ, Scopes.REPUTATION_READ, Scopes.SCHEMAS_READ],
   },
   'iac-pipeline': {
     name: 'iac-pipeline',
     description: 'Infrastructure provisioning — agents, webhooks, keys',
-    scopes: [Scopes.AGENTS_MANAGE, Scopes.WEBHOOKS_MANAGE, Scopes.ADMIN_KEYS],
+    scopes: [Scopes.AGENTS_MANAGE, Scopes.WEBHOOKS_MANAGE, Scopes.ADMIN_KEYS, Scopes.SCHEMAS_WRITE, Scopes.SCHEMAS_ADMIN],
   },
   'agent-full': {
     name: 'agent-full',
@@ -81,6 +87,11 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
     description: 'Read-only agent — view mandate history',
     scopes: [Scopes.MANDATES_READ, Scopes.RECEIPTS_READ],
   },
+  'schema-manager': {
+    name: 'schema-manager',
+    description: 'Schema registry management — create, version, deprecate custom types',
+    scopes: [Scopes.SCHEMAS_READ, Scopes.SCHEMAS_WRITE, Scopes.SCHEMAS_ADMIN],
+  },
 };
 
-export type ScopeProfileName = 'sidecar' | 'dashboard' | 'iac-pipeline' | 'agent-full' | 'agent-readonly' | (string & {});
+export type ScopeProfileName = 'sidecar' | 'dashboard' | 'iac-pipeline' | 'agent-full' | 'agent-readonly' | 'schema-manager' | (string & {});
