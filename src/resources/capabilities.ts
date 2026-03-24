@@ -16,8 +16,8 @@ export class CapabilitiesResource {
     return this.http.get(`/v1/agents/${agentId}/capabilities`, undefined, options);
   }
 
-  /** Set the authenticated agent's own capabilities. */
+  /** Set the authenticated agent's own capabilities (replaces all). */
   async set(agentId: string, params: SetCapabilitiesParams, options?: RequestOptions): Promise<{ agentId: string; capabilities: ContractType[] }> {
-    return this.http.patch(`/v1/agents/${agentId}/capabilities`, params, options);
+    return this.http.put(`/v1/agents/${agentId}/capabilities`, params, options);
   }
 }

@@ -10,6 +10,11 @@ import type {
   AiImpactAssessment,
   CreateAiImpactAssessmentParams,
   EuAiActReport,
+  ComplianceRecord,
+  CreateComplianceRecordParams,
+  MandateAuditExport,
+  Page,
+  ListParams,
   RequestOptions,
 } from '../types.js';
 
@@ -72,5 +77,25 @@ export class ComplianceResource {
   /** Trigger LLM-powered audit analysis for a mandate. */
   async analyzeAudit(mandateId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.post('/v1/audit/enterprise-report/analyze', { mandateId }, options);
+  }
+
+  /** Create a compliance record (attestation) for a mandate. */
+  async createRecord(mandateId: string, params: CreateComplianceRecordParams, options?: RequestOptions): Promise<ComplianceRecord> {
+    return this.http.post<ComplianceRecord>(`/v1/mandates/${mandateId}/compliance-records`, params, options);
+  }
+
+  /** List compliance records for a mandate. */
+  async listRecords(mandateId: string, params?: ListParams, options?: RequestOptions): Promise<Page<ComplianceRecord>> {
+    return this.http.getPage<ComplianceRecord>(`/v1/mandates/${mandateId}/compliance-records`, params as Record<string, unknown>, options);
+  }
+
+  /** Get a specific compliance record. */
+  async getRecord(mandateId: string, recordId: string, options?: RequestOptions): Promise<ComplianceRecord> {
+    return this.http.get<ComplianceRecord>(`/v1/mandates/${mandateId}/compliance-records/${recordId}`, undefined, options);
+  }
+
+  /** Export the per-mandate audit trail (hash-chained, signed entries). */
+  async exportMandate(mandateId: string, params?: { format?: 'json' | 'csv' | 'ndjson' }, options?: RequestOptions): Promise<MandateAuditExport> {
+    return this.http.get<MandateAuditExport>(`/v1/mandates/${mandateId}/audit-export`, params as Record<string, unknown>, options);
   }
 }

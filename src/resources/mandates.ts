@@ -19,6 +19,9 @@ import type {
   RequestOptions,
   AutoPaginateOptions,
   TypedCreateMandateParams,
+  ReportOutcomeParams,
+  OutcomeResult,
+  MandateStatusSummary,
 } from '../types.js';
 import { getValidTransitions as getTransitions } from '../mandate-lifecycle.js';
 
@@ -145,6 +148,16 @@ export class MandatesResource {
     const mandate = await this.create(params, options);
     await this.transition(mandate.id, 'register', undefined, options);
     return this.transition(mandate.id, 'activate', undefined, options);
+  }
+
+  /** Report principal verdict (outcome) on a mandate receipt. */
+  async reportOutcome(id: string, params: ReportOutcomeParams, options?: RequestOptions): Promise<OutcomeResult> {
+    return this.http.post<OutcomeResult>(`/v1/mandates/${id}/outcome`, params, options);
+  }
+
+  /** Get mandate counts grouped by status. */
+  async getSummary(params?: { enterpriseId?: string }, options?: RequestOptions): Promise<MandateStatusSummary> {
+    return this.http.get<MandateStatusSummary>('/v1/mandates/summary', params as Record<string, unknown>, options);
   }
 
   /** Get valid transitions for a mandate's current status. Client-side lookup, no API call. */

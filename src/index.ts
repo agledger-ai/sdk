@@ -103,7 +103,6 @@ export type {
   ReceiptStatus,
   Receipt,
   SubmitReceiptParams,
-  UpdateReceiptParams,
 
   // Verification
   VerificationOutcome,
@@ -111,17 +110,22 @@ export type {
   VerificationResult,
   VerificationStatus,
 
+  // Outcome (Principal Verdict)
+  ReportOutcomeParams,
+  OutcomeResult,
+
+  // Mandate Summary
+  MandateStatusSummary,
+
   // Disputes
   DisputeStatus,
   Dispute,
   CreateDisputeParams,
-  ResolveDisputeParams,
 
   // Webhooks
   WebhookEventType,
   Webhook,
   CreateWebhookParams,
-  UpdateWebhookParams,
   WebhookDelivery,
   WebhookTestResult,
 
@@ -150,6 +154,15 @@ export type {
   AiImpactAssessment,
   CreateAiImpactAssessmentParams,
   EuAiActReport,
+
+  // Compliance Records (per-mandate)
+  ComplianceRecordType,
+  ComplianceRecord,
+  CreateComplianceRecordParams,
+
+  // Audit Export (per-mandate)
+  AuditExportEntry,
+  MandateAuditExport,
 
   // Registration & Auth
   AccountType,

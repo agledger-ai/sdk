@@ -218,6 +218,24 @@ describe('MandatesResource', () => {
     expect(transitions).toContain('PROPOSED');
     expect(transitions).not.toContain('ACTIVE');
   });
+
+  it('reports principal outcome on a mandate', async () => {
+    const { client, fetch } = createMockClient();
+    await client.mandates.reportOutcome('mnd-123', { receiptId: 'rct-1', outcome: 'PASS' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/mandates/mnd-123/outcome');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ receiptId: 'rct-1', outcome: 'PASS' });
+  });
+
+  it('gets mandate summary', async () => {
+    const { client, fetch } = createMockClient({ countsByStatus: { ACTIVE: 5 }, total: 5 });
+    const result = await client.mandates.getSummary({ enterpriseId: 'ent-1' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/mandates/summary');
+    expect(url).toContain('enterpriseId=ent-1');
+    expect(result.total).toBe(5);
+  });
 });
 
 describe('ReceiptsResource', () => {
@@ -244,14 +262,6 @@ describe('ReceiptsResource', () => {
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.evidence.action).toBe('deploy_service');
     expect(body.evidence.environment).toBe('staging');
-  });
-
-  it('updates a receipt', async () => {
-    const { client, fetch } = createMockClient();
-    await client.receipts.update('mnd-123', 'rct-456', { notes: 'Updated' });
-    const url = fetch.mock.calls[0][0];
-    expect(url).toContain('/mandates/mnd-123/receipts/rct-456');
-    expect(fetch.mock.calls[0][1].method).toBe('PATCH');
   });
 
   it('lists receipts for a mandate', async () => {
@@ -289,19 +299,17 @@ describe('DisputesResource', () => {
     await client.disputes.escalate('mnd-123', 'Need higher review');
     expect(fetch.mock.calls[0][0]).toContain('/mandates/mnd-123/dispute/escalate');
   });
-
-  it('resolves a dispute', async () => {
-    const { client, fetch } = createMockClient();
-    await client.disputes.resolve('mnd-123', { resolution: 'Split 50/50', amount: 500 });
-    expect(fetch.mock.calls[0][0]).toContain('/mandates/mnd-123/dispute/resolve');
-  });
 });
 
 describe('WebhooksResource', () => {
-  it('creates a webhook', async () => {
+  it('creates a webhook with eventTypes', async () => {
     const { client, fetch } = createMockClient();
-    await client.webhooks.create({ url: 'https://example.com/hook', events: ['receipt.submitted'] });
-    expect(fetch.mock.calls[0][1].method).toBe('POST');
+    await client.webhooks.create({ url: 'https://example.com/hook', eventTypes: ['mandate.created'] });
+    const [, init] = fetch.mock.calls[0];
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.eventTypes).toEqual(['mandate.created']);
+    expect(body.events).toBeUndefined();
   });
 
   it('pings a webhook', async () => {
@@ -333,6 +341,14 @@ describe('WebhooksResource', () => {
     expect(url).toContain('/webhooks/wh-123/deliveries');
     expect(url).toContain('status=failed');
   });
+
+  it('rotates webhook secret', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.rotate('wh-123');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/webhooks/wh-123/rotate');
+    expect(init.method).toBe('POST');
+  });
 });
 
 describe('ComplianceResource', () => {
@@ -347,6 +363,39 @@ describe('ComplianceResource', () => {
     await client.compliance.createAssessment('mnd-123', { riskLevel: 'high', domain: 'healthcare' });
     expect(fetch.mock.calls[0][0]).toContain('/mandates/mnd-123/ai-impact-assessment');
   });
+
+  it('creates a compliance record for a mandate', async () => {
+    const { client, fetch } = createMockClient();
+    await client.compliance.createRecord('mnd-123', {
+      recordType: 'workplace_notification',
+      attestation: { notified: true },
+      attestedBy: 'admin@example.com',
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/mandates/mnd-123/compliance-records');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body).recordType).toBe('workplace_notification');
+  });
+
+  it('lists compliance records for a mandate', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.compliance.listRecords('mnd-123');
+    expect(fetch.mock.calls[0][0]).toContain('/mandates/mnd-123/compliance-records');
+  });
+
+  it('gets a specific compliance record', async () => {
+    const { client, fetch } = createMockClient();
+    await client.compliance.getRecord('mnd-123', 'rec-456');
+    expect(fetch.mock.calls[0][0]).toContain('/mandates/mnd-123/compliance-records/rec-456');
+  });
+
+  it('exports per-mandate audit trail', async () => {
+    const { client, fetch } = createMockClient();
+    await client.compliance.exportMandate('mnd-123', { format: 'json' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/mandates/mnd-123/audit-export');
+    expect(url).toContain('format=json');
+  });
 });
 
 describe('ReputationResource', () => {
@@ -356,11 +405,12 @@ describe('ReputationResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/agents/agent-123/reputation');
   });
 
-  it('gets reputation history', async () => {
+  it('gets agent history at correct path', async () => {
     const { client, fetch } = createPageMockClient();
     await client.reputation.getHistory('agent-123', { from: '2026-01-01' });
     const url = fetch.mock.calls[0][0];
-    expect(url).toContain('/agents/agent-123/reputation/history');
+    expect(url).toContain('/agents/agent-123/history');
+    expect(url).not.toContain('/reputation/history');
     expect(url).toContain('from=2026-01-01');
   });
 });
@@ -498,11 +548,13 @@ describe('CapabilitiesResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/v1/agents/agent-123/capabilities');
   });
 
-  it('sets agent capabilities', async () => {
+  it('sets agent capabilities via PUT', async () => {
     const { client, fetch } = createMockClient();
-    await client.capabilities.set('agent-123', { capabilities: ['ACH-PROC-v1', 'ACH-DATA-v1'] });
-    const body = JSON.parse(fetch.mock.calls[0][1].body);
-    expect(body.capabilities).toEqual(['ACH-PROC-v1', 'ACH-DATA-v1']);
+    await client.capabilities.set('agent-123', { contractTypes: ['ACH-PROC-v1', 'ACH-DATA-v1'] });
+    const [, init] = fetch.mock.calls[0];
+    expect(init.method).toBe('PUT');
+    const body = JSON.parse(init.body);
+    expect(body.contractTypes).toEqual(['ACH-PROC-v1', 'ACH-DATA-v1']);
   });
 });
 

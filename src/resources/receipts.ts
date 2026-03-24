@@ -7,7 +7,6 @@ import type { HttpClient } from '../http.js';
 import type {
   Receipt,
   SubmitReceiptParams,
-  UpdateReceiptParams,
   Page,
   ListParams,
   RequestOptions,
@@ -45,9 +44,5 @@ export class ReceiptsResource {
   /** Auto-paginating iterator. Yields individual receipts. */
   listAll(mandateId: string, params?: ListParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<Receipt> {
     return this.http.paginate<Receipt>(`/v1/mandates/${mandateId}/receipts`, params as Record<string, unknown>, options);
-  }
-
-  async update(mandateId: string, receiptId: string, params: UpdateReceiptParams, options?: RequestOptions): Promise<Receipt> {
-    return this.http.patch<Receipt>(`/v1/mandates/${mandateId}/receipts/${receiptId}`, params, options);
   }
 }

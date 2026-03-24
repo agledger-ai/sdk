@@ -7,7 +7,6 @@ import type { HttpClient } from '../http.js';
 import type {
   Dispute,
   CreateDisputeParams,
-  ResolveDisputeParams,
   RequestOptions,
 } from '../types.js';
 
@@ -32,10 +31,5 @@ export class DisputesResource {
   /** Submit additional evidence for a dispute. */
   async submitEvidence(mandateId: string, evidence: Record<string, unknown>, options?: RequestOptions): Promise<Dispute> {
     return this.http.post<Dispute>(`/v1/mandates/${mandateId}/dispute/evidence`, evidence, options);
-  }
-
-  /** Resolve a dispute with a resolution and optional amount. */
-  async resolve(mandateId: string, params: ResolveDisputeParams, options?: RequestOptions): Promise<Dispute> {
-    return this.http.post<Dispute>(`/v1/mandates/${mandateId}/dispute/resolve`, params, options);
   }
 }

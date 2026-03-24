@@ -958,10 +958,6 @@ export interface SubmitReceiptParams {
   idempotencyKey?: string;
 }
 
-export interface UpdateReceiptParams {
-  evidence?: Record<string, unknown>;
-  notes?: string;
-}
 
 // ---------------------------------------------------------------------------
 // Verification
@@ -988,6 +984,34 @@ export interface VerificationStatus {
   phase2Status: string;
   lastVerifiedAt?: string;
   pendingRules?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Outcome (Principal Verdict)
+// ---------------------------------------------------------------------------
+
+export interface ReportOutcomeParams {
+  receiptId: string;
+  outcome: 'PASS' | 'FAIL';
+  checks?: Record<string, unknown>;
+}
+
+export interface OutcomeResult {
+  mandateId: string;
+  receiptId: string;
+  outcome: 'PASS' | 'FAIL';
+  signal: SettlementSignal;
+  reporterType: string;
+  reportedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Mandate Summary
+// ---------------------------------------------------------------------------
+
+export interface MandateStatusSummary {
+  countsByStatus: Record<string, number>;
+  total: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -1027,83 +1051,74 @@ export interface CreateDisputeParams {
   context?: string;
 }
 
-export interface ResolveDisputeParams {
-  resolution: string;
-  amount?: number;
-}
 
 // ---------------------------------------------------------------------------
 // Webhooks
 // ---------------------------------------------------------------------------
 
-/** Known values: receipt.submitted, receipt.verified, receipt.accepted, receipt.rejected, mandate.created, mandate.registered, mandate.activated, mandate.fulfilled, mandate.failed, mandate.cancelled, mandate.delegated, mandate.released, dispute.created, dispute.resolved, signal.emitted, verification.complete. Accepts any string for forward compatibility. */
+/** Known webhook event types matching the AGLedger API. Accepts any string for forward compatibility. */
 export type WebhookEventType =
-  | 'receipt.submitted'
-  | 'receipt.verified'
-  | 'receipt.accepted'
-  | 'receipt.rejected'
   | 'mandate.created'
   | 'mandate.registered'
   | 'mandate.activated'
+  | 'mandate.receipt_submitted'
+  | 'mandate.receipt_invalid'
+  | 'mandate.verification_complete'
   | 'mandate.fulfilled'
+  | 'mandate.settled'
   | 'mandate.failed'
+  | 'mandate.expired'
   | 'mandate.cancelled'
+  | 'mandate.proposed'
+  | 'mandate.proposal_accepted'
+  | 'mandate.proposal_rejected'
   | 'mandate.delegated'
-  | 'mandate.released'
-  | 'mandate.revision_requested'
-  | 'dispute.created'
-  | 'dispute.resolved'
   | 'signal.emitted'
-  | 'verification.complete'
+  | 'dispute.opened'
+  | 'dispute.resolved'
+  | 'proxy.session.synced'
+  | 'proxy.mandate.detected'
+  | 'proxy.mandate.formalized'
   | (string & {});
 
 export interface Webhook {
   id: string;
   url: string;
-  events: WebhookEventType[];
-  eventTypes?: string[] | null;
+  eventTypes: WebhookEventType[] | null;
+  isActive: boolean;
+  format: 'standard' | 'cloudevents';
   secret?: string;
   createdAt: string;
-  lastTriggeredAt?: string;
-  failureCount?: number;
 }
 
 export interface CreateWebhookParams {
   url: string;
-  events: WebhookEventType[];
-  eventTypes?: string[];
-  secret?: string;
-}
-
-export interface UpdateWebhookParams {
-  url?: string;
-  events?: WebhookEventType[];
-  eventTypes?: string[] | null;
+  eventTypes: WebhookEventType[];
+  format?: 'standard' | 'cloudevents';
 }
 
 export interface WebhookDelivery {
   id: string;
-  webhookId: string;
-  event: string;
-  payload?: Record<string, unknown>;
-  requestBody?: string;
-  signature?: string;
-  responseBody?: string;
-  responseStatus?: number;
-  httpStatus?: number;
-  timestamp: string;
-  retryCount?: number;
-  attemptNumber?: number;
-  nextRetryAt?: string;
+  eventType: string;
   status: string;
+  attemptNumber: number;
+  responseStatus: number | null;
+  responseBody: string | null;
+  signature: string | null;
+  requestBody: string | null;
+  nextRetryAt: string | null;
+  createdAt: string;
+  deliveredAt: string | null;
 }
 
 export interface WebhookTestResult {
   statusCode: number;
   body: string;
   durationMs: number;
-  success?: boolean;
-  deliveryId?: string;
+  success: boolean;
+  deliveryId: string;
+  httpStatus: number;
+  latencyMs: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -1279,6 +1294,64 @@ export interface EuAiActReport {
 }
 
 // ---------------------------------------------------------------------------
+// Compliance Records (per-mandate)
+// ---------------------------------------------------------------------------
+
+export type ComplianceRecordType = 'workplace_notification' | 'affected_persons' | 'input_data_quality' | (string & {});
+
+export interface ComplianceRecord {
+  id: string;
+  mandateId: string;
+  enterpriseId: string;
+  recordType: ComplianceRecordType;
+  attestation: Record<string, unknown>;
+  attestedBy: string;
+  attestedAt: string;
+  createdAt: string;
+}
+
+export interface CreateComplianceRecordParams {
+  recordType: ComplianceRecordType;
+  attestation: Record<string, unknown>;
+  attestedBy: string;
+  attestedAt?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Audit Export (per-mandate)
+// ---------------------------------------------------------------------------
+
+export interface AuditExportEntry {
+  position: number;
+  timestamp: string;
+  entryType: string;
+  description: string;
+  payload: Record<string, unknown>;
+  integrity: {
+    payloadHash: string;
+    previousHash: string | null;
+    signature: string | null;
+    signingKeyId: string | null;
+    valid: boolean;
+  };
+}
+
+export interface MandateAuditExport {
+  exportMetadata: {
+    mandateId: string;
+    enterpriseId: string | null;
+    contractType: string;
+    exportDate: string;
+    totalEntries: number;
+    chainIntegrity: boolean;
+    exportFormatVersion: string;
+    canonicalization: string;
+    signingPublicKey: string | null;
+  };
+  entries: AuditExportEntry[];
+}
+
+// ---------------------------------------------------------------------------
 // Registration & Auth
 // ---------------------------------------------------------------------------
 
@@ -1427,7 +1500,7 @@ export interface UpdateTrustLevelParams {
 }
 
 export interface SetCapabilitiesParams {
-  capabilities: ContractType[];
+  contractTypes: string[];
 }
 
 // ---------------------------------------------------------------------------

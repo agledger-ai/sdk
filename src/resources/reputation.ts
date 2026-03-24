@@ -20,14 +20,14 @@ export class ReputationResource {
     return this.http.get<ReputationScore>(`/v1/agents/${agentId}/reputation`, undefined, options);
   }
 
-  /** Get reputation score history for an agent over a time range. */
+  /** Get transaction history for an agent over a time range. */
   async getHistory(
     agentId: string,
-    params?: ListParams & { from?: string; to?: string },
+    params?: ListParams & { from?: string; to?: string; contractType?: string; outcome?: 'PASS' | 'FAIL' },
     options?: RequestOptions,
   ): Promise<Page<ReputationHistoryEntry>> {
     return this.http.getPage<ReputationHistoryEntry>(
-      `/v1/agents/${agentId}/reputation/history`,
+      `/v1/agents/${agentId}/history`,
       params as Record<string, unknown>,
       options,
     );

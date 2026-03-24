@@ -7,7 +7,6 @@ import type { HttpClient } from '../http.js';
 import type {
   Webhook,
   CreateWebhookParams,
-  UpdateWebhookParams,
   WebhookDelivery,
   WebhookTestResult,
   Page,
@@ -18,34 +17,24 @@ import type {
 export class WebhooksResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** Register a new webhook endpoint. */
+  /** Register a new webhook subscription. */
   async create(params: CreateWebhookParams, options?: RequestOptions): Promise<Webhook> {
     return this.http.post<Webhook>('/v1/webhooks', params, options);
   }
 
-  /** Get a webhook by ID. */
-  async get(webhookId: string, options?: RequestOptions): Promise<Webhook> {
-    return this.http.get<Webhook>(`/v1/webhooks/${webhookId}`, undefined, options);
-  }
-
   /** List all webhooks. */
-  async list(options?: RequestOptions): Promise<Page<Webhook>> {
-    return this.http.getPage<Webhook>('/v1/webhooks', undefined, options);
+  async list(params?: ListParams, options?: RequestOptions): Promise<Page<Webhook>> {
+    return this.http.getPage<Webhook>('/v1/webhooks', params as Record<string, unknown>, options);
   }
 
-  /** Update a webhook's URL or event subscriptions. */
-  async update(webhookId: string, params: UpdateWebhookParams, options?: RequestOptions): Promise<Webhook> {
-    return this.http.patch<Webhook>(`/v1/webhooks/${webhookId}`, params, options);
-  }
-
-  /** Delete a webhook. */
+  /** Deactivate a webhook subscription. */
   async delete(webhookId: string, options?: RequestOptions): Promise<void> {
     return this.http.delete(`/v1/webhooks/${webhookId}`, undefined, options);
   }
 
-  /** Rotate webhook secret. Returns new secret. */
-  async rotate(webhookId: string, options?: RequestOptions): Promise<{ secret: string }> {
-    return this.http.post(`/v1/webhooks/${webhookId}/rotate`, undefined, options);
+  /** Rotate webhook signing secret. Returns the updated webhook with new secret. */
+  async rotate(webhookId: string, options?: RequestOptions): Promise<Webhook> {
+    return this.http.post<Webhook>(`/v1/webhooks/${webhookId}/rotate`, undefined, options);
   }
 
   /** Send a test ping to the webhook URL. */
