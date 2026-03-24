@@ -686,31 +686,25 @@ export interface ImportSchemaOptions {
 // Mandates
 // ---------------------------------------------------------------------------
 
-/** Known values: DRAFT, PROPOSED, ACCEPTED, COUNTER_PROPOSED, REJECTED, REGISTERED, ACTIVE, PENDING_VERIFICATION, FULFILLED, FAILED, DISPUTED, CANCELLED, REMEDIATED, EXPIRED, RECEIPT_INVALID, RECEIPT_ACCEPTED, VERIFYING, VERIFIED_PASS, VERIFIED_FAIL, CANCELLED_DRAFT, CANCELLED_PRE_WORK, CANCELLED_IN_PROGRESS. Accepts any string for forward compatibility. */
+/** Known values: DRAFT, PROPOSED, REGISTERED, ACTIVE, RECEIPT_ACCEPTED, RECEIPT_INVALID, VERIFYING, VERIFIED_PASS, VERIFIED_FAIL, REVISION_REQUESTED, FULFILLED, REMEDIATED, EXPIRED, CANCELLED_DRAFT, CANCELLED_PRE_WORK, CANCELLED_IN_PROGRESS, REJECTED. Accepts any string for forward compatibility. */
 export type MandateStatus =
   | 'DRAFT'
   | 'PROPOSED'
-  | 'ACCEPTED'
-  | 'COUNTER_PROPOSED'
-  | 'REJECTED'
   | 'REGISTERED'
   | 'ACTIVE'
-  | 'PENDING_VERIFICATION'
-  | 'FULFILLED'
-  | 'FAILED'
-  | 'DISPUTED'
-  | 'CANCELLED'
-  | 'REMEDIATED'
-  | 'EXPIRED'
-  | 'RECEIPT_INVALID'
   | 'RECEIPT_ACCEPTED'
+  | 'RECEIPT_INVALID'
   | 'VERIFYING'
   | 'VERIFIED_PASS'
   | 'VERIFIED_FAIL'
+  | 'REVISION_REQUESTED'
+  | 'FULFILLED'
+  | 'REMEDIATED'
+  | 'EXPIRED'
   | 'CANCELLED_DRAFT'
   | 'CANCELLED_PRE_WORK'
   | 'CANCELLED_IN_PROGRESS'
-  | 'REVISION_REQUESTED'
+  | 'REJECTED'
   | (string & {});
 
 /** Known values: register, activate, settle, cancel, refund. Accepts any string for forward compatibility. */
@@ -722,11 +716,11 @@ export type MandateTransitionAction =
   | 'refund'
   | (string & {});
 
-export type OperatingMode = 'standard' | 'encrypted' | 'cleartext';
+export type OperatingMode = 'cleartext' | 'encrypted';
 /** Known values: auto, principal, gated. Accepts any string for forward compatibility. */
 export type VerificationMode = 'auto' | 'principal' | 'gated' | (string & {});
 
-export type RiskClassification = 'unacceptable' | 'high' | 'limited' | 'minimal' | 'unclassified';
+export type RiskClassification = 'high' | 'limited' | 'minimal' | 'unclassified';
 
 /**
  * A mandate — a registered commitment between a principal and a performer.
@@ -768,7 +762,7 @@ export interface Mandate {
   deadline?: string;
   /** Commission percentage for the performing agent. */
   commissionPct?: number;
-  /** Operating mode: standard (default), encrypted, or cleartext. */
+  /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
   /** Verification mode: auto (rules auto-settle), principal (hold for verdict), gated (rules then verdict). */
   verificationMode?: VerificationMode;
@@ -779,7 +773,7 @@ export interface Mandate {
   /** Human oversight configuration for EU AI Act compliance. */
   humanOversight?: Record<string, unknown>;
   /** Performer's response to a proposed mandate. */
-  acceptanceStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED';
+  acceptanceStatus?: 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED';
   /** Project grouping reference for related mandates. */
   projectRef?: string;
   /** Parent mandate ID in a delegation chain. */
@@ -837,7 +831,7 @@ export interface CreateMandateParams {
   commissionPct?: number;
   /** Max receipt submissions allowed (1-100). Null/omit for unlimited. */
   maxSubmissions?: number;
-  /** Operating mode: standard (default), encrypted, or cleartext. */
+  /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
   /** Verification mode: auto (default, rules auto-settle), principal (hold for verdict), gated (rules then verdict). */
   verificationMode?: VerificationMode;
@@ -1000,9 +994,9 @@ export interface VerificationStatus {
 // Disputes
 // ---------------------------------------------------------------------------
 
-/** Known values: OPEN, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, WITHDRAWN. Accepts any string for forward compatibility. */
+/** Known values: OPENED, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, WITHDRAWN. Accepts any string for forward compatibility. */
 export type DisputeStatus =
-  | 'OPEN'
+  | 'OPENED'
   | 'TIER_1_REVIEW'
   | 'EVIDENCE_WINDOW'
   | 'TIER_2_REVIEW'
