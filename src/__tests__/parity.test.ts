@@ -126,6 +126,7 @@ const SDK_METHODS: SdkMapping[] = [
   ['compliance', 'listRecords', 'GET', '/mandates/{mandateId}/compliance-records'],
   ['compliance', 'getRecord', 'GET', '/mandates/{mandateId}/compliance-records/{recordId}'],
   ['compliance', 'exportMandate', 'GET', '/mandates/{mandateId}/audit-export'],
+  ['compliance', 'stream', 'GET', '/audit/stream'],
 
   // Events
   ['events', 'list', 'GET', '/events'],
@@ -348,7 +349,6 @@ const EXCLUDED_ROUTES = new Set([
 
   // Observability (internal)
   'GET /metrics',
-  'GET /audit/stream',
 
   // Ops (internal)
   'GET /ops/alerts',

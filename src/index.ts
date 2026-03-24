@@ -164,6 +164,10 @@ export type {
   AuditExportEntry,
   MandateAuditExport,
 
+  // Audit Stream (SIEM)
+  AuditStreamParams,
+  AuditStreamResult,
+
   // Registration & Auth
   AccountType,
   AccountProfile,

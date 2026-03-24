@@ -13,6 +13,8 @@ import type {
   ComplianceRecord,
   CreateComplianceRecordParams,
   MandateAuditExport,
+  AuditStreamParams,
+  AuditStreamResult,
   Page,
   ListParams,
   RequestOptions,
@@ -97,5 +99,63 @@ export class ComplianceResource {
   /** Export the per-mandate audit trail (hash-chained, signed entries). */
   async exportMandate(mandateId: string, params?: { format?: 'json' | 'csv' | 'ndjson' }, options?: RequestOptions): Promise<MandateAuditExport> {
     return this.http.get<MandateAuditExport>(`/v1/mandates/${mandateId}/audit-export`, params as Record<string, unknown>, options);
+  }
+
+  /**
+   * Pull audit events as NDJSON for SIEM ingestion.
+   * Returns parsed events and an opaque cursor for the next poll.
+   * Requires `audit:read` scope.
+   *
+   * @example
+   * ```ts
+   * const page = await client.compliance.stream({ since: '2026-01-01T00:00:00Z', limit: 500 });
+   * for (const event of page.events) {
+   *   await sendToSiem(event);
+   * }
+   * // Next poll: use page.cursor as since for the next call
+   * ```
+   */
+  async stream(params: AuditStreamParams, options?: RequestOptions): Promise<AuditStreamResult> {
+    const { data, cursor } = await this.http.getNdjson(
+      '/v1/audit/stream',
+      params as unknown as Record<string, unknown>,
+      options,
+    );
+    return {
+      events: data,
+      cursor,
+      hasMore: data.length >= (params.limit ?? 100),
+    };
+  }
+
+  /**
+   * Auto-paginating async iterator for SIEM streaming.
+   * Follows the cursor automatically until no more events are available.
+   * Consumer should persist the last cursor externally for resumption.
+   *
+   * @example
+   * ```ts
+   * for await (const event of client.compliance.streamAll({ since: lastCheckpoint })) {
+   *   await sendToSiem(event);
+   * }
+   * ```
+   */
+  async *streamAll(
+    params: AuditStreamParams,
+    options?: RequestOptions & { maxPages?: number },
+  ): AsyncGenerator<Record<string, unknown>, void, undefined> {
+    const maxPages = options?.maxPages ?? 100;
+    let since = params.since;
+
+    for (let page = 0; page < maxPages; page++) {
+      const result = await this.stream({ ...params, since }, options);
+      for (const event of result.events) {
+        yield event;
+      }
+      if (!result.hasMore || !result.cursor) return;
+      // Extract timestamp from composite cursor (timestamp_id format)
+      const underscoreIdx = result.cursor.lastIndexOf('_');
+      since = underscoreIdx > 0 ? result.cursor.substring(0, underscoreIdx) : result.cursor;
+    }
   }
 }

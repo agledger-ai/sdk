@@ -1352,6 +1352,28 @@ export interface MandateAuditExport {
 }
 
 // ---------------------------------------------------------------------------
+// Audit Stream (SIEM)
+// ---------------------------------------------------------------------------
+
+export interface AuditStreamParams {
+  /** ISO timestamp — only events after this point (required). */
+  since: string;
+  /** Max events to return per page (default: 100, max: 1000). */
+  limit?: number;
+  /** Response format: 'ocsf' (OCSF-mapped) or 'raw' (default: 'ocsf'). */
+  format?: 'ocsf' | 'raw';
+}
+
+export interface AuditStreamResult {
+  /** Parsed NDJSON events. Shape depends on format param. */
+  events: Record<string, unknown>[];
+  /** Opaque cursor for the next poll. Null if no events returned. */
+  cursor: string | null;
+  /** True if the number of events equals the limit (more data likely available). */
+  hasMore: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Registration & Auth
 // ---------------------------------------------------------------------------
 

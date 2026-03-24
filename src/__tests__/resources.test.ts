@@ -396,6 +396,108 @@ describe('ComplianceResource', () => {
     expect(url).toContain('/mandates/mnd-123/audit-export');
     expect(url).toContain('format=json');
   });
+
+  it('streams audit events as NDJSON', async () => {
+    const events = [
+      { type: 'mandate.created', timestamp: '2026-01-01T00:00:00Z', id: 'evt-1' },
+      { type: 'mandate.fulfilled', timestamp: '2026-01-01T01:00:00Z', id: 'evt-2' },
+    ];
+    const ndjson = events.map((e) => JSON.stringify(e)).join('\n') + '\n';
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(ndjson),
+      headers: new Headers({
+        'X-AGLedger-Stream-Cursor': '2026-01-01T01:00:00Z_evt-2',
+      }),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const result = await client.compliance.stream({ since: '2026-01-01T00:00:00Z' });
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0]).toHaveProperty('type', 'mandate.created');
+    expect(result.cursor).toBe('2026-01-01T01:00:00Z_evt-2');
+    expect(result.hasMore).toBe(false);
+
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/audit/stream');
+    expect(url).toContain('since=');
+    expect(fetch.mock.calls[0][1].headers.Accept).toBe('application/x-ndjson');
+  });
+
+  it('stream returns hasMore when event count equals limit', async () => {
+    const events = Array.from({ length: 5 }, (_, i) => ({
+      type: 'mandate.created',
+      timestamp: `2026-01-01T0${i}:00:00Z`,
+      id: `evt-${i}`,
+    }));
+    const ndjson = events.map((e) => JSON.stringify(e)).join('\n') + '\n';
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(ndjson),
+      headers: new Headers({
+        'X-AGLedger-Stream-Cursor': '2026-01-01T04:00:00Z_evt-4',
+      }),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const result = await client.compliance.stream({ since: '2026-01-01T00:00:00Z', limit: 5 });
+    expect(result.events).toHaveLength(5);
+    expect(result.hasMore).toBe(true);
+    expect(result.cursor).toBe('2026-01-01T04:00:00Z_evt-4');
+  });
+
+  it('streamAll iterates across multiple pages', async () => {
+    const page1Events = [
+      { type: 'mandate.created', timestamp: '2026-01-01T00:00:00Z', id: 'evt-1' },
+      { type: 'mandate.fulfilled', timestamp: '2026-01-01T01:00:00Z', id: 'evt-2' },
+    ];
+    const page2Events = [
+      { type: 'mandate.expired', timestamp: '2026-01-01T02:00:00Z', id: 'evt-3' },
+    ];
+    let callCount = 0;
+    const fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: vi.fn().mockResolvedValue(page1Events.map((e) => JSON.stringify(e)).join('\n') + '\n'),
+          headers: new Headers({
+            'X-AGLedger-Stream-Cursor': '2026-01-01T01:00:00Z_evt-2',
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(page2Events.map((e) => JSON.stringify(e)).join('\n') + '\n'),
+        headers: new Headers(),
+      });
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const allEvents: Record<string, unknown>[] = [];
+    for await (const event of client.compliance.streamAll({ since: '2026-01-01T00:00:00Z', limit: 2 })) {
+      allEvents.push(event);
+    }
+    expect(allEvents).toHaveLength(3);
+    expect(allEvents[2]).toHaveProperty('type', 'mandate.expired');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('ReputationResource', () => {

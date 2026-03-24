@@ -145,6 +145,89 @@ export class HttpClient {
     }
   }
 
+  /**
+   * Fetch an NDJSON endpoint. Returns parsed lines and the cursor from
+   * the X-AGLedger-Stream-Cursor response header.
+   */
+  async getNdjson<T = Record<string, unknown>>(
+    path: string,
+    params?: Record<string, unknown>,
+    options?: RequestOptions,
+  ): Promise<{ data: T[]; cursor: string | null }> {
+    const url = this.buildUrl(path, params);
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      if (attempt > 0) {
+        await this.sleep(this.backoff(attempt, lastError));
+      }
+
+      const timeout = options?.timeout ?? this.timeout;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+
+      if (options?.signal) {
+        if (options.signal.aborted) {
+          clearTimeout(timer);
+          throw new ConnectionError('Request aborted', new Error('AbortError'));
+        }
+        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${this.apiKey}`,
+        Accept: 'application/x-ndjson',
+      };
+
+      try {
+        const response = await this.fetchFn(url, {
+          method: 'GET',
+          headers,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timer);
+        this.parseRateLimitHeaders(response.headers);
+
+        if (!response.ok) {
+          let errorBody: Record<string, unknown>;
+          try {
+            errorBody = (await response.json()) as Record<string, unknown>;
+          } catch {
+            errorBody = { error: 'unknown', message: response.statusText || `HTTP ${response.status}` };
+          }
+
+          const error = this.mapError(response.status, errorBody, response.headers);
+          if (response.status === 429 || response.status >= 500) {
+            lastError = error;
+            continue;
+          }
+          throw error;
+        }
+
+        const text = await response.text();
+        const lines = text.split('\n').filter((l) => l.trim().length > 0);
+        const data = lines.map((line) => JSON.parse(line) as T);
+        const cursor = response.headers.get('X-AGLedger-Stream-Cursor') ?? null;
+
+        return { data, cursor };
+      } catch (err) {
+        clearTimeout(timer);
+        if (err instanceof AgledgerApiError) throw err;
+
+        const cause = err as Error;
+        if (cause.name === 'AbortError') {
+          lastError = new TimeoutError('GET', url, timeout, cause);
+        } else {
+          lastError = new ConnectionError(`Network error: ${cause.message}`, cause);
+        }
+        continue;
+      }
+    }
+
+    throw lastError!;
+  }
+
   // ---------------------------------------------------------------------------
   // Internal
   // ---------------------------------------------------------------------------
