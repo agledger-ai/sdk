@@ -21,8 +21,8 @@ export function mandateToContext(m: Mandate): string {
 
 /** Compact one-line summary of a receipt for LLM context injection. */
 export function receiptToContext(r: Receipt): string {
-  const parts = [`Receipt ${r.id} for mandate ${r.mandateId} status=${r.status}`];
-  if (r.verificationOutcome) parts.push(`outcome=${r.verificationOutcome}`);
+  const parts = [`Receipt ${r.id} for mandate ${r.mandateId} validation=${r.structuralValidation}`];
+  if (r.mandateStatus) parts.push(`mandateStatus=${r.mandateStatus}`);
   if (r.agentId) parts.push(`agent=${r.agentId}`);
   return parts.join(' ');
 }

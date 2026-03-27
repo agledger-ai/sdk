@@ -10,6 +10,7 @@ import type {
   DashboardMetricsParams,
   DashboardAgent,
   DashboardAgentParams,
+  ListParams,
   Page,
   RequestOptions,
 } from '../types.js';
@@ -34,5 +35,25 @@ export class DashboardResource {
       params as unknown as Record<string, unknown>,
       options,
     );
+  }
+
+  /** Get dashboard stats. */
+  async getStats(options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.get('/v1/dashboard/stats', undefined, options);
+  }
+
+  /** Get dashboard alerts. */
+  async getAlerts(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+    return this.http.getPage<Record<string, unknown>>('/v1/dashboard/alerts', params as Record<string, unknown>, options);
+  }
+
+  /** Get dashboard disputes. */
+  async getDisputes(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+    return this.http.getPage<Record<string, unknown>>('/v1/dashboard/disputes', params as Record<string, unknown>, options);
+  }
+
+  /** Get dashboard audit trail. */
+  async getAuditTrail(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+    return this.http.getPage<Record<string, unknown>>('/v1/dashboard/audit-trail', params as Record<string, unknown>, options);
   }
 }

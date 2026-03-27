@@ -160,6 +160,11 @@ export class MandatesResource {
     return this.http.get<MandateStatusSummary>('/v1/mandates/summary', params as Record<string, unknown>, options);
   }
 
+  /** Get the delegation graph for a mandate. */
+  async getGraph(id: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.get(`/v1/mandates/${id}/graph`, undefined, options);
+  }
+
   /** Get valid transitions for a mandate's current status. Client-side lookup, no API call. */
   getValidTransitions(mandate: Mandate): readonly string[] {
     return getTransitions(mandate.status);

@@ -33,6 +33,11 @@ export class ComplianceResource {
     return this.http.get<ComplianceExport>(`/v1/compliance/export/${exportId}`, undefined, options);
   }
 
+  /** Download a completed compliance export. */
+  async downloadExport(exportId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.get(`/v1/compliance/export/${exportId}/download`, undefined, options);
+  }
+
   /**
    * Poll until a compliance export is ready or timeout.
    * Returns the completed export, or throws if it times out.

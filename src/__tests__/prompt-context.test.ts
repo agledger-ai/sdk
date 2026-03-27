@@ -28,7 +28,7 @@ const baseReceipt: Receipt = {
   id: 'rct-def',
   mandateId: 'mnd-abc',
   agentId: 'agt-123',
-  status: 'SUBMITTED',
+  structuralValidation: 'ACCEPTED',
   evidence: {},
   createdAt: '2026-03-02T00:00:00Z',
 };
@@ -57,14 +57,14 @@ describe('mandateToContext', () => {
 });
 
 describe('receiptToContext', () => {
-  it('includes id, mandate, status', () => {
+  it('includes id, mandate, validation', () => {
     const ctx = receiptToContext(baseReceipt);
-    expect(ctx).toBe('Receipt rct-def for mandate mnd-abc status=SUBMITTED agent=agt-123');
+    expect(ctx).toBe('Receipt rct-def for mandate mnd-abc validation=ACCEPTED agent=agt-123');
   });
 
-  it('includes verification outcome when present', () => {
-    const ctx = receiptToContext({ ...baseReceipt, verificationOutcome: 'PASS' });
-    expect(ctx).toContain('outcome=PASS');
+  it('includes mandate status when present', () => {
+    const ctx = receiptToContext({ ...baseReceipt, mandateStatus: 'FULFILLED' });
+    expect(ctx).toContain('mandateStatus=FULFILLED');
   });
 });
 

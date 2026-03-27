@@ -90,6 +90,8 @@ export type {
   OperatingMode,
   VerificationMode,
   RiskClassification,
+  ConstraintInheritanceMode,
+  EvidenceType,
   Mandate,
   CreateMandateParams,
   UpdateMandateParams,
@@ -100,7 +102,7 @@ export type {
   RespondToMandateParams,
 
   // Receipts
-  ReceiptStatus,
+  StructuralValidation,
   Receipt,
   SubmitReceiptParams,
 
@@ -119,7 +121,9 @@ export type {
 
   // Disputes
   DisputeStatus,
+  DisputeGrounds,
   Dispute,
+  DisputeResponse,
   CreateDisputeParams,
 
   // Webhooks
@@ -130,7 +134,6 @@ export type {
   WebhookTestResult,
 
   // Reputation
-  ReputationTier,
   ReputationScore,
   ReputationHistoryEntry,
 
@@ -159,6 +162,12 @@ export type {
   ComplianceRecordType,
   ComplianceRecord,
   CreateComplianceRecordParams,
+
+  // Projects
+  ProjectStatus,
+  Project,
+  CreateProjectParams,
+  UpdateProjectParams,
 
   // Audit Export (per-mandate)
   AuditExportEntry,

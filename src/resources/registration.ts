@@ -20,12 +20,12 @@ export class RegistrationResource {
   }
 
   /** Register an enterprise account. */
-  async registerEnterprise(params: Record<string, unknown>, options?: RequestOptions): Promise<RegisterResult> {
+  async registerEnterprise(params: { name: string; email?: string }, options?: RequestOptions): Promise<RegisterResult> {
     return this.http.post<RegisterResult>('/v1/auth/enterprise', params, options);
   }
 
   /** Register an agent account. */
-  async registerAgent(params: Record<string, unknown>, options?: RequestOptions): Promise<RegisterResult> {
+  async registerAgent(params: { name: string; email?: string; agentCardUrl?: string; enterpriseId?: string }, options?: RequestOptions): Promise<RegisterResult> {
     return this.http.post<RegisterResult>('/v1/auth/agent', params, options);
   }
 
@@ -39,8 +39,13 @@ export class RegistrationResource {
     return this.http.post('/v1/auth/keys/rotate', undefined, options);
   }
 
-  /** Verify email address with token. */
+  /** Verify email address with token from verification link. */
   async verifyEmail(token: string, options?: RequestOptions): Promise<{ sandboxMode: boolean; status: string }> {
-    return this.http.post('/v1/auth/verify-email', { token }, options);
+    return this.http.get('/v1/auth/verify', { token }, options);
+  }
+
+  /** Send (or resend) a verification email. */
+  async sendVerificationEmail(email: string, options?: RequestOptions): Promise<{ sandboxMode: boolean; status: string }> {
+    return this.http.post('/v1/auth/verify-email', { email }, options);
   }
 }

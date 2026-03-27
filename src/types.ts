@@ -444,11 +444,25 @@ export type TypedSubmitReceiptParams<T extends string> = Omit<SubmitReceiptParam
 
 export interface ContractSchema {
   contractType: ContractType;
+  displayName?: string;
+  description?: string;
+  category?: string;
+  isBuiltin?: boolean;
+  version?: number;
+  latestVersion?: number;
+  status?: SchemaVersionStatus;
   mandateSchema: Record<string, unknown>;
   receiptSchema: Record<string, unknown>;
   rulesConfig?: {
+    contractType?: string;
     syncRuleIds: string[];
     asyncRuleIds: string[];
+    fieldMappings?: Record<string, unknown>[];
+    commissionSourceField?: string;
+  };
+  quickStart?: {
+    criteria: Record<string, unknown>;
+    evidence: Record<string, unknown>;
   };
 }
 
@@ -722,6 +736,12 @@ export type VerificationMode = 'auto' | 'principal' | 'gated' | (string & {});
 
 export type RiskClassification = 'high' | 'limited' | 'minimal' | 'unclassified';
 
+/** Constraint inheritance mode from parent mandate. */
+export type ConstraintInheritanceMode = 'none' | 'advisory' | 'enforced';
+
+/** Dispute evidence types. */
+export type EvidenceType = 'screenshot' | 'external_lookup' | 'document' | 'communication' | 'other' | (string & {});
+
 /**
  * A mandate — a registered commitment between a principal and a performer.
  * Records what was asked, by whom, and when. The contract is the product.
@@ -800,6 +820,44 @@ export interface Mandate {
   activatedAt?: string;
   /** ISO 8601 timestamp when the mandate was fulfilled. */
   fulfilledAt?: string;
+  /** Valid next actions from current state (e.g. 'register', 'activate', 'cancel'). */
+  nextActions?: string[];
+  /** Valid target statuses from current state. */
+  validTransitions?: string[];
+  /** Hint for receipt evidence fields, or null if no receipt expected. */
+  receiptHint?: { requiredFields: string[]; optionalFields?: string[]; examplePayload?: Record<string, unknown> } | null;
+  /** Advisory enforcement warnings from the most recent transition. */
+  advisoryWarnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
+  /** URL to the contract type schema definition. */
+  schemaUrl?: string;
+  /** Verification check results, or null if not yet verified. */
+  verificationChecks?: Record<string, unknown> | null;
+  /** Overall verification outcome: PASS, FAIL, or null if not verified. */
+  verificationOutcome?: 'PASS' | 'FAIL' | null;
+  /** Agent ID of the principal (for A2A mandates). */
+  principalAgentId?: string;
+  /** Principal type: enterprise or agent. */
+  principalType?: 'enterprise' | 'agent';
+  /** IDs of child mandates in a delegation chain. */
+  childMandateIds?: string[];
+  /** Calculated commission amount, or null. */
+  commissionAmount?: number | null;
+  /** Constraint inheritance mode from parent mandate. */
+  constraintInheritance?: ConstraintInheritanceMode;
+  /** True when a transition was a no-op (already in target state). */
+  noOp?: boolean;
+  /** Project ID for grouping related mandates. */
+  projectId?: string | null;
+  /** External task ID from the caller's system. */
+  externalTaskId?: string | null;
+  /** Mandate IDs this mandate depends on. */
+  dependsOn?: string[];
+  /** Per-field enforcement overrides. */
+  enforcementOverrides?: Record<string, unknown> | null;
+  /** Arbitrary metadata attached to the mandate. */
+  metadata?: Record<string, unknown> | null;
+  /** ISO 8601 timestamp when the performer responded to a proposal. */
+  acceptanceRespondedAt?: string | null;
 }
 
 /**
@@ -841,6 +899,24 @@ export interface CreateMandateParams {
   euAiActDomain?: string;
   /** Human oversight configuration. */
   humanOversight?: Record<string, unknown>;
+  /** Performer agent ID. */
+  performerAgentId?: string;
+  /** Parent mandate ID for delegation. */
+  parentMandateId?: string;
+  /** Project ID for grouping. */
+  projectId?: string;
+  /** External task ID from caller's system. */
+  externalTaskId?: string;
+  /** Mandate IDs this depends on. */
+  dependsOn?: string[];
+  /** Arbitrary metadata. */
+  metadata?: Record<string, unknown>;
+  /** Auto-transition from DRAFT → REGISTERED → ACTIVE after create. */
+  autoActivate?: boolean;
+  /** Constraint inheritance mode. */
+  constraintInheritance?: ConstraintInheritanceMode;
+  /** Per-field enforcement overrides. */
+  enforcementOverrides?: Record<string, unknown>;
 }
 
 export interface UpdateMandateParams {
@@ -850,6 +926,7 @@ export interface UpdateMandateParams {
   riskClassification?: RiskClassification;
   euAiActDomain?: string;
   humanOversight?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ListMandatesParams extends ListParams {
@@ -866,6 +943,14 @@ export interface SearchMandatesParams extends ListParams {
   to?: string;
   sort?: string;
   order?: 'asc' | 'desc';
+  projectRef?: string;
+  externalTaskId?: string;
+  parentMandateId?: string;
+  updatedAfter?: string;
+  updatedBefore?: string;
+  verificationMode?: VerificationMode;
+  operatingMode?: OperatingMode;
+  metadata?: Record<string, unknown>;
 }
 
 export interface DelegateMandateParams {
@@ -892,69 +977,57 @@ export interface CreateAgentMandateParams {
   maxSubmissions?: number;
   deadline?: string;
   verificationMode?: VerificationMode;
+  autoActivate?: boolean;
+  constraintInheritance?: ConstraintInheritanceMode;
+  enforcementOverrides?: Record<string, unknown>;
+  externalTaskId?: string;
+  metadata?: Record<string, unknown>;
+  proposalMessage?: string;
 }
 
 export interface RespondToMandateParams {
   action: 'accept' | 'reject' | 'counter';
-  reason?: string;
-  counterTerms?: Record<string, unknown>;
+  counterCriteria?: Record<string, unknown>;
+  counterTolerance?: Record<string, unknown>;
+  counterDeadline?: string;
+  counterCommissionPct?: number;
+  message?: string;
 }
 
 // ---------------------------------------------------------------------------
 // Receipts
 // ---------------------------------------------------------------------------
 
-/** Known values: SUBMITTED, ACCEPTED, REJECTED, INVALID. Accepts any string for forward compatibility. */
-export type ReceiptStatus =
-  | 'SUBMITTED'
-  | 'ACCEPTED'
-  | 'REJECTED'
-  | 'INVALID'
-  | (string & {});
+/** Structural validation result for receipts. */
+export type StructuralValidation = 'ACCEPTED' | 'INVALID' | 'WARNING' | (string & {});
 
 /**
  * A receipt — structured evidence submitted by a performer claiming completion of a mandate.
  * The principal reviews the receipt and renders a verdict (accept/reject).
  */
 export interface Receipt {
-  /** Unique receipt ID (UUID). */
   id: string;
-  /** Mandate this receipt is for. */
   mandateId: string;
-  /** Agent that submitted the receipt. */
   agentId: string;
-  /** Receipt processing status. */
-  status: ReceiptStatus;
-  /** Evidence of completion. Typed per contract type. */
   evidence: Record<string, unknown>;
-  /** SHA-256 hash of the evidence payload. */
   evidenceHash?: string;
-  /** Free-text notes from the performer. */
-  notes?: string;
-  /** Current verification phase (e.g., 'phase1', 'phase2'). */
-  verificationPhase?: string;
-  /** Detailed verification rule results. */
-  verificationResult?: Record<string, unknown>;
-  /** Overall verification outcome: PASS, FAIL, or REVIEW_REQUIRED. */
-  verificationOutcome?: VerificationOutcome;
-  /** ISO 8601 timestamp when verification completed. */
-  verificationCompletedAt?: string;
-  /** Schema validation errors, if the receipt was invalid. */
+  /** Structural validation result: ACCEPTED, INVALID, or WARNING. */
+  structuralValidation: 'ACCEPTED' | 'INVALID' | 'WARNING' | (string & {});
+  /** Schema validation errors, if any. */
   validationErrors?: string[] | null;
-  /** Current status of the parent mandate (denormalized for convenience). */
+  /** Validation warnings (non-blocking). */
+  warnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
+  /** Current status of the parent mandate (denormalized). */
   mandateStatus?: MandateStatus;
   /** Idempotency key used when submitting. */
   idempotencyKey?: string | null;
-  /** ISO 8601 creation timestamp. */
   createdAt: string;
-  /** ISO 8601 last update timestamp. */
-  updatedAt?: string;
 }
 
 export interface SubmitReceiptParams {
   agentId: string;
   evidence: Record<string, unknown>;
-  notes?: string;
+  evidenceHash?: string;
   idempotencyKey?: string;
 }
 
@@ -1018,36 +1091,57 @@ export interface MandateStatusSummary {
 // Disputes
 // ---------------------------------------------------------------------------
 
-/** Known values: OPENED, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, WITHDRAWN. Accepts any string for forward compatibility. */
+/** Known values: OPEN, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, DISMISSED, WITHDRAWN. Accepts any string for forward compatibility. */
 export type DisputeStatus =
-  | 'OPENED'
+  | 'OPEN'
   | 'TIER_1_REVIEW'
   | 'EVIDENCE_WINDOW'
   | 'TIER_2_REVIEW'
   | 'ESCALATED'
   | 'TIER_3_ARBITRATION'
   | 'RESOLVED'
+  | 'DISMISSED'
   | 'WITHDRAWN'
   | (string & {});
 
+/** Known dispute grounds. */
+export type DisputeGrounds =
+  | 'equivalent_item'
+  | 'fraudulent_receipt'
+  | 'mandate_ambiguity'
+  | 'pricing_dispute'
+  | 'quality_issue'
+  | 'other'
+  | (string & {});
+
+/** Dispute object. Note: GET /dispute returns { dispute, evidence } envelope. */
 export interface Dispute {
   id: string;
   mandateId: string;
-  receiptId: string;
+  initiatedByRole: string;
+  initiatedById: string;
+  grounds: DisputeGrounds;
+  context?: string;
   status: DisputeStatus;
-  reason: string;
-  evidence?: Record<string, unknown>;
   currentTier: number;
-  tierHistory?: Record<string, unknown>[];
-  resolution?: string;
-  amount?: number;
+  outcome?: string | null;
+  resolutionRationale?: string | null;
+  feeChargedTo?: string | null;
+  feeAmount?: number | null;
+  feeCurrency?: string | null;
+  evidenceWindowClosesAt?: string | null;
   createdAt: string;
-  updatedAt?: string;
-  resolvedAt?: string;
+  resolvedAt?: string | null;
+}
+
+/** Response envelope from GET /dispute — includes both dispute and evidence. */
+export interface DisputeResponse {
+  dispute: Dispute;
+  evidence: Array<{ evidenceType: string; payload: Record<string, unknown>; submittedAt: string }>;
 }
 
 export interface CreateDisputeParams {
-  grounds: string;
+  grounds: DisputeGrounds;
   context?: string;
 }
 
@@ -1137,25 +1231,31 @@ export interface WebhookTestResult {
 // Reputation
 // ---------------------------------------------------------------------------
 
-/** Known values: platinum, gold, silver, bronze. Accepts any string for forward compatibility. */
-export type ReputationTier = 'platinum' | 'gold' | 'silver' | 'bronze' | (string & {});
-
+/** Per-contract-type reputation score for an agent. */
 export interface ReputationScore {
   agentId: string;
-  score: number;
-  tier: ReputationTier;
-  completionRate: number;
-  onTimeRate: number;
-  disputeRate: number;
+  contractType: string;
+  reliabilityScore: number;
+  accuracyScore: number;
+  efficiencyScore: number;
+  compositeScore: number;
+  confidenceLevel: string;
+  formulaVersion: string;
+  totalMandates: number;
+  totalPassed: number;
+  totalVerified: number;
   lastUpdatedAt: string;
-  factorsBreakdown?: Record<string, unknown>;
+  recentHistory?: Record<string, unknown>[];
 }
 
+/** Transaction history entry for an agent. */
 export interface ReputationHistoryEntry {
-  timestamp: string;
-  score: number;
-  tier: ReputationTier;
-  changeReason?: string;
+  mandateId: string;
+  contractType: string;
+  status: string;
+  outcome: string;
+  createdAt: string;
+  completedAt?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1309,7 +1409,7 @@ export interface EuAiActReport {
 // Compliance Records (per-mandate)
 // ---------------------------------------------------------------------------
 
-export type ComplianceRecordType = 'workplace_notification' | 'affected_persons' | 'input_data_quality' | (string & {});
+export type ComplianceRecordType = 'workplace_notification' | 'affected_persons' | 'input_data_quality' | 'fundamental_rights_impact_assessment' | (string & {});
 
 export interface ComplianceRecord {
   id: string;
@@ -1327,6 +1427,33 @@ export interface CreateComplianceRecordParams {
   attestation: Record<string, unknown>;
   attestedBy: string;
   attestedAt?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+export type ProjectStatus = 'active' | 'completed' | 'cancelled' | (string & {});
+
+export interface Project {
+  id: string;
+  enterpriseId: string;
+  name: string;
+  description?: string;
+  status: ProjectStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProjectParams {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateProjectParams {
+  name?: string;
+  description?: string;
+  status?: ProjectStatus;
 }
 
 // ---------------------------------------------------------------------------
@@ -1392,31 +1519,33 @@ export interface AuditStreamResult {
 export type AccountType = 'enterprise' | 'agent' | 'platform';
 
 export interface RegisterParams {
-  accountType: AccountType;
-  email: string;
-  legalName: string;
-  contactEmail?: string;
+  role: AccountType;
+  name: string;
+  email?: string;
+  agentCardUrl?: string;
+  enterpriseId?: string;
 }
 
 export interface RegisterResult {
+  id: string;
   apiKey: string;
-  sandboxMode: boolean;
-  verificationRequired: string;
+  role: AccountType;
+  name: string;
+  trustLevel: string;
+  verificationPending?: 'email' | null;
 }
 
 export interface AccountProfile {
-  id: string;
-  accountType: AccountType;
-  displayName?: string;
-  trustLevel?: string;
-  enterpriseId?: string;
-  capabilities?: ContractType[];
-  sandboxMode?: boolean;
-  /** API key scopes. Null = full access for the role. */
-  scopes?: string[] | null;
-  /** Scope profile name if key was created with a profile. */
-  scopeProfile?: string | null;
-  createdAt: string;
+  apiKeyId: string;
+  role: AccountType;
+  ownerId: string;
+  ownerType: string;
+  trustLevel: string;
+  scopes: string[] | null;
+  name?: string | null;
+  email?: string | null;
+  verifiedAt?: string | null;
+  createdAt?: string | null;
 }
 
 // ---------------------------------------------------------------------------

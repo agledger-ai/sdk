@@ -31,9 +31,13 @@ export class SchemasResource {
   constructor(private readonly http: HttpClient) {}
 
   /** List available contract type schemas. */
-  async list(options?: RequestOptions): Promise<Page<ContractType>> {
+  async list(params?: { enterpriseId?: string }, options?: RequestOptions): Promise<Page<ContractType>> {
+    return this.http.getPage<ContractType>('/v1/schemas', params as Record<string, unknown>, options);
+  }
 
-    return this.http.getPage<ContractType>('/v1/schemas', undefined, options);
+  /** Delete a custom contract type schema. */
+  async delete(contractType: ContractType, options?: RequestOptions): Promise<void> {
+    return this.http.delete(`/v1/schemas/${contractType}`, undefined, options);
   }
 
   /** Get the full JSON Schema for a contract type. */
