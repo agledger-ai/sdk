@@ -93,4 +93,36 @@ describe('AgledgerApiError classifier methods', () => {
       expect(err.docUrl).toBe('https://docs.agledger.ai/errors/unknown');
     });
   });
+
+  describe('suggestion', () => {
+    it('uses API-provided suggestion when present', () => {
+      const err = new AgledgerApiError(400, { message: 'Bad', suggestion: 'Try passing contractType' });
+      expect(err.suggestion).toBe('Try passing contractType');
+    });
+
+    it('generates default suggestion for 404', () => {
+      const err = new AgledgerApiError(404, { message: 'Not found' });
+      expect(err.suggestion).toContain('not found');
+    });
+
+    it('generates default suggestion for 401', () => {
+      const err = new AgledgerApiError(401, { message: 'Unauthorized' });
+      expect(err.suggestion).toContain('API key');
+    });
+
+    it('generates default suggestion for 403', () => {
+      const err = new AgledgerApiError(403, { message: 'Forbidden' });
+      expect(err.suggestion).toContain('scopes');
+    });
+
+    it('generates default suggestion for 422', () => {
+      const err = new AgledgerApiError(422, { message: 'Wrong state' });
+      expect(err.suggestion).toContain('wrong state');
+    });
+
+    it('returns undefined for unknown status codes', () => {
+      const err = new AgledgerApiError(502, { message: 'Bad gateway' });
+      expect(err.suggestion).toBeUndefined();
+    });
+  });
 });

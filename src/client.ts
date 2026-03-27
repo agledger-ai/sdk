@@ -51,6 +51,15 @@ export class AgledgerClient {
     return this.http.rateLimitInfo;
   }
 
+  /**
+   * Request ID from the most recent API response (`X-Request-Id` header).
+   * Useful for debugging and correlating requests across mandate chains.
+   * Null if the API did not return the header.
+   */
+  get lastRequestId(): string | null {
+    return this.http.lastRequestId;
+  }
+
   constructor(options: AgledgerClientOptions) {
     const http = new HttpClient(options);
     this.http = http;

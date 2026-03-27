@@ -349,6 +349,42 @@ describe('WebhooksResource', () => {
     expect(url).toContain('/webhooks/wh-123/rotate');
     expect(init.method).toBe('POST');
   });
+
+  it('gets a single webhook by ID', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.get('wh-123');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123');
+    expect(fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('pauses a webhook', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.pause('wh-123');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123/pause');
+    expect(fetch.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('resumes a webhook', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.resume('wh-123');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123/resume');
+    expect(fetch.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('updates a webhook', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.update('wh-123', { url: 'https://new.example.com/hook' });
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123');
+    expect(fetch.mock.calls[0][1].method).toBe('PATCH');
+  });
+
+  it('lists webhooks filtered by URL', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.webhooks.list({ url: 'https://example.com/hook' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/webhooks');
+    expect(url).toContain('url=https');
+  });
 });
 
 describe('ComplianceResource', () => {
@@ -571,10 +607,13 @@ describe('AdminResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/v1/admin/agents');
   });
 
-  it('updates trust level', async () => {
+  it('updates trust level with accountType', async () => {
     const { client, fetch } = createMockClient();
-    await client.admin.updateTrustLevel('acct-123', { trustLevel: 'verified' });
+    await client.admin.updateTrustLevel('acct-123', { trustLevel: 'verified', accountType: 'enterprise' });
     expect(fetch.mock.calls[0][0]).toContain('/v1/admin/accounts/acct-123/trust-level');
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.accountType).toBe('enterprise');
+    expect(body.trustLevel).toBe('verified');
   });
 
   it('lists DLQ entries', async () => {
@@ -595,26 +634,96 @@ describe('AdminResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/v1/admin/system-health');
   });
 
-  it('creates API key with scopes', async () => {
+  it('creates API key with role and scopes', async () => {
     const { client, fetch } = createMockClient();
     await client.admin.createApiKey({
+      role: 'enterprise',
       ownerId: 'ent-1',
       ownerType: 'enterprise',
       scopes: ['mandates:read', 'mandates:write'],
     });
     const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.role).toBe('enterprise');
     expect(body.scopes).toEqual(['mandates:read', 'mandates:write']);
   });
 
   it('creates API key with scope profile', async () => {
     const { client, fetch } = createMockClient();
     await client.admin.createApiKey({
+      role: 'agent',
       ownerId: 'ent-1',
       ownerType: 'enterprise',
       scopeProfile: 'sidecar',
     });
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.scopeProfile).toBe('sidecar');
+  });
+
+  it('creates an enterprise (flat response)', async () => {
+    const { client, fetch } = createMockClient({
+      id: 'ent-1', name: 'Acme Corp', slug: 'acme-corp', trustLevel: 'sandbox', createdAt: '2026-01-01T00:00:00Z',
+    });
+    const result = await client.admin.createEnterprise({ name: 'Acme Corp' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/enterprises');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.name).toBe('Acme Corp');
+    expect(result.slug).toBe('acme-corp');
+  });
+
+  it('creates an agent (flat response)', async () => {
+    const { client, fetch } = createMockClient({
+      id: 'agt-1', displayName: 'My Agent', slug: 'my-agent', trustLevel: 'sandbox', createdAt: '2026-01-01T00:00:00Z',
+    });
+    const result = await client.admin.createAgent({ name: 'My Agent', enterpriseId: 'ent-1' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/agents');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.name).toBe('My Agent');
+    expect(body.enterpriseId).toBe('ent-1');
+    expect(result.slug).toBe('my-agent');
+  });
+
+  it('toggles API key with isActive field', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.toggleApiKey('key-1', false);
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.isActive).toBe(false);
+  });
+
+  it('sets capabilities with PUT', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.setCapabilities('agt-1', { contractTypes: ['ACH-PROC-v1'] });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/agents/agt-1/capabilities');
+    expect(init.method).toBe('PUT');
+  });
+
+  it('gets enterprise config', async () => {
+    const { client, fetch } = createMockClient({ agentApprovalRequired: true });
+    await client.admin.getEnterpriseConfig('ent-1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/enterprises/ent-1/config');
+    expect(fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('deactivates an account', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.deactivateAccount('acct-1', { accountType: 'enterprise' });
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/accounts/acct-1/deactivate');
+    expect(fetch.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('replaces enterprise config with PUT semantics', async () => {
+    const configPayload = { agentApprovalRequired: true, allowSelfApproval: false };
+    const { client, fetch } = createMockClient(configPayload);
+    await client.admin.setEnterpriseConfig('ent-1', configPayload);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/enterprises/ent-1/config');
+    expect(init.method).toBe('PUT');
+    const body = JSON.parse(init.body);
+    expect(body.agentApprovalRequired).toBe(true);
   });
 });
 

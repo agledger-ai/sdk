@@ -42,10 +42,16 @@ export class HttpClient {
   private readonly fetchFn: typeof globalThis.fetch;
   private readonly idempotencyKeyPrefix: string;
   private _rateLimitInfo: RateLimitInfo | null = null;
+  private _lastRequestId: string | null = null;
 
   /** Rate limit info from the most recent response. Null if headers not present. */
   get rateLimitInfo(): RateLimitInfo | null {
     return this._rateLimitInfo;
+  }
+
+  /** Request ID from the most recent API response (`X-Request-Id` header). Null if not present. */
+  get lastRequestId(): string | null {
+    return this._lastRequestId;
   }
 
   constructor(options: AgledgerClientOptions) {
@@ -305,6 +311,7 @@ export class HttpClient {
         }
 
         this.parseRateLimitHeaders(response.headers);
+        this._lastRequestId = response.headers.get('x-request-id');
 
         if (response.ok) {
           return (await response.json()) as T;
@@ -363,7 +370,7 @@ export class HttpClient {
     const errorBody = {
       error: (body.error as string) || 'unknown',
       message: (body.message as string) || `HTTP ${status}`,
-      requestId: body.requestId as string | undefined,
+      requestId: (body.requestId as string | undefined) || headers.get('x-request-id') || undefined,
       code: body.code as string | undefined,
       retryable: body.retryable as boolean | undefined,
       details: body.details as Record<string, unknown> | undefined,

@@ -184,12 +184,17 @@ export type {
   AdminEnterprise,
   AdminAgent,
   AdminApiKey,
+  CreateEnterpriseParams,
+  CreateAgentParams,
+  EnterpriseConfig,
+  SetEnterpriseConfigParams,
   CreateApiKeyParams,
   CreateApiKeyResult,
   WebhookDlqEntry,
   SystemHealth,
   UpdateTrustLevelParams,
   SetCapabilitiesParams,
+  ListWebhooksParams,
 
   // A2A Protocol
   AgentCard,

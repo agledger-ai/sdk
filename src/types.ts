@@ -1086,8 +1086,20 @@ export interface Webhook {
   url: string;
   eventTypes: WebhookEventType[] | null;
   isActive: boolean;
+  /** Whether deliveries are paused. */
+  isPaused: boolean;
   format: 'standard' | 'cloudevents';
   secret?: string;
+  /** Whether a secret grace period is active after rotation. */
+  secretGraceActive?: boolean;
+  /** When the secret grace period expires (ISO 8601). */
+  secretGraceExpiresAt?: string | null;
+  /** Circuit breaker state: closed (healthy), open (stopped), half_open (testing). */
+  circuitState?: 'closed' | 'open' | 'half_open';
+  /** Number of consecutive delivery failures. */
+  consecutiveFailures?: number;
+  /** Last successful delivery timestamp (ISO 8601). */
+  lastSuccessfulAt?: string | null;
   createdAt: string;
 }
 
@@ -1450,43 +1462,145 @@ export interface ConformanceResponse {
 
 export interface AdminEnterprise {
   id: string;
-  legalName: string;
+  /** Display name (called `name` in the API). */
+  name: string;
+  /** URL-safe identifier for the enterprise. Auto-generated if omitted on create. */
+  slug: string;
+  email?: string | null;
   trustLevel: string;
+  verifiedAt?: string | null;
+  verificationMethod?: string | null;
+  mandateCount?: number;
   createdAt: string;
 }
 
 export interface AdminAgent {
   id: string;
-  displayName: string;
-  enterpriseId: string;
+  displayName: string | null;
+  /** URL-safe identifier for the agent. Auto-generated if omitted on create. */
+  slug: string;
+  email?: string | null;
   trustLevel: string;
-  capabilities?: ContractType[];
+  verifiedAt?: string | null;
+  verificationMethod?: string | null;
+  agentCardUrl?: string | null;
+  mandateCount?: number;
   createdAt: string;
+}
+
+/**
+ * Parameters for creating a new enterprise via admin endpoint.
+ * @example
+ * ```ts
+ * const enterprise = await client.admin.createEnterprise({ name: 'Acme Corp' });
+ * console.log(enterprise.id, enterprise.slug);
+ * ```
+ */
+export interface CreateEnterpriseParams {
+  /** Legal or display name for the enterprise. */
+  name: string;
+  /** URL-safe slug (lowercase, hyphens). Auto-generated from name if omitted. */
+  slug?: string;
+  /** Contact email. */
+  email?: string;
+  /** Initial trust level. Default: sandbox. */
+  trustLevel?: 'sandbox' | 'active' | 'verified';
+  /** Initial configuration object. */
+  config?: Record<string, unknown>;
+}
+
+/**
+ * Parameters for creating a new agent via admin endpoint.
+ * @example
+ * ```ts
+ * const agent = await client.admin.createAgent({ name: 'My Agent' });
+ * console.log(agent.id, agent.slug);
+ * ```
+ */
+export interface CreateAgentParams {
+  /** Display name for the agent. */
+  name: string;
+  /** URL-safe slug (lowercase, hyphens). Auto-generated from name if omitted. */
+  slug?: string;
+  /** Contact email. */
+  email?: string;
+  /** Initial trust level. Default: sandbox. */
+  trustLevel?: 'sandbox' | 'active' | 'verified';
+  /** A2A agent card URL for verification. */
+  agentCardUrl?: string;
+  /** Enterprise ID the agent belongs to (for enterprise-scoped agents). */
+  enterpriseId?: string;
+}
+
+/** Full enterprise configuration. Used with PUT semantics (full replace). */
+export interface EnterpriseConfig {
+  [key: string]: unknown;
+}
+
+/**
+ * Parameters for replacing enterprise configuration (desired-state semantics).
+ * The entire config object is replaced — omitted fields are removed.
+ * @example
+ * ```ts
+ * await client.admin.setEnterpriseConfig('ent_abc123', {
+ *   agentApprovalRequired: true,
+ *   allowSelfApproval: false,
+ *   defaultScopes: ['mandate:read', 'receipt:write'],
+ * });
+ * ```
+ */
+export interface SetEnterpriseConfigParams {
+  [key: string]: unknown;
+}
+
+/** Parameters for listing webhooks with optional URL filter. */
+export interface ListWebhooksParams extends ListParams {
+  /** Filter webhooks by exact URL match. */
+  url?: string;
 }
 
 export interface AdminApiKey {
   id: string;
+  /** API key role: enterprise, agent, or platform. */
+  role?: string;
   ownerId: string;
   ownerType: AccountType;
-  active: boolean;
+  /** Whether the key is active. */
+  isActive: boolean;
+  /** Human-readable label. */
+  label?: string | null;
   /** API key scopes. Null = full access for the role. */
   scopes?: string[] | null;
   /** Scope profile name if created with a profile. */
   scopeProfile?: string | null;
+  /** Environment: live or test. */
+  environment?: string;
+  /** Rate limit tier. */
+  rateLimitTier?: string;
   createdAt: string;
   lastUsedAt?: string;
   expiresAt?: string | null;
+  /** Key that created this key. */
+  createdByKeyId?: string | null;
+  /** Scheduled deactivation time. */
+  deactivatesAt?: string | null;
 }
 
 export interface CreateApiKeyParams {
+  /** Role for the key: enterprise, agent, or platform. */
+  role: 'enterprise' | 'agent' | 'platform';
   ownerId: string;
   ownerType: AccountType;
+  /** Human-readable label. */
+  label?: string;
   /** Explicit scopes to set on the key. */
   scopes?: string[];
   /** Convenience profile name — expands to a predefined scope array. Takes precedence over `scopes`. */
   scopeProfile?: string;
   /** Optional expiration date (ISO 8601). */
   expiresAt?: string;
+  /** Environment: live or test. Default: live. */
+  environment?: 'live' | 'test';
   /** IP allowlist. Null = any IP. */
   allowedIps?: string[];
 }
@@ -1519,6 +1633,8 @@ export interface SystemHealth {
 
 export interface UpdateTrustLevelParams {
   trustLevel: 'sandbox' | 'active' | 'verified';
+  accountType: 'enterprise' | 'agent';
+  reason?: string;
 }
 
 export interface SetCapabilitiesParams {
@@ -1891,6 +2007,8 @@ export interface ApiErrorResponse {
   code?: string;
   retryable?: boolean;
   details?: ValidationErrorDetail[] | Record<string, unknown>;
+  /** Agent-friendly recovery hint (e.g. "Run `client.mandates.list()` to find valid IDs"). */
+  suggestion?: string;
 }
 
 export interface ValidationErrorDetail {
