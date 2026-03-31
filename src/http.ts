@@ -180,10 +180,9 @@ export class HttpClient {
         options.signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
 
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${this.apiKey}`,
-        Accept: 'application/x-ndjson',
-      };
+      const headers: Record<string, string> = { Accept: 'application/x-ndjson' };
+      const auth = this.authHeader(options);
+      if (auth) headers.Authorization = auth;
 
       try {
         const response = await this.fetchFn(url, {
@@ -238,6 +237,13 @@ export class HttpClient {
   // Internal
   // ---------------------------------------------------------------------------
 
+  /** Build Authorization header value based on options and default API key. */
+  private authHeader(options?: RequestOptions): string | undefined {
+    if (options?.authOverride === 'none') return undefined;
+    if (options?.authOverride) return `Bearer ${options.authOverride}`;
+    return `Bearer ${this.apiKey}`;
+  }
+
   private buildUrl(path: string, params?: Record<string, unknown>): string {
     const raw = path.startsWith('/') ? `${this.baseUrl}${path}` : `${this.baseUrl}/${path}`;
     const url = new URL(raw);
@@ -284,17 +290,11 @@ export class HttpClient {
         options.signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
 
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${this.apiKey}`,
-        Accept: 'application/json',
-      };
-
-      if (body !== undefined) {
-        headers['Content-Type'] = 'application/json';
-      }
-      if (idempotencyKey) {
-        headers['Idempotency-Key'] = idempotencyKey;
-      }
+      const headers: Record<string, string> = { Accept: 'application/json' };
+      const auth = this.authHeader(options);
+      if (auth) headers.Authorization = auth;
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
       try {
         const response = await this.fetchFn(url, {

@@ -45,6 +45,13 @@ export interface RequestOptions {
   signal?: AbortSignal;
   /** Override timeout for this request (ms) */
   timeout?: number;
+  /**
+   * Override authentication for this request.
+   * - `'none'`: omit the Authorization header entirely (used for federation register/revoke).
+   * - Any other string: sent as `Bearer <value>` (used for federation gateway bearer tokens).
+   * - `undefined` (default): use the client's configured API key.
+   */
+  authOverride?: 'none' | (string & {});
 }
 
 // ---------------------------------------------------------------------------
@@ -2146,6 +2153,382 @@ export interface ValidationErrorDetail {
   constraint?: string;
   expected?: unknown;
   actual?: unknown;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Enums
+// ---------------------------------------------------------------------------
+
+/** Hub-level state for a federated mandate (simplified 6-state model). */
+export type HubState = 'OFFERED' | 'ACCEPTED' | 'ACTIVE' | 'COMPLETED' | 'DISPUTED' | 'TERMINAL';
+
+/** Gateway registration status. */
+export type GatewayStatus = 'active' | 'suspended' | 'revoked';
+
+/** Reason for revoking a gateway. */
+export type RevocationReason = 'key_compromise' | 'decommission' | 'administrative';
+
+/** Verification outcome for federated mandates. */
+export type FederationVerificationOutcome = 'PASS' | 'FAIL';
+
+/** Settlement signal type relayed between gateways. */
+export type FederationSettlementSignal = 'SETTLE' | 'HOLD' | 'RELEASE';
+
+/** Federation audit log entry type. */
+export type FederationAuditEntryType =
+  | 'GATEWAY_REGISTERED'
+  | 'GATEWAY_REVOKED'
+  | 'GATEWAY_SUSPENDED'
+  | 'GATEWAY_KEY_ROTATED'
+  | 'AGENT_REGISTERED'
+  | 'AGENT_REMOVED'
+  | 'MANDATE_OFFERED'
+  | 'MANDATE_STATE_SYNC'
+  | 'SIGNAL_RELAYED'
+  | 'TOKEN_CREATED'
+  | 'ADMIN_REVOCATION'
+  | 'SEQUENCE_RESET'
+  | 'SEQUENCE_GAP';
+
+// ---------------------------------------------------------------------------
+// Federation — Gateway Registration
+// ---------------------------------------------------------------------------
+
+/** Parameters for registering a new gateway with the federation hub. */
+export interface RegisterGatewayParams {
+  registrationToken: string;
+  organizationId: string;
+  signingPublicKey: string;
+  encryptionPublicKey: string;
+  endpointUrl: string;
+  revocationSecret: string;
+  timestamp: string;
+  nonce: string;
+  signature: string;
+  displayName?: string;
+  capabilities?: string[];
+}
+
+/** Result of gateway registration. Contains the bearer token for subsequent requests. */
+export interface RegisterGatewayResult {
+  gatewayId: string;
+  hubSigningPublicKey: string;
+  hubEncryptionPublicKey: string;
+  bearerToken: string;
+  bearerTokenExpiresAt: string;
+  registeredAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Heartbeat
+// ---------------------------------------------------------------------------
+
+/** Parameters for gateway heartbeat (token refresh). */
+export interface HeartbeatParams {
+  gatewayId: string;
+  agentCount: number;
+  mandateCount: number;
+  timestamp: string;
+}
+
+/** Result of a heartbeat. Contains a refreshed bearer token and revocation notices. */
+export interface HeartbeatResult {
+  ack: boolean;
+  serverTime: string;
+  bearerToken: string;
+  bearerTokenExpiresAt: string;
+  revocations: Array<{
+    gatewayId: string;
+    revokedAt: string;
+    reason: string | null;
+  }>;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Agents
+// ---------------------------------------------------------------------------
+
+/** Parameters for registering a federated agent. */
+export interface RegisterFederatedAgentParams {
+  agentId: string;
+  contractTypes: string[];
+  displayName?: string;
+}
+
+/** A federated agent visible in the federation directory. */
+export interface FederationAgent {
+  agentId: string;
+  gatewayId: string;
+  contractTypes: string[];
+  displayName: string | null;
+  registeredAt: string;
+}
+
+/** Parameters for listing federated agents. */
+export interface ListFederatedAgentsParams extends ListParams {
+  contractType?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — State Transitions
+// ---------------------------------------------------------------------------
+
+/** Parameters for submitting a cross-boundary state transition. */
+export interface SubmitStateTransitionParams {
+  mandateId: string;
+  gatewayId: string;
+  state: string;
+  contractType: string;
+  criteriaHash: string;
+  role: 'principal' | 'performer';
+  seq: number;
+  idempotencyKey: string;
+  timestamp: string;
+  nonce: string;
+  signature: string;
+  performerGatewayId?: string;
+}
+
+/** Result of a state transition submission. */
+export interface StateTransitionResult {
+  ack: boolean;
+  hubState: HubState;
+  subStatus: string;
+  hubTimestamp: string;
+  hubSignature: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Settlement Signals
+// ---------------------------------------------------------------------------
+
+/** Parameters for relaying a settlement signal. */
+export interface RelaySignalParams {
+  mandateId: string;
+  signal: FederationSettlementSignal;
+  outcomeHash: string;
+  signalSeq: number;
+  validUntil: string;
+  performerGatewayId: string;
+  timestamp: string;
+  nonce: string;
+  performerSignature: string;
+  outcome?: FederationVerificationOutcome | null;
+}
+
+/** Result of a signal relay. */
+export interface SignalRelayResult {
+  relayed: boolean;
+  hubSignature: string;
+  hubTimestamp: string;
+  targetGatewayId: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Key Rotation & Revocation
+// ---------------------------------------------------------------------------
+
+/** Parameters for rotating a gateway's signing and encryption keys. */
+export interface RotateGatewayKeyParams {
+  newSigningPublicKey: string;
+  newEncryptionPublicKey: string;
+  signatureOldKey: string;
+  signatureNewKey: string;
+  timestamp: string;
+  nonce: string;
+}
+
+/** Parameters for self-service gateway revocation (uses revocation secret, no auth). */
+export interface RevokeGatewayParams {
+  revocationSecret: string;
+  reason: RevocationReason;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Catch-Up (Partition Recovery)
+// ---------------------------------------------------------------------------
+
+/** Parameters for fetching missed audit entries after a network partition. */
+export interface FederationCatchUpParams {
+  sincePosition: number;
+  limit?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Admin: Registration Tokens
+// ---------------------------------------------------------------------------
+
+/** Parameters for creating a federation registration token (admin). */
+export interface CreateRegistrationTokenParams {
+  label?: string;
+  expiresInHours?: number;
+  metadata?: Record<string, unknown> | null;
+  allowedContractTypes?: string[];
+}
+
+/** A federation registration token. */
+export interface FederationRegistrationToken {
+  token: string;
+  expiresAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Admin: Gateway Management
+// ---------------------------------------------------------------------------
+
+/** Query parameters for listing federation gateways (admin). */
+export interface ListFederationGatewaysParams extends ListParams {
+  status?: GatewayStatus;
+}
+
+/** A registered federation gateway. */
+export interface FederationGateway {
+  gatewayId: string;
+  organizationId: string;
+  displayName: string | null;
+  status: GatewayStatus;
+  endpointUrl: string;
+  capabilities: string[];
+  lastHeartbeat: string | null;
+  lastAgentCount: number;
+  lastMandateCount: number;
+  revokedAt: string | null;
+  revocationReason: string | null;
+  registeredAt: string;
+}
+
+/** Parameters for admin-initiated gateway revocation. */
+export interface AdminRevokeGatewayParams {
+  reason: string;
+}
+
+/** Parameters for resetting a gateway's sequence counter (admin). */
+export interface ResetSequenceParams {
+  newSeq?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Admin: Mandates
+// ---------------------------------------------------------------------------
+
+/** Query parameters for listing federation mandates (admin). */
+export interface QueryFederationMandatesParams extends ListParams {
+  gatewayId?: string;
+  hubState?: HubState;
+  contractType?: string;
+}
+
+/** A federation mandate as tracked by the hub. */
+export interface FederationMandate {
+  mandateId: string;
+  principalGatewayId: string;
+  performerGatewayId: string | null;
+  contractType: string;
+  criteriaHash: string;
+  hubState: HubState;
+  subStatus: string | null;
+  principalState: string | null;
+  performerState: string | null;
+  verificationOutcome: FederationVerificationOutcome | null;
+  settlementSignal: FederationSettlementSignal | null;
+  signalSeq: number;
+  signalValidUntil: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Admin: Audit Log
+// ---------------------------------------------------------------------------
+
+/** Query parameters for the federation audit log (admin). */
+export interface FederationAuditLogParams extends ListParams {
+  gatewayId?: string;
+  entryType?: FederationAuditEntryType;
+  mandateId?: string;
+}
+
+/** A federation audit log entry (hash-chained). */
+export interface FederationAuditEntry {
+  id: string;
+  entryType: FederationAuditEntryType;
+  gatewayId: string | null;
+  mandateId: string | null;
+  payload: Record<string, unknown>;
+  payloadHash: string;
+  previousHash: string | null;
+  chainPosition: number;
+  alg: string;
+  signature: string | null;
+  signatureAlg: string | null;
+  signingKeyId: string | null;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Admin: Health
+// ---------------------------------------------------------------------------
+
+/** Federation health summary (admin). */
+export interface FederationHealthSummary {
+  gateways: {
+    active: number;
+    suspended: number;
+    revoked: number;
+  };
+  mandates: Record<string, number>;
+  auditChainLength: number;
+  lastAuditEntry: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Admin: Outbound DLQ
+// ---------------------------------------------------------------------------
+
+/** Query parameters for listing outbound DLQ entries (admin). */
+export interface ListOutboundDlqParams {
+  limit?: number;
+  cursor?: string;
+}
+
+/** A failed outbound federation message in the dead-letter queue. */
+export interface FederationDlqEntry {
+  id: string;
+  jobType: string;
+  mandateId: string | null;
+  agentId: string | null;
+  payload: Record<string, unknown>;
+  errorMessage: string;
+  attempts: number;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Query Mandates (non-federation)
+// ---------------------------------------------------------------------------
+
+/** Query parameters for admin mandate listing. */
+export interface QueryAdminMandatesParams extends ListParams {
+  enterpriseId?: string;
+  status?: string;
+  contractType?: string;
+  agentId?: string;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  from?: string;
+  to?: string;
+}
+
+/** Parameters for updating a webhook circuit breaker (admin). */
+export interface UpdateCircuitBreakerParams {
+  state: 'closed' | 'open' | 'half_open';
+}
+
+/** Result of a circuit breaker update. */
+export interface CircuitBreakerResult {
+  id: string;
+  circuitState: string;
+  consecutiveFailures: number;
 }
 
 // ---------------------------------------------------------------------------

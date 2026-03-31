@@ -24,6 +24,9 @@ import type {
   CreateAgentParams,
   EnterpriseConfig,
   SetEnterpriseConfigParams,
+  QueryAdminMandatesParams,
+  UpdateCircuitBreakerParams,
+  CircuitBreakerResult,
 } from '../types.js';
 
 export class AdminResource {
@@ -149,8 +152,8 @@ export class AdminResource {
     return this.http.get('/v1/admin/license', undefined, options);
   }
 
-  /** List mandates across all enterprises (platform admin). */
-  async listMandates(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+  /** List mandates across all enterprises (platform admin). Supports filters by enterprise, status, contract type, agent, and date range. */
+  async listMandates(params?: QueryAdminMandatesParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
     return this.http.getPage('/v1/admin/mandates', params as Record<string, unknown>, options);
   }
 
@@ -172,5 +175,38 @@ export class AdminResource {
   /** Get system health metrics (platform admin). */
   async getSystemHealth(options?: RequestOptions): Promise<SystemHealth> {
     return this.http.get<SystemHealth>('/v1/admin/system-health', undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rate Limit Exemptions
+  // ---------------------------------------------------------------------------
+
+  /** List all IP addresses exempt from rate limiting. */
+  async listRateLimitExemptions(options?: RequestOptions): Promise<Page<string>> {
+    return this.http.getPage<string>('/v1/admin/rate-limit-exemptions/ips', undefined, options);
+  }
+
+  /** Grant rate limit exemption to an IP address. */
+  async setRateLimitExemption(ip: string, options?: RequestOptions): Promise<{ ip: string; exempt: boolean }> {
+    return this.http.put(`/v1/admin/rate-limit-exemptions/ip/${ip}`, {}, options);
+  }
+
+  /** Remove rate limit exemption from an IP address. */
+  async deleteRateLimitExemption(ip: string, options?: RequestOptions): Promise<{ ip: string; exempt: boolean }> {
+    return this.http.delete(`/v1/admin/rate-limit-exemptions/ip/${ip}`, undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Webhook Health & Circuit Breakers
+  // ---------------------------------------------------------------------------
+
+  /** Get health status of all webhooks (delivery stats, circuit breaker states). */
+  async getWebhookHealth(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+    return this.http.getPage('/v1/admin/webhooks/health', params as Record<string, unknown>, options);
+  }
+
+  /** Update a webhook's circuit breaker state (closed / open / half_open). */
+  async updateCircuitBreaker(webhookId: string, params: UpdateCircuitBreakerParams, options?: RequestOptions): Promise<CircuitBreakerResult> {
+    return this.http.patch<CircuitBreakerResult>(`/v1/admin/webhooks/${webhookId}/circuit-breaker`, params, options);
   }
 }

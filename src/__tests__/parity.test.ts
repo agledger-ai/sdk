@@ -176,6 +176,57 @@ const SDK_METHODS: SdkMapping[] = [
   ['notarize', 'get', 'GET', '/notarize/mandates/{id}'],
   ['notarize', 'submitReceipt', 'POST', '/notarize/mandates/{id}/receipts'],
   ['notarize', 'verdict', 'POST', '/notarize/mandates/{id}/verdict'],
+
+  // Mandates — additional
+  ['mandates', 'getGraph', 'GET', '/mandates/{id}/graph'],
+
+  // Webhooks — additional
+  ['webhooks', 'get', 'GET', '/webhooks/{webhookId}'],
+  ['webhooks', 'update', 'PATCH', '/webhooks/{webhookId}'],
+  ['webhooks', 'pause', 'POST', '/webhooks/{webhookId}/pause'],
+  ['webhooks', 'resume', 'POST', '/webhooks/{webhookId}/resume'],
+  ['webhooks', 'listDlq', 'GET', '/webhooks/{webhookId}/dlq'],
+  ['webhooks', 'retryDlq', 'POST', '/webhooks/{webhookId}/dlq/{dlqId}/retry'],
+  ['webhooks', 'retryAllDlq', 'POST', '/webhooks/{webhookId}/dlq/retry-all'],
+
+  // Schemas — additional
+  ['schemas', 'delete', 'DELETE', '/schemas/{contractType}'],
+
+  // Projects
+  ['projects', 'create', 'POST', '/projects'],
+  ['projects', 'list', 'GET', '/projects'],
+  ['projects', 'get', 'GET', '/projects/{id}'],
+  ['projects', 'update', 'PATCH', '/projects/{id}'],
+  ['projects', 'delete', 'DELETE', '/projects/{id}'],
+
+  // Admin — additional
+  ['admin', 'createEnterprise', 'POST', '/admin/enterprises'],
+  ['admin', 'createAgent', 'POST', '/admin/agents'],
+  ['admin', 'listMandates', 'GET', '/admin/mandates'],
+  ['admin', 'replaceEnterpriseConfig', 'PUT', '/admin/enterprises/{id}/config'],
+  ['admin', 'listRateLimitExemptions', 'GET', '/admin/rate-limit-exemptions/ips'],
+  ['admin', 'setRateLimitExemption', 'PUT', '/admin/rate-limit-exemptions/ip/{ip}'],
+  ['admin', 'deleteRateLimitExemption', 'DELETE', '/admin/rate-limit-exemptions/ip/{ip}'],
+  ['admin', 'getWebhookHealth', 'GET', '/admin/webhooks/health'],
+  ['admin', 'updateCircuitBreaker', 'PATCH', '/admin/webhooks/{webhookId}/circuit-breaker'],
+
+  // Federation — Gateway Operations
+  ['federation', 'register', 'POST', '/federation/v1/register'],
+  ['federation', 'heartbeat', 'POST', '/federation/v1/heartbeat'],
+  ['federation', 'registerAgent', 'POST', '/federation/v1/agents'],
+  ['federation', 'listAgents', 'GET', '/federation/v1/agents'],
+  ['federation', 'submitStateTransition', 'POST', '/federation/v1/state-transitions'],
+  ['federation', 'relaySignal', 'POST', '/federation/v1/signals'],
+  ['federation', 'rotateKey', 'POST', '/federation/v1/gateways/{id}/rotate-key'],
+  ['federation', 'revoke', 'POST', '/federation/v1/gateways/{id}/revoke'],
+
+  // Federation — Admin Operations
+  ['federationAdmin', 'createRegistrationToken', 'POST', '/federation/v1/admin/registration-tokens'],
+  ['federationAdmin', 'listGateways', 'GET', '/federation/v1/admin/gateways'],
+  ['federationAdmin', 'revokeGateway', 'POST', '/federation/v1/admin/gateways/{id}/revoke'],
+  ['federationAdmin', 'queryMandates', 'GET', '/federation/v1/admin/mandates'],
+  ['federationAdmin', 'getAuditLog', 'GET', '/federation/v1/admin/audit-log'],
+  ['federationAdmin', 'getHealth', 'GET', '/federation/v1/admin/health'],
 ];
 
 // ---------------------------------------------------------------------------
@@ -350,13 +401,15 @@ const EXCLUDED_ROUTES = new Set([
   // Observability (internal)
   'GET /metrics',
 
-  // Ops (internal)
-  'GET /ops/alerts',
-  'GET /ops/status',
-  'POST /ops/sns-webhook',
-
   // Compliance export download (SDK uses waitForExport + downloadUrl)
   'GET /compliance/export/{exportId}/download',
+
+  // Federation — code-only routes not yet in OpenAPI (tracked in agledger-api#TBD)
+  // 'GET /federation/v1/catch-up',
+  // 'POST /federation/v1/admin/gateways/{id}/reset-seq',
+  // 'GET /federation/v1/admin/outbound-dlq',
+  // 'POST /federation/v1/admin/outbound-dlq/{id}/retry',
+  // 'DELETE /federation/v1/admin/outbound-dlq/{id}',
 ]);
 
 // ---------------------------------------------------------------------------

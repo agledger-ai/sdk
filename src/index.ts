@@ -7,7 +7,7 @@
  */
 
 // Client
-export { AgledgerClient } from './client.js';
+export { AgledgerClient, createFederationClient } from './client.js';
 
 // Types — everything exported for downstream consumers
 export type {
@@ -258,6 +258,50 @@ export type {
   BulkApproveAgentParams,
   BulkApproveResult,
   ListEnterpriseAgentsParams,
+
+  // Federation — Enums
+  HubState,
+  GatewayStatus,
+  RevocationReason,
+  FederationVerificationOutcome,
+  FederationSettlementSignal,
+  FederationAuditEntryType,
+
+  // Federation — Gateway Operations
+  RegisterGatewayParams,
+  RegisterGatewayResult,
+  HeartbeatParams,
+  HeartbeatResult,
+  RegisterFederatedAgentParams,
+  FederationAgent,
+  ListFederatedAgentsParams,
+  SubmitStateTransitionParams,
+  StateTransitionResult,
+  RelaySignalParams,
+  SignalRelayResult,
+  RotateGatewayKeyParams,
+  RevokeGatewayParams,
+  FederationCatchUpParams,
+
+  // Federation — Admin
+  CreateRegistrationTokenParams,
+  FederationRegistrationToken,
+  ListFederationGatewaysParams,
+  FederationGateway,
+  AdminRevokeGatewayParams,
+  QueryFederationMandatesParams,
+  FederationMandate,
+  FederationAuditLogParams,
+  FederationAuditEntry,
+  FederationHealthSummary,
+  ResetSequenceParams,
+  ListOutboundDlqParams,
+  FederationDlqEntry,
+
+  // Admin — New (rate limits, webhooks, circuit breaker)
+  QueryAdminMandatesParams,
+  UpdateCircuitBreakerParams,
+  CircuitBreakerResult,
 
   // Errors
   ApiErrorResponse,

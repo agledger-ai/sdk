@@ -24,6 +24,8 @@ import { CapabilitiesResource } from './resources/capabilities.js';
 import { NotarizeResource } from './resources/notarize.js';
 import { EnterprisesResource } from './resources/enterprises.js';
 import { ProjectsResource } from './resources/projects.js';
+import { FederationResource } from './resources/federation.js';
+import { FederationAdminResource } from './resources/federation-admin.js';
 
 export class AgledgerClient {
   private readonly http: HttpClient;
@@ -47,6 +49,8 @@ export class AgledgerClient {
   readonly notarize: NotarizeResource;
   readonly enterprises: EnterprisesResource;
   readonly projects: ProjectsResource;
+  readonly federation: FederationResource;
+  readonly federationAdmin: FederationAdminResource;
 
   /** Rate limit info from the most recent API response. Null if headers not present. */
   get rateLimitInfo(): RateLimitInfo | null {
@@ -84,5 +88,34 @@ export class AgledgerClient {
     this.notarize = new NotarizeResource(http);
     this.enterprises = new EnterprisesResource(http);
     this.projects = new ProjectsResource(http);
+    this.federation = new FederationResource(http);
+    this.federationAdmin = new FederationAdminResource(http);
   }
+}
+
+/**
+ * Create a lightweight federation client for gateways that only have a bearer token
+ * (obtained from {@link FederationResource.register}).
+ *
+ * @example
+ * ```ts
+ * const fc = createFederationClient({ bearerToken: result.bearerToken });
+ * await fc.federation.heartbeat({ gatewayId, agentCount: 0, mandateCount: 0, timestamp: new Date().toISOString() });
+ * ```
+ */
+export function createFederationClient(options: {
+  bearerToken: string;
+  baseUrl?: string;
+  timeout?: number;
+  maxRetries?: number;
+  fetch?: typeof globalThis.fetch;
+}): { federation: FederationResource } {
+  const http = new HttpClient({
+    apiKey: options.bearerToken,
+    baseUrl: options.baseUrl,
+    timeout: options.timeout,
+    maxRetries: options.maxRetries,
+    fetch: options.fetch,
+  });
+  return { federation: new FederationResource(http) };
 }
