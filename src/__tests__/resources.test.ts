@@ -725,6 +725,47 @@ describe('AdminResource', () => {
     const body = JSON.parse(init.body);
     expect(body.agentApprovalRequired).toBe(true);
   });
+
+  it('lists rate limit exemptions', async () => {
+    const { client, fetch } = createPageMockClient(['10.0.0.1', '10.0.0.2']);
+    await client.admin.listRateLimitExemptions();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/rate-limit-exemptions/ips');
+    expect(fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('sets rate limit exemption for IP', async () => {
+    const { client, fetch } = createMockClient({ ip: '10.0.0.1', exempt: true });
+    await client.admin.setRateLimitExemption('10.0.0.1');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/rate-limit-exemptions/ip/10.0.0.1');
+    expect(init.method).toBe('PUT');
+  });
+
+  it('deletes rate limit exemption for IP', async () => {
+    const { client, fetch } = createMockClient({ ip: '10.0.0.1', exempt: false });
+    await client.admin.deleteRateLimitExemption('10.0.0.1');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/rate-limit-exemptions/ip/10.0.0.1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('gets webhook health', async () => {
+    const { client, fetch } = createPageMockClient([{ id: 'wh-1', circuitState: 'closed' }]);
+    await client.admin.getWebhookHealth();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/webhooks/health');
+    expect(fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('updates webhook circuit breaker', async () => {
+    const { client, fetch } = createMockClient({ id: 'wh-1', circuitState: 'open', consecutiveFailures: 5 });
+    const result = await client.admin.updateCircuitBreaker('wh-1', { state: 'open' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/webhooks/wh-1/circuit-breaker');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body);
+    expect(body.state).toBe('open');
+    expect(result.circuitState).toBe('open');
+  });
 });
 
 describe('A2aResource', () => {
