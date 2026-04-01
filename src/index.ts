@@ -11,6 +11,9 @@ export { AgledgerClient, createFederationClient } from './client.js';
 
 // Types — everything exported for downstream consumers
 export type {
+  // Next Steps (HATEOAS)
+  NextStep,
+
   // Client config
   AgledgerClientOptions,
   RequestOptions,

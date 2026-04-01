@@ -4,6 +4,22 @@
  */
 
 // ---------------------------------------------------------------------------
+// Next Steps (HATEOAS guidance for AI agents)
+// ---------------------------------------------------------------------------
+
+/** A suggested next API call — guides agents through the lifecycle without prior state-machine knowledge. */
+export interface NextStep {
+  /** What to do next. */
+  action: string;
+  /** HTTP method. */
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Relative URL template (substitute {id} placeholders). */
+  href: string;
+  /** Why this step matters. */
+  description: string;
+}
+
+// ---------------------------------------------------------------------------
 // Rate Limit Info
 // ---------------------------------------------------------------------------
 
@@ -865,6 +881,8 @@ export interface Mandate {
   metadata?: Record<string, unknown> | null;
   /** ISO 8601 timestamp when the performer responded to a proposal. */
   acceptanceRespondedAt?: string | null;
+  /** Suggested next API calls based on current mandate state. */
+  nextSteps?: NextStep[];
 }
 
 /**
@@ -1029,6 +1047,8 @@ export interface Receipt {
   /** Idempotency key used when submitting. */
   idempotencyKey?: string | null;
   createdAt: string;
+  /** Suggested next API calls after receipt submission. */
+  nextSteps?: NextStep[];
 }
 
 export interface SubmitReceiptParams {
@@ -1139,6 +1159,8 @@ export interface Dispute {
   evidenceWindowClosesAt?: string | null;
   createdAt: string;
   resolvedAt?: string | null;
+  /** Suggested next API calls for this dispute. */
+  nextSteps?: NextStep[];
 }
 
 /** Response envelope from GET /dispute — includes both dispute and evidence. */
@@ -1202,6 +1224,8 @@ export interface Webhook {
   /** Last successful delivery timestamp (ISO 8601). */
   lastSuccessfulAt?: string | null;
   createdAt: string;
+  /** Suggested next API calls for this webhook. */
+  nextSteps?: NextStep[];
 }
 
 export interface CreateWebhookParams {
@@ -1271,13 +1295,11 @@ export interface ReputationHistoryEntry {
 
 export interface AgledgerEvent {
   id: string;
-  mandateId: string;
   eventType: string;
-  actor: string;
-  actorId?: string;
-  timestamp: string;
-  changes?: Record<string, unknown>;
-  details?: Record<string, unknown>;
+  mandateId: string | null;
+  agentId: string | null;
+  payload: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface AuditChain {
@@ -1540,6 +1562,8 @@ export interface RegisterResult {
   name: string;
   trustLevel: string;
   verificationPending?: 'email' | null;
+  /** Suggested next API calls after registration. */
+  nextSteps?: NextStep[];
 }
 
 export interface AccountProfile {
@@ -1608,6 +1632,8 @@ export interface AdminEnterprise {
   verificationMethod?: string | null;
   mandateCount?: number;
   createdAt: string;
+  /** Suggested next API calls after enterprise creation. */
+  nextSteps?: NextStep[];
 }
 
 export interface AdminAgent {
@@ -1622,6 +1648,8 @@ export interface AdminAgent {
   agentCardUrl?: string | null;
   mandateCount?: number;
   createdAt: string;
+  /** Suggested next API calls after agent creation. */
+  nextSteps?: NextStep[];
 }
 
 /**
@@ -2025,6 +2053,7 @@ export type NotarizeStatus =
   | 'NOTARIZED'
   | 'ACCEPTED'
   | 'COUNTER_PROPOSED'
+  | 'REJECTED'
   | 'RECEIPT_SUBMITTED'
   | 'VERDICT_PASS'
   | 'VERDICT_FAIL'
@@ -2032,10 +2061,11 @@ export type NotarizeStatus =
 
 export interface NotarizedMandate {
   id: string;
-  hash: string;
+  payloadHash: string;
   contractType: ContractType;
   principalId: string;
-  performerId?: string;
+  principalRole: 'enterprise' | 'agent';
+  performerId?: string | null;
   status: NotarizeStatus;
   metadata?: Record<string, unknown>;
   createdAt: string;
@@ -2043,10 +2073,14 @@ export interface NotarizedMandate {
 }
 
 export interface NotarizeTransition {
-  status: NotarizeStatus;
-  actor: string;
-  hash?: string;
-  timestamp: string;
+  id: string;
+  fromStatus: string | null;
+  toStatus: string;
+  actorId: string;
+  actorRole: string;
+  payloadHash: string | null;
+  reason: string | null;
+  createdAt: string;
 }
 
 export interface NotarizeMandateParams {
@@ -2056,10 +2090,8 @@ export interface NotarizeMandateParams {
   metadata?: Record<string, unknown>;
 }
 
-export interface NotarizeMandateResult {
-  mandate: NotarizedMandate;
-  payload: Record<string, unknown>;
-}
+/** Result of creating/counter-proposing a notarized mandate. Same shape as NotarizedMandate. */
+export type NotarizeMandateResult = NotarizedMandate;
 
 export interface NotarizeCounterProposeParams {
   payload: Record<string, unknown>;
@@ -2071,11 +2103,12 @@ export interface NotarizeReceiptParams {
 }
 
 export interface NotarizeReceiptResult {
-  receiptId: string;
-  hash: string;
-  mandateId: string;
-  mandate: NotarizedMandate;
-  payload: Record<string, unknown>;
+  id: string;
+  notarizedMandateId: string;
+  payloadHash: string;
+  performerId: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface NotarizeVerdictParams {
@@ -2091,12 +2124,13 @@ export interface NotarizeVerifyParams {
 export interface NotarizeVerifyResult {
   match: boolean;
   storedHash: string;
-  providedHash: string;
+  computedHash: string;
+  notarizedAt: string;
+  type: 'mandate' | 'receipt';
 }
 
 export interface NotarizeHistory {
-  mandateId: string;
-  transitions: NotarizeTransition[];
+  data: NotarizeTransition[];
 }
 
 // ---------------------------------------------------------------------------

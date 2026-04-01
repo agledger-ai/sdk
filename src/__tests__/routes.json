@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-03-31T18:11:38.568348+00:00",
-  "sourceUrl": "https://api.agledger.ai/docs/json",
+  "generatedAt": "2026-04-01T01:15:25.047181+00:00",
+  "sourceUrl": "file://openapi.json",
   "count": 208,
   "routes": [
     {
@@ -205,9 +205,7 @@
       "path": "/admin/api-keys",
       "operationId": "adminListApiKeys",
       "tag": "Admin",
-      "requiredFields": [
-        "ownerId"
-      ],
+      "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "ownerId"
@@ -515,7 +513,7 @@
     {
       "method": "DELETE",
       "path": "/admin/rate-limit-exemptions/ip/{ip}",
-      "operationId": null,
+      "operationId": "adminRemoveIpRateLimitExemption",
       "tag": "Admin",
       "requiredFields": [],
       "bodyFields": [],
@@ -534,7 +532,7 @@
     {
       "method": "PUT",
       "path": "/admin/rate-limit-exemptions/ip/{ip}",
-      "operationId": null,
+      "operationId": "adminAddIpRateLimitExemption",
       "tag": "Admin",
       "requiredFields": [],
       "bodyFields": [],
@@ -553,7 +551,7 @@
     {
       "method": "GET",
       "path": "/admin/rate-limit-exemptions/ips",
-      "operationId": null,
+      "operationId": "adminListIpRateLimitExemptions",
       "tag": "Admin",
       "requiredFields": [],
       "bodyFields": [],
@@ -697,7 +695,7 @@
     {
       "method": "GET",
       "path": "/admin/webhooks/health",
-      "operationId": null,
+      "operationId": "adminGetWebhooksHealth",
       "tag": "Admin",
       "requiredFields": [],
       "bodyFields": [],
@@ -717,7 +715,7 @@
     {
       "method": "PATCH",
       "path": "/admin/webhooks/{webhookId}/circuit-breaker",
-      "operationId": null,
+      "operationId": "adminOverrideWebhookCircuitBreaker",
       "tag": "Admin",
       "requiredFields": [
         "state"
@@ -894,9 +892,7 @@
       "path": "/audit/stream",
       "operationId": "getAuditStream",
       "tag": "Audit",
-      "requiredFields": [
-        "since"
-      ],
+      "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "since",
@@ -1018,9 +1014,7 @@
       "path": "/auth/verify",
       "operationId": "verifyEmail",
       "tag": "Auth",
-      "requiredFields": [
-        "token"
-      ],
+      "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "token"
@@ -1212,9 +1206,7 @@
       "path": "/dashboard/audit-trail",
       "operationId": "getAuditTrail",
       "tag": "Dashboard",
-      "requiredFields": [
-        "mandateId"
-      ],
+      "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "mandateId",
@@ -1280,9 +1272,7 @@
       "path": "/dashboard/stats",
       "operationId": "getDashboardStats",
       "tag": "Dashboard",
-      "requiredFields": [
-        "enterpriseId"
-      ],
+      "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "enterpriseId",
@@ -1506,9 +1496,7 @@
       "path": "/events",
       "operationId": "listEvents",
       "tag": "Events",
-      "requiredFields": [
-        "since"
-      ],
+      "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "since",
@@ -1531,14 +1519,13 @@
     {
       "method": "GET",
       "path": "/federation/v1/admin/audit-log",
-      "operationId": null,
-      "tag": null,
+      "operationId": "getFederationAuditLog",
+      "tag": "Federation Admin",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "gatewayId",
         "entryType",
-        "mandateId",
         "limit",
         "offset"
       ],
@@ -1550,8 +1537,8 @@
     {
       "method": "GET",
       "path": "/federation/v1/admin/gateways",
-      "operationId": null,
-      "tag": null,
+      "operationId": "listFederationGateways",
+      "tag": "Federation Admin",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
@@ -1567,8 +1554,8 @@
     {
       "method": "POST",
       "path": "/federation/v1/admin/gateways/{id}/revoke",
-      "operationId": null,
-      "tag": null,
+      "operationId": "adminRevokeGateway",
+      "tag": "Federation Admin",
       "requiredFields": [
         "reason"
       ],
@@ -1580,14 +1567,15 @@
         "id"
       ],
       "responseCodes": [
-        200
+        200,
+        400
       ]
     },
     {
       "method": "GET",
       "path": "/federation/v1/admin/health",
-      "operationId": null,
-      "tag": null,
+      "operationId": "getFederationHealth",
+      "tag": "Federation Admin",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
@@ -1599,8 +1587,8 @@
     {
       "method": "GET",
       "path": "/federation/v1/admin/mandates",
-      "operationId": null,
-      "tag": null,
+      "operationId": "queryFederationMandates",
+      "tag": "Federation Admin",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
@@ -1618,8 +1606,8 @@
     {
       "method": "POST",
       "path": "/federation/v1/admin/registration-tokens",
-      "operationId": null,
-      "tag": null,
+      "operationId": "createRegistrationToken",
+      "tag": "Federation Admin",
       "requiredFields": [],
       "bodyFields": [
         "label",
@@ -1636,14 +1624,14 @@
     {
       "method": "GET",
       "path": "/federation/v1/agents",
-      "operationId": null,
-      "tag": null,
+      "operationId": "listFederatedAgents",
+      "tag": "Federation",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "contractType",
         "limit",
-        "cursor"
+        "offset"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -1653,8 +1641,8 @@
     {
       "method": "POST",
       "path": "/federation/v1/agents",
-      "operationId": null,
-      "tag": null,
+      "operationId": "registerFederatedAgent",
+      "tag": "Federation",
       "requiredFields": [
         "agentId",
         "contractTypes"
@@ -1667,14 +1655,16 @@
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
-        201
+        201,
+        400,
+        409
       ]
     },
     {
       "method": "POST",
       "path": "/federation/v1/gateways/{id}/revoke",
-      "operationId": null,
-      "tag": null,
+      "operationId": "revokeGateway",
+      "tag": "Federation",
       "requiredFields": [
         "revocationSecret",
         "reason"
@@ -1688,14 +1678,15 @@
         "id"
       ],
       "responseCodes": [
-        200
+        200,
+        400
       ]
     },
     {
       "method": "POST",
       "path": "/federation/v1/gateways/{id}/rotate-key",
-      "operationId": null,
-      "tag": null,
+      "operationId": "rotateGatewayKey",
+      "tag": "Federation",
       "requiredFields": [
         "newSigningPublicKey",
         "newEncryptionPublicKey",
@@ -1717,14 +1708,15 @@
         "id"
       ],
       "responseCodes": [
-        200
+        200,
+        400
       ]
     },
     {
       "method": "POST",
       "path": "/federation/v1/heartbeat",
-      "operationId": null,
-      "tag": null,
+      "operationId": "heartbeat",
+      "tag": "Federation",
       "requiredFields": [
         "gatewayId",
         "agentCount",
@@ -1740,14 +1732,15 @@
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
-        200
+        200,
+        401
       ]
     },
     {
       "method": "POST",
       "path": "/federation/v1/register",
-      "operationId": null,
-      "tag": null,
+      "operationId": "registerGateway",
+      "tag": "Federation",
       "requiredFields": [
         "registrationToken",
         "organizationId",
@@ -1762,27 +1755,29 @@
       "bodyFields": [
         "registrationToken",
         "organizationId",
-        "displayName",
         "signingPublicKey",
         "encryptionPublicKey",
         "endpointUrl",
-        "capabilities",
         "revocationSecret",
         "timestamp",
         "nonce",
-        "signature"
+        "signature",
+        "displayName",
+        "capabilities"
       ],
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
-        201
+        201,
+        400,
+        409
       ]
     },
     {
       "method": "POST",
       "path": "/federation/v1/signals",
-      "operationId": null,
-      "tag": null,
+      "operationId": "relaySignal",
+      "tag": "Federation",
       "requiredFields": [
         "mandateId",
         "signal",
@@ -1797,26 +1792,27 @@
       "bodyFields": [
         "mandateId",
         "signal",
-        "outcome",
         "outcomeHash",
         "signalSeq",
         "validUntil",
         "performerGatewayId",
         "timestamp",
         "nonce",
-        "performerSignature"
+        "performerSignature",
+        "outcome"
       ],
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
-        200
+        200,
+        400
       ]
     },
     {
       "method": "POST",
       "path": "/federation/v1/state-transitions",
-      "operationId": null,
-      "tag": null,
+      "operationId": "submitStateTransition",
+      "tag": "Federation",
       "requiredFields": [
         "mandateId",
         "gatewayId",
@@ -1837,17 +1833,19 @@
         "contractType",
         "criteriaHash",
         "role",
-        "performerGatewayId",
         "seq",
         "idempotencyKey",
         "timestamp",
         "nonce",
-        "signature"
+        "signature",
+        "performerGatewayId"
       ],
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
-        200
+        200,
+        400,
+        409
       ]
     },
     {
@@ -2986,11 +2984,9 @@
     {
       "method": "GET",
       "path": "/portal/auth/confirm",
-      "operationId": null,
+      "operationId": "portalAuthConfirm",
       "tag": "Portal",
-      "requiredFields": [
-        "token"
-      ],
+      "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "token",
@@ -3004,7 +3000,7 @@
     {
       "method": "POST",
       "path": "/portal/auth/verify",
-      "operationId": null,
+      "operationId": "portalAuthVerify",
       "tag": "Portal",
       "requiredFields": [
         "token"
@@ -3021,7 +3017,7 @@
     {
       "method": "POST",
       "path": "/portal/forgot-password",
-      "operationId": null,
+      "operationId": "portalForgotPassword",
       "tag": "Portal",
       "requiredFields": [
         "email"
@@ -3038,7 +3034,7 @@
     {
       "method": "POST",
       "path": "/portal/login",
-      "operationId": null,
+      "operationId": "portalLogin",
       "tag": "Portal",
       "requiredFields": [
         "email"
@@ -3056,7 +3052,7 @@
     {
       "method": "POST",
       "path": "/portal/logout",
-      "operationId": null,
+      "operationId": "portalLogout",
       "tag": "Portal",
       "requiredFields": [],
       "bodyFields": [],
@@ -3069,7 +3065,7 @@
     {
       "method": "GET",
       "path": "/portal/me",
-      "operationId": null,
+      "operationId": "portalGetProfile",
       "tag": "Portal",
       "requiredFields": [],
       "bodyFields": [],
@@ -3082,7 +3078,7 @@
     {
       "method": "PATCH",
       "path": "/portal/me",
-      "operationId": null,
+      "operationId": "portalUpdateProfile",
       "tag": "Portal",
       "requiredFields": [],
       "bodyFields": [
@@ -3099,7 +3095,7 @@
     {
       "method": "POST",
       "path": "/portal/me/change-password",
-      "operationId": null,
+      "operationId": "portalChangePassword",
       "tag": "Portal",
       "requiredFields": [
         "newPassword"
@@ -3117,7 +3113,7 @@
     {
       "method": "GET",
       "path": "/portal/me/sandbox",
-      "operationId": null,
+      "operationId": "portalGetSandbox",
       "tag": "Portal",
       "requiredFields": [],
       "bodyFields": [],
@@ -3130,7 +3126,7 @@
     {
       "method": "GET",
       "path": "/portal/passkeys",
-      "operationId": null,
+      "operationId": "portalListPasskeys",
       "tag": "Portal",
       "requiredFields": [],
       "bodyFields": [],
@@ -3143,7 +3139,7 @@
     {
       "method": "POST",
       "path": "/portal/passkeys/authenticate/options",
-      "operationId": null,
+      "operationId": "portalPasskeyAuthOptions",
       "tag": "Portal",
       "requiredFields": [],
       "bodyFields": [
@@ -3158,7 +3154,7 @@
     {
       "method": "POST",
       "path": "/portal/passkeys/authenticate/verify",
-      "operationId": null,
+      "operationId": "portalPasskeyAuthVerify",
       "tag": "Portal",
       "requiredFields": [
         "response"
@@ -3175,7 +3171,7 @@
     {
       "method": "POST",
       "path": "/portal/passkeys/register/options",
-      "operationId": null,
+      "operationId": "portalPasskeyRegisterOptions",
       "tag": "Portal",
       "requiredFields": [],
       "bodyFields": [],
@@ -3188,7 +3184,7 @@
     {
       "method": "POST",
       "path": "/portal/passkeys/register/verify",
-      "operationId": null,
+      "operationId": "portalPasskeyRegisterVerify",
       "tag": "Portal",
       "requiredFields": [
         "response"
@@ -3206,7 +3202,7 @@
     {
       "method": "DELETE",
       "path": "/portal/passkeys/{passkeyId}",
-      "operationId": null,
+      "operationId": "portalDeletePasskey",
       "tag": "Portal",
       "requiredFields": [],
       "bodyFields": [],
@@ -3221,7 +3217,7 @@
     {
       "method": "POST",
       "path": "/portal/reset-password",
-      "operationId": null,
+      "operationId": "portalResetPassword",
       "tag": "Portal",
       "requiredFields": [
         "token",
@@ -3240,7 +3236,7 @@
     {
       "method": "POST",
       "path": "/portal/signup",
-      "operationId": null,
+      "operationId": "portalSignup",
       "tag": "Portal",
       "requiredFields": [
         "email",
@@ -4165,10 +4161,7 @@
       "path": "/schemas/{contractType}/diff",
       "operationId": "diffSchemaVersions",
       "tag": "Schemas",
-      "requiredFields": [
-        "from",
-        "to"
-      ],
+      "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "from",
