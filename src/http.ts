@@ -35,7 +35,7 @@ const DEFAULT_BASE_URL = BASE_URLS.production;
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
-const SDK_VERSION = '0.1.0';
+const SDK_VERSION = '0.2.0';
 
 export class HttpClient {
   private readonly apiKey: string;
