@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-04-01T01:15:25.047181+00:00",
   "sourceUrl": "file://openapi.json",
-  "count": 208,
+  "count": 251,
   "routes": [
     {
       "method": "GET",
@@ -4592,6 +4592,861 @@
       "responseCodes": [
         200,
         400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/agents/{agentId}",
+      "operationId": "getAgent",
+      "tag": "Agents",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/agents/{agentId}",
+      "operationId": "updateAgent",
+      "tag": "Agents",
+      "requiredFields": [],
+      "bodyFields": [
+        "name",
+        "description",
+        "metadata"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/agents/{agentId}/references",
+      "operationId": "addAgentReferences",
+      "tag": "Agents",
+      "requiredFields": [
+        "references"
+      ],
+      "bodyFields": [
+        "references"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/agents/{agentId}/references",
+      "operationId": "getAgentReferences",
+      "tag": "Agents",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/references",
+      "operationId": "lookupReference",
+      "tag": "References",
+      "requiredFields": [
+        "system",
+        "refType",
+        "refId"
+      ],
+      "bodyFields": [],
+      "queryFields": [
+        "system",
+        "refType",
+        "refId"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/mandates/{mandateId}/references",
+      "operationId": "addMandateReferences",
+      "tag": "References",
+      "requiredFields": [
+        "references"
+      ],
+      "bodyFields": [
+        "references"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "mandateId"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/mandates/{mandateId}/references",
+      "operationId": "getMandateReferences",
+      "tag": "References",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "mandateId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/catch-up",
+      "operationId": "federationCatchUp",
+      "tag": "Federation",
+      "requiredFields": [
+        "gatewayId"
+      ],
+      "bodyFields": [],
+      "queryFields": [
+        "gatewayId",
+        "since",
+        "limit"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/stream",
+      "operationId": "federationStream",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "since"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/schemas/{contractType}/publish",
+      "operationId": "publishFederationSchema",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [
+        "mandateSchema",
+        "receiptSchema"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "contractType"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/schemas/{contractType}/publish/confirm",
+      "operationId": "confirmFederationSchemaPublish",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "contractType"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/contract-types",
+      "operationId": "listFederationContractTypes",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/contract-types/{contractType}",
+      "operationId": "getFederationContractType",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "contractType"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/mandates/{mandateId}/criteria",
+      "operationId": "getFederationMandateCriteria",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "mandateId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/mandates/{mandateId}/criteria",
+      "operationId": "submitFederationMandateCriteria",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "mandateId"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/reputation/contribute",
+      "operationId": "contributeReputation",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/agents/{agentId}/reputation",
+      "operationId": "getFederatedAgentReputation",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/peer/revocations",
+      "operationId": "broadcastRevocations",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/peer/agent-sync",
+      "operationId": "syncAgentDirectory",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/admin/gateways/{id}/reset-seq",
+      "operationId": "resetGatewaySequence",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [
+        "sequence"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/outbound-dlq",
+      "operationId": "listOutboundDlq",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "limit",
+        "cursor"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/admin/outbound-dlq/{id}/retry",
+      "operationId": "retryOutboundDlq",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/federation/v1/admin/outbound-dlq/{id}",
+      "operationId": "deleteOutboundDlq",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/admin/rotate-hub-key",
+      "operationId": "rotateHubKey",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/hub-keys",
+      "operationId": "listHubKeys",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/admin/hub-keys/{keyId}/activate",
+      "operationId": "activateHubKey",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "keyId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/admin/hub-keys/{keyId}/expire",
+      "operationId": "expireHubKey",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "keyId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/peer",
+      "operationId": "registerPeer",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/peers",
+      "operationId": "listPeers",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/peers/{hubId}",
+      "operationId": "getPeer",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "hubId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/admin/peers/{hubId}/revoke",
+      "operationId": "revokePeer",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "hubId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/admin/peers/{hubId}/resync",
+      "operationId": "resyncPeer",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "hubId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/admin/peering-tokens",
+      "operationId": "createPeeringToken",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/federation/v1/admin/schemas/{contractType}/{version}",
+      "operationId": "deleteSchemaVersion",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "contractType",
+        "version"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/reputation/{agentId}",
+      "operationId": "listReputationContributions",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/federation/v1/admin/reputation/{agentId}",
+      "operationId": "resetReputation",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/mandates/{mandateId}/criteria-status",
+      "operationId": "getMandateCriteriaStatus",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "mandateId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/admin/vault/signing-keys",
+      "operationId": "listVaultSigningKeys",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/admin/vault/signing-keys/rotate",
+      "operationId": "rotateVaultSigningKey",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/admin/vault/anchors",
+      "operationId": "listVaultAnchors",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/admin/vault/anchors/verify",
+      "operationId": "verifyVaultAnchors",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/admin/vault/scan",
+      "operationId": "startVaultScan",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        202,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/admin/vault/scan/{jobId}",
+      "operationId": "getVaultScanStatus",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "jobId"
+      ],
+      "responseCodes": [
+        200,
         401,
         403,
         404,

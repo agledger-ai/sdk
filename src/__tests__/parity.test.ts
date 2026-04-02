@@ -220,6 +220,20 @@ const SDK_METHODS: SdkMapping[] = [
   ['federation', 'rotateKey', 'POST', '/federation/v1/gateways/{id}/rotate-key'],
   ['federation', 'revoke', 'POST', '/federation/v1/gateways/{id}/revoke'],
 
+  // Federation — Additional Gateway Operations
+  ['federation', 'catchUp', 'GET', '/federation/v1/catch-up'],
+  ['federation', 'stream', 'GET', '/federation/v1/stream'],
+  ['federation', 'publishSchema', 'POST', '/federation/v1/schemas/{contractType}/publish'],
+  ['federation', 'confirmSchemaPublish', 'POST', '/federation/v1/schemas/{contractType}/publish/confirm'],
+  ['federation', 'listContractTypes', 'GET', '/federation/v1/contract-types'],
+  ['federation', 'getContractType', 'GET', '/federation/v1/contract-types/{contractType}'],
+  ['federation', 'getMandateCriteria', 'GET', '/federation/v1/mandates/{mandateId}/criteria'],
+  ['federation', 'submitMandateCriteria', 'POST', '/federation/v1/mandates/{mandateId}/criteria'],
+  ['federation', 'contributeReputation', 'POST', '/federation/v1/reputation/contribute'],
+  ['federation', 'getAgentReputation', 'GET', '/federation/v1/agents/{agentId}/reputation'],
+  ['federation', 'broadcastRevocations', 'POST', '/federation/v1/peer/revocations'],
+  ['federation', 'syncAgentDirectory', 'POST', '/federation/v1/peer/agent-sync'],
+
   // Federation — Admin Operations
   ['federationAdmin', 'createRegistrationToken', 'POST', '/federation/v1/admin/registration-tokens'],
   ['federationAdmin', 'listGateways', 'GET', '/federation/v1/admin/gateways'],
@@ -227,6 +241,43 @@ const SDK_METHODS: SdkMapping[] = [
   ['federationAdmin', 'queryMandates', 'GET', '/federation/v1/admin/mandates'],
   ['federationAdmin', 'getAuditLog', 'GET', '/federation/v1/admin/audit-log'],
   ['federationAdmin', 'getHealth', 'GET', '/federation/v1/admin/health'],
+  ['federationAdmin', 'resetSequence', 'POST', '/federation/v1/admin/gateways/{id}/reset-seq'],
+  ['federationAdmin', 'listDlq', 'GET', '/federation/v1/admin/outbound-dlq'],
+  ['federationAdmin', 'retryDlq', 'POST', '/federation/v1/admin/outbound-dlq/{id}/retry'],
+  ['federationAdmin', 'deleteDlq', 'DELETE', '/federation/v1/admin/outbound-dlq/{id}'],
+  ['federationAdmin', 'rotateHubKey', 'POST', '/federation/v1/admin/rotate-hub-key'],
+  ['federationAdmin', 'listHubKeys', 'GET', '/federation/v1/admin/hub-keys'],
+  ['federationAdmin', 'activateHubKey', 'POST', '/federation/v1/admin/hub-keys/{keyId}/activate'],
+  ['federationAdmin', 'expireHubKey', 'POST', '/federation/v1/admin/hub-keys/{keyId}/expire'],
+  ['federationAdmin', 'registerPeer', 'POST', '/federation/v1/peer'],
+  ['federationAdmin', 'listPeers', 'GET', '/federation/v1/admin/peers'],
+  ['federationAdmin', 'getPeer', 'GET', '/federation/v1/admin/peers/{hubId}'],
+  ['federationAdmin', 'revokePeer', 'POST', '/federation/v1/admin/peers/{hubId}/revoke'],
+  ['federationAdmin', 'resyncPeer', 'POST', '/federation/v1/admin/peers/{hubId}/resync'],
+  ['federationAdmin', 'createPeeringToken', 'POST', '/federation/v1/admin/peering-tokens'],
+  ['federationAdmin', 'deleteSchemaVersion', 'DELETE', '/federation/v1/admin/schemas/{contractType}/{version}'],
+  ['federationAdmin', 'listReputationContributions', 'GET', '/federation/v1/admin/reputation/{agentId}'],
+  ['federationAdmin', 'resetReputation', 'DELETE', '/federation/v1/admin/reputation/{agentId}'],
+  ['federationAdmin', 'getMandateCriteriaStatus', 'GET', '/federation/v1/admin/mandates/{mandateId}/criteria-status'],
+
+  // Agents
+  ['agents', 'get', 'GET', '/agents/{agentId}'],
+  ['agents', 'update', 'PATCH', '/agents/{agentId}'],
+  ['agents', 'addReferences', 'POST', '/agents/{agentId}/references'],
+  ['agents', 'getReferences', 'GET', '/agents/{agentId}/references'],
+
+  // References
+  ['references', 'lookup', 'GET', '/references'],
+  ['references', 'addMandateReferences', 'POST', '/mandates/{mandateId}/references'],
+  ['references', 'getMandateReferences', 'GET', '/mandates/{mandateId}/references'],
+
+  // Admin — Vault
+  ['admin', 'listVaultSigningKeys', 'GET', '/admin/vault/signing-keys'],
+  ['admin', 'rotateVaultSigningKey', 'POST', '/admin/vault/signing-keys/rotate'],
+  ['admin', 'listVaultAnchors', 'GET', '/admin/vault/anchors'],
+  ['admin', 'verifyVaultAnchors', 'POST', '/admin/vault/anchors/verify'],
+  ['admin', 'startVaultScan', 'POST', '/admin/vault/scan'],
+  ['admin', 'getVaultScanStatus', 'GET', '/admin/vault/scan/{jobId}'],
 ];
 
 // ---------------------------------------------------------------------------
@@ -404,12 +455,7 @@ const EXCLUDED_ROUTES = new Set([
   // Compliance export download (SDK uses waitForExport + downloadUrl)
   'GET /compliance/export/{exportId}/download',
 
-  // Federation — code-only routes not yet in OpenAPI (tracked in agledger-api#TBD)
-  // 'GET /federation/v1/catch-up',
-  // 'POST /federation/v1/admin/gateways/{id}/reset-seq',
-  // 'GET /federation/v1/admin/outbound-dlq',
-  // 'POST /federation/v1/admin/outbound-dlq/{id}/retry',
-  // 'DELETE /federation/v1/admin/outbound-dlq/{id}',
+  // (Federation routes previously tracked here are now in SDK_METHODS and routes.json)
 ]);
 
 // ---------------------------------------------------------------------------
