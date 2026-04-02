@@ -56,7 +56,9 @@ export class ComplianceResource {
       }
       const result = await this.getExportStatus(exportId);
       if (result.status === 'ready') return result;
-      await new Promise((r) => setTimeout(r, interval));
+      const { promise, resolve } = Promise.withResolvers<void>();
+      setTimeout(resolve, interval);
+      await promise;
     }
     throw new Error(`Export ${exportId} did not complete within ${timeout}ms`);
   }

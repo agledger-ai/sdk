@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "AGLedger™ SDK — Accountability and audit infrastructure for agentic systems.",
   "license": "SEE LICENSE IN LICENSE",
+  "sideEffects": false,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -11,6 +12,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js",
+      "default": "./dist/types.js"
     },
     "./webhooks": {
       "types": "./dist/webhooks/verify.d.ts",
@@ -65,7 +71,7 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

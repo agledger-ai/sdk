@@ -22,6 +22,7 @@ import type {
   ReportOutcomeParams,
   OutcomeResult,
   MandateStatusSummary,
+  AuditChain,
 } from '../types.js';
 import { getValidTransitions as getTransitions } from '../mandate-lifecycle.js';
 
@@ -124,8 +125,8 @@ export class MandatesResource {
   }
 
   /** Get audit trail for a mandate. */
-  async getAudit(id: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.get(`/v1/mandates/${id}/audit`, undefined, options);
+  async getAudit(id: string, options?: RequestOptions): Promise<AuditChain> {
+    return this.http.get<AuditChain>(`/v1/mandates/${id}/audit`, undefined, options);
   }
 
   /** List mandates where the authenticated agent is principal. */

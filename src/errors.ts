@@ -143,6 +143,24 @@ export class NotFoundError extends AgledgerApiError {
   }
 }
 
+export class ConflictError extends AgledgerApiError {
+  constructor(body: ApiErrorResponse) {
+    super(409, body);
+    this.name = 'ConflictError';
+  }
+}
+
+/**
+ * Idempotency key conflict — the same key was used with different parameters.
+ * Subclass of AgledgerApiError (typically 409 with a specific error code).
+ */
+export class IdempotencyError extends AgledgerApiError {
+  constructor(body: ApiErrorResponse) {
+    super(409, body);
+    this.name = 'IdempotencyError';
+  }
+}
+
 export class ValidationError extends AgledgerApiError {
   constructor(body: ApiErrorResponse) {
     super(400, body);
@@ -181,5 +199,20 @@ export class TimeoutError extends ConnectionError {
   constructor(method: string, url: string, timeoutMs: number, cause?: Error) {
     super(`Request timed out after ${timeoutMs}ms: ${method} ${url}`, cause);
     this.name = 'TimeoutError';
+  }
+}
+
+/**
+ * Webhook signature verification failed.
+ * NOT an API error — thrown locally by `constructEvent()` / `verifySignature()`.
+ */
+export class SignatureVerificationError extends Error {
+  /** The raw payload that failed verification. */
+  readonly payload: string;
+
+  constructor(message: string, payload: string) {
+    super(message);
+    this.name = 'SignatureVerificationError';
+    this.payload = payload;
   }
 }

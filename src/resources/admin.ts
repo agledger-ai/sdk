@@ -27,6 +27,12 @@ import type {
   QueryAdminMandatesParams,
   UpdateCircuitBreakerParams,
   CircuitBreakerResult,
+  LicenseInfo,
+  VaultSigningKey,
+  VaultAnchor,
+  VaultAnchorVerifyResult,
+  VaultScanJob,
+  AuthCacheStats,
 } from '../types.js';
 
 export class AdminResource {
@@ -148,8 +154,8 @@ export class AdminResource {
   }
 
   /** Get license status and entitlements. */
-  async getLicense(options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.get('/v1/admin/license', undefined, options);
+  async getLicense(options?: RequestOptions): Promise<LicenseInfo> {
+    return this.http.get<LicenseInfo>('/v1/admin/license', undefined, options);
   }
 
   /** List mandates across all enterprises (platform admin). Supports filters by enterprise, status, contract type, agent, and date range. */
@@ -208,5 +214,85 @@ export class AdminResource {
   /** Update a webhook's circuit breaker state (closed / open / half_open). */
   async updateCircuitBreaker(webhookId: string, params: UpdateCircuitBreakerParams, options?: RequestOptions): Promise<CircuitBreakerResult> {
     return this.http.patch<CircuitBreakerResult>(`/v1/admin/webhooks/${webhookId}/circuit-breaker`, params, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Vault Signing Keys & Anchors
+  // ---------------------------------------------------------------------------
+
+  /** List all vault signing keys (active and rotated). */
+  async listVaultSigningKeys(options?: RequestOptions): Promise<VaultSigningKey[]> {
+    return this.http.get<VaultSigningKey[]>('/v1/admin/vault/signing-keys', undefined, options);
+  }
+
+  /** Rotate the vault signing key. Creates a new key and deprecates the current one. */
+  async rotateVaultSigningKey(options?: RequestOptions): Promise<VaultSigningKey> {
+    return this.http.post<VaultSigningKey>('/v1/admin/vault/signing-keys/rotate', {}, options);
+  }
+
+  /** List vault trust anchors. */
+  async listVaultAnchors(options?: RequestOptions): Promise<VaultAnchor[]> {
+    return this.http.get<VaultAnchor[]>('/v1/admin/vault/anchors', undefined, options);
+  }
+
+  /** Verify all vault trust anchors against their expected hashes. */
+  async verifyVaultAnchors(options?: RequestOptions): Promise<VaultAnchorVerifyResult> {
+    return this.http.post<VaultAnchorVerifyResult>('/v1/admin/vault/anchors/verify', {}, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Vault Integrity Scan
+  // ---------------------------------------------------------------------------
+
+  /** Start an asynchronous vault integrity scan. Returns a job ID for polling. */
+  async startVaultScan(options?: RequestOptions): Promise<VaultScanJob> {
+    return this.http.post<VaultScanJob>('/v1/admin/vault/scan', {}, options);
+  }
+
+  /** Get the status of a vault integrity scan job. */
+  async getVaultScanStatus(jobId: string, options?: RequestOptions): Promise<VaultScanJob> {
+    return this.http.get<VaultScanJob>(`/v1/admin/vault/scan/${jobId}`, undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auth Cache
+  // ---------------------------------------------------------------------------
+
+  /** Flush the auth cache. Forces re-validation of all cached credentials. */
+  async flushAuthCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
+    return this.http.post('/v1/admin/auth-cache/flush', {}, options);
+  }
+
+  /** Get auth cache statistics (hit rate, size, evictions). */
+  async getAuthCacheStats(options?: RequestOptions): Promise<AuthCacheStats> {
+    return this.http.get<AuthCacheStats>('/v1/admin/auth-cache/stats', undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Schema Cache
+  // ---------------------------------------------------------------------------
+
+  /** Flush the schema cache. Forces re-loading of all contract type schemas. */
+  async flushSchemaCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
+    return this.http.post('/v1/admin/schemas/cache/flush', {}, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Owner Rate Limit Exemptions
+  // ---------------------------------------------------------------------------
+
+  /** List all owner-level rate limit exemptions. */
+  async listOwnerRateLimitExemptions(options?: RequestOptions): Promise<Record<string, unknown>[]> {
+    return this.http.get('/v1/admin/rate-limit-exemptions', undefined, options);
+  }
+
+  /** Grant rate limit exemption to an owner. */
+  async setOwnerRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.put(`/v1/admin/rate-limit-exemptions/${ownerId}`, {}, options);
+  }
+
+  /** Remove rate limit exemption from an owner. */
+  async deleteOwnerRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.delete(`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
   }
 }

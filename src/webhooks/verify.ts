@@ -8,6 +8,7 @@
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { WebhookEventType, Mandate, Receipt, VerificationResult, Dispute } from '../types.js';
+import { SignatureVerificationError } from '../errors.js';
 
 const MAX_TOLERANCE_SECONDS = 300;
 
@@ -54,7 +55,7 @@ export function constructEvent(
   toleranceSeconds?: number,
 ): WebhookEvent {
   if (!verifySignature(rawBody, header, secrets, toleranceSeconds)) {
-    throw new Error('Webhook signature verification failed');
+    throw new SignatureVerificationError('Webhook signature verification failed', rawBody);
   }
   const parsed = JSON.parse(rawBody);
   return {

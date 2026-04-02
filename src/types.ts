@@ -68,6 +68,8 @@ export interface RequestOptions {
    * - `undefined` (default): use the client's configured API key.
    */
   authOverride?: 'none' | (string & {});
+  /** Custom headers to merge with defaults for this request. */
+  headers?: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -1118,16 +1120,15 @@ export interface MandateStatusSummary {
 // Disputes
 // ---------------------------------------------------------------------------
 
-/** Known values: OPEN, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, DISMISSED, WITHDRAWN. Accepts any string for forward compatibility. */
+/** Known values: OPENED, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, WITHDRAWN. Accepts any string for forward compatibility. */
 export type DisputeStatus =
-  | 'OPEN'
+  | 'OPENED'
   | 'TIER_1_REVIEW'
   | 'EVIDENCE_WINDOW'
   | 'TIER_2_REVIEW'
   | 'ESCALATED'
   | 'TIER_3_ARBITRATION'
   | 'RESOLVED'
-  | 'DISMISSED'
   | 'WITHDRAWN'
   | (string & {});
 
@@ -1202,6 +1203,15 @@ export type WebhookEventType =
   | 'proxy.session.synced'
   | 'proxy.mandate.detected'
   | 'proxy.mandate.formalized'
+  | 'mandate.revision_requested'
+  | 'federation.mandate.offered'
+  | 'federation.mandate.accepted'
+  | 'federation.mandate.state_changed'
+  | 'federation.settlement.signal'
+  | 'federation.gateway.registered'
+  | 'federation.gateway.revoked'
+  | 'mandate.reference_added'
+  | 'agent.reference_added'
   | (string & {});
 
 export interface Webhook {
@@ -2222,7 +2232,12 @@ export type FederationAuditEntryType =
   | 'TOKEN_CREATED'
   | 'ADMIN_REVOCATION'
   | 'SEQUENCE_RESET'
-  | 'SEQUENCE_GAP';
+  | 'SEQUENCE_GAP'
+  | 'HUB_KEY_ROTATED'
+  | 'PEER_REGISTERED'
+  | 'PEER_REVOKED'
+  | 'AGENT_DIRECTORY_SYNCED'
+  | 'REPUTATION_CONTRIBUTED';
 
 // ---------------------------------------------------------------------------
 // Federation — Gateway Registration
@@ -2563,6 +2578,271 @@ export interface CircuitBreakerResult {
   id: string;
   circuitState: string;
   consecutiveFailures: number;
+}
+
+// ---------------------------------------------------------------------------
+// Agents
+// ---------------------------------------------------------------------------
+
+/** Parameters for updating agent identity. */
+export interface UpdateAgentParams {
+  agentClass?: string;
+  ownerRef?: string;
+  orgUnit?: string;
+  description?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Agent Profile
+// ---------------------------------------------------------------------------
+
+/** Full agent identity returned by the agents resource. */
+export interface AgentProfile {
+  id: string;
+  name: string;
+  slug: string;
+  agentClass: string | null;
+  ownerRef: string | null;
+  orgUnit: string | null;
+  description: string | null;
+  enterpriseId: string | null;
+  trustLevel: string;
+  verificationMethod: string | null;
+  agentCardUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// References
+// ---------------------------------------------------------------------------
+
+/** An external reference linking an AGLedger entity to an external system. */
+export interface EntityReference {
+  system: string;
+  refType: string;
+  refId: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Result of a reverse-lookup by external reference. */
+export interface ReferenceLookupResult {
+  references: EntityReference[];
+  entityType: string;
+  entityId: string;
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Vault
+// ---------------------------------------------------------------------------
+
+/** A vault Ed25519 signing key. */
+export interface VaultSigningKey {
+  id: string;
+  publicKey: string;
+  algorithm: string;
+  status: 'active' | 'retired';
+  createdAt: string;
+  rotatedAt: string | null;
+}
+
+/** A vault trust anchor (hash-chain checkpoint). */
+export interface VaultAnchor {
+  id: string;
+  chainPosition: number;
+  entryHash: string;
+  previousHash: string | null;
+  createdAt: string;
+}
+
+/** Result of verifying vault trust anchors. */
+export interface VaultAnchorVerifyResult {
+  valid: boolean;
+  anchorsChecked: number;
+  errors: string[];
+}
+
+/** Status of an asynchronous vault integrity scan job. */
+export interface VaultScanJob {
+  jobId: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  entriesScanned?: number;
+  errorsFound?: number;
+  startedAt: string;
+  completedAt?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Auth Cache
+// ---------------------------------------------------------------------------
+
+/** Auth cache statistics. */
+export interface AuthCacheStats {
+  size: number;
+  hitRate: number;
+  evictions: number;
+}
+
+// ---------------------------------------------------------------------------
+// Admin — License
+// ---------------------------------------------------------------------------
+
+/** Platform license information and entitlements. */
+export interface LicenseInfo {
+  plan: string;
+  status: string;
+  maxEnterprises?: number;
+  maxAgents?: number;
+  features: string[];
+  expiresAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Hub Keys
+// ---------------------------------------------------------------------------
+
+/** A federation hub signing key. */
+export interface HubSigningKey {
+  id: string;
+  publicKey: string;
+  status: 'active' | 'pending' | 'expired';
+  createdAt: string;
+  activatedAt: string | null;
+  expiredAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Peers
+// ---------------------------------------------------------------------------
+
+/** A peer gateway in hub-to-hub federation. */
+export interface FederationPeer {
+  hubId: string;
+  name: string;
+  endpoint: string;
+  status: 'active' | 'suspended' | 'revoked';
+  publicKey: string;
+  lastSyncAt: string | null;
+  registeredAt: string;
+}
+
+/** A single-use peering token for hub-to-hub federation setup. */
+export interface PeeringToken {
+  token: string;
+  expiresAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Schema Publishing
+// ---------------------------------------------------------------------------
+
+/** Parameters for publishing a contract type schema to the federation. */
+export interface SchemaPublishParams {
+  schema: Record<string, unknown>;
+  visibility?: 'hub-only' | 'full';
+}
+
+/** Parameters for confirming a pending schema publication. */
+export interface SchemaConfirmParams {
+  confirmationToken: string;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Mandate Criteria
+// ---------------------------------------------------------------------------
+
+/** Cross-boundary criteria for a federated mandate. */
+export interface FederationMandateCriteria {
+  mandateId: string;
+  criteria: Record<string, unknown>;
+  submittedBy: string;
+  submittedAt: string;
+}
+
+/** Parameters for submitting cross-boundary mandate criteria. */
+export interface SubmitMandateCriteriaParams {
+  criteria: Record<string, unknown>;
+}
+
+/** Criteria negotiation status for a federated mandate. */
+export interface MandateCriteriaStatus {
+  mandateId: string;
+  principalSubmitted: boolean;
+  performerSubmitted: boolean;
+  agreementReached: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Reputation
+// ---------------------------------------------------------------------------
+
+/** A single reputation contribution from a gateway. */
+export interface ReputationContribution {
+  agentId: string;
+  gatewayId: string;
+  contractType: string;
+  outcome: string;
+  contributedAt: string;
+}
+
+/** Parameters for contributing reputation data. */
+export interface ContributeReputationParams {
+  agentId: string;
+  contractType: string;
+  outcome: string;
+  mandateId?: string;
+}
+
+/** Aggregated federated reputation for an agent. */
+export interface FederationAgentReputation {
+  agentId: string;
+  overallScore: number;
+  contributions: number;
+  byContractType: Record<string, { score: number; count: number }>;
+}
+
+// ---------------------------------------------------------------------------
+// Federation — Peer Sync
+// ---------------------------------------------------------------------------
+
+/** Parameters for broadcasting key revocations to peer gateways. */
+export interface RevocationBroadcastParams {
+  gatewayId: string;
+  reason: string;
+  revokedAt: string;
+}
+
+/** Parameters for synchronizing the agent directory with a peer. */
+export interface AgentDirectorySyncParams {
+  agents: Array<{ agentId: string; contractTypes: string[] }>;
+}
+
+/** Parameters for registering a peer gateway. */
+export interface PeerRegistrationParams {
+  name: string;
+  endpoint: string;
+  publicKey: string;
+  peeringToken: string;
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard — Detail Types
+// ---------------------------------------------------------------------------
+
+/** High-level dashboard statistics (mandate counts, receipts, disputes, agents). */
+export interface DashboardStats {
+  mandates: Record<string, number>;
+  receipts: number;
+  disputes: number;
+  agents: number;
+}
+
+/** A dashboard alert. */
+export interface DashboardAlert {
+  id: string;
+  severity: string;
+  message: string;
+  createdAt: string;
 }
 
 // ---------------------------------------------------------------------------

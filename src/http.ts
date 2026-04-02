@@ -18,6 +18,8 @@ import {
   AuthenticationError,
   PermissionError,
   NotFoundError,
+  ConflictError,
+  IdempotencyError,
   ValidationError,
   UnprocessableError,
   RateLimitError,
@@ -33,6 +35,7 @@ const DEFAULT_BASE_URL = BASE_URLS.production;
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
+const SDK_VERSION = '0.1.0';
 
 export class HttpClient {
   private readonly apiKey: string;
@@ -180,9 +183,14 @@ export class HttpClient {
         options.signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
 
-      const headers: Record<string, string> = { Accept: 'application/x-ndjson' };
+      const headers: Record<string, string> = {
+        Accept: 'application/x-ndjson',
+        'User-Agent': `agledger-node/${SDK_VERSION}`,
+        'X-SDK-Version': SDK_VERSION,
+      };
       const auth = this.authHeader(options);
       if (auth) headers.Authorization = auth;
+      if (options?.headers) Object.assign(headers, options.headers);
 
       try {
         const response = await this.fetchFn(url, {
@@ -290,11 +298,16 @@ export class HttpClient {
         options.signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
 
-      const headers: Record<string, string> = { Accept: 'application/json' };
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+        'User-Agent': `agledger-node/${SDK_VERSION}`,
+        'X-SDK-Version': SDK_VERSION,
+      };
       const auth = this.authHeader(options);
       if (auth) headers.Authorization = auth;
       if (body !== undefined) headers['Content-Type'] = 'application/json';
       if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+      if (options?.headers) Object.assign(headers, options.headers);
 
       try {
         const response = await this.fetchFn(url, {
@@ -385,6 +398,14 @@ export class HttpClient {
         return new PermissionError(errorBody);
       case 404:
         return new NotFoundError(errorBody);
+      case 409: {
+        // Idempotency key conflicts get a specific error class
+        const code = errorBody.code ?? errorBody.error;
+        if (code === 'IDEMPOTENCY_CONFLICT' || code === 'idempotency_conflict') {
+          return new IdempotencyError(errorBody);
+        }
+        return new ConflictError(errorBody);
+      }
       case 422:
         return new UnprocessableError(errorBody);
       case 429: {
@@ -460,6 +481,8 @@ export class HttpClient {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, ms);
+    return promise;
   }
 }

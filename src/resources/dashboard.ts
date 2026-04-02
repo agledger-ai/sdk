@@ -10,6 +10,8 @@ import type {
   DashboardMetricsParams,
   DashboardAgent,
   DashboardAgentParams,
+  DashboardStats,
+  DashboardAlert,
   ListParams,
   Page,
   RequestOptions,
@@ -38,13 +40,13 @@ export class DashboardResource {
   }
 
   /** Get dashboard stats. */
-  async getStats(options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.get('/v1/dashboard/stats', undefined, options);
+  async getStats(options?: RequestOptions): Promise<DashboardStats> {
+    return this.http.get<DashboardStats>('/v1/dashboard/stats', undefined, options);
   }
 
   /** Get dashboard alerts. */
-  async getAlerts(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
-    return this.http.getPage<Record<string, unknown>>('/v1/dashboard/alerts', params as Record<string, unknown>, options);
+  async getAlerts(params?: ListParams, options?: RequestOptions): Promise<Page<DashboardAlert>> {
+    return this.http.getPage<DashboardAlert>('/v1/dashboard/alerts', params as Record<string, unknown>, options);
   }
 
   /** Get dashboard disputes. */

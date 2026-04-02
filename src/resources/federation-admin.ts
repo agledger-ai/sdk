@@ -24,6 +24,12 @@ import type {
   ResetSequenceParams,
   ListOutboundDlqParams,
   FederationDlqEntry,
+  HubSigningKey,
+  FederationPeer,
+  PeeringToken,
+  PeerRegistrationParams,
+  ReputationContribution,
+  MandateCriteriaStatus,
 } from '../types.js';
 
 export class FederationAdminResource {
@@ -110,5 +116,126 @@ export class FederationAdminResource {
     options?: RequestOptions,
   ): Promise<{ deleted: boolean }> {
     return this.http.delete(`/federation/v1/admin/outbound-dlq/${dlqId}`, undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hub Key Management
+  // ---------------------------------------------------------------------------
+
+  /** Rotate the federation hub's signing key. Creates a new key and deprecates the current one. */
+  async rotateHubKey(options?: RequestOptions): Promise<HubSigningKey> {
+    return this.http.post<HubSigningKey>('/federation/v1/admin/rotate-hub-key', {}, options);
+  }
+
+  /** List all hub signing keys (active, rotated, expired). */
+  async listHubKeys(options?: RequestOptions): Promise<HubSigningKey[]> {
+    return this.http.get<HubSigningKey[]>('/federation/v1/admin/hub-keys', undefined, options);
+  }
+
+  /** Activate a hub signing key. */
+  async activateHubKey(
+    keyId: string,
+    options?: RequestOptions,
+  ): Promise<HubSigningKey> {
+    return this.http.post<HubSigningKey>(`/federation/v1/admin/hub-keys/${keyId}/activate`, {}, options);
+  }
+
+  /** Expire a hub signing key. */
+  async expireHubKey(
+    keyId: string,
+    options?: RequestOptions,
+  ): Promise<HubSigningKey> {
+    return this.http.post<HubSigningKey>(`/federation/v1/admin/hub-keys/${keyId}/expire`, {}, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Peer Management
+  // ---------------------------------------------------------------------------
+
+  /** Register a new peer gateway for hub-to-hub federation. */
+  async registerPeer(
+    params: PeerRegistrationParams,
+    options?: RequestOptions,
+  ): Promise<FederationPeer> {
+    return this.http.post<FederationPeer>('/federation/v1/peer', params, options);
+  }
+
+  /** List all peer gateways known to this hub. */
+  async listPeers(options?: RequestOptions): Promise<Page<FederationPeer>> {
+    return this.http.getPage<FederationPeer>('/federation/v1/admin/peers', undefined, options);
+  }
+
+  /** Get details for a specific peer gateway. */
+  async getPeer(
+    hubId: string,
+    options?: RequestOptions,
+  ): Promise<FederationPeer> {
+    return this.http.get<FederationPeer>(`/federation/v1/admin/peers/${hubId}`, undefined, options);
+  }
+
+  /** Revoke a peer gateway (irreversible). */
+  async revokePeer(
+    hubId: string,
+    options?: RequestOptions,
+  ): Promise<{ revoked: boolean }> {
+    return this.http.post(`/federation/v1/admin/peers/${hubId}/revoke`, {}, options);
+  }
+
+  /** Trigger a full resync with a peer gateway. */
+  async resyncPeer(
+    hubId: string,
+    options?: RequestOptions,
+  ): Promise<{ synced: boolean }> {
+    return this.http.post(`/federation/v1/admin/peers/${hubId}/resync`, {}, options);
+  }
+
+  /** Create a single-use peering token for hub-to-hub federation setup. */
+  async createPeeringToken(options?: RequestOptions): Promise<PeeringToken> {
+    return this.http.post<PeeringToken>('/federation/v1/admin/peering-tokens', {}, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Schema Management
+  // ---------------------------------------------------------------------------
+
+  /** Delete a specific version of a federated contract type schema. */
+  async deleteSchemaVersion(
+    contractType: string,
+    version: string,
+    options?: RequestOptions,
+  ): Promise<{ deleted: boolean }> {
+    return this.http.delete(`/federation/v1/admin/schemas/${contractType}/${version}`, undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reputation Administration
+  // ---------------------------------------------------------------------------
+
+  /** List reputation contributions for an agent. */
+  async listReputationContributions(
+    agentId: string,
+    options?: RequestOptions,
+  ): Promise<ReputationContribution[]> {
+    return this.http.get<ReputationContribution[]>(`/federation/v1/admin/reputation/${agentId}`, undefined, options);
+  }
+
+  /** Reset an agent's federated reputation (deletes all contributions). */
+  async resetReputation(
+    agentId: string,
+    options?: RequestOptions,
+  ): Promise<{ reset: boolean }> {
+    return this.http.delete(`/federation/v1/admin/reputation/${agentId}`, undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mandate Criteria Administration
+  // ---------------------------------------------------------------------------
+
+  /** Get the criteria negotiation status for a federated mandate. */
+  async getMandateCriteriaStatus(
+    mandateId: string,
+    options?: RequestOptions,
+  ): Promise<MandateCriteriaStatus> {
+    return this.http.get<MandateCriteriaStatus>(`/federation/v1/admin/mandates/${mandateId}/criteria-status`, undefined, options);
   }
 }

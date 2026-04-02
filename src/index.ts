@@ -67,6 +67,8 @@ export type {
   AuthorizationCriteria,
   InfrastructureCriteria,
   DestructiveCriteria,
+  AnalyzeCriteria,
+  CoordinationCriteria,
 
   // Typed evidence per contract type
   ProcurementEvidence,
@@ -78,6 +80,8 @@ export type {
   AuthorizationEvidence,
   InfrastructureEvidence,
   DestructiveEvidence,
+  AnalyzeEvidence,
+  CoordinationEvidence,
 
   // Type maps and helpers
   CriteriaMap,
@@ -306,6 +310,56 @@ export type {
   UpdateCircuitBreakerParams,
   CircuitBreakerResult,
 
+  // Agents
+  AgentProfile,
+  UpdateAgentParams,
+
+  // References
+  EntityReference,
+  ReferenceLookupResult,
+
+  // Admin — Vault
+  VaultSigningKey,
+  VaultAnchor,
+  VaultAnchorVerifyResult,
+  VaultScanJob,
+
+  // Admin — Auth Cache
+  AuthCacheStats,
+
+  // Admin — License
+  LicenseInfo,
+
+  // Federation — Hub Keys
+  HubSigningKey,
+
+  // Federation — Peers
+  FederationPeer,
+  PeeringToken,
+
+  // Federation — Schema Publishing
+  SchemaPublishParams,
+  SchemaConfirmParams,
+
+  // Federation — Mandate Criteria
+  FederationMandateCriteria,
+  SubmitMandateCriteriaParams,
+  MandateCriteriaStatus,
+
+  // Federation — Reputation
+  ReputationContribution,
+  ContributeReputationParams,
+  FederationAgentReputation,
+
+  // Federation — Peer Sync
+  RevocationBroadcastParams,
+  AgentDirectorySyncParams,
+  PeerRegistrationParams,
+
+  // Dashboard — Detail Types
+  DashboardStats,
+  DashboardAlert,
+
   // Errors
   ApiErrorResponse,
   ValidationErrorDetail,
@@ -328,11 +382,14 @@ export {
   AuthenticationError,
   PermissionError,
   NotFoundError,
+  ConflictError,
+  IdempotencyError,
   ValidationError,
   UnprocessableError,
   RateLimitError,
   ConnectionError,
   TimeoutError,
+  SignatureVerificationError,
 } from './errors.js';
 
 // Scopes

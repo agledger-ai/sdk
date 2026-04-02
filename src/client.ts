@@ -26,6 +26,8 @@ import { EnterprisesResource } from './resources/enterprises.js';
 import { ProjectsResource } from './resources/projects.js';
 import { FederationResource } from './resources/federation.js';
 import { FederationAdminResource } from './resources/federation-admin.js';
+import { AgentsResource } from './resources/agents.js';
+import { ReferencesResource } from './resources/references.js';
 
 export class AgledgerClient {
   private readonly http: HttpClient;
@@ -51,6 +53,8 @@ export class AgledgerClient {
   readonly projects: ProjectsResource;
   readonly federation: FederationResource;
   readonly federationAdmin: FederationAdminResource;
+  readonly agents: AgentsResource;
+  readonly references: ReferencesResource;
 
   /** Rate limit info from the most recent API response. Null if headers not present. */
   get rateLimitInfo(): RateLimitInfo | null {
@@ -90,6 +94,8 @@ export class AgledgerClient {
     this.projects = new ProjectsResource(http);
     this.federation = new FederationResource(http);
     this.federationAdmin = new FederationAdminResource(http);
+    this.agents = new AgentsResource(http);
+    this.references = new ReferencesResource(http);
   }
 }
 

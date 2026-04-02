@@ -26,6 +26,15 @@ import type {
   RevokeGatewayParams,
   FederationCatchUpParams,
   FederationAuditEntry,
+  ContractSchema,
+  SchemaPublishParams,
+  SchemaConfirmParams,
+  FederationMandateCriteria,
+  SubmitMandateCriteriaParams,
+  ContributeReputationParams,
+  FederationAgentReputation,
+  RevocationBroadcastParams,
+  AgentDirectorySyncParams,
 } from '../types.js';
 
 export class FederationResource {
@@ -134,5 +143,117 @@ export class FederationResource {
     options?: RequestOptions,
   ): Promise<{ data: FederationAuditEntry[]; hasMore: boolean }> {
     return this.http.get('/federation/v1/catch-up', params as unknown as Record<string, unknown>, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Event Stream
+  // ---------------------------------------------------------------------------
+
+  /** Stream federation events, optionally starting from a given timestamp. */
+  async stream(
+    params?: { since?: string },
+    options?: RequestOptions,
+  ): Promise<Record<string, unknown>> {
+    return this.http.get('/federation/v1/stream', params as Record<string, unknown>, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Schema Publishing
+  // ---------------------------------------------------------------------------
+
+  /** Publish a contract type schema to the federation. */
+  async publishSchema(
+    contractType: string,
+    params: SchemaPublishParams,
+    options?: RequestOptions,
+  ): Promise<ContractSchema> {
+    return this.http.post<ContractSchema>(`/federation/v1/schemas/${contractType}/publish`, params, options);
+  }
+
+  /** Confirm a pending schema publication. */
+  async confirmSchemaPublish(
+    contractType: string,
+    params: SchemaConfirmParams,
+    options?: RequestOptions,
+  ): Promise<ContractSchema> {
+    return this.http.post<ContractSchema>(`/federation/v1/schemas/${contractType}/publish/confirm`, params, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Contract Types
+  // ---------------------------------------------------------------------------
+
+  /** List all contract types available in the federation. */
+  async listContractTypes(options?: RequestOptions): Promise<ContractSchema[]> {
+    return this.http.get<ContractSchema[]>('/federation/v1/contract-types', undefined, options);
+  }
+
+  /** Get details for a specific federated contract type. */
+  async getContractType(
+    contractType: string,
+    options?: RequestOptions,
+  ): Promise<ContractSchema> {
+    return this.http.get<ContractSchema>(`/federation/v1/contract-types/${contractType}`, undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Mandate Criteria
+  // ---------------------------------------------------------------------------
+
+  /** Get cross-boundary criteria for a federated mandate. */
+  async getMandateCriteria(
+    mandateId: string,
+    options?: RequestOptions,
+  ): Promise<FederationMandateCriteria> {
+    return this.http.get<FederationMandateCriteria>(`/federation/v1/mandates/${mandateId}/criteria`, undefined, options);
+  }
+
+  /** Submit cross-boundary criteria for a federated mandate. */
+  async submitMandateCriteria(
+    mandateId: string,
+    params: SubmitMandateCriteriaParams,
+    options?: RequestOptions,
+  ): Promise<FederationMandateCriteria> {
+    return this.http.post<FederationMandateCriteria>(`/federation/v1/mandates/${mandateId}/criteria`, params, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reputation
+  // ---------------------------------------------------------------------------
+
+  /** Contribute reputation data for an agent to the federation. */
+  async contributeReputation(
+    params: ContributeReputationParams,
+    options?: RequestOptions,
+  ): Promise<{ contributed: boolean }> {
+    return this.http.post('/federation/v1/reputation/contribute', params, options);
+  }
+
+  /** Get an agent's federated reputation score. */
+  async getAgentReputation(
+    agentId: string,
+    options?: RequestOptions,
+  ): Promise<FederationAgentReputation> {
+    return this.http.get<FederationAgentReputation>(`/federation/v1/agents/${agentId}/reputation`, undefined, options);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Peer-to-Peer
+  // ---------------------------------------------------------------------------
+
+  /** Broadcast key revocations to peer gateways. */
+  async broadcastRevocations(
+    params: RevocationBroadcastParams,
+    options?: RequestOptions,
+  ): Promise<{ broadcast: boolean }> {
+    return this.http.post('/federation/v1/peer/revocations', params, options);
+  }
+
+  /** Synchronize agent directory with a peer gateway. */
+  async syncAgentDirectory(
+    params: AgentDirectorySyncParams,
+    options?: RequestOptions,
+  ): Promise<{ synced: boolean }> {
+    return this.http.post('/federation/v1/peer/agent-sync', params, options);
   }
 }
