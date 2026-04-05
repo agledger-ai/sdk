@@ -69,6 +69,8 @@ export type {
   DestructiveCriteria,
   AnalyzeCriteria,
   CoordinationCriteria,
+  MonitoringCriteria,
+  ReviewCriteria,
 
   // Typed evidence per contract type
   ProcurementEvidence,
@@ -82,6 +84,8 @@ export type {
   DestructiveEvidence,
   AnalyzeEvidence,
   CoordinationEvidence,
+  MonitoringEvidence,
+  ReviewEvidence,
 
   // Type maps and helpers
   CriteriaMap,
@@ -92,6 +96,7 @@ export type {
   TypedSubmitReceiptParams,
 
   // Mandates
+  AcceptanceStatus,
   MandateStatus,
   MandateTransitionAction,
   OperatingMode,
@@ -106,7 +111,8 @@ export type {
   SearchMandatesParams,
   DelegateMandateParams,
   CreateAgentMandateParams,
-  RespondToMandateParams,
+  CounterProposeParams,
+  BatchGetMandatesResult,
 
   // Receipts
   StructuralValidation,
@@ -258,7 +264,6 @@ export type {
   // Enterprise Agent Approval Registry
   EnterpriseAgentStatus,
   EnterpriseAgentRecord,
-  ApprovalConfig,
   ApproveAgentParams,
   RevokeAgentParams,
   UpdateAgentStatusParams,
@@ -357,7 +362,6 @@ export type {
   PeerRegistrationParams,
 
   // Dashboard — Detail Types
-  DashboardStats,
   DashboardAlert,
 
   // Errors

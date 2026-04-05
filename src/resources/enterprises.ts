@@ -6,7 +6,6 @@
 import type { HttpClient } from '../http.js';
 import type {
   EnterpriseAgentRecord,
-  ApprovalConfig,
   ApproveAgentParams,
   RevokeAgentParams,
   UpdateAgentStatusParams,
@@ -101,28 +100,4 @@ export class EnterprisesResource {
     );
   }
 
-  /** Get the enterprise's agent approval configuration. */
-  async getApprovalConfig(
-    enterpriseId: string,
-    options?: RequestOptions,
-  ): Promise<ApprovalConfig> {
-    return this.http.get<ApprovalConfig>(
-      `/v1/enterprises/${enterpriseId}/approval-config`,
-      undefined,
-      options,
-    );
-  }
-
-  /** Set the enterprise's agent approval configuration. */
-  async setApprovalConfig(
-    enterpriseId: string,
-    params: ApprovalConfig,
-    options?: RequestOptions,
-  ): Promise<ApprovalConfig> {
-    return this.http.put<ApprovalConfig>(
-      `/v1/enterprises/${enterpriseId}/approval-config`,
-      params,
-      options,
-    );
-  }
 }

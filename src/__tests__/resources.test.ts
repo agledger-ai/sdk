@@ -5,7 +5,7 @@ function createMockClient(responseOverride?: unknown) {
   const fetch = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
-    json: vi.fn().mockResolvedValue(responseOverride ?? { id: 'test-id', status: 'DRAFT' }),
+    json: vi.fn().mockResolvedValue(responseOverride ?? { id: 'test-id', status: 'CREATED' }),
     headers: new Headers(),
   });
   const client = new AgledgerClient({
@@ -110,12 +110,20 @@ describe('MandatesResource', () => {
     expect(body.reason).toBe('No longer needed');
   });
 
-  it('responds to a proposed mandate', async () => {
+  it('counter-proposes on a mandate', async () => {
     const { client, fetch } = createMockClient();
-    await client.mandates.respond('mnd-123', { action: 'counter', counterTerms: { price: 50 } });
+    await client.mandates.counterPropose('mnd-123', { counterCriteria: { price: 50 }, message: 'Lower price' });
     const [url, init] = fetch.mock.calls[0];
-    expect(url).toContain('/mandates/mnd-123/respond');
-    expect(JSON.parse(init.body).action).toBe('counter');
+    expect(url).toContain('/mandates/mnd-123/counter-propose');
+    expect(JSON.parse(init.body).message).toBe('Lower price');
+  });
+
+  it('batch-gets mandates by ID', async () => {
+    const { client, fetch } = createMockClient({ data: [] });
+    await client.mandates.batchGet(['id-1', 'id-2']);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/mandates/batch');
+    expect(JSON.parse(init.body).ids).toEqual(['id-1', 'id-2']);
   });
 
   it('accepts a counter-proposal', async () => {
@@ -180,8 +188,8 @@ describe('MandatesResource', () => {
     let callCount = 0;
     const fetch = vi.fn().mockImplementation(() => {
       callCount++;
-      const status = callCount === 1 ? 'DRAFT'
-        : callCount === 2 ? 'REGISTERED'
+      const status = callCount === 1 ? 'CREATED'
+        : callCount === 2 ? 'CREATED'
         : 'ACTIVE';
       return Promise.resolve({
         ok: true,
@@ -212,11 +220,11 @@ describe('MandatesResource', () => {
 
   it('getValidTransitions returns client-side transitions', () => {
     const { client } = createMockClient();
-    const mandate = { status: 'DRAFT' } as import('../types.js').Mandate;
+    const mandate = { status: 'CREATED' } as import('../types.js').Mandate;
     const transitions = client.mandates.getValidTransitions(mandate);
-    expect(transitions).toContain('REGISTERED');
+    expect(transitions).toContain('ACTIVE');
     expect(transitions).toContain('PROPOSED');
-    expect(transitions).not.toContain('ACTIVE');
+    expect(transitions).toContain('CANCELLED');
   });
 
   it('reports principal outcome on a mandate', async () => {
@@ -877,22 +885,6 @@ describe('EnterprisesResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/v1/enterprises/ent-1/agents/agent-1');
   });
 
-  it('gets approval config', async () => {
-    const { client, fetch } = createMockClient();
-    await client.enterprises.getApprovalConfig('ent-1');
-    expect(fetch.mock.calls[0][0]).toContain('/v1/enterprises/ent-1/approval-config');
-  });
-
-  it('sets approval config via PUT', async () => {
-    const { client, fetch } = createMockClient();
-    await client.enterprises.setApprovalConfig('ent-1', { agentApprovalRequired: true, allowSelfApproval: false });
-    const [url, init] = fetch.mock.calls[0];
-    expect(url).toContain('/v1/enterprises/ent-1/approval-config');
-    expect(init.method).toBe('PUT');
-    const body = JSON.parse(init.body);
-    expect(body.agentApprovalRequired).toBe(true);
-    expect(body.allowSelfApproval).toBe(false);
-  });
 });
 
 describe('SchemasResource', () => {

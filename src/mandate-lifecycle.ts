@@ -8,28 +8,23 @@
 import type { MandateStatus } from './types.js';
 
 /**
- * Valid state transitions for mandates. Each key is a status, and its value
- * is the list of statuses it can transition to.
+ * Valid state transitions for mandates using customer-facing display statuses.
+ * The API maps internal states to these display statuses — this table reflects
+ * what SDK consumers actually observe.
  *
  * Unknown statuses return empty arrays for forward compatibility.
  */
 export const MANDATE_TRANSITIONS: Record<string, readonly string[]> = {
-  DRAFT: ['REGISTERED', 'PROPOSED', 'CANCELLED_DRAFT'],
-  PROPOSED: ['REGISTERED', 'REJECTED', 'CANCELLED_DRAFT', 'PROPOSED'],
-  REGISTERED: ['ACTIVE', 'CANCELLED_PRE_WORK'],
-  ACTIVE: ['RECEIPT_ACCEPTED', 'RECEIPT_INVALID', 'EXPIRED', 'CANCELLED_PRE_WORK', 'CANCELLED_IN_PROGRESS'],
-  RECEIPT_INVALID: ['RECEIPT_ACCEPTED', 'RECEIPT_INVALID', 'EXPIRED', 'CANCELLED_IN_PROGRESS'],
-  RECEIPT_ACCEPTED: ['VERIFYING'],
-  VERIFYING: ['VERIFIED_PASS', 'VERIFIED_FAIL'],
-  VERIFIED_PASS: ['FULFILLED', 'VERIFIED_FAIL'],
-  VERIFIED_FAIL: ['REMEDIATED', 'VERIFIED_PASS', 'REVISION_REQUESTED'],
-  REVISION_REQUESTED: ['RECEIPT_ACCEPTED', 'RECEIPT_INVALID', 'EXPIRED', 'CANCELLED_IN_PROGRESS'],
+  CREATED: ['ACTIVE', 'PROPOSED', 'CANCELLED'],
+  PROPOSED: ['CREATED', 'REJECTED', 'CANCELLED'],
+  ACTIVE: ['PROCESSING', 'EXPIRED', 'CANCELLED'],
+  PROCESSING: ['FULFILLED', 'FAILED', 'REVISION_REQUESTED'],
+  REVISION_REQUESTED: ['PROCESSING', 'EXPIRED', 'CANCELLED'],
   FULFILLED: [],
+  FAILED: ['REMEDIATED', 'REVISION_REQUESTED'],
   REMEDIATED: [],
   EXPIRED: [],
-  CANCELLED_DRAFT: [],
-  CANCELLED_PRE_WORK: [],
-  CANCELLED_IN_PROGRESS: [],
+  CANCELLED: [],
   REJECTED: [],
 };
 

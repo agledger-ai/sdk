@@ -90,7 +90,7 @@ describe('Webhook Verification', () => {
   describe('constructEvent', () => {
     const eventBody = JSON.stringify({
       type: 'mandate.created',
-      data: { id: 'mnd-123', status: 'DRAFT' },
+      data: { id: 'mnd-123', status: 'CREATED' },
       timestamp: '2026-03-16T12:00:00Z',
       id: 'evt-456',
     });
@@ -99,7 +99,7 @@ describe('Webhook Verification', () => {
       const { header } = signPayload(eventBody, secret);
       const event = constructEvent(eventBody, header, secret);
       expect(event.type).toBe('mandate.created');
-      expect(event.data).toEqual({ id: 'mnd-123', status: 'DRAFT' });
+      expect(event.data).toEqual({ id: 'mnd-123', status: 'CREATED' });
       expect(event.timestamp).toBe('2026-03-16T12:00:00Z');
       expect(event.id).toBe('evt-456');
     });

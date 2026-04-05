@@ -193,8 +193,13 @@ const isValid = verifySignature(
 ## Mandate Lifecycle
 
 ```
-DRAFT → REGISTERED → ACTIVE → RECEIPT_ACCEPTED → VERIFYING → VERIFIED_PASS → FULFILLED
-                                                           → VERIFIED_FAIL → REMEDIATED
+CREATED ──> ACTIVE ──> PROCESSING ──> FULFILLED
+  │           │           │
+  v           v           v
+PROPOSED   EXPIRED    FAILED ──> REMEDIATED
+  │        CANCELLED     │
+  v                      v
+REJECTED            REVISION_REQUESTED ──> PROCESSING (resubmit)
 ```
 
 ## API Documentation

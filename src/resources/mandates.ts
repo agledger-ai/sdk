@@ -12,7 +12,8 @@ import type {
   SearchMandatesParams,
   DelegateMandateParams,
   CreateAgentMandateParams,
-  RespondToMandateParams,
+  CounterProposeParams,
+  BatchGetMandatesResult,
   Page,
   BulkCreateResult,
   MandateTransitionAction,
@@ -91,9 +92,9 @@ export class MandatesResource {
     return this.http.post<Mandate>(`/v1/mandates/${id}/reject`, reason ? { reason } : {}, options);
   }
 
-  /** Respond to a PROPOSED mandate (accept, reject, or counter). */
-  async respond(id: string, params: RespondToMandateParams, options?: RequestOptions): Promise<Mandate> {
-    return this.http.post<Mandate>(`/v1/mandates/${id}/respond`, params, options);
+  /** Counter-propose modified terms on a PROPOSED mandate. Sets acceptanceStatus to COUNTER_PROPOSED. */
+  async counterPropose(id: string, params: CounterProposeParams, options?: RequestOptions): Promise<Mandate> {
+    return this.http.post<Mandate>(`/v1/mandates/${id}/counter-propose`, params, options);
   }
 
   /** Accept a counter-proposal on a mandate. */
@@ -122,6 +123,14 @@ export class MandatesResource {
   /** Create multiple mandates in a single request. */
   async bulkCreate(mandates: CreateMandateParams[], options?: RequestOptions): Promise<BulkCreateResult> {
     return this.http.post<BulkCreateResult>('/v1/mandates/bulk', { mandates }, options);
+  }
+
+  /** Fetch multiple mandates by ID in a single request (max 100). Results returned in request order; missing/inaccessible IDs are omitted. */
+  async batchGet(ids: string[], options?: RequestOptions): Promise<BatchGetMandatesResult> {
+    if (ids.length === 0 || ids.length > 100) {
+      throw new RangeError(`batchGet requires 1–100 IDs, got ${ids.length}`);
+    }
+    return this.http.post<BatchGetMandatesResult>('/v1/mandates/batch', { ids }, options);
   }
 
   /** Get audit trail for a mandate. */

@@ -139,7 +139,7 @@ export interface BulkCreateResult {
 // Contract Types
 // ---------------------------------------------------------------------------
 
-/** Known values: ACH-PROC-v1, ACH-DLVR-v1, ACH-DATA-v1, ACH-TXN-v1, ACH-ORCH-v1, ACH-COMM-v1, ACH-AUTH-v1, ACH-INFRA-v1, ACH-DEL-v1, ACH-ANALYZE-v1, ACH-COORD-v1. Accepts any string for forward compatibility. */
+/** Known values: ACH-PROC-v1, ACH-DLVR-v1, ACH-DATA-v1, ACH-TXN-v1, ACH-ORCH-v1, ACH-COMM-v1, ACH-AUTH-v1, ACH-INFRA-v1, ACH-DEL-v1, ACH-ANALYZE-v1, ACH-COORD-v1, ACH-MON-v1, ACH-REVIEW-v1. Accepts any string for forward compatibility. */
 export type ContractType =
   | 'ACH-PROC-v1'
   | 'ACH-DLVR-v1'
@@ -152,6 +152,8 @@ export type ContractType =
   | 'ACH-DEL-v1'
   | 'ACH-ANALYZE-v1'
   | 'ACH-COORD-v1'
+  | 'ACH-MON-v1'
+  | 'ACH-REVIEW-v1'
   | (string & {});
 
 // ---------------------------------------------------------------------------
@@ -277,6 +279,30 @@ export interface DestructiveCriteria {
   justification?: string;
   original_ref?: string;
   reversal_amount?: number;
+}
+
+/** ACH-MON-v1: Monitoring and observation — agents watching for conditions, detecting anomalies, tracking thresholds, and reporting alerts. */
+export interface MonitoringCriteria {
+  description: string;
+  monitor_type?: 'threshold' | 'anomaly' | 'availability' | 'compliance' | 'change_detection';
+  target?: string;
+  condition?: string;
+  check_interval_seconds?: number;
+  alert_channels?: string[];
+  budget?: Denomination;
+  deadline?: string;
+}
+
+/** ACH-REVIEW-v1: Review and approval — an agent or human reviews an artifact and renders a decision. */
+export interface ReviewCriteria {
+  description: string;
+  artifact_ref: string;
+  artifact_type?: string;
+  review_criteria?: string[];
+  decision_options?: string[];
+  requires_justification?: boolean;
+  budget?: Denomination;
+  deadline?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,6 +440,28 @@ export interface DestructiveEvidence {
   performed_at?: string;
 }
 
+/** ACH-MON-v1 receipt evidence. */
+export interface MonitoringEvidence {
+  deliverable: string;
+  deliverable_type: string;
+  summary: string;
+  alerts_triggered?: number;
+  observations?: number;
+  check_count?: number;
+  condition_met?: boolean;
+  submitted_at?: string;
+}
+
+/** ACH-REVIEW-v1 receipt evidence. */
+export interface ReviewEvidence {
+  decision: string;
+  justification: string;
+  artifact_ref: string;
+  criteria_evaluated?: string[];
+  findings?: Array<{ criterion: string; result: string; notes?: string }>;
+  submitted_at?: string;
+}
+
 // ---------------------------------------------------------------------------
 // Type Maps (contract type string -> typed criteria/evidence)
 // ---------------------------------------------------------------------------
@@ -431,6 +479,8 @@ export interface CriteriaMap {
   'ACH-DEL-v1': DestructiveCriteria;
   'ACH-ANALYZE-v1': AnalyzeCriteria;
   'ACH-COORD-v1': CoordinationCriteria;
+  'ACH-MON-v1': MonitoringCriteria;
+  'ACH-REVIEW-v1': ReviewCriteria;
 }
 
 /** Maps known contract type strings to their evidence interfaces. */
@@ -446,6 +496,8 @@ export interface EvidenceMap {
   'ACH-DEL-v1': DestructiveEvidence;
   'ACH-ANALYZE-v1': AnalyzeEvidence;
   'ACH-COORD-v1': CoordinationEvidence;
+  'ACH-MON-v1': MonitoringEvidence;
+  'ACH-REVIEW-v1': ReviewEvidence;
 }
 
 /** Resolves to the typed criteria for known contract types, or Record<string, unknown> for unknown types. */
@@ -725,24 +777,21 @@ export interface ImportSchemaOptions {
 // Mandates
 // ---------------------------------------------------------------------------
 
-/** Known values: DRAFT, PROPOSED, REGISTERED, ACTIVE, RECEIPT_ACCEPTED, RECEIPT_INVALID, VERIFYING, VERIFIED_PASS, VERIFIED_FAIL, REVISION_REQUESTED, FULFILLED, REMEDIATED, EXPIRED, CANCELLED_DRAFT, CANCELLED_PRE_WORK, CANCELLED_IN_PROGRESS, REJECTED. Accepts any string for forward compatibility. */
+/** Performer's response to a mandate proposal. */
+export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED' | (string & {});
+
+/** Customer-facing mandate statuses. The API maps internal states to these display statuses. Accepts any string for forward compatibility. */
 export type MandateStatus =
-  | 'DRAFT'
+  | 'CREATED'
   | 'PROPOSED'
-  | 'REGISTERED'
   | 'ACTIVE'
-  | 'RECEIPT_ACCEPTED'
-  | 'RECEIPT_INVALID'
-  | 'VERIFYING'
-  | 'VERIFIED_PASS'
-  | 'VERIFIED_FAIL'
+  | 'PROCESSING'
   | 'REVISION_REQUESTED'
   | 'FULFILLED'
+  | 'FAILED'
   | 'REMEDIATED'
   | 'EXPIRED'
-  | 'CANCELLED_DRAFT'
-  | 'CANCELLED_PRE_WORK'
-  | 'CANCELLED_IN_PROGRESS'
+  | 'CANCELLED'
   | 'REJECTED'
   | (string & {});
 
@@ -818,7 +867,7 @@ export interface Mandate {
   /** Human oversight configuration for EU AI Act compliance. */
   humanOversight?: Record<string, unknown>;
   /** Performer's response to a proposed mandate. */
-  acceptanceStatus?: 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED';
+  acceptanceStatus?: AcceptanceStatus;
   /** Project grouping reference for related mandates. */
   projectRef?: string;
   /** Parent mandate ID in a delegation chain. */
@@ -831,6 +880,10 @@ export interface Mandate {
   lastTransitionReason?: string | null;
   /** Actor who triggered the last state transition. */
   lastTransitionBy?: string | null;
+  /** Reason from the most recent verdict or revision request. Unlike lastTransitionReason, this persists across subsequent state changes. */
+  lastVerdictReason?: string | null;
+  /** ISO 8601 timestamp of the most recent verdict or revision request. */
+  lastVerdictAt?: string | null;
   /** Number of receipt submissions so far. */
   submissionCount: number;
   /** Maximum allowed submissions, or null for unlimited. */
@@ -849,8 +902,8 @@ export interface Mandate {
   nextActions?: string[];
   /** Valid target statuses from current state. */
   validTransitions?: string[];
-  /** Hint for receipt evidence fields, or null if no receipt expected. */
-  receiptHint?: { requiredFields: string[]; optionalFields?: string[]; examplePayload?: Record<string, unknown> } | null;
+  /** Hint for receipt evidence fields, or null if no receipt expected. Use schemaUrl for the full JSON Schema. */
+  receiptHint?: { requiredFields: string[]; schemaUrl?: string } | null;
   /** Advisory enforcement warnings from the most recent transition. */
   advisoryWarnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
   /** URL to the contract type schema definition. */
@@ -883,6 +936,18 @@ export interface Mandate {
   metadata?: Record<string, unknown> | null;
   /** ISO 8601 timestamp when the performer responded to a proposal. */
   acceptanceRespondedAt?: string | null;
+  /** External entity references attached to this mandate (present on single-mandate fetch only). */
+  references?: Array<{
+    id: string;
+    system: string;
+    refType: string;
+    refId: string;
+    displayName?: string | null;
+    uri?: string | null;
+    attributes?: Record<string, unknown>;
+    createdAt: string;
+    createdBy: string;
+  }>;
   /** Suggested next API calls based on current mandate state. */
   nextSteps?: NextStep[];
 }
@@ -938,7 +1003,7 @@ export interface CreateMandateParams {
   dependsOn?: string[];
   /** Arbitrary metadata. */
   metadata?: Record<string, unknown>;
-  /** Auto-transition from DRAFT → REGISTERED → ACTIVE after create. */
+  /** Auto-transition to ACTIVE after create (CREATED → register → activate in one request). */
   autoActivate?: boolean;
   /** Constraint inheritance mode. */
   constraintInheritance?: ConstraintInheritanceMode;
@@ -1012,13 +1077,18 @@ export interface CreateAgentMandateParams {
   proposalMessage?: string;
 }
 
-export interface RespondToMandateParams {
-  action: 'accept' | 'reject' | 'counter';
+/** Parameters for counter-proposing modified terms on a mandate. */
+export interface CounterProposeParams {
   counterCriteria?: Record<string, unknown>;
   counterTolerance?: Record<string, unknown>;
   counterDeadline?: string;
   counterCommissionPct?: number;
   message?: string;
+}
+
+/** Result of a batch mandate fetch. */
+export interface BatchGetMandatesResult {
+  data: Mandate[];
 }
 
 // ---------------------------------------------------------------------------
@@ -2161,11 +2231,6 @@ export interface EnterpriseAgentRecord {
   reason: string | null;
 }
 
-export interface ApprovalConfig {
-  agentApprovalRequired: boolean;
-  allowSelfApproval: boolean;
-}
-
 export interface ApproveAgentParams { reason?: string; }
 export interface RevokeAgentParams { reason?: string; }
 export interface UpdateAgentStatusParams { status: 'suspended' | 'approved'; reason?: string; }
@@ -2828,14 +2893,6 @@ export interface PeerRegistrationParams {
 // ---------------------------------------------------------------------------
 // Dashboard — Detail Types
 // ---------------------------------------------------------------------------
-
-/** High-level dashboard statistics (mandate counts, receipts, disputes, agents). */
-export interface DashboardStats {
-  mandates: Record<string, number>;
-  receipts: number;
-  disputes: number;
-  agents: number;
-}
 
 /** A dashboard alert. */
 export interface DashboardAlert {

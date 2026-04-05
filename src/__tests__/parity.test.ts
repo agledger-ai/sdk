@@ -38,7 +38,7 @@ interface RouteEntry {
 
 interface RouteManifest {
   generatedAt: string;
-  count: number;
+  routeCount: number;
   routes: RouteEntry[];
 }
 
@@ -73,8 +73,9 @@ const SDK_METHODS: SdkMapping[] = [
   ['mandates', 'cancel', 'POST', '/mandates/{id}/cancel'],
   ['mandates', 'accept', 'POST', '/mandates/{id}/accept'],
   ['mandates', 'reject', 'POST', '/mandates/{id}/reject'],
-  ['mandates', 'respond', 'POST', '/mandates/{id}/respond'],
+  ['mandates', 'counterPropose', 'POST', '/mandates/{id}/counter-propose'],
   ['mandates', 'acceptCounter', 'POST', '/mandates/{id}/accept-counter'],
+  ['mandates', 'batchGet', 'POST', '/mandates/batch'],
   ['mandates', 'getChain', 'GET', '/mandates/{id}/chain'],
   ['mandates', 'getSubMandates', 'GET', '/mandates/{id}/sub-mandates'],
   ['mandates', 'bulkCreate', 'POST', '/mandates/bulk'],
@@ -142,7 +143,10 @@ const SDK_METHODS: SdkMapping[] = [
   // Dashboard
   ['dashboard', 'getSummary', 'GET', '/dashboard/summary'],
   ['dashboard', 'getMetrics', 'GET', '/dashboard/metrics'],
-  ['dashboard', 'getAgents', 'GET', '/dashboard/agents'],
+  ['dashboard', 'listAgents', 'GET', '/dashboard/agents'],
+  ['dashboard', 'getAlerts', 'GET', '/dashboard/alerts'],
+  ['dashboard', 'getDisputes', 'GET', '/dashboard/disputes'],
+  ['dashboard', 'getAuditTrail', 'GET', '/dashboard/audit-trail'],
 
   // Registration
   ['registration', 'register', 'POST', '/auth/register'],
@@ -168,8 +172,6 @@ const SDK_METHODS: SdkMapping[] = [
   ['enterprises', 'bulkApprove', 'POST', '/enterprises/{enterpriseId}/agents/bulk'],
   ['enterprises', 'listAgents', 'GET', '/enterprises/{enterpriseId}/agents'],
   ['enterprises', 'getAgent', 'GET', '/enterprises/{enterpriseId}/agents/{agentId}'],
-  ['enterprises', 'getApprovalConfig', 'GET', '/enterprises/{enterpriseId}/approval-config'],
-  ['enterprises', 'setApprovalConfig', 'PUT', '/enterprises/{enterpriseId}/approval-config'],
 
   // Notarize
   ['notarize', 'create', 'POST', '/notarize/mandates'],
@@ -247,8 +249,8 @@ const SDK_METHODS: SdkMapping[] = [
   ['federationAdmin', 'deleteDlq', 'DELETE', '/federation/v1/admin/outbound-dlq/{id}'],
   ['federationAdmin', 'rotateHubKey', 'POST', '/federation/v1/admin/rotate-hub-key'],
   ['federationAdmin', 'listHubKeys', 'GET', '/federation/v1/admin/hub-keys'],
-  ['federationAdmin', 'activateHubKey', 'POST', '/federation/v1/admin/hub-keys/{keyId}/activate'],
-  ['federationAdmin', 'expireHubKey', 'POST', '/federation/v1/admin/hub-keys/{keyId}/expire'],
+  ['federationAdmin', 'activateHubKey', 'POST', '/federation/v1/admin/hub-keys/{id}/activate'],
+  ['federationAdmin', 'expireHubKey', 'POST', '/federation/v1/admin/hub-keys/{id}/expire'],
   ['federationAdmin', 'registerPeer', 'POST', '/federation/v1/peer'],
   ['federationAdmin', 'listPeers', 'GET', '/federation/v1/admin/peers'],
   ['federationAdmin', 'getPeer', 'GET', '/federation/v1/admin/peers/{hubId}'],
@@ -261,15 +263,15 @@ const SDK_METHODS: SdkMapping[] = [
   ['federationAdmin', 'getMandateCriteriaStatus', 'GET', '/federation/v1/admin/mandates/{mandateId}/criteria-status'],
 
   // Agents
-  ['agents', 'get', 'GET', '/agents/{agentId}'],
-  ['agents', 'update', 'PATCH', '/agents/{agentId}'],
-  ['agents', 'addReferences', 'POST', '/agents/{agentId}/references'],
-  ['agents', 'getReferences', 'GET', '/agents/{agentId}/references'],
+  ['agents', 'get', 'GET', '/agents/{id}'],
+  ['agents', 'update', 'PATCH', '/agents/{id}'],
+  ['agents', 'addReferences', 'POST', '/agents/{id}/references'],
+  ['agents', 'getReferences', 'GET', '/agents/{id}/references'],
 
   // References
   ['references', 'lookup', 'GET', '/references'],
-  ['references', 'addMandateReferences', 'POST', '/mandates/{mandateId}/references'],
-  ['references', 'getMandateReferences', 'GET', '/mandates/{mandateId}/references'],
+  ['references', 'addMandateReferences', 'POST', '/mandates/{id}/references'],
+  ['references', 'getMandateReferences', 'GET', '/mandates/{id}/references'],
 
   // Admin — Vault
   ['admin', 'listVaultSigningKeys', 'GET', '/admin/vault/signing-keys'],
@@ -369,11 +371,7 @@ const EXCLUDED_ROUTES = new Set([
   'GET /audit/enterprise-report',
   'POST /audit/enterprise-report/analyze',
 
-  // Dashboard subresources (SDK may not cover all dashboard views)
-  'GET /dashboard/alerts',
-  'GET /dashboard/audit-trail',
-  'GET /dashboard/disputes',
-  'GET /dashboard/stats',
+  // Dashboard (getStats removed in v0.15.1, alerts/disputes/auditTrail now in SDK)
 
   // Notarize subresources (SDK covers core CRUD, not all actions)
   'POST /notarize/mandates/{id}/accept',
@@ -410,6 +408,13 @@ const EXCLUDED_ROUTES = new Set([
 
   // Events audit chain (SDK uses events.getAuditChain with different path pattern)
   'GET /events/audit-chain/{mandateId}',
+
+  // Audit vault (internal, admin-only export)
+  'GET /audit-vault/export',
+
+  // License management (admin-only)
+  'GET /admin/license/instance-id',
+  'POST /admin/license/reload',
 
   // Admin internal routes
   'GET /admin/auth-cache/stats',
@@ -464,8 +469,8 @@ const EXCLUDED_ROUTES = new Set([
 
 describe('SDK ↔ API Parity', () => {
   it('route manifest is loaded and non-empty', () => {
-    expect(manifest.count).toBeGreaterThan(50);
-    expect(manifest.routes.length).toBe(manifest.count);
+    expect(manifest.routeCount).toBeGreaterThan(50);
+    expect(manifest.routes.length).toBe(manifest.routeCount);
   });
 
   describe('every SDK method maps to a real API route', () => {
@@ -527,10 +532,10 @@ describe('SDK ↔ API Parity', () => {
   });
 
   describe('required fields on key routes match SDK types', () => {
-    it('POST /mandates requires enterpriseId, contractType, contractVersion, platform, criteria', () => {
+    it('POST /mandates requires contractType and criteria', () => {
       const route = routeMap.get('POST /mandates');
       expect(route).toBeDefined();
-      for (const field of ['enterpriseId', 'contractType', 'contractVersion', 'platform', 'criteria']) {
+      for (const field of ['contractType', 'criteria']) {
         expect(route!.requiredFields, `missing required field: ${field}`).toContain(field);
       }
     });

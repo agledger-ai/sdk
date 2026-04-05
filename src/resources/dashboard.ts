@@ -10,7 +10,6 @@ import type {
   DashboardMetricsParams,
   DashboardAgent,
   DashboardAgentParams,
-  DashboardStats,
   DashboardAlert,
   ListParams,
   Page,
@@ -37,11 +36,6 @@ export class DashboardResource {
       params as unknown as Record<string, unknown>,
       options,
     );
-  }
-
-  /** Get dashboard stats. */
-  async getStats(options?: RequestOptions): Promise<DashboardStats> {
-    return this.http.get<DashboardStats>('/v1/dashboard/stats', undefined, options);
   }
 
   /** Get dashboard alerts. */
