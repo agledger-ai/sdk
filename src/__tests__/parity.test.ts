@@ -172,6 +172,8 @@ const SDK_METHODS: SdkMapping[] = [
   ['enterprises', 'bulkApprove', 'POST', '/enterprises/{enterpriseId}/agents/bulk'],
   ['enterprises', 'listAgents', 'GET', '/enterprises/{enterpriseId}/agents'],
   ['enterprises', 'getAgent', 'GET', '/enterprises/{enterpriseId}/agents/{agentId}'],
+  ['enterprises', 'getApprovalConfig', 'GET', '/enterprises/{enterpriseId}/approval-config'],
+  ['enterprises', 'setApprovalConfig', 'PUT', '/enterprises/{enterpriseId}/approval-config'],
 
   // Notarize
   ['notarize', 'create', 'POST', '/notarize/mandates'],

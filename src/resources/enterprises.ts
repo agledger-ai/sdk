@@ -12,6 +12,7 @@ import type {
   BulkApproveAgentParams,
   BulkApproveResult,
   ListEnterpriseAgentsParams,
+  ApprovalConfig,
   Page,
   RequestOptions,
 } from '../types.js';
@@ -96,6 +97,31 @@ export class EnterprisesResource {
     return this.http.get<EnterpriseAgentRecord>(
       `/v1/enterprises/${enterpriseId}/agents/${agentId}`,
       undefined,
+      options,
+    );
+  }
+
+  /** Get the enterprise's agent approval configuration. */
+  async getApprovalConfig(
+    enterpriseId: string,
+    options?: RequestOptions,
+  ): Promise<ApprovalConfig> {
+    return this.http.get<ApprovalConfig>(
+      `/v1/enterprises/${enterpriseId}/approval-config`,
+      undefined,
+      options,
+    );
+  }
+
+  /** Set the enterprise's agent approval configuration (full replace). */
+  async setApprovalConfig(
+    enterpriseId: string,
+    params: ApprovalConfig,
+    options?: RequestOptions,
+  ): Promise<ApprovalConfig> {
+    return this.http.put<ApprovalConfig>(
+      `/v1/enterprises/${enterpriseId}/approval-config`,
+      params,
       options,
     );
   }

@@ -1175,6 +1175,8 @@ export interface OutcomeResult {
   signal: SettlementSignal;
   reporterType: string;
   reportedAt: string;
+  /** Suggested next API calls after reporting outcome. */
+  nextSteps?: NextStep[];
 }
 
 // ---------------------------------------------------------------------------
@@ -2240,6 +2242,16 @@ export interface BulkApproveResult {
   summary: { total: number; approved: number; failed: number };
 }
 export interface ListEnterpriseAgentsParams extends ListParams { status?: EnterpriseAgentStatus; }
+
+// ---------------------------------------------------------------------------
+// Enterprise Approval Config
+// ---------------------------------------------------------------------------
+
+/** Enterprise-level agent approval configuration. */
+export interface ApprovalConfig {
+  /** Whether new agents require explicit approval before operating. */
+  agentApprovalRequired: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // API Error Response

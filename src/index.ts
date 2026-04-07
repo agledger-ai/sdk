@@ -270,6 +270,7 @@ export type {
   BulkApproveAgentParams,
   BulkApproveResult,
   ListEnterpriseAgentsParams,
+  ApprovalConfig,
 
   // Federation — Enums
   HubState,
