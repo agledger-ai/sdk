@@ -31,7 +31,7 @@ const DEFAULT_BASE_URL = 'https://agledger.example.com';
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
-const SDK_VERSION = '0.3.0';
+const SDK_VERSION = '0.3.1';
 
 export class HttpClient {
   private readonly apiKey: string;
