@@ -10,7 +10,7 @@
  *   cp dist/routes.json ~/projects/agledger-agents/agledger-sdk/src/__tests__/routes.json
  *
  * Or fetch from production:
- *   curl -s https://api.agledger.ai/docs/json | npx tsx -e '...'
+ *   curl -s https://agledger.example.com/docs/json | npx tsx -e '...'
  */
 
 import { describe, it, expect } from 'vitest';

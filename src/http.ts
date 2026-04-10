@@ -27,15 +27,11 @@ import {
   TimeoutError,
 } from './errors.js';
 
-const BASE_URLS: Record<string, string> = {
-  production: 'https://api.agledger.ai',
-  sandbox: 'https://sandbox.api.agledger.ai',
-};
-const DEFAULT_BASE_URL = BASE_URLS.production;
+const DEFAULT_BASE_URL = 'https://agledger.example.com';
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
-const SDK_VERSION = '0.2.0';
+const SDK_VERSION = '0.3.0';
 
 export class HttpClient {
   private readonly apiKey: string;
@@ -59,8 +55,7 @@ export class HttpClient {
 
   constructor(options: AgledgerClientOptions) {
     this.apiKey = options.apiKey;
-    const envUrl = options.environment ? BASE_URLS[options.environment] : undefined;
-    this.baseUrl = (options.baseUrl || envUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.baseUrl = (options.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);

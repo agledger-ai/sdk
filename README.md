@@ -1,8 +1,8 @@
 # @agledger/sdk
 
-The official TypeScript SDK for the [AGLedger](https://agledger.ai) API -- accountability and audit infrastructure for agentic systems.
+The official TypeScript SDK for [AGLedger](https://agledger.ai) -- accountability and audit infrastructure for agentic systems.
 
-Zero runtime dependencies. TypeScript strict. 113 tests. Works with Node.js 18+, Deno, and Bun.
+Zero runtime dependencies. TypeScript strict. 421 tests. Works with Node.js 18+, Deno, and Bun.
 
 ## Why AGLedger?
 
@@ -13,21 +13,12 @@ Enterprises deploying AI agents need to know what each agent was asked to do, wh
 - Check whether the creator accepted the results (verification)
 - Track agent reliability across your organization over time (reputation)
 
-## The Accountability Record
-
-The core of AGLedger is the contract. A mandate is a structured, deterministic record of what was agreed to -- the acceptance criteria, tolerance bands, and delegation chain. It works the same way regardless of which AI agent, platform, or framework is executing the work.
-
-On top of the contract, AGLedger provides:
-
-- **Tamper-evident audit trail** -- every state change is hash-chained and independently verifiable
-- **Encrypted operating mode** -- for sensitive operations where criteria and evidence must be encrypted at rest
-- **Governance sidecar** -- passive detection of agent operations via MCP proxy, with observe/advisory/enforced modes
-- **Compliance exports** -- audit-ready reports for internal review, regulators, and EU AI Act assessments
-
 ## Get Started
 
-1. Create an account at [agledger.ai](https://agledger.ai)
-2. Get your API key from the dashboard
+AGLedger is self-hosted. You deploy it on your own infrastructure.
+
+1. Deploy AGLedger ([install guide](https://docs.agledger.ai/install))
+2. Get your API key from your instance
 3. Install the SDK: `npm install @agledger/sdk`
 4. Follow the Quick Start below
 
@@ -38,6 +29,7 @@ import { AgledgerClient } from '@agledger/sdk';
 
 const client = new AgledgerClient({
   apiKey: process.env.AGLEDGER_API_KEY!,
+  baseUrl: process.env.AGLEDGER_EXTERNAL_URL!, // your AGLedger instance URL
 });
 
 // Create a mandate (what the agent is being asked to do)
@@ -70,27 +62,15 @@ const receipt = await client.receipts.submit(mandate.id, {
 const result = await client.verification.verify(mandate.id);
 ```
 
-## Features
-
-- **Stripe-style client** with resource sub-clients (`client.mandates`, `client.receipts`, etc.)
-- **Automatic retries** with exponential backoff + jitter for 429/5xx errors
-- **Idempotency keys** auto-generated for all mutating requests
-- **Auto-pagination** via async iterators
-- **Webhook signature verification** (separate import to keep browser bundles lean)
-- **TypeScript-first** with full type coverage and forward-compatible enums
-- **Sandbox support** via `environment: 'sandbox'` option
-
 ## Configuration
 
 ```typescript
 const client = new AgledgerClient({
+  // Required
   apiKey: 'your_api_key',
 
-  // Environment shorthand (sets baseUrl automatically)
-  environment: 'sandbox', // or 'production' (default)
-
-  // Or explicit base URL
-  baseUrl: 'https://api.agledger.ai',
+  // Your AGLedger instance URL (required for self-hosted deployments)
+  baseUrl: 'https://agledger.internal.example.com',
 
   // Retry configuration
   maxRetries: 3,        // default: 3
@@ -100,6 +80,22 @@ const client = new AgledgerClient({
   idempotencyKeyPrefix: 'my-app-',
 });
 ```
+
+Set `AGLEDGER_EXTERNAL_URL` in your environment to avoid hardcoding the URL:
+
+```bash
+export AGLEDGER_API_KEY=ach_ent_...
+export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
+```
+
+## Features
+
+- **Stripe-style client** with resource sub-clients (`client.mandates`, `client.receipts`, etc.)
+- **Automatic retries** with exponential backoff + jitter for 429/5xx errors
+- **Idempotency keys** auto-generated for all mutating requests
+- **Auto-pagination** via async iterators
+- **Webhook signature verification** (separate import to keep browser bundles lean)
+- **TypeScript-first** with full type coverage and forward-compatible enums
 
 ## Resources
 
@@ -116,15 +112,21 @@ const client = new AgledgerClient({
 | `client.dashboard` | Dashboard summaries, metrics, and agent leaderboards |
 | `client.compliance` | Compliance exports, EU AI Act assessments |
 | `client.registration` | Account registration and API key management |
-| `client.health` | Platform health, status, and conformance |
+| `client.health` | Instance health, status, and conformance |
 | `client.admin` | Platform administration (requires platform API key) |
 | `client.a2a` | A2A Protocol support (AgentCard, JSON-RPC 2.0) |
 | `client.capabilities` | Agent contract type capability management |
+| `client.notarize` | Lightweight agent-to-agent agreement notarization |
+| `client.enterprises` | Enterprise agent approval and management |
+| `client.projects` | Project organization for mandates |
 | `client.proxy` | Governance sidecar session sync and analytics |
+| `client.federation` | Federation gateway operations |
+| `client.agents` | Agent identity and references |
+| `client.references` | Cross-system reference lookups |
 
 ## Contract Types
 
-Contract types are defined by the Agentic Contract Specification™:
+Contract types are defined by the Agentic Contract Specification:
 
 | Type | Use Case |
 |------|----------|
@@ -137,6 +139,10 @@ Contract types are defined by the Agentic Contract Specification™:
 | `ACH-AUTH-v1` | Permission changes, credential grants, and access control |
 | `ACH-INFRA-v1` | Infrastructure changes, cloud provisioning, and config updates |
 | `ACH-DEL-v1` | Deletions, cancellations, and reversals |
+| `ACH-ANALYZE-v1` | Research, analysis, and investigation tasks |
+| `ACH-COORD-v1` | Multi-party coordination and consensus building |
+| `ACH-MON-v1` | Monitoring, observation, threshold tracking, and alerts |
+| `ACH-REVIEW-v1` | Review, approval, and quality gate decisions |
 
 ## Pagination
 
@@ -204,10 +210,16 @@ REJECTED            REVISION_REQUESTED ──> PROCESSING (resubmit)
 
 ## API Documentation
 
-Full API documentation is available at [https://api.agledger.ai/docs](https://api.agledger.ai/docs).
+API documentation is available at your instance's `/docs` endpoint (Swagger UI).
 
-## License
+## Licensing
+
+AGLedger is **free for single-node deployments** (Docker Compose with bundled database). An Enterprise License ($8,000 one-time, per database instance) is required for external database connections, federation, and multi-node deployments. The license is perpetual -- production never stops due to licensing.
+
+Full details: [agledger.ai/pricing](https://agledger.ai/pricing) | [License Agreement](https://agledger.ai/license)
+
+## SDK License
 
 Proprietary. Copyright (c) 2026 AGLedger LLC. All rights reserved. See [LICENSE](./LICENSE) for details.
 
-AGLedger™ and the Agentic Contract Specification™ are trademarks of AGLedger LLC. Patent pending.
+AGLedger and the Agentic Contract Specification are trademarks of AGLedger LLC. Patent pending.

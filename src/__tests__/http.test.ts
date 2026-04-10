@@ -140,22 +140,6 @@ describe('HttpClient', () => {
     expect(fetch.mock.calls[0][0]).toContain('https://custom.api.com/test');
   });
 
-  it('uses environment shorthand', async () => {
-    const fetch = mockFetch({ json: {} });
-    const client = createClient(fetch, { environment: 'sandbox' });
-    await client.get('/test');
-
-    expect(fetch.mock.calls[0][0]).toContain('https://sandbox.api.agledger.ai/test');
-  });
-
-  it('baseUrl overrides environment', async () => {
-    const fetch = mockFetch({ json: {} });
-    const client = createClient(fetch, { baseUrl: 'https://custom.com', environment: 'sandbox' });
-    await client.get('/test');
-
-    expect(fetch.mock.calls[0][0]).toContain('https://custom.com/test');
-  });
-
   describe('error mapping', () => {
     it('throws AuthenticationError on 401', async () => {
       const fetch = mockFetch({

@@ -65,23 +65,11 @@ describe('AgledgerClient', () => {
     const fetch = mockFetch();
     const client = new AgledgerClient({
       apiKey: 'test',
-      baseUrl: 'https://staging.api.agledger.ai',
+      baseUrl: 'https://agledger.staging.example.com',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
 
     await client.health.check();
-    expect(fetch.mock.calls[0][0]).toContain('https://staging.api.agledger.ai');
-  });
-
-  it('uses environment shorthand for sandbox', async () => {
-    const fetch = mockFetch();
-    const client = new AgledgerClient({
-      apiKey: 'test',
-      environment: 'sandbox',
-      fetch: fetch as unknown as typeof globalThis.fetch,
-    });
-
-    await client.health.check();
-    expect(fetch.mock.calls[0][0]).toContain('https://sandbox.api.agledger.ai');
+    expect(fetch.mock.calls[0][0]).toContain('https://agledger.staging.example.com');
   });
 });

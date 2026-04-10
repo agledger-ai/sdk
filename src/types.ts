@@ -40,10 +40,8 @@ export interface RateLimitInfo {
 export interface AgledgerClientOptions {
   /** API key (Bearer token) */
   apiKey: string;
-  /** Base URL (default: https://api.agledger.ai) */
+  /** Base URL of your AGLedger instance (default: https://agledger.example.com) */
   baseUrl?: string;
-  /** Environment shorthand — sets baseUrl automatically. Overridden by explicit baseUrl. */
-  environment?: 'production' | 'sandbox';
   /** Max retries for 429/5xx/network errors (default: 3) */
   maxRetries?: number;
   /** Request timeout in ms (default: 30_000) */
@@ -1255,10 +1253,7 @@ export interface CreateDisputeParams {
 /** Known webhook event types matching the AGLedger API. Accepts any string for forward compatibility. */
 export type WebhookEventType =
   | 'mandate.created'
-  | 'mandate.registered'
-  | 'mandate.activated'
   | 'mandate.receipt_submitted'
-  | 'mandate.receipt_invalid'
   | 'mandate.verification_complete'
   | 'mandate.fulfilled'
   | 'mandate.settled'
