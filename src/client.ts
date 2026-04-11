@@ -28,6 +28,7 @@ import { FederationResource } from './resources/federation.js';
 import { FederationAdminResource } from './resources/federation-admin.js';
 import { AgentsResource } from './resources/agents.js';
 import { ReferencesResource } from './resources/references.js';
+import { VerificationKeysResource } from './resources/verification-keys.js';
 
 export class AgledgerClient {
   private readonly http: HttpClient;
@@ -55,6 +56,7 @@ export class AgledgerClient {
   readonly federationAdmin: FederationAdminResource;
   readonly agents: AgentsResource;
   readonly references: ReferencesResource;
+  readonly verificationKeys: VerificationKeysResource;
 
   /** Rate limit info from the most recent API response. Null if headers not present. */
   get rateLimitInfo(): RateLimitInfo | null {
@@ -96,6 +98,7 @@ export class AgledgerClient {
     this.federationAdmin = new FederationAdminResource(http);
     this.agents = new AgentsResource(http);
     this.references = new ReferencesResource(http);
+    this.verificationKeys = new VerificationKeysResource(http);
   }
 }
 

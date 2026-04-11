@@ -1,8 +1,118 @@
 {
-  "generatedAt": "2026-04-07T00:00:00.000Z",
+  "generatedAt": "2026-04-10T00:00:00.000Z",
   "source": "file://openapi.json",
-  "routeCount": 237,
+  "routeCount": 247,
   "routes": [
+    {
+      "method": "GET",
+      "path": "/verification-keys",
+      "operationId": "listVerificationKeys",
+      "tag": "Verification Keys",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200, 429]
+    },
+    {
+      "method": "GET",
+      "path": "/.well-known/agledger-vault-keys.json",
+      "operationId": "getWellKnownVaultKeys",
+      "tag": "Verification Keys",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200, 429]
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "operationId": "healthCheck",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200]
+    },
+    {
+      "method": "GET",
+      "path": "/health/ready",
+      "operationId": "readinessCheck",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200, 503]
+    },
+    {
+      "method": "GET",
+      "path": "/conformance",
+      "operationId": "getConformanceAlias",
+      "tag": "Conformance",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/conformance",
+      "operationId": "getConformance",
+      "tag": "Conformance",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200]
+    },
+    {
+      "method": "GET",
+      "path": "/lifecycle",
+      "operationId": "getLifecycle",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200]
+    },
+    {
+      "method": "GET",
+      "path": "/status",
+      "operationId": "getStatus",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200]
+    },
+    {
+      "method": "GET",
+      "path": "/llms.txt",
+      "operationId": "getLlmsTxt",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200]
+    },
+    {
+      "method": "GET",
+      "path": "/llms-full.txt",
+      "operationId": "getLlmsFullTxt",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [200]
+    },
     {
       "method": "GET",
       "path": "/.well-known/agent-card.json",

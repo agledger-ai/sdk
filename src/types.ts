@@ -2759,14 +2759,39 @@ export interface AuthCacheStats {
 // Admin — License
 // ---------------------------------------------------------------------------
 
+/** License tier identifier. The API renamed `free` → `developer` in v0.17.0. */
+export type LicenseTier = 'developer' | 'enterprise' | (string & {});
+
 /** Platform license information and entitlements. */
 export interface LicenseInfo {
-  plan: string;
+  plan: LicenseTier;
   status: string;
   maxEnterprises?: number;
   maxAgents?: number;
   features: string[];
   expiresAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Verification Keys (public, unauthenticated)
+// ---------------------------------------------------------------------------
+
+/** A vault signing public key for independent audit chain verification. */
+export interface VerificationKey {
+  keyId: string;
+  algorithm: string;
+  publicKey: string;
+  status: 'active' | 'retired' | (string & {});
+  activatedAt: string;
+  retiredAt: string | null;
+}
+
+/** Response from GET /v1/verification-keys. */
+export interface VerificationKeysResponse {
+  data: VerificationKey[];
+  canonicalization: string;
+  hashAlgorithm: string;
+  signatureAlgorithm: string;
 }
 
 // ---------------------------------------------------------------------------

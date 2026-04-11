@@ -334,7 +334,12 @@ export type {
   AuthCacheStats,
 
   // Admin — License
+  LicenseTier,
   LicenseInfo,
+
+  // Verification Keys (public)
+  VerificationKey,
+  VerificationKeysResponse,
 
   // Federation — Hub Keys
   HubSigningKey,

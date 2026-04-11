@@ -275,6 +275,14 @@ const SDK_METHODS: SdkMapping[] = [
   ['references', 'addMandateReferences', 'POST', '/mandates/{id}/references'],
   ['references', 'getMandateReferences', 'GET', '/mandates/{id}/references'],
 
+  // Health (now in OpenAPI spec)
+  ['health', 'check', 'GET', '/health'],
+  ['health', 'status', 'GET', '/status'],
+  ['health', 'conformance', 'GET', '/v1/conformance'],
+
+  // Verification Keys (public, unauthenticated)
+  ['verificationKeys', 'list', 'GET', '/verification-keys'],
+
   // Admin — Vault
   ['admin', 'listVaultSigningKeys', 'GET', '/admin/vault/signing-keys'],
   ['admin', 'rotateVaultSigningKey', 'POST', '/admin/vault/signing-keys/rotate'],
@@ -290,12 +298,15 @@ const SDK_METHODS: SdkMapping[] = [
 // ---------------------------------------------------------------------------
 
 const EXCLUDED_ROUTES = new Set([
-  // Health & status (no auth, SDK has HealthResource for the important ones)
-  'GET /health',
+  // Health & status (infra routes not in SDK — health.check/status/conformance are now in SDK_METHODS)
   'GET /health/ready',
-  'GET /status',
   'GET /llms.txt',
+  'GET /llms-full.txt',
   'GET /lifecycle',
+  'GET /conformance',
+
+  // Verification keys alias (SDK uses /verification-keys)
+  'GET /.well-known/agledger-vault-keys.json',
 
   // Agent card alias
   'GET /.well-known/agent.json',
@@ -347,9 +358,6 @@ const EXCLUDED_ROUTES = new Set([
   'GET /proxy/sessions/{sessionId}/tool-catalog',
   'GET /proxy/analytics',
   'GET /proxy/analytics/{sessionId}',
-
-  // Conformance (public, informational)
-  'GET /conformance',
 
   // Schema subresource routes (SDK has these but paths may differ in OpenAPI)
   'GET /schemas/{contractType}/versions',
