@@ -1,8 +1,3 @@
-/**
- * AGLedger™ SDK — Receipts Resource
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- */
-
 import type { HttpClient } from '../http.js';
 import type {
   Receipt,
@@ -27,17 +22,17 @@ export class ReceiptsResource {
    *   evidence: { deliverable: '/out.parquet', deliverable_type: 'file_ref', row_count: 50000 },
    * });
    */
-  async submit<T extends string>(mandateId: string, params: TypedSubmitReceiptParams<T>, options?: RequestOptions): Promise<Receipt>;
-  async submit(mandateId: string, params: SubmitReceiptParams, options?: RequestOptions): Promise<Receipt>;
-  async submit(mandateId: string, params: SubmitReceiptParams, options?: RequestOptions): Promise<Receipt> {
+  submit<T extends string>(mandateId: string, params: TypedSubmitReceiptParams<T>, options?: RequestOptions): Promise<Receipt>;
+  submit(mandateId: string, params: SubmitReceiptParams, options?: RequestOptions): Promise<Receipt>;
+  submit(mandateId: string, params: SubmitReceiptParams, options?: RequestOptions): Promise<Receipt> {
     return this.http.post<Receipt>(`/v1/mandates/${mandateId}/receipts`, params, options);
   }
 
-  async get(mandateId: string, receiptId: string, options?: RequestOptions): Promise<Receipt> {
+  get(mandateId: string, receiptId: string, options?: RequestOptions): Promise<Receipt> {
     return this.http.get<Receipt>(`/v1/mandates/${mandateId}/receipts/${receiptId}`, undefined, options);
   }
 
-  async list(mandateId: string, params?: ListParams, options?: RequestOptions): Promise<Page<Receipt>> {
+  list(mandateId: string, params?: ListParams, options?: RequestOptions): Promise<Page<Receipt>> {
     return this.http.getPage<Receipt>(`/v1/mandates/${mandateId}/receipts`, params as Record<string, unknown>, options);
   }
 

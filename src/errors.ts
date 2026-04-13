@@ -1,8 +1,3 @@
-/**
- * AGLedger™ SDK — Error Classes
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- */
-
 import type { ApiErrorResponse, ValidationErrorDetail } from './types.js';
 
 /**

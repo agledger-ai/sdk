@@ -1,8 +1,3 @@
-/**
- * AGLedger™ SDK — Client
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- */
-
 import type { AgledgerClientOptions, RateLimitInfo } from './types.js';
 import { HttpClient } from './http.js';
 import { MandatesResource } from './resources/mandates.js';

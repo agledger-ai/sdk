@@ -1,10 +1,3 @@
-/**
- * AGLedger™ SDK — Admin Resource
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- *
- * Platform-only operations. Requires platform-level API key.
- */
-
 import type { HttpClient } from '../http.js';
 import type {
   AdminEnterprise,
@@ -39,7 +32,7 @@ export class AdminResource {
   constructor(private readonly http: HttpClient) {}
 
   /** List all enterprises on the platform. */
-  async listEnterprises(params?: ListParams, options?: RequestOptions): Promise<Page<AdminEnterprise>> {
+  listEnterprises(params?: ListParams, options?: RequestOptions): Promise<Page<AdminEnterprise>> {
     return this.http.getPage<AdminEnterprise>('/v1/admin/enterprises', params as Record<string, unknown>, options);
   }
 
@@ -53,12 +46,12 @@ export class AdminResource {
    * console.log(enterprise.id, enterprise.slug); // slug auto-generated
    * ```
    */
-  async createEnterprise(params: CreateEnterpriseParams, options?: RequestOptions): Promise<AdminEnterprise> {
+  createEnterprise(params: CreateEnterpriseParams, options?: RequestOptions): Promise<AdminEnterprise> {
     return this.http.post<AdminEnterprise>('/v1/admin/enterprises', params, options);
   }
 
   /** List all registered agents on the platform. */
-  async listAgents(params?: ListParams, options?: RequestOptions): Promise<Page<AdminAgent>> {
+  listAgents(params?: ListParams, options?: RequestOptions): Promise<Page<AdminAgent>> {
     return this.http.getPage<AdminAgent>('/v1/admin/agents', params as Record<string, unknown>, options);
   }
 
@@ -72,7 +65,7 @@ export class AdminResource {
    * console.log(agent.id, agent.slug); // slug auto-generated
    * ```
    */
-  async createAgent(params: CreateAgentParams, options?: RequestOptions): Promise<AdminAgent> {
+  createAgent(params: CreateAgentParams, options?: RequestOptions): Promise<AdminAgent> {
     return this.http.post<AdminAgent>('/v1/admin/agents', params, options);
   }
 
@@ -80,27 +73,27 @@ export class AdminResource {
    * Update an account's trust level (sandbox, active, verified).
    * Requires both `trustLevel` and `accountType` in params.
    */
-  async updateTrustLevel(accountId: string, params: UpdateTrustLevelParams, options?: RequestOptions): Promise<Record<string, unknown>> {
+  updateTrustLevel(accountId: string, params: UpdateTrustLevelParams, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.patch(`/v1/admin/accounts/${accountId}/trust-level`, params, options);
   }
 
   /** Deactivate an account (enterprise or agent). Revokes all API keys. */
-  async deactivateAccount(accountId: string, params: { accountType: 'enterprise' | 'agent'; reason?: string }, options?: RequestOptions): Promise<Record<string, unknown>> {
+  deactivateAccount(accountId: string, params: { accountType: 'enterprise' | 'agent'; reason?: string }, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.post(`/v1/admin/accounts/${accountId}/deactivate`, params, options);
   }
 
   /** Set an agent's contract type capabilities (PUT — replaces all). */
-  async setCapabilities(agentId: string, params: SetCapabilitiesParams, options?: RequestOptions): Promise<Record<string, unknown>> {
+  setCapabilities(agentId: string, params: SetCapabilitiesParams, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.put(`/v1/admin/agents/${agentId}/capabilities`, params, options);
   }
 
   /** Get capabilities of all agents in the fleet. */
-  async getFleetCapabilities(options?: RequestOptions): Promise<Page<{ agentId: string; capabilities: ContractType[] }>> {
+  getFleetCapabilities(options?: RequestOptions): Promise<Page<{ agentId: string; capabilities: ContractType[] }>> {
     return this.http.getPage('/v1/admin/agents/capabilities', undefined, options);
   }
 
   /** Get an enterprise's configuration. */
-  async getEnterpriseConfig(enterpriseId: string, options?: RequestOptions): Promise<EnterpriseConfig> {
+  getEnterpriseConfig(enterpriseId: string, options?: RequestOptions): Promise<EnterpriseConfig> {
     return this.http.get<EnterpriseConfig>(`/v1/admin/enterprises/${enterpriseId}/config`, undefined, options);
   }
 
@@ -116,7 +109,7 @@ export class AdminResource {
    * });
    * ```
    */
-  async replaceEnterpriseConfig(enterpriseId: string, params: SetEnterpriseConfigParams, options?: RequestOptions): Promise<EnterpriseConfig> {
+  replaceEnterpriseConfig(enterpriseId: string, params: SetEnterpriseConfigParams, options?: RequestOptions): Promise<EnterpriseConfig> {
     return this.http.put<EnterpriseConfig>(`/v1/admin/enterprises/${enterpriseId}/config`, params, options);
   }
 
@@ -124,175 +117,154 @@ export class AdminResource {
    * Merge-update an enterprise's configuration (PATCH semantics).
    * Only provided fields are updated; others are preserved.
    */
-  async updateEnterpriseConfig(enterpriseId: string, params: SetEnterpriseConfigParams, options?: RequestOptions): Promise<EnterpriseConfig> {
+  updateEnterpriseConfig(enterpriseId: string, params: SetEnterpriseConfigParams, options?: RequestOptions): Promise<EnterpriseConfig> {
     return this.http.patch<EnterpriseConfig>(`/v1/admin/enterprises/${enterpriseId}/config`, params, options);
   }
 
   /** @deprecated Use {@link replaceEnterpriseConfig} instead. */
-  async setEnterpriseConfig(enterpriseId: string, params: SetEnterpriseConfigParams, options?: RequestOptions): Promise<EnterpriseConfig> {
+  setEnterpriseConfig(enterpriseId: string, params: SetEnterpriseConfigParams, options?: RequestOptions): Promise<EnterpriseConfig> {
     return this.replaceEnterpriseConfig(enterpriseId, params, options);
   }
 
   /** List all API keys on the platform. */
-  async listApiKeys(params?: ListParams, options?: RequestOptions): Promise<Page<AdminApiKey>> {
+  listApiKeys(params?: ListParams, options?: RequestOptions): Promise<Page<AdminApiKey>> {
     return this.http.getPage<AdminApiKey>('/v1/admin/api-keys', params as Record<string, unknown>, options);
   }
 
   /** Create a new API key with required role, owner, and optional scopes or scope profile. */
-  async createApiKey(params: CreateApiKeyParams, options?: RequestOptions): Promise<CreateApiKeyResult> {
+  createApiKey(params: CreateApiKeyParams, options?: RequestOptions): Promise<CreateApiKeyResult> {
     return this.http.post('/v1/admin/api-keys', params, options);
   }
 
   /** Enable or disable an API key. */
-  async toggleApiKey(keyId: string, isActive: boolean, options?: RequestOptions): Promise<AdminApiKey> {
+  toggleApiKey(keyId: string, isActive: boolean, options?: RequestOptions): Promise<AdminApiKey> {
     return this.http.patch<AdminApiKey>(`/v1/admin/api-keys/${keyId}`, { isActive }, options);
   }
 
   /** Revoke multiple API keys at once. */
-  async bulkRevokeApiKeys(keyIds: string[], options?: RequestOptions): Promise<{ revoked: number }> {
+  bulkRevokeApiKeys(keyIds: string[], options?: RequestOptions): Promise<{ revoked: number }> {
     return this.http.post('/v1/admin/api-keys/bulk-revoke', { keyIds }, options);
   }
 
   /** Get license status and entitlements. */
-  async getLicense(options?: RequestOptions): Promise<LicenseInfo> {
+  getLicense(options?: RequestOptions): Promise<LicenseInfo> {
     return this.http.get<LicenseInfo>('/v1/admin/license', undefined, options);
   }
 
   /** List mandates across all enterprises (platform admin). Supports filters by enterprise, status, contract type, agent, and date range. */
-  async listMandates(params?: QueryAdminMandatesParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+  listMandates(params?: QueryAdminMandatesParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
     return this.http.getPage('/v1/admin/mandates', params as Record<string, unknown>, options);
   }
 
   /** List webhook dead-letter queue entries. */
-  async listDlq(params?: ListParams, options?: RequestOptions): Promise<Page<WebhookDlqEntry>> {
+  listDlq(params?: ListParams, options?: RequestOptions): Promise<Page<WebhookDlqEntry>> {
     return this.http.getPage<WebhookDlqEntry>('/v1/admin/webhook-dlq', params as Record<string, unknown>, options);
   }
 
   /** Retry a single dead-letter queue entry. */
-  async retryDlq(dlqId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+  retryDlq(dlqId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.post(`/v1/admin/webhook-dlq/${dlqId}/retry`, undefined, options);
   }
 
   /** Retry all dead-letter queue entries. */
-  async retryAllDlq(options?: RequestOptions): Promise<{ retried: number }> {
+  retryAllDlq(options?: RequestOptions): Promise<{ retried: number }> {
     return this.http.post('/v1/admin/webhook-dlq/retry-all', undefined, options);
   }
 
   /** Get system health metrics (platform admin). */
-  async getSystemHealth(options?: RequestOptions): Promise<SystemHealth> {
+  getSystemHealth(options?: RequestOptions): Promise<SystemHealth> {
     return this.http.get<SystemHealth>('/v1/admin/system-health', undefined, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Rate Limit Exemptions
-  // ---------------------------------------------------------------------------
 
   /** List all IP addresses exempt from rate limiting. */
-  async listRateLimitExemptions(options?: RequestOptions): Promise<Page<string>> {
+  listRateLimitExemptions(options?: RequestOptions): Promise<Page<string>> {
     return this.http.getPage<string>('/v1/admin/rate-limit-exemptions/ips', undefined, options);
   }
 
   /** Grant rate limit exemption to an IP address. */
-  async setRateLimitExemption(ip: string, options?: RequestOptions): Promise<{ ip: string; exempt: boolean }> {
+  setRateLimitExemption(ip: string, options?: RequestOptions): Promise<{ ip: string; exempt: boolean }> {
     return this.http.put(`/v1/admin/rate-limit-exemptions/ip/${ip}`, {}, options);
   }
 
   /** Remove rate limit exemption from an IP address. */
-  async deleteRateLimitExemption(ip: string, options?: RequestOptions): Promise<{ ip: string; exempt: boolean }> {
+  deleteRateLimitExemption(ip: string, options?: RequestOptions): Promise<{ ip: string; exempt: boolean }> {
     return this.http.delete(`/v1/admin/rate-limit-exemptions/ip/${ip}`, undefined, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Webhook Health & Circuit Breakers
-  // ---------------------------------------------------------------------------
 
   /** Get health status of all webhooks (delivery stats, circuit breaker states). */
-  async getWebhookHealth(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+  getWebhookHealth(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
     return this.http.getPage('/v1/admin/webhooks/health', params as Record<string, unknown>, options);
   }
 
   /** Update a webhook's circuit breaker state (closed / open / half_open). */
-  async updateCircuitBreaker(webhookId: string, params: UpdateCircuitBreakerParams, options?: RequestOptions): Promise<CircuitBreakerResult> {
+  updateCircuitBreaker(webhookId: string, params: UpdateCircuitBreakerParams, options?: RequestOptions): Promise<CircuitBreakerResult> {
     return this.http.patch<CircuitBreakerResult>(`/v1/admin/webhooks/${webhookId}/circuit-breaker`, params, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Vault Signing Keys & Anchors
-  // ---------------------------------------------------------------------------
 
   /** List all vault signing keys (active and rotated). */
-  async listVaultSigningKeys(options?: RequestOptions): Promise<VaultSigningKey[]> {
+  listVaultSigningKeys(options?: RequestOptions): Promise<VaultSigningKey[]> {
     return this.http.get<VaultSigningKey[]>('/v1/admin/vault/signing-keys', undefined, options);
   }
 
   /** Rotate the vault signing key. Creates a new key and deprecates the current one. */
-  async rotateVaultSigningKey(options?: RequestOptions): Promise<VaultSigningKey> {
+  rotateVaultSigningKey(options?: RequestOptions): Promise<VaultSigningKey> {
     return this.http.post<VaultSigningKey>('/v1/admin/vault/signing-keys/rotate', {}, options);
   }
 
   /** List vault trust anchors. */
-  async listVaultAnchors(options?: RequestOptions): Promise<VaultAnchor[]> {
+  listVaultAnchors(options?: RequestOptions): Promise<VaultAnchor[]> {
     return this.http.get<VaultAnchor[]>('/v1/admin/vault/anchors', undefined, options);
   }
 
   /** Verify all vault trust anchors against their expected hashes. */
-  async verifyVaultAnchors(options?: RequestOptions): Promise<VaultAnchorVerifyResult> {
+  verifyVaultAnchors(options?: RequestOptions): Promise<VaultAnchorVerifyResult> {
     return this.http.post<VaultAnchorVerifyResult>('/v1/admin/vault/anchors/verify', {}, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Vault Integrity Scan
-  // ---------------------------------------------------------------------------
 
   /** Start an asynchronous vault integrity scan. Returns a job ID for polling. */
-  async startVaultScan(options?: RequestOptions): Promise<VaultScanJob> {
+  startVaultScan(options?: RequestOptions): Promise<VaultScanJob> {
     return this.http.post<VaultScanJob>('/v1/admin/vault/scan', {}, options);
   }
 
   /** Get the status of a vault integrity scan job. */
-  async getVaultScanStatus(jobId: string, options?: RequestOptions): Promise<VaultScanJob> {
+  getVaultScanStatus(jobId: string, options?: RequestOptions): Promise<VaultScanJob> {
     return this.http.get<VaultScanJob>(`/v1/admin/vault/scan/${jobId}`, undefined, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Auth Cache
-  // ---------------------------------------------------------------------------
 
   /** Flush the auth cache. Forces re-validation of all cached credentials. */
-  async flushAuthCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
+  flushAuthCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
     return this.http.post('/v1/admin/auth-cache/flush', {}, options);
   }
 
   /** Get auth cache statistics (hit rate, size, evictions). */
-  async getAuthCacheStats(options?: RequestOptions): Promise<AuthCacheStats> {
+  getAuthCacheStats(options?: RequestOptions): Promise<AuthCacheStats> {
     return this.http.get<AuthCacheStats>('/v1/admin/auth-cache/stats', undefined, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Schema Cache
-  // ---------------------------------------------------------------------------
 
   /** Flush the schema cache. Forces re-loading of all contract type schemas. */
-  async flushSchemaCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
+  flushSchemaCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
     return this.http.post('/v1/admin/schemas/cache/flush', {}, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Owner Rate Limit Exemptions
-  // ---------------------------------------------------------------------------
 
   /** List all owner-level rate limit exemptions. */
-  async listOwnerRateLimitExemptions(options?: RequestOptions): Promise<Record<string, unknown>[]> {
+  listOwnerRateLimitExemptions(options?: RequestOptions): Promise<Record<string, unknown>[]> {
     return this.http.get('/v1/admin/rate-limit-exemptions', undefined, options);
   }
 
   /** Grant rate limit exemption to an owner. */
-  async setOwnerRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+  setOwnerRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.put(`/v1/admin/rate-limit-exemptions/${ownerId}`, {}, options);
   }
 
   /** Remove rate limit exemption from an owner. */
-  async deleteOwnerRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+  deleteOwnerRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.delete(`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
   }
 }

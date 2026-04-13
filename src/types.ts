@@ -1,12 +1,3 @@
-/**
- * AGLedger™ SDK — Type Definitions
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- */
-
-// ---------------------------------------------------------------------------
-// Next Steps (HATEOAS guidance for AI agents)
-// ---------------------------------------------------------------------------
-
 /** A suggested next API call — guides agents through the lifecycle without prior state-machine knowledge. */
 export interface NextStep {
   /** What to do next. */
@@ -19,9 +10,6 @@ export interface NextStep {
   description: string;
 }
 
-// ---------------------------------------------------------------------------
-// Rate Limit Info
-// ---------------------------------------------------------------------------
 
 /** Rate limit metadata parsed from response headers. */
 export interface RateLimitInfo {
@@ -33,9 +21,6 @@ export interface RateLimitInfo {
   reset: number;
 }
 
-// ---------------------------------------------------------------------------
-// Client Configuration
-// ---------------------------------------------------------------------------
 
 export interface AgledgerClientOptions {
   /** API key (Bearer token) */
@@ -70,9 +55,6 @@ export interface RequestOptions {
   headers?: Record<string, string>;
 }
 
-// ---------------------------------------------------------------------------
-// Pagination
-// ---------------------------------------------------------------------------
 
 /** Parameters accepted by all list endpoints. */
 export interface ListParams {
@@ -100,9 +82,6 @@ export interface AutoPaginateOptions {
   maxItems?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Batch Operations
-// ---------------------------------------------------------------------------
 
 export interface BatchResult<T> {
   results: Array<{
@@ -133,9 +112,6 @@ export interface BulkCreateResult {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Contract Types
-// ---------------------------------------------------------------------------
 
 /** Known values: ACH-PROC-v1, ACH-DLVR-v1, ACH-DATA-v1, ACH-TXN-v1, ACH-ORCH-v1, ACH-COMM-v1, ACH-AUTH-v1, ACH-INFRA-v1, ACH-DEL-v1, ACH-ANALYZE-v1, ACH-COORD-v1, ACH-MON-v1, ACH-REVIEW-v1. Accepts any string for forward compatibility. */
 export type ContractType =
@@ -154,22 +130,17 @@ export type ContractType =
   | 'ACH-REVIEW-v1'
   | (string & {});
 
-// ---------------------------------------------------------------------------
-// Denomination (currency-agnostic monetary amount)
-// ---------------------------------------------------------------------------
 
 export interface Denomination {
   amount: number;
   currency: string;
 }
 
-// ---------------------------------------------------------------------------
 // Typed Criteria per Contract Type (Agentic Contract Specification)
 //
 // These interfaces describe the known fields for each contract type.
 // All criteria types also accept additional fields via intersection
 // with Record<string, unknown> for forward compatibility.
-// ---------------------------------------------------------------------------
 
 /** ACH-PROC-v1: Resource acquisition and provisioning requests. */
 export interface ProcurementCriteria {
@@ -303,9 +274,6 @@ export interface ReviewCriteria {
   deadline?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Typed Evidence per Contract Type (Agentic Contract Specification)
-// ---------------------------------------------------------------------------
 
 /** ACH-PROC-v1 receipt evidence. */
 export interface ProcurementEvidence {
@@ -460,9 +428,6 @@ export interface ReviewEvidence {
   submitted_at?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Type Maps (contract type string -> typed criteria/evidence)
-// ---------------------------------------------------------------------------
 
 /** Maps known contract type strings to their criteria interfaces. */
 export interface CriteriaMap {
@@ -551,9 +516,6 @@ export interface SchemaValidationResult {
   }>;
 }
 
-// ---------------------------------------------------------------------------
-// Schema Development Toolkit
-// ---------------------------------------------------------------------------
 
 /** Known values: ACTIVE, DEPRECATED, DELETED. Accepts any string for forward compatibility. */
 export type SchemaVersionStatus = 'ACTIVE' | 'DEPRECATED' | 'DELETED' | (string & {});
@@ -771,9 +733,6 @@ export interface ImportSchemaOptions {
   enterpriseId?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Mandates
-// ---------------------------------------------------------------------------
 
 /** Performer's response to a mandate proposal. */
 export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED' | (string & {});
@@ -1089,9 +1048,6 @@ export interface BatchGetMandatesResult {
   data: Mandate[];
 }
 
-// ---------------------------------------------------------------------------
-// Receipts
-// ---------------------------------------------------------------------------
 
 /** Structural validation result for receipts. */
 export type StructuralValidation = 'ACCEPTED' | 'INVALID' | 'WARNING' | (string & {});
@@ -1129,10 +1085,6 @@ export interface SubmitReceiptParams {
 }
 
 
-// ---------------------------------------------------------------------------
-// Verification
-// ---------------------------------------------------------------------------
-
 /** Known values: PASS, FAIL, REVIEW_REQUIRED. Accepts any string for forward compatibility. */
 export type VerificationOutcome = 'PASS' | 'FAIL' | 'REVIEW_REQUIRED' | (string & {});
 /** Known values: SETTLE, HOLD, RELEASE. Accepts any string for forward compatibility. */
@@ -1156,9 +1108,6 @@ export interface VerificationStatus {
   pendingRules?: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Outcome (Principal Verdict)
-// ---------------------------------------------------------------------------
 
 export interface ReportOutcomeParams {
   receiptId: string;
@@ -1177,18 +1126,12 @@ export interface OutcomeResult {
   nextSteps?: NextStep[];
 }
 
-// ---------------------------------------------------------------------------
-// Mandate Summary
-// ---------------------------------------------------------------------------
 
 export interface MandateStatusSummary {
   countsByStatus: Record<string, number>;
   total: number;
 }
 
-// ---------------------------------------------------------------------------
-// Disputes
-// ---------------------------------------------------------------------------
 
 /** Known values: OPENED, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, WITHDRAWN. Accepts any string for forward compatibility. */
 export type DisputeStatus =
@@ -1245,10 +1188,6 @@ export interface CreateDisputeParams {
   context?: string;
 }
 
-
-// ---------------------------------------------------------------------------
-// Webhooks
-// ---------------------------------------------------------------------------
 
 /** Known webhook event types matching the AGLedger API. Accepts any string for forward compatibility. */
 export type WebhookEventType =
@@ -1335,9 +1274,6 @@ export interface WebhookTestResult {
   latencyMs: number;
 }
 
-// ---------------------------------------------------------------------------
-// Reputation
-// ---------------------------------------------------------------------------
 
 /** Per-contract-type reputation score for an agent. */
 export interface ReputationScore {
@@ -1366,9 +1302,6 @@ export interface ReputationHistoryEntry {
   completedAt?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Events & Audit
-// ---------------------------------------------------------------------------
 
 export interface AgledgerEvent {
   id: string;
@@ -1394,9 +1327,6 @@ export interface AuditChain {
   isValid: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Dashboard
-// ---------------------------------------------------------------------------
 
 export interface DashboardSummary {
   totalMandates: number;
@@ -1456,9 +1386,6 @@ export interface DashboardMetricsParams {
   granularity?: 'daily' | 'weekly' | 'monthly';
 }
 
-// ---------------------------------------------------------------------------
-// Compliance & EU AI Act
-// ---------------------------------------------------------------------------
 
 export interface ComplianceExport {
   exportId: string;
@@ -1511,9 +1438,6 @@ export interface EuAiActReport {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Compliance Records (per-mandate)
-// ---------------------------------------------------------------------------
 
 export type ComplianceRecordType = 'workplace_notification' | 'affected_persons' | 'input_data_quality' | 'fundamental_rights_impact_assessment' | (string & {});
 
@@ -1535,9 +1459,6 @@ export interface CreateComplianceRecordParams {
   attestedAt?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Projects
-// ---------------------------------------------------------------------------
 
 export type ProjectStatus = 'active' | 'completed' | 'cancelled' | (string & {});
 
@@ -1562,9 +1483,6 @@ export interface UpdateProjectParams {
   status?: ProjectStatus;
 }
 
-// ---------------------------------------------------------------------------
-// Audit Export (per-mandate)
-// ---------------------------------------------------------------------------
 
 export interface AuditExportEntry {
   position: number;
@@ -1596,9 +1514,6 @@ export interface MandateAuditExport {
   entries: AuditExportEntry[];
 }
 
-// ---------------------------------------------------------------------------
-// Audit Stream (SIEM)
-// ---------------------------------------------------------------------------
 
 export interface AuditStreamParams {
   /** ISO timestamp — only events after this point (required). */
@@ -1618,9 +1533,6 @@ export interface AuditStreamResult {
   hasMore: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Registration & Auth
-// ---------------------------------------------------------------------------
 
 export type AccountType = 'enterprise' | 'agent' | 'platform';
 
@@ -1656,9 +1568,6 @@ export interface AccountProfile {
   createdAt?: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Health & Conformance
-// ---------------------------------------------------------------------------
 
 export interface HealthResponse {
   status: string;
@@ -1693,9 +1602,6 @@ export interface ConformanceResponse {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Admin
-// ---------------------------------------------------------------------------
 
 export interface AdminEnterprise {
   id: string;
@@ -1882,9 +1788,6 @@ export interface SetCapabilitiesParams {
   contractTypes: string[];
 }
 
-// ---------------------------------------------------------------------------
-// A2A Protocol
-// ---------------------------------------------------------------------------
 
 export interface AgentCard {
   name: string;
@@ -1917,9 +1820,6 @@ export interface JsonRpcResponse {
   id?: string | number;
 }
 
-// ---------------------------------------------------------------------------
-// Governance Sidecar (Proxy Sessions & Sync)
-// ---------------------------------------------------------------------------
 
 export type ProxyMode = 'observe' | 'advisory' | 'enforced';
 /** Known values: ALLOWED, BLOCKED, ANNOTATED. Accepts any string for forward compatibility. */
@@ -2121,9 +2021,6 @@ export interface AlignmentAnalysis {
   recommendations?: string[];
 }
 
-// ---------------------------------------------------------------------------
-// Notarization (OpenClaw Agent-to-Agent Agreements)
-// ---------------------------------------------------------------------------
 
 /** Known values: NOTARIZED, ACCEPTED, COUNTER_PROPOSED, RECEIPT_SUBMITTED, VERDICT_PASS, VERDICT_FAIL. Accepts any string for forward compatibility. */
 export type NotarizeStatus =
@@ -2210,9 +2107,6 @@ export interface NotarizeHistory {
   data: NotarizeTransition[];
 }
 
-// ---------------------------------------------------------------------------
-// Enterprise Agent Approval Registry
-// ---------------------------------------------------------------------------
 
 /** Known values: approved, suspended, revoked. Accepts any string for forward compatibility. */
 export type EnterpriseAgentStatus = 'approved' | 'suspended' | 'revoked' | (string & {});
@@ -2238,9 +2132,6 @@ export interface BulkApproveResult {
 }
 export interface ListEnterpriseAgentsParams extends ListParams { status?: EnterpriseAgentStatus; }
 
-// ---------------------------------------------------------------------------
-// Enterprise Approval Config
-// ---------------------------------------------------------------------------
 
 /** Enterprise-level agent approval configuration. */
 export interface ApprovalConfig {
@@ -2248,9 +2139,6 @@ export interface ApprovalConfig {
   agentApprovalRequired: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// API Error Response
-// ---------------------------------------------------------------------------
 
 export interface ApiErrorResponse {
   error: string;
@@ -2271,9 +2159,6 @@ export interface ValidationErrorDetail {
   actual?: unknown;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Enums
-// ---------------------------------------------------------------------------
 
 /** Hub-level state for a federated mandate (simplified 6-state model). */
 export type HubState = 'OFFERED' | 'ACCEPTED' | 'ACTIVE' | 'COMPLETED' | 'DISPUTED' | 'TERMINAL';
@@ -2311,9 +2196,6 @@ export type FederationAuditEntryType =
   | 'AGENT_DIRECTORY_SYNCED'
   | 'REPUTATION_CONTRIBUTED';
 
-// ---------------------------------------------------------------------------
-// Federation — Gateway Registration
-// ---------------------------------------------------------------------------
 
 /** Parameters for registering a new gateway with the federation hub. */
 export interface RegisterGatewayParams {
@@ -2340,9 +2222,6 @@ export interface RegisterGatewayResult {
   registeredAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Heartbeat
-// ---------------------------------------------------------------------------
 
 /** Parameters for gateway heartbeat (token refresh). */
 export interface HeartbeatParams {
@@ -2365,9 +2244,6 @@ export interface HeartbeatResult {
   }>;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Agents
-// ---------------------------------------------------------------------------
 
 /** Parameters for registering a federated agent. */
 export interface RegisterFederatedAgentParams {
@@ -2390,9 +2266,6 @@ export interface ListFederatedAgentsParams extends ListParams {
   contractType?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — State Transitions
-// ---------------------------------------------------------------------------
 
 /** Parameters for submitting a cross-boundary state transition. */
 export interface SubmitStateTransitionParams {
@@ -2419,9 +2292,6 @@ export interface StateTransitionResult {
   hubSignature: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Settlement Signals
-// ---------------------------------------------------------------------------
 
 /** Parameters for relaying a settlement signal. */
 export interface RelaySignalParams {
@@ -2445,9 +2315,6 @@ export interface SignalRelayResult {
   targetGatewayId: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Key Rotation & Revocation
-// ---------------------------------------------------------------------------
 
 /** Parameters for rotating a gateway's signing and encryption keys. */
 export interface RotateGatewayKeyParams {
@@ -2465,9 +2332,6 @@ export interface RevokeGatewayParams {
   reason: RevocationReason;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Catch-Up (Partition Recovery)
-// ---------------------------------------------------------------------------
 
 /** Parameters for fetching missed audit entries after a network partition. */
 export interface FederationCatchUpParams {
@@ -2475,9 +2339,6 @@ export interface FederationCatchUpParams {
   limit?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Admin: Registration Tokens
-// ---------------------------------------------------------------------------
 
 /** Parameters for creating a federation registration token (admin). */
 export interface CreateRegistrationTokenParams {
@@ -2493,9 +2354,6 @@ export interface FederationRegistrationToken {
   expiresAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Admin: Gateway Management
-// ---------------------------------------------------------------------------
 
 /** Query parameters for listing federation gateways (admin). */
 export interface ListFederationGatewaysParams extends ListParams {
@@ -2528,9 +2386,6 @@ export interface ResetSequenceParams {
   newSeq?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Admin: Mandates
-// ---------------------------------------------------------------------------
 
 /** Query parameters for listing federation mandates (admin). */
 export interface QueryFederationMandatesParams extends ListParams {
@@ -2558,9 +2413,6 @@ export interface FederationMandate {
   updatedAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Admin: Audit Log
-// ---------------------------------------------------------------------------
 
 /** Query parameters for the federation audit log (admin). */
 export interface FederationAuditLogParams extends ListParams {
@@ -2586,9 +2438,6 @@ export interface FederationAuditEntry {
   createdAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Admin: Health
-// ---------------------------------------------------------------------------
 
 /** Federation health summary (admin). */
 export interface FederationHealthSummary {
@@ -2602,9 +2451,6 @@ export interface FederationHealthSummary {
   lastAuditEntry: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Admin: Outbound DLQ
-// ---------------------------------------------------------------------------
 
 /** Query parameters for listing outbound DLQ entries (admin). */
 export interface ListOutboundDlqParams {
@@ -2624,9 +2470,6 @@ export interface FederationDlqEntry {
   createdAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Admin — Query Mandates (non-federation)
-// ---------------------------------------------------------------------------
 
 /** Query parameters for admin mandate listing. */
 export interface QueryAdminMandatesParams extends ListParams {
@@ -2652,9 +2495,6 @@ export interface CircuitBreakerResult {
   consecutiveFailures: number;
 }
 
-// ---------------------------------------------------------------------------
-// Agents
-// ---------------------------------------------------------------------------
 
 /** Parameters for updating agent identity. */
 export interface UpdateAgentParams {
@@ -2664,9 +2504,6 @@ export interface UpdateAgentParams {
   description?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Agent Profile
-// ---------------------------------------------------------------------------
 
 /** Full agent identity returned by the agents resource. */
 export interface AgentProfile {
@@ -2685,9 +2522,6 @@ export interface AgentProfile {
   updatedAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// References
-// ---------------------------------------------------------------------------
 
 /** An external reference linking an AGLedger entity to an external system. */
 export interface EntityReference {
@@ -2704,9 +2538,6 @@ export interface ReferenceLookupResult {
   entityId: string;
 }
 
-// ---------------------------------------------------------------------------
-// Admin — Vault
-// ---------------------------------------------------------------------------
 
 /** A vault Ed25519 signing key. */
 export interface VaultSigningKey {
@@ -2744,9 +2575,6 @@ export interface VaultScanJob {
   completedAt?: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Admin — Auth Cache
-// ---------------------------------------------------------------------------
 
 /** Auth cache statistics. */
 export interface AuthCacheStats {
@@ -2755,9 +2583,6 @@ export interface AuthCacheStats {
   evictions: number;
 }
 
-// ---------------------------------------------------------------------------
-// Admin — License
-// ---------------------------------------------------------------------------
 
 /** License tier identifier. The API renamed `free` → `developer` in v0.17.0. */
 export type LicenseTier = 'developer' | 'enterprise' | (string & {});
@@ -2772,9 +2597,6 @@ export interface LicenseInfo {
   expiresAt: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Verification Keys (public, unauthenticated)
-// ---------------------------------------------------------------------------
 
 /** A vault signing public key for independent audit chain verification. */
 export interface VerificationKey {
@@ -2794,9 +2616,6 @@ export interface VerificationKeysResponse {
   signatureAlgorithm: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Hub Keys
-// ---------------------------------------------------------------------------
 
 /** A federation hub signing key. */
 export interface HubSigningKey {
@@ -2808,9 +2627,6 @@ export interface HubSigningKey {
   expiredAt: string | null;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Peers
-// ---------------------------------------------------------------------------
 
 /** A peer gateway in hub-to-hub federation. */
 export interface FederationPeer {
@@ -2829,9 +2645,6 @@ export interface PeeringToken {
   expiresAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Schema Publishing
-// ---------------------------------------------------------------------------
 
 /** Parameters for publishing a contract type schema to the federation. */
 export interface SchemaPublishParams {
@@ -2844,9 +2657,6 @@ export interface SchemaConfirmParams {
   confirmationToken: string;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Mandate Criteria
-// ---------------------------------------------------------------------------
 
 /** Cross-boundary criteria for a federated mandate. */
 export interface FederationMandateCriteria {
@@ -2869,9 +2679,6 @@ export interface MandateCriteriaStatus {
   agreementReached: boolean;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Reputation
-// ---------------------------------------------------------------------------
 
 /** A single reputation contribution from a gateway. */
 export interface ReputationContribution {
@@ -2898,9 +2705,6 @@ export interface FederationAgentReputation {
   byContractType: Record<string, { score: number; count: number }>;
 }
 
-// ---------------------------------------------------------------------------
-// Federation — Peer Sync
-// ---------------------------------------------------------------------------
 
 /** Parameters for broadcasting key revocations to peer gateways. */
 export interface RevocationBroadcastParams {
@@ -2922,9 +2726,6 @@ export interface PeerRegistrationParams {
   peeringToken: string;
 }
 
-// ---------------------------------------------------------------------------
-// Dashboard — Detail Types
-// ---------------------------------------------------------------------------
 
 /** A dashboard alert. */
 export interface DashboardAlert {
@@ -2934,9 +2735,6 @@ export interface DashboardAlert {
   createdAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Deprecated — will be removed in v2. Use Page<T>.
-// ---------------------------------------------------------------------------
 
 /** @deprecated Use `Page<T>` instead. */
 export type PaginationParams = ListParams;

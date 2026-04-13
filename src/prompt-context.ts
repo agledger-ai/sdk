@@ -1,11 +1,3 @@
-/**
- * AGLedger™ SDK — Prompt Context Builders
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- *
- * LLM-friendly compact summaries for mandates, receipts, and errors.
- * Zero dependencies beyond types.
- */
-
 import type { Mandate, Receipt } from './types.js';
 import { RateLimitError } from './errors.js';
 import type { AgledgerApiError } from './errors.js';

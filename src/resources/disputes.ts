@@ -1,8 +1,3 @@
-/**
- * AGLedger™ SDK — Disputes Resource
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- */
-
 import type { HttpClient } from '../http.js';
 import type {
   Dispute,
@@ -36,12 +31,12 @@ export class DisputesResource {
    * Get the dispute for a mandate, including submitted evidence.
    * Returns the full envelope: `{ dispute, evidence }`.
    */
-  async get(mandateId: string, options?: RequestOptions): Promise<DisputeResponse> {
+  get(mandateId: string, options?: RequestOptions): Promise<DisputeResponse> {
     return this.http.get<DisputeResponse>(`/v1/mandates/${mandateId}/dispute`, undefined, options);
   }
 
   /** Escalate a dispute to the next review tier. */
-  async escalate(mandateId: string, options?: RequestOptions): Promise<Dispute> {
+  escalate(mandateId: string, options?: RequestOptions): Promise<Dispute> {
     return this.http.post<Dispute>(`/v1/mandates/${mandateId}/dispute/escalate`, undefined, options);
   }
 
@@ -56,7 +51,7 @@ export class DisputesResource {
    * });
    * ```
    */
-  async submitEvidence(
+  submitEvidence(
     mandateId: string,
     params: { evidenceType: EvidenceType; payload: Record<string, unknown> },
     options?: RequestOptions,

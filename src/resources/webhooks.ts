@@ -1,8 +1,3 @@
-/**
- * AGLedger™ SDK — Webhooks Resource
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- */
-
 import type { HttpClient } from '../http.js';
 import type {
   Webhook,
@@ -20,7 +15,7 @@ export class WebhooksResource {
   constructor(private readonly http: HttpClient) {}
 
   /** Register a new webhook subscription. */
-  async create(params: CreateWebhookParams, options?: RequestOptions): Promise<Webhook> {
+  create(params: CreateWebhookParams, options?: RequestOptions): Promise<Webhook> {
     return this.http.post<Webhook>('/v1/webhooks', params, options);
   }
 
@@ -33,12 +28,12 @@ export class WebhooksResource {
    * const filtered = await client.webhooks.list({ url: 'https://example.com/webhook' });
    * ```
    */
-  async list(params?: ListWebhooksParams, options?: RequestOptions): Promise<Page<Webhook>> {
+  list(params?: ListWebhooksParams, options?: RequestOptions): Promise<Page<Webhook>> {
     return this.http.getPage<Webhook>('/v1/webhooks', params as Record<string, unknown>, options);
   }
 
   /** Get a single webhook by ID. */
-  async get(webhookId: string, options?: RequestOptions): Promise<Webhook> {
+  get(webhookId: string, options?: RequestOptions): Promise<Webhook> {
     return this.http.get<Webhook>(`/v1/webhooks/${webhookId}`, undefined, options);
   }
 
@@ -50,37 +45,37 @@ export class WebhooksResource {
    * await client.webhooks.update('wh-123', { url: 'https://new-url.com/hook' });
    * ```
    */
-  async update(webhookId: string, params: Partial<CreateWebhookParams>, options?: RequestOptions): Promise<Webhook> {
+  update(webhookId: string, params: Partial<CreateWebhookParams>, options?: RequestOptions): Promise<Webhook> {
     return this.http.patch<Webhook>(`/v1/webhooks/${webhookId}`, params, options);
   }
 
   /** Deactivate a webhook subscription. */
-  async delete(webhookId: string, options?: RequestOptions): Promise<void> {
+  delete(webhookId: string, options?: RequestOptions): Promise<void> {
     return this.http.delete(`/v1/webhooks/${webhookId}`, undefined, options);
   }
 
   /** Pause webhook deliveries. The subscription remains active but deliveries are held. */
-  async pause(webhookId: string, options?: RequestOptions): Promise<Webhook> {
+  pause(webhookId: string, options?: RequestOptions): Promise<Webhook> {
     return this.http.post<Webhook>(`/v1/webhooks/${webhookId}/pause`, undefined, options);
   }
 
   /** Resume a paused webhook. Held deliveries are released. */
-  async resume(webhookId: string, options?: RequestOptions): Promise<Webhook> {
+  resume(webhookId: string, options?: RequestOptions): Promise<Webhook> {
     return this.http.post<Webhook>(`/v1/webhooks/${webhookId}/resume`, undefined, options);
   }
 
   /** Rotate webhook signing secret. Returns the updated webhook with new secret. */
-  async rotate(webhookId: string, options?: RequestOptions): Promise<Webhook> {
+  rotate(webhookId: string, options?: RequestOptions): Promise<Webhook> {
     return this.http.post<Webhook>(`/v1/webhooks/${webhookId}/rotate`, undefined, options);
   }
 
   /** Send a test ping to the webhook URL. */
-  async ping(webhookId: string, options?: RequestOptions): Promise<WebhookTestResult> {
+  ping(webhookId: string, options?: RequestOptions): Promise<WebhookTestResult> {
     return this.http.post<WebhookTestResult>(`/v1/webhooks/${webhookId}/ping`, undefined, options);
   }
 
   /** List delivery attempts for a webhook, optionally filtered by status. */
-  async listDeliveries(
+  listDeliveries(
     webhookId: string,
     params?: ListParams & { status?: 'PENDING' | 'DELIVERED' | 'FAILED' | 'DEAD_LETTER' },
     options?: RequestOptions,
@@ -93,7 +88,7 @@ export class WebhooksResource {
   }
 
   /** List dead-letter queue entries for a specific webhook. */
-  async listDlq(
+  listDlq(
     webhookId: string,
     params?: ListParams,
     options?: RequestOptions,
@@ -106,12 +101,12 @@ export class WebhooksResource {
   }
 
   /** Retry all dead-letter queue entries for a specific webhook. */
-  async retryAllDlq(webhookId: string, options?: RequestOptions): Promise<{ retried: number }> {
+  retryAllDlq(webhookId: string, options?: RequestOptions): Promise<{ retried: number }> {
     return this.http.post(`/v1/webhooks/${webhookId}/dlq/retry-all`, undefined, options);
   }
 
   /** Retry a single dead-letter queue entry for a specific webhook. */
-  async retryDlq(webhookId: string, dlqId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+  retryDlq(webhookId: string, dlqId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.post(`/v1/webhooks/${webhookId}/dlq/${dlqId}/retry`, undefined, options);
   }
 }

@@ -1,12 +1,3 @@
-/**
- * AGLedger™ SDK — Federation Admin Resource (Platform Operations)
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- *
- * Platform admin operations for managing federation gateways, mandates,
- * audit logs, and the outbound dead-letter queue. All methods use standard
- * API key auth (requires `admin:system` scope).
- */
-
 import type { HttpClient } from '../http.js';
 import type {
   RequestOptions,
@@ -36,7 +27,7 @@ export class FederationAdminResource {
   constructor(private readonly http: HttpClient) {}
 
   /** Create a single-use registration token for a new gateway. */
-  async createRegistrationToken(
+  createRegistrationToken(
     params?: CreateRegistrationTokenParams,
     options?: RequestOptions,
   ): Promise<FederationRegistrationToken> {
@@ -44,7 +35,7 @@ export class FederationAdminResource {
   }
 
   /** List registered federation gateways, optionally filtered by status. */
-  async listGateways(
+  listGateways(
     params?: ListFederationGatewaysParams,
     options?: RequestOptions,
   ): Promise<Page<FederationGateway>> {
@@ -52,7 +43,7 @@ export class FederationAdminResource {
   }
 
   /** Admin-initiated gateway revocation (irreversible). */
-  async revokeGateway(
+  revokeGateway(
     gatewayId: string,
     params: AdminRevokeGatewayParams,
     options?: RequestOptions,
@@ -61,7 +52,7 @@ export class FederationAdminResource {
   }
 
   /** Query federation mandates tracked by the hub. */
-  async queryMandates(
+  queryMandates(
     params?: QueryFederationMandatesParams,
     options?: RequestOptions,
   ): Promise<Page<FederationMandate>> {
@@ -69,7 +60,7 @@ export class FederationAdminResource {
   }
 
   /** Query the federation audit log (hash-chained). */
-  async getAuditLog(
+  getAuditLog(
     params?: FederationAuditLogParams,
     options?: RequestOptions,
   ): Promise<Page<FederationAuditEntry>> {
@@ -77,7 +68,7 @@ export class FederationAdminResource {
   }
 
   /** Get the federation health summary: gateway counts, mandate counts, audit chain length. */
-  async getHealth(options?: RequestOptions): Promise<FederationHealthSummary> {
+  getHealth(options?: RequestOptions): Promise<FederationHealthSummary> {
     return this.http.get('/federation/v1/admin/health', undefined, options);
   }
 
@@ -86,7 +77,7 @@ export class FederationAdminResource {
    * @param gatewayId - Gateway UUID
    * @param params - Optional new sequence number (default: 0)
    */
-  async resetSequence(
+  resetSequence(
     gatewayId: string,
     params?: ResetSequenceParams,
     options?: RequestOptions,
@@ -95,7 +86,7 @@ export class FederationAdminResource {
   }
 
   /** List failed outbound federation messages in the dead-letter queue. */
-  async listDlq(
+  listDlq(
     params?: ListOutboundDlqParams,
     options?: RequestOptions,
   ): Promise<Page<FederationDlqEntry>> {
@@ -103,7 +94,7 @@ export class FederationAdminResource {
   }
 
   /** Retry a failed outbound federation message (re-enqueues and removes from DLQ). */
-  async retryDlq(
+  retryDlq(
     dlqId: string,
     options?: RequestOptions,
   ): Promise<{ retried: boolean; nextSteps: string[] }> {
@@ -111,29 +102,26 @@ export class FederationAdminResource {
   }
 
   /** Permanently discard a failed outbound federation message from the DLQ. */
-  async deleteDlq(
+  deleteDlq(
     dlqId: string,
     options?: RequestOptions,
   ): Promise<{ deleted: boolean }> {
     return this.http.delete(`/federation/v1/admin/outbound-dlq/${dlqId}`, undefined, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Hub Key Management
-  // ---------------------------------------------------------------------------
 
   /** Rotate the federation hub's signing key. Creates a new key and deprecates the current one. */
-  async rotateHubKey(options?: RequestOptions): Promise<HubSigningKey> {
+  rotateHubKey(options?: RequestOptions): Promise<HubSigningKey> {
     return this.http.post<HubSigningKey>('/federation/v1/admin/rotate-hub-key', {}, options);
   }
 
   /** List all hub signing keys (active, rotated, expired). */
-  async listHubKeys(options?: RequestOptions): Promise<HubSigningKey[]> {
+  listHubKeys(options?: RequestOptions): Promise<HubSigningKey[]> {
     return this.http.get<HubSigningKey[]>('/federation/v1/admin/hub-keys', undefined, options);
   }
 
   /** Activate a hub signing key. */
-  async activateHubKey(
+  activateHubKey(
     keyId: string,
     options?: RequestOptions,
   ): Promise<HubSigningKey> {
@@ -141,19 +129,16 @@ export class FederationAdminResource {
   }
 
   /** Expire a hub signing key. */
-  async expireHubKey(
+  expireHubKey(
     keyId: string,
     options?: RequestOptions,
   ): Promise<HubSigningKey> {
     return this.http.post<HubSigningKey>(`/federation/v1/admin/hub-keys/${keyId}/expire`, {}, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Peer Management
-  // ---------------------------------------------------------------------------
 
   /** Register a new peer gateway for hub-to-hub federation. */
-  async registerPeer(
+  registerPeer(
     params: PeerRegistrationParams,
     options?: RequestOptions,
   ): Promise<FederationPeer> {
@@ -161,12 +146,12 @@ export class FederationAdminResource {
   }
 
   /** List all peer gateways known to this hub. */
-  async listPeers(options?: RequestOptions): Promise<Page<FederationPeer>> {
+  listPeers(options?: RequestOptions): Promise<Page<FederationPeer>> {
     return this.http.getPage<FederationPeer>('/federation/v1/admin/peers', undefined, options);
   }
 
   /** Get details for a specific peer gateway. */
-  async getPeer(
+  getPeer(
     hubId: string,
     options?: RequestOptions,
   ): Promise<FederationPeer> {
@@ -174,7 +159,7 @@ export class FederationAdminResource {
   }
 
   /** Revoke a peer gateway (irreversible). */
-  async revokePeer(
+  revokePeer(
     hubId: string,
     options?: RequestOptions,
   ): Promise<{ revoked: boolean }> {
@@ -182,7 +167,7 @@ export class FederationAdminResource {
   }
 
   /** Trigger a full resync with a peer gateway. */
-  async resyncPeer(
+  resyncPeer(
     hubId: string,
     options?: RequestOptions,
   ): Promise<{ synced: boolean }> {
@@ -190,16 +175,13 @@ export class FederationAdminResource {
   }
 
   /** Create a single-use peering token for hub-to-hub federation setup. */
-  async createPeeringToken(options?: RequestOptions): Promise<PeeringToken> {
+  createPeeringToken(options?: RequestOptions): Promise<PeeringToken> {
     return this.http.post<PeeringToken>('/federation/v1/admin/peering-tokens', {}, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Schema Management
-  // ---------------------------------------------------------------------------
 
   /** Delete a specific version of a federated contract type schema. */
-  async deleteSchemaVersion(
+  deleteSchemaVersion(
     contractType: string,
     version: string,
     options?: RequestOptions,
@@ -207,12 +189,9 @@ export class FederationAdminResource {
     return this.http.delete(`/federation/v1/admin/schemas/${contractType}/${version}`, undefined, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Reputation Administration
-  // ---------------------------------------------------------------------------
 
   /** List reputation contributions for an agent. */
-  async listReputationContributions(
+  listReputationContributions(
     agentId: string,
     options?: RequestOptions,
   ): Promise<ReputationContribution[]> {
@@ -220,19 +199,16 @@ export class FederationAdminResource {
   }
 
   /** Reset an agent's federated reputation (deletes all contributions). */
-  async resetReputation(
+  resetReputation(
     agentId: string,
     options?: RequestOptions,
   ): Promise<{ reset: boolean }> {
     return this.http.delete(`/federation/v1/admin/reputation/${agentId}`, undefined, options);
   }
 
-  // ---------------------------------------------------------------------------
-  // Mandate Criteria Administration
-  // ---------------------------------------------------------------------------
 
   /** Get the criteria negotiation status for a federated mandate. */
-  async getMandateCriteriaStatus(
+  getMandateCriteriaStatus(
     mandateId: string,
     options?: RequestOptions,
   ): Promise<MandateCriteriaStatus> {

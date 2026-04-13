@@ -1,9 +1,3 @@
-/**
- * AGLedger™ SDK — Notarize Resource
- * Agent-to-agent agreement notarization (OpenClaw flow).
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- */
-
 import type { HttpClient } from '../http.js';
 import type {
   NotarizedMandate,
@@ -23,7 +17,7 @@ export class NotarizeResource {
   constructor(private readonly http: HttpClient) {}
 
   /** Create a notarized mandate (principal action). */
-  async createMandate(
+  createMandate(
     params: NotarizeMandateParams,
     options?: RequestOptions,
   ): Promise<NotarizeMandateResult> {
@@ -31,22 +25,22 @@ export class NotarizeResource {
   }
 
   /** Get a notarized mandate by ID. */
-  async getMandate(id: string, options?: RequestOptions): Promise<NotarizedMandate> {
+  getMandate(id: string, options?: RequestOptions): Promise<NotarizedMandate> {
     return this.http.get<NotarizedMandate>(`/v1/notarize/mandates/${id}`, undefined, options);
   }
 
   /** Get the transition history for a notarized mandate. */
-  async getHistory(id: string, options?: RequestOptions): Promise<NotarizeHistory> {
+  getHistory(id: string, options?: RequestOptions): Promise<NotarizeHistory> {
     return this.http.get<NotarizeHistory>(`/v1/notarize/mandates/${id}/history`, undefined, options);
   }
 
   /** Accept a notarized mandate (performer action). */
-  async acceptMandate(id: string, options?: RequestOptions): Promise<NotarizedMandate> {
+  acceptMandate(id: string, options?: RequestOptions): Promise<NotarizedMandate> {
     return this.http.post<NotarizedMandate>(`/v1/notarize/mandates/${id}/accept`, undefined, options);
   }
 
   /** Counter-propose new terms for a notarized mandate (performer action). */
-  async counterPropose(
+  counterPropose(
     id: string,
     params: NotarizeCounterProposeParams,
     options?: RequestOptions,
@@ -59,7 +53,7 @@ export class NotarizeResource {
   }
 
   /** Submit a receipt against a notarized mandate (performer action). */
-  async submitReceipt(
+  submitReceipt(
     id: string,
     params: NotarizeReceiptParams,
     options?: RequestOptions,
@@ -72,7 +66,7 @@ export class NotarizeResource {
   }
 
   /** Render a verdict on a notarized mandate (principal action). */
-  async renderVerdict(
+  renderVerdict(
     id: string,
     params: NotarizeVerdictParams,
     options?: RequestOptions,
@@ -85,7 +79,7 @@ export class NotarizeResource {
   }
 
   /** Verify that a local copy matches the notarized hash. */
-  async verify(
+  verify(
     params: NotarizeVerifyParams,
     options?: RequestOptions,
   ): Promise<NotarizeVerifyResult> {

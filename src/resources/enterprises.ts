@@ -1,8 +1,3 @@
-/**
- * AGLedger™ SDK — Enterprises Resource (Agent Approval Registry)
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- */
-
 import type { HttpClient } from '../http.js';
 import type {
   EnterpriseAgentRecord,
@@ -21,7 +16,7 @@ export class EnterprisesResource {
   constructor(private readonly http: HttpClient) {}
 
   /** Approve an agent for an enterprise (idempotent PUT). */
-  async approveAgent(
+  approveAgent(
     enterpriseId: string,
     agentId: string,
     params?: ApproveAgentParams,
@@ -35,7 +30,7 @@ export class EnterprisesResource {
   }
 
   /** Revoke an agent's approval for an enterprise. */
-  async revokeAgent(
+  revokeAgent(
     enterpriseId: string,
     agentId: string,
     params?: RevokeAgentParams,
@@ -49,7 +44,7 @@ export class EnterprisesResource {
   }
 
   /** Update an agent's status (e.g., suspend or reactivate). */
-  async updateAgentStatus(
+  updateAgentStatus(
     enterpriseId: string,
     agentId: string,
     params: UpdateAgentStatusParams,
@@ -63,7 +58,7 @@ export class EnterprisesResource {
   }
 
   /** Approve multiple agents at once. */
-  async bulkApprove(
+  bulkApprove(
     enterpriseId: string,
     params: BulkApproveAgentParams,
     options?: RequestOptions,
@@ -76,7 +71,7 @@ export class EnterprisesResource {
   }
 
   /** List agents for an enterprise, optionally filtered by status. */
-  async listAgents(
+  listAgents(
     enterpriseId: string,
     params?: ListEnterpriseAgentsParams,
     options?: RequestOptions,
@@ -89,7 +84,7 @@ export class EnterprisesResource {
   }
 
   /** Get a single agent's approval record. */
-  async getAgent(
+  getAgent(
     enterpriseId: string,
     agentId: string,
     options?: RequestOptions,
@@ -102,7 +97,7 @@ export class EnterprisesResource {
   }
 
   /** Get the enterprise's agent approval configuration. */
-  async getApprovalConfig(
+  getApprovalConfig(
     enterpriseId: string,
     options?: RequestOptions,
   ): Promise<ApprovalConfig> {
@@ -114,7 +109,7 @@ export class EnterprisesResource {
   }
 
   /** Set the enterprise's agent approval configuration (full replace). */
-  async setApprovalConfig(
+  setApprovalConfig(
     enterpriseId: string,
     params: ApprovalConfig,
     options?: RequestOptions,

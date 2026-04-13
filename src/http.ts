@@ -1,10 +1,3 @@
-/**
- * AGLedger™ SDK — HTTP Client
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- *
- * Zero runtime dependencies. Uses native fetch + crypto.
- */
-
 import type {
   AgledgerClientOptions,
   RequestOptions,
@@ -62,7 +55,7 @@ export class HttpClient {
     this.idempotencyKeyPrefix = options.idempotencyKeyPrefix ?? '';
   }
 
-  async get<T>(
+  get<T>(
     path: string,
     params?: Record<string, unknown>,
     options?: RequestOptions,
@@ -71,7 +64,7 @@ export class HttpClient {
     return this.request<T>('GET', url, undefined, options);
   }
 
-  async post<T>(
+  post<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions,
@@ -81,7 +74,7 @@ export class HttpClient {
     return this.request<T>('POST', url, body, options);
   }
 
-  async put<T>(
+  put<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions,
@@ -90,7 +83,7 @@ export class HttpClient {
     return this.request<T>('PUT', url, body, options);
   }
 
-  async patch<T>(
+  patch<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions,
@@ -99,7 +92,7 @@ export class HttpClient {
     return this.request<T>('PATCH', url, body, options);
   }
 
-  async delete<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
+  delete<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
     const url = this.buildUrl(path);
     return this.request<T>('DELETE', url, body, options);
   }
@@ -236,9 +229,6 @@ export class HttpClient {
     throw lastError!;
   }
 
-  // ---------------------------------------------------------------------------
-  // Internal
-  // ---------------------------------------------------------------------------
 
   /** Build Authorization header value based on options and default API key. */
   private authHeader(options?: RequestOptions): string | undefined {

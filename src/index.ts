@@ -1,11 +1,3 @@
-/**
- * AGLedger™ SDK v1.0.0
- * Accountability and audit infrastructure for agentic systems.
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- *
- * @packageDocumentation
- */
-
 // Client
 export { AgledgerClient, createFederationClient } from './client.js';
 

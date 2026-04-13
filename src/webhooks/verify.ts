@@ -1,11 +1,3 @@
-/**
- * AGLedger™ SDK — Webhook Signature Verification
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- *
- * Separate export to avoid pulling node:crypto into browser bundles.
- * Import via: import { verifySignature } from '@agledger/sdk/webhooks'
- */
-
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { WebhookEventType, Mandate, Receipt, VerificationResult, Dispute } from '../types.js';
 import { SignatureVerificationError } from '../errors.js';

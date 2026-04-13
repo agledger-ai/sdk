@@ -1,11 +1,3 @@
-/**
- * AGLedger™ SDK — API Key Scopes
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- *
- * Scopes narrow what a key can do within its role's ceiling.
- * null scopes = full access for the role (backward compat).
- */
-
 export const Scopes = {
   // Mandate lifecycle
   MANDATES_READ: 'mandates:read',

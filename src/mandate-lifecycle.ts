@@ -1,10 +1,3 @@
-/**
- * AGLedger™ SDK — Mandate State Machine
- * Patent Pending. Copyright 2026 AGLedger LLC. All rights reserved.
- *
- * Pure logic, zero dependencies. Mirrors the API's state machine.
- */
-
 import type { MandateStatus } from './types.js';
 
 /**
