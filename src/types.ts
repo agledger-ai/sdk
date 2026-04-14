@@ -1013,10 +1013,11 @@ export interface DelegateMandateParams {
 }
 
 export interface CreateAgentMandateParams {
-  principalAgentId: string;
+  /** Principal agent ID. Omit to infer from bearer token. */
+  principalAgentId?: string;
   performerAgentId?: string;
   contractType: ContractType;
-  contractVersion: string;
+  contractVersion?: string;
   platform?: string;
   projectRef?: string;
   criteria: Record<string, unknown>;
@@ -1078,7 +1079,8 @@ export interface Receipt {
 }
 
 export interface SubmitReceiptParams {
-  agentId: string;
+  /** Agent ID. Omit to infer from bearer token. */
+  agentId?: string;
   evidence: Record<string, unknown>;
   evidenceHash?: string;
   idempotencyKey?: string;
