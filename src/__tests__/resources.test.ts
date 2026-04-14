@@ -249,7 +249,7 @@ describe('MandatesResource', () => {
 describe('ReceiptsResource', () => {
   it('submits a receipt', async () => {
     const { client, fetch } = createMockClient();
-    await client.receipts.submit('mnd-123', { agentId: 'agt-1', evidence: { delivered: true } });
+    await client.receipts.submit('mnd-123', { evidence: { delivered: true } });
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/mandates/mnd-123/receipts');
     expect(init.method).toBe('POST');

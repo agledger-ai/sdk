@@ -66,8 +66,8 @@ export class SchemasResource {
   }
 
   /** List all versions of a contract type schema. */
-  getVersions(contractType: ContractType, options?: RequestOptions): Promise<SchemaVersionDetail[]> {
-    return this.http.get<SchemaVersionDetail[]>(`/v1/schemas/${contractType}/versions`, undefined, options);
+  getVersions(contractType: ContractType, options?: RequestOptions): Promise<Page<SchemaVersionDetail>> {
+    return this.http.getPage<SchemaVersionDetail>(`/v1/schemas/${contractType}/versions`, undefined, options);
   }
 
   /** Get a specific version of a contract type schema. */

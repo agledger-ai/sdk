@@ -73,14 +73,12 @@ describe('SDK integration: response shape validation', async () => {
     expect(schema.receiptSchema).toBeDefined();
   });
 
-  it('schemas.getVersions() returns array or Page of versions', async () => {
-    const result = await client.schemas.getVersions('ACH-PROC-v1');
-    // SDK types say SchemaVersionDetail[] but API may return Page wrapper
-    const versions = Array.isArray(result) ? result : (result as any).data;
-    expect(Array.isArray(versions), 'getVersions result should contain an array').toBe(true);
-    if (versions.length > 0) {
-      expect(typeof versions[0].version).toBe('number');
-      expect(typeof versions[0].contractType).toBe('string');
+  it('schemas.getVersions() returns Page<SchemaVersionDetail>', async () => {
+    const page = await client.schemas.getVersions('ACH-PROC-v1');
+    assertPage(page, 'schemas.getVersions');
+    if (page.data.length > 0) {
+      expect(typeof page.data[0].version).toBe('number');
+      expect(typeof page.data[0].contractType).toBe('string');
     }
   });
 

@@ -1079,8 +1079,6 @@ export interface Receipt {
 }
 
 export interface SubmitReceiptParams {
-  /** Agent ID. Omit to infer from bearer token. */
-  agentId?: string;
   evidence: Record<string, unknown>;
   evidenceHash?: string;
   idempotencyKey?: string;
