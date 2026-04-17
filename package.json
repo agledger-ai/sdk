@@ -1,6 +1,6 @@
 {
   "name": "@agledger/sdk",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "AGLedger™ SDK — Accountability and audit infrastructure for agentic systems.",
   "license": "SEE LICENSE IN LICENSE",
   "sideEffects": false,
