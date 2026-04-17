@@ -24,7 +24,7 @@ const DEFAULT_BASE_URL = 'https://agledger.example.com';
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
-const SDK_VERSION = '0.4.2';
+const SDK_VERSION = '0.5.0';
 
 export class HttpClient {
   private readonly apiKey: string;
@@ -372,6 +372,8 @@ export class HttpClient {
       code: body.code as string | undefined,
       retryable: body.retryable as boolean | undefined,
       details: body.details as Record<string, unknown> | undefined,
+      suggestion: body.suggestion as string | undefined,
+      docUrl: body.docUrl as string | undefined,
     };
 
     switch (status) {

@@ -2147,8 +2147,10 @@ export interface ApiErrorResponse {
   code?: string;
   retryable?: boolean;
   details?: ValidationErrorDetail[] | Record<string, unknown>;
-  /** Agent-friendly recovery hint (e.g. "Run `client.mandates.list()` to find valid IDs"). */
+  /** Recovery hint forwarded from the API body when present. */
   suggestion?: string;
+  /** Documentation link forwarded from the API body when present. */
+  docUrl?: string;
 }
 
 export interface ValidationErrorDetail {

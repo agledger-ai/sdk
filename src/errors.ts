@@ -14,12 +14,16 @@ export class AgledgerError extends Error {
 /**
  * API returned an error response. All HTTP errors extend this.
  *
- * Key properties for agent consumers:
+ * Fields mirror the API error body verbatim. The SDK does not invent content:
+ * `docUrl`, `suggestion`, `nextSteps`, etc. only appear when the API returns them.
+ *
+ * Key properties for consumers:
  * - `status` — HTTP status code
- * - `code` — stable machine-readable error code (e.g., 'MANDATE_NOT_ACTIVE')
- * - `retryable` — whether this error can be retried
- * - `requestId` — correlation ID for debugging
- * - `suggestion` — agent-friendly recovery hint
+ * - `code` — stable machine-readable error code (from API body)
+ * - `retryable` — API's `retryable` flag, falling back to status-based classification (429/5xx)
+ * - `requestId` — correlation ID (from API body or `X-Request-Id` header)
+ * - `docUrl` — documentation link, only if the API returned one
+ * - `suggestion` — recovery hint, only if the API returned one
  * - `validationErrors` — field-level validation details (for 400/422)
  */
 export class AgledgerApiError extends AgledgerError {
@@ -28,17 +32,10 @@ export class AgledgerApiError extends AgledgerError {
   readonly requestId?: string;
   readonly details?: ValidationErrorDetail[] | Record<string, unknown>;
 
-  /** Link to documentation for this error code. */
-  readonly docUrl: string;
+  /** Documentation link for this error, forwarded from the API body when present. */
+  readonly docUrl?: string;
 
-  /**
-   * Agent-friendly recovery hint describing what to do next.
-   * Example: `"Call client.mandates.list() to find valid mandate IDs"`
-   *
-   * Populated from the API response when available. When the API does not
-   * include a suggestion, the SDK generates one for common error patterns
-   * (404 → list the resource, 403 → check scopes, 422 → check status).
-   */
+  /** Recovery hint forwarded from the API body when present. */
   readonly suggestion?: string;
 
   /**
@@ -56,21 +53,8 @@ export class AgledgerApiError extends AgledgerError {
     this.requestId = body.requestId;
     this.details = body.details;
     this.retryable = body.retryable ?? (status === 429 || status >= 500);
-    this.docUrl = `https://docs.agledger.ai/errors/${this.code}`;
-    this.suggestion = body.suggestion ?? AgledgerApiError.defaultSuggestion(status, this.code);
-  }
-
-  /** Generate a default recovery suggestion for common HTTP status codes. */
-  private static defaultSuggestion(status: number, code: string): string | undefined {
-    switch (status) {
-      case 401: return 'Check your API key. Set AGLEDGER_API_KEY or pass apiKey to the client constructor.';
-      case 403: return 'Check API key scopes. See error.missingScopes for required scopes, or use a broader ScopeProfile.';
-      case 404: return 'The resource was not found. Verify the ID is correct, or list resources to find valid IDs.';
-      case 409: return 'A conflicting operation is in progress. Wait and retry, or check the current resource state.';
-      case 422: return 'The resource is in the wrong state for this operation. Check the current status before retrying.';
-      case 429: return 'Rate limit exceeded. The SDK retries automatically — if you see this, increase maxRetries or add backoff.';
-      default: return undefined;
-    }
+    this.docUrl = body.docUrl;
+    this.suggestion = body.suggestion;
   }
 
   /** Whether this error is retryable (429, 5xx, network errors). Delegates to the `retryable` property. */

@@ -1,4 +1,4 @@
-import type { AgledgerClientOptions, RateLimitInfo } from './types.js';
+import type { AgledgerClientOptions, RateLimitInfo, RequestOptions } from './types.js';
 import { HttpClient } from './http.js';
 import { MandatesResource } from './resources/mandates.js';
 import { ReceiptsResource } from './resources/receipts.js';
@@ -56,6 +56,38 @@ export class AgledgerClient {
   /** Rate limit info from the most recent API response. Null if headers not present. */
   get rateLimitInfo(): RateLimitInfo | null {
     return this.http.rateLimitInfo;
+  }
+
+  /**
+   * Escape hatch for any API route the SDK does not yet model.
+   * Forwards `method` + `path` + `body` to the API exactly as given.
+   *
+   * Use this to reach new or unmodeled endpoints without waiting for a
+   * typed method. The return type is unknown — callers narrow it themselves.
+   *
+   * @example
+   * ```ts
+   * const result = await client.request('POST', '/v1/custom/endpoint', { foo: 'bar' });
+   * ```
+   */
+  request<T = unknown>(
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+    path: string,
+    body?: unknown,
+    options?: RequestOptions & { query?: Record<string, unknown> },
+  ): Promise<T> {
+    switch (method) {
+      case 'GET':
+        return this.http.get<T>(path, options?.query, options);
+      case 'POST':
+        return this.http.post<T>(path, body, options, options?.query);
+      case 'PUT':
+        return this.http.put<T>(path, body, options);
+      case 'PATCH':
+        return this.http.patch<T>(path, body, options);
+      case 'DELETE':
+        return this.http.delete<T>(path, body, options);
+    }
   }
 
   /**

@@ -78,50 +78,29 @@ describe('AgledgerApiError classifier methods', () => {
   });
 
   describe('docUrl', () => {
-    it('generates doc URL from error code', () => {
-      const err = new AgledgerApiError(422, { message: 'Wrong state', code: 'MANDATE_NOT_ACTIVE' });
-      expect(err.docUrl).toBe('https://docs.agledger.ai/errors/MANDATE_NOT_ACTIVE');
+    it('forwards docUrl from API body when present', () => {
+      const err = new AgledgerApiError(422, {
+        message: 'Wrong state',
+        code: 'MANDATE_NOT_ACTIVE',
+        docUrl: 'https://www.agledger.ai/docs/errors/MANDATE_NOT_ACTIVE',
+      });
+      expect(err.docUrl).toBe('https://www.agledger.ai/docs/errors/MANDATE_NOT_ACTIVE');
     });
 
-    it('uses error field as fallback code', () => {
+    it('is undefined when API does not return docUrl', () => {
       const err = new AgledgerApiError(400, { message: 'Bad', error: 'validation_error' });
-      expect(err.docUrl).toBe('https://docs.agledger.ai/errors/validation_error');
-    });
-
-    it('uses "unknown" when no code provided', () => {
-      const err = new AgledgerApiError(500, { message: 'Boom' });
-      expect(err.docUrl).toBe('https://docs.agledger.ai/errors/unknown');
+      expect(err.docUrl).toBeUndefined();
     });
   });
 
   describe('suggestion', () => {
-    it('uses API-provided suggestion when present', () => {
+    it('forwards suggestion from API body when present', () => {
       const err = new AgledgerApiError(400, { message: 'Bad', suggestion: 'Try passing contractType' });
       expect(err.suggestion).toBe('Try passing contractType');
     });
 
-    it('generates default suggestion for 404', () => {
+    it('is undefined when API does not return suggestion', () => {
       const err = new AgledgerApiError(404, { message: 'Not found' });
-      expect(err.suggestion).toContain('not found');
-    });
-
-    it('generates default suggestion for 401', () => {
-      const err = new AgledgerApiError(401, { message: 'Unauthorized' });
-      expect(err.suggestion).toContain('API key');
-    });
-
-    it('generates default suggestion for 403', () => {
-      const err = new AgledgerApiError(403, { message: 'Forbidden' });
-      expect(err.suggestion).toContain('scopes');
-    });
-
-    it('generates default suggestion for 422', () => {
-      const err = new AgledgerApiError(422, { message: 'Wrong state' });
-      expect(err.suggestion).toContain('wrong state');
-    });
-
-    it('returns undefined for unknown status codes', () => {
-      const err = new AgledgerApiError(502, { message: 'Bad gateway' });
       expect(err.suggestion).toBeUndefined();
     });
   });
