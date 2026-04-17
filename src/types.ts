@@ -1492,8 +1492,12 @@ export interface AuditExportEntry {
   payload: Record<string, unknown>;
   integrity: {
     payloadHash: string;
+    /** Hash algorithm (e.g., 'SHA-256'). Optional for backward compatibility. */
+    hashAlg?: string;
     previousHash: string | null;
     signature: string | null;
+    /** Signature algorithm (e.g., 'Ed25519'). Optional for backward compatibility. */
+    signatureAlg?: string;
     signingKeyId: string | null;
     valid: boolean;
   };
@@ -1509,7 +1513,14 @@ export interface MandateAuditExport {
     chainIntegrity: boolean;
     exportFormatVersion: string;
     canonicalization: string;
+    /** Active signing key at export time (SPKI DER base64). */
     signingPublicKey: string | null;
+    /**
+     * Map of keyId → SPKI DER base64 public key. Includes retired keys referenced
+     * by entries in this export. Required for offline verification when keys
+     * have rotated mid-trail. Optional for backward compatibility.
+     */
+    signingPublicKeys?: Record<string, string>;
   };
   entries: AuditExportEntry[];
 }

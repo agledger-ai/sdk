@@ -196,6 +196,30 @@ const isValid = verifySignature(
 );
 ```
 
+## Offline Audit Export Verification
+
+Verify a mandate's hash-chained, Ed25519-signed audit export without calling the API:
+
+```typescript
+import { verifyExport } from '@agledger/sdk/verify';
+
+const exportData = await client.compliance.exportMandate('MND_123');
+const result = verifyExport(exportData);
+
+if (!result.valid) {
+  console.error(
+    `Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.reason}`,
+  );
+}
+// { valid: true, verifiedEntries: 12, totalEntries: 12, entries: [...] }
+```
+
+Re-implements the vault's integrity check (RFC 8785 JCS → SHA-256 → Ed25519 over
+`{position}:{payloadHash}:{previousHash}`). The export's `signingPublicKeys` map
+is used by default; pass `{ publicKeys: {...} }` to override or supply keys that
+rotated out. Use `{ requireKeyId: 'key-id' }` to reject exports signed by an
+unexpected (even if otherwise valid) key.
+
 ## Mandate Lifecycle
 
 ```
@@ -222,4 +246,4 @@ Full details: [agledger.ai/pricing](https://agledger.ai/pricing) | [License Agre
 
 Proprietary. Copyright (c) 2026 AGLedger LLC. All rights reserved. See [LICENSE](./LICENSE) for details.
 
-AGLedger and the Agentic Contract Specification are trademarks of AGLedger LLC. Patent pending.
+AGLedger, Agentic Ledger, Settlement Signal, and Agentic Operations and Accountability Protocol (AOAP) are trademarks of AGLedger LLC. Patent pending.

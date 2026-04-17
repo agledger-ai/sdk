@@ -22,6 +22,11 @@
       "types": "./dist/webhooks/verify.d.ts",
       "import": "./dist/webhooks/verify.js",
       "default": "./dist/webhooks/verify.js"
+    },
+    "./verify": {
+      "types": "./dist/verify/verify-export.d.ts",
+      "import": "./dist/verify/verify-export.js",
+      "default": "./dist/verify/verify-export.js"
     }
   },
   "files": [
