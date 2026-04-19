@@ -1,8 +1,16 @@
 # @agledger/sdk
 
-The official TypeScript SDK for [AGLedger](https://agledger.ai) -- accountability and audit infrastructure for agentic systems.
+The official TypeScript SDK for [AGLedger](https://agledger.ai) -- accountability infrastructure for AI agents. The Layer 3 accountability layer of the agent stack.
 
 Zero runtime dependencies. TypeScript strict. 421 tests. Works with Node.js 18+, Deno, and Bun.
+
+**Learn more**
+
+- [agledger.ai](https://agledger.ai) — what AGLedger is and why Layer 3 accountability matters
+- [How it works](https://agledger.ai/how-it-works) — the four-endpoint lifecycle: mandate, receipt, verdict, fulfill
+- [Glossary](https://agledger.ai/glossary) — canonical definitions of Mandate, Receipt, Verdict, Settlement Signal
+- [Documentation](https://agledger.ai/docs) — installation, integration guides, API reference
+- [Protocol (AOAP)](https://agledger.ai/protocol) — the coordination language behind AGLedger
 
 ## Why AGLedger?
 
@@ -17,7 +25,7 @@ Enterprises deploying AI agents need to know what each agent was asked to do, wh
 
 AGLedger is self-hosted. You deploy it on your own infrastructure.
 
-1. Deploy AGLedger ([install guide](https://docs.agledger.ai/install))
+1. Deploy AGLedger ([install guide](https://agledger.ai/docs/guides/self-hosted/install))
 2. Get your API key from your instance
 3. Install the SDK: `npm install @agledger/sdk`
 4. Follow the Quick Start below
