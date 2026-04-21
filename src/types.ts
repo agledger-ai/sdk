@@ -1547,25 +1547,6 @@ export interface AuditStreamResult {
 
 export type AccountType = 'enterprise' | 'agent' | 'platform';
 
-export interface RegisterParams {
-  role: AccountType;
-  name: string;
-  email?: string;
-  agentCardUrl?: string;
-  enterpriseId?: string;
-}
-
-export interface RegisterResult {
-  id: string;
-  apiKey: string;
-  role: AccountType;
-  name: string;
-  trustLevel: string;
-  verificationPending?: 'email' | null;
-  /** Suggested next API calls after registration. */
-  nextSteps?: NextStep[];
-}
-
 export interface AccountProfile {
   apiKeyId: string;
   role: AccountType;
@@ -1574,7 +1555,6 @@ export interface AccountProfile {
   trustLevel: string;
   scopes: string[] | null;
   name?: string | null;
-  email?: string | null;
   verifiedAt?: string | null;
   createdAt?: string | null;
 }

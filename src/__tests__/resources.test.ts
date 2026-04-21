@@ -588,12 +588,6 @@ describe('RegistrationResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/v1/auth/me');
   });
 
-  it('registers a new account', async () => {
-    const { client, fetch } = createMockClient();
-    await client.registration.register({ accountType: 'agent', email: 'a@b.com', legalName: 'Test' });
-    expect(fetch.mock.calls[0][0]).toContain('/v1/auth/register');
-  });
-
   it('verifies agent card', async () => {
     const { client, fetch } = createMockClient();
     await client.registration.verifyAgentCard('https://agent.example.com/.well-known/agent-card.json');

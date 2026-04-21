@@ -1,5 +1,5 @@
 import type { HttpClient } from '../http.js';
-import type { RegisterParams, RegisterResult, AccountProfile, RequestOptions } from '../types.js';
+import type { AccountProfile, RequestOptions } from '../types.js';
 
 export class RegistrationResource {
   constructor(private readonly http: HttpClient) {}
@@ -7,21 +7,6 @@ export class RegistrationResource {
   /** Get the authenticated account profile. */
   getMe(options?: RequestOptions): Promise<AccountProfile> {
     return this.http.get<AccountProfile>('/v1/auth/me', undefined, options);
-  }
-
-  /** Register a new account (enterprise or agent). */
-  register(params: RegisterParams, options?: RequestOptions): Promise<RegisterResult> {
-    return this.http.post<RegisterResult>('/v1/auth/register', params, options);
-  }
-
-  /** Register an enterprise account. */
-  registerEnterprise(params: { name: string; email?: string }, options?: RequestOptions): Promise<RegisterResult> {
-    return this.http.post<RegisterResult>('/v1/auth/enterprise', params, options);
-  }
-
-  /** Register an agent account. */
-  registerAgent(params: { name: string; email?: string; agentCardUrl?: string; enterpriseId?: string }, options?: RequestOptions): Promise<RegisterResult> {
-    return this.http.post<RegisterResult>('/v1/auth/agent', params, options);
   }
 
   /** Verify an agent via A2A AgentCard URL. */

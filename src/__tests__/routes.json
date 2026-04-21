@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-04-10T00:00:00.000Z",
   "source": "file://openapi.json",
-  "routeCount": 247,
+  "routeCount": 242,
   "routes": [
     {
       "method": "GET",
@@ -1288,54 +1288,6 @@
     },
     {
       "method": "POST",
-      "path": "/auth/agent",
-      "operationId": "registerAgent",
-      "tag": "Auth",
-      "requiredFields": [
-        "name"
-      ],
-      "bodyFields": [
-        "agentCardUrl",
-        "agentClass",
-        "description",
-        "email",
-        "enterpriseId",
-        "name",
-        "orgUnit",
-        "ownerRef"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        400,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/auth/enterprise",
-      "operationId": "registerEnterprise",
-      "tag": "Auth",
-      "requiredFields": [
-        "name"
-      ],
-      "bodyFields": [
-        "email",
-        "name"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        400,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
       "path": "/auth/keys/rotate",
       "operationId": "rotateApiKey",
       "tag": "Auth",
@@ -1368,49 +1320,6 @@
     },
     {
       "method": "POST",
-      "path": "/auth/register",
-      "operationId": "registerAccount",
-      "tag": "Auth",
-      "requiredFields": [
-        "name",
-        "role"
-      ],
-      "bodyFields": [
-        "agentCardUrl",
-        "email",
-        "enterpriseId",
-        "name",
-        "role"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        400,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/auth/verify",
-      "operationId": "verifyEmail",
-      "tag": "Auth",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "token"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        400,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
       "path": "/auth/verify-agent-card",
       "operationId": "verifyAgentCard",
       "tag": "Auth",
@@ -1419,28 +1328,6 @@
       ],
       "bodyFields": [
         "agentCardUrl"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/auth/verify-email",
-      "operationId": "sendVerificationEmail",
-      "tag": "Auth",
-      "requiredFields": [
-        "email"
-      ],
-      "bodyFields": [
-        "email"
       ],
       "queryFields": [],
       "pathParams": [],

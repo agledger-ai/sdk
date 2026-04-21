@@ -185,8 +185,6 @@ export type {
   // Registration & Auth
   AccountType,
   AccountProfile,
-  RegisterParams,
-  RegisterResult,
 
   // Health & Conformance
   HealthResponse,
