@@ -339,10 +339,9 @@ const EXCLUDED_ROUTES = new Set([
   'GET /admin/enterprises/{id}',
   'GET /admin/agents/{id}',
 
-  // Auth routes (login is session-based, verify is email flow)
+  // Auth routes (login is session-based; verify/verify-email retired with email removal, stale in manifest until next CI refresh)
   'POST /auth/login',
   'POST /auth/verify-email',
-  'POST /auth/resend-verification',
   'POST /auth/verify-agent-card',
 
   // Proxy ingestion (sidecar-only, uses SDK ProxyResource)
@@ -440,7 +439,7 @@ const EXCLUDED_ROUTES = new Set([
   'POST /admin/api-keys/bulk-revoke',
   'POST /admin/webhook-dlq/retry-all',
 
-  // Auth internal flows (session-based, email verification, agent/enterprise registration)
+  // Auth internal flows (session-based, agent/enterprise registration; /auth/verify retired, stale in manifest until next CI refresh)
   'GET /auth/verify',
   'POST /auth/agent',
   'POST /auth/enterprise',

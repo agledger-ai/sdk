@@ -33,14 +33,4 @@ export class RegistrationResource {
   rotateApiKey(options?: RequestOptions): Promise<{ apiKey: string }> {
     return this.http.post('/v1/auth/keys/rotate', undefined, options);
   }
-
-  /** Verify email address with token from verification link. */
-  verifyEmail(token: string, options?: RequestOptions): Promise<{ sandboxMode: boolean; status: string }> {
-    return this.http.get('/v1/auth/verify', { token }, options);
-  }
-
-  /** Send (or resend) a verification email. */
-  sendVerificationEmail(email: string, options?: RequestOptions): Promise<{ sandboxMode: boolean; status: string }> {
-    return this.http.post('/v1/auth/verify-email', { email }, options);
-  }
 }
