@@ -102,7 +102,6 @@ export type {
   ListMandatesParams,
   SearchMandatesParams,
   DelegateMandateParams,
-  CreateAgentMandateParams,
   CounterProposeParams,
   BatchGetMandatesResult,
 
@@ -120,9 +119,6 @@ export type {
   // Outcome (Principal Verdict)
   ReportOutcomeParams,
   OutcomeResult,
-
-  // Mandate Summary
-  MandateStatusSummary,
 
   // Disputes
   DisputeStatus,
@@ -149,13 +145,6 @@ export type {
   // Rate limits
   RateLimitInfo,
 
-  // Dashboard
-  DashboardSummary,
-  DashboardMetrics,
-  DashboardMetricsParams,
-  DashboardAgent,
-  DashboardAgentParams,
-
   // Compliance & EU AI Act
   ComplianceExport,
   ExportComplianceParams,
@@ -168,29 +157,28 @@ export type {
   ComplianceRecord,
   CreateComplianceRecordParams,
 
-  // Projects
-  ProjectStatus,
-  Project,
-  CreateProjectParams,
-  UpdateProjectParams,
-
   // Audit Export (per-mandate)
   AuditExportEntry,
+  AuditActor,
   MandateAuditExport,
 
-  // Audit Stream (SIEM)
+  // Audit Stream (SIEM) & Vault
   AuditStreamParams,
   AuditStreamResult,
+  AuditVaultExportParams,
 
-  // Registration & Auth
+  // Auth & identity
+  ApiKeyRole,
   AccountType,
   AccountProfile,
 
-  // Health & Conformance
+  // Health & Conformance & Discovery
   HealthResponse,
   StatusComponent,
   StatusResponse,
   ConformanceResponse,
+  ScopeProfileInfo,
+  MandateLifecycleInfo,
 
   // Admin
   AdminEnterprise,
@@ -201,66 +189,22 @@ export type {
   EnterpriseConfig,
   SetEnterpriseConfigParams,
   CreateApiKeyParams,
+  UpdateApiKeyParams,
   CreateApiKeyResult,
   WebhookDlqEntry,
   SystemHealth,
-  UpdateTrustLevelParams,
   SetCapabilitiesParams,
+  DeactivateAccountParams,
+  RateLimitExemption,
+  ProvisioningStatus,
+  SupportBundle,
+  LicenseInstanceInfo,
   ListWebhooksParams,
 
   // A2A Protocol
   AgentCard,
   JsonRpcRequest,
   JsonRpcResponse,
-
-  // Governance Sidecar (Proxy)
-  ProxyMode,
-  InterceptorAction,
-  ConfidenceLevel,
-  SidecarMandateStatus,
-  SessionOutcome,
-  ProxySession,
-  CreateSessionParams,
-  ToolCallBatchItem,
-  SidecarMandateBatchItem,
-  SidecarReceiptBatchItem,
-  ToolCatalogBatchItem,
-  SyncSessionParams,
-  SyncSessionResult,
-  ProxySidecarMandate,
-  ProxySidecarReceipt,
-  ProxyToolCall,
-  ProxyToolCatalogEntry,
-  UpdateSidecarMandateParams,
-  SessionAnalytics,
-  AnalyticsSummary,
-  MandateSummary,
-  AlignmentAnalysis,
-
-  // Notarization (OpenClaw Agent-to-Agent Agreements)
-  NotarizeStatus,
-  NotarizedMandate,
-  NotarizeTransition,
-  NotarizeMandateParams,
-  NotarizeMandateResult,
-  NotarizeCounterProposeParams,
-  NotarizeReceiptParams,
-  NotarizeReceiptResult,
-  NotarizeVerdictParams,
-  NotarizeVerifyParams,
-  NotarizeVerifyResult,
-  NotarizeHistory,
-
-  // Enterprise Agent Approval Registry
-  EnterpriseAgentStatus,
-  EnterpriseAgentRecord,
-  ApproveAgentParams,
-  RevokeAgentParams,
-  UpdateAgentStatusParams,
-  BulkApproveAgentParams,
-  BulkApproveResult,
-  ListEnterpriseAgentsParams,
-  ApprovalConfig,
 
   // Federation — Enums
   HubState,
@@ -301,7 +245,7 @@ export type {
   ListOutboundDlqParams,
   FederationDlqEntry,
 
-  // Admin — New (rate limits, webhooks, circuit breaker)
+  // Admin — Circuit breaker / mandate search
   QueryAdminMandatesParams,
   UpdateCircuitBreakerParams,
   CircuitBreakerResult,
@@ -356,9 +300,6 @@ export type {
   RevocationBroadcastParams,
   AgentDirectorySyncParams,
   PeerRegistrationParams,
-
-  // Dashboard — Detail Types
-  DashboardAlert,
 
   // Errors
   ApiErrorResponse,

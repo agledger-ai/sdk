@@ -777,23 +777,28 @@ export type EvidenceType = 'screenshot' | 'external_lookup' | 'document' | 'comm
  * A mandate — a registered commitment between a principal and a performer.
  * Records what was asked, by whom, and when. The contract is the product.
  *
+ * v0.20.0: principal is always an agent (via `principalAgentId`). Admin keys
+ * name the principal explicitly; agent keys default to self (which sets
+ * `selfCommitment=true` when principal === performer).
+ *
  * @example
  * ```ts
+ * // Admin naming a principal
  * const mandate = await client.mandates.create({
- *   enterpriseId: 'ent_123',
+ *   principalAgentId: 'agt_abc',
  *   contractType: 'ACH-PROC-v1',
  *   contractVersion: '1',
  *   platform: 'internal',
- *   criteria: { item: 'widgets', maxQuantity: 100, maxUnitPrice: { amount: 20, currency: 'USD' } },
+ *   criteria: { item: 'widgets', maxQuantity: 100 },
  * });
  * ```
  */
 export interface Mandate {
   /** Unique mandate ID (UUID). */
   id: string;
-  /** Enterprise that owns this mandate. */
-  enterpriseId: string;
-  /** Agent assigned to this mandate, or null if unassigned. */
+  /** Enterprise tenant that owns this mandate (null when no enterprise scope). */
+  enterpriseId: string | null;
+  /** Agent assigned as performer, or null if unassigned. */
   agentId: string | null;
   /** Agentic Contract Specification type (e.g., 'ACH-PROC-v1'). */
   contractType: ContractType;
@@ -869,10 +874,10 @@ export interface Mandate {
   verificationChecks?: Record<string, unknown> | null;
   /** Overall verification outcome: PASS, FAIL, or null if not verified. */
   verificationOutcome?: 'PASS' | 'FAIL' | null;
-  /** Agent ID of the principal (for A2A mandates). */
+  /** Agent ID of the principal. Always an agent in v0.20.0+. */
   principalAgentId?: string;
-  /** Principal type: enterprise or agent. */
-  principalType?: 'enterprise' | 'agent';
+  /** True when principal and performer are the same agent (server-computed). */
+  selfCommitment?: boolean;
   /** IDs of child mandates in a delegation chain. */
   childMandateIds?: string[];
   /** Calculated commission amount, or null. */
@@ -910,37 +915,50 @@ export interface Mandate {
 }
 
 /**
- * Parameters for creating a new mandate via enterprise auth.
- * For agent-to-agent mandates, use {@link CreateAgentMandateParams} with `mandates.createAgent()`.
+ * Parameters for creating a new mandate via the unified `POST /v1/mandates`
+ * endpoint. v0.20.0 collapsed the separate admin/agent creation paths.
+ *
+ * - Admin keys: set `principalAgentId` to name the principal explicitly.
+ * - Agent keys: `principalAgentId` may be omitted; the server defaults it to
+ *   the authenticated agent. Set `performerAgentId` to delegate to another agent.
  */
 export interface CreateMandateParams {
-  /** Enterprise ID that owns this mandate. */
-  enterpriseId: string;
+  /**
+   * Agent ID that serves as principal (the party assigning the work).
+   * Required for admin-authored mandates; optional for agent keys (defaults
+   * to the authenticated agent).
+   */
+  principalAgentId?: string;
+  /** Performer agent ID. Omit for self-commitment on agent keys. */
+  performerAgentId?: string;
+  /** Optional alias for `performerAgentId`; accepted by the API for backward compat. */
+  agentId?: string;
+  /**
+   * Enterprise tenant scope. Optional — admin keys typically leave this to
+   * the server to infer from the key's tenant context.
+   */
+  enterpriseId?: string;
   /** Contract type (e.g., 'ACH-PROC-v1'). Determines criteria schema. */
   contractType: ContractType;
   /** Contract schema version. */
-  contractVersion: string;
+  contractVersion?: string;
   /** Platform identifier. */
-  platform: string;
+  platform?: string;
   /** External reference ID on the platform. */
   platformRef?: string;
-  /** Project grouping reference. */
-  projectRef?: string;
   /** Acceptance criteria. Typed per contract type when using generic overload. */
   criteria: Record<string, unknown>;
   /** Numeric tolerance bands (e.g., `{ quantity_pct: 5 }`). */
   tolerance?: Record<string, unknown>;
   /** ISO 8601 deadline for completion. */
   deadline?: string;
-  /** Agent ID to assign as performer. */
-  agentId?: string;
   /** Commission percentage for the performing agent. */
   commissionPct?: number;
   /** Max receipt submissions allowed (1-100). Null/omit for unlimited. */
   maxSubmissions?: number;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
-  /** Verification mode: auto (default, rules auto-settle), principal (hold for verdict), gated (rules then verdict). */
+  /** Verification mode: auto (default), principal (hold for verdict), gated (rules then verdict). */
   verificationMode?: VerificationMode;
   /** EU AI Act risk classification. */
   riskClassification?: RiskClassification;
@@ -948,12 +966,8 @@ export interface CreateMandateParams {
   euAiActDomain?: string;
   /** Human oversight configuration. */
   humanOversight?: Record<string, unknown>;
-  /** Performer agent ID. */
-  performerAgentId?: string;
   /** Parent mandate ID for delegation. */
   parentMandateId?: string;
-  /** Project ID for grouping. */
-  projectId?: string;
   /** External task ID from caller's system. */
   externalTaskId?: string;
   /** Mandate IDs this depends on. */
@@ -962,6 +976,8 @@ export interface CreateMandateParams {
   metadata?: Record<string, unknown>;
   /** Auto-transition to ACTIVE after create (CREATED → register → activate in one request). */
   autoActivate?: boolean;
+  /** Proposal message shown to the performer for A2A negotiation. */
+  proposalMessage?: string;
   /** Constraint inheritance mode. */
   constraintInheritance?: ConstraintInheritanceMode;
   /** Per-field enforcement overrides. */
@@ -979,20 +995,21 @@ export interface UpdateMandateParams {
 }
 
 export interface ListMandatesParams extends ListParams {
-  enterpriseId: string;
+  enterpriseId?: string;
   status?: MandateStatus;
 }
 
 export interface SearchMandatesParams extends ListParams {
-  enterpriseId: string;
+  enterpriseId?: string;
   status?: MandateStatus;
   contractType?: ContractType;
   agentId?: string;
+  principalAgentId?: string;
+  performerAgentId?: string;
   from?: string;
   to?: string;
   sort?: string;
   order?: 'asc' | 'desc';
-  projectRef?: string;
   externalTaskId?: string;
   parentMandateId?: string;
   updatedAfter?: string;
@@ -1002,37 +1019,18 @@ export interface SearchMandatesParams extends ListParams {
   metadata?: Record<string, unknown>;
 }
 
+/**
+ * Parameters for delegating a mandate (child mandate under a parent).
+ * Creates a mandate via the unified `POST /v1/mandates` with `parentMandateId`.
+ */
 export interface DelegateMandateParams {
-  principalAgentId: string;
-  performerAgentId?: string;
-  contractType: ContractType;
-  contractVersion: string;
-  platform?: string;
-  criteria: Record<string, unknown>;
-  commissionPct?: number;
-}
-
-export interface CreateAgentMandateParams {
-  /** Principal agent ID. Omit to infer from bearer token. */
   principalAgentId?: string;
   performerAgentId?: string;
   contractType: ContractType;
   contractVersion?: string;
   platform?: string;
-  projectRef?: string;
   criteria: Record<string, unknown>;
-  tolerance?: Record<string, unknown>;
-  parentMandateId?: string;
   commissionPct?: number;
-  maxSubmissions?: number;
-  deadline?: string;
-  verificationMode?: VerificationMode;
-  autoActivate?: boolean;
-  constraintInheritance?: ConstraintInheritanceMode;
-  enforcementOverrides?: Record<string, unknown>;
-  externalTaskId?: string;
-  metadata?: Record<string, unknown>;
-  proposalMessage?: string;
 }
 
 /** Parameters for counter-proposing modified terms on a mandate. */
@@ -1328,65 +1326,6 @@ export interface AuditChain {
 }
 
 
-export interface DashboardSummary {
-  totalMandates: number;
-  activeCount: number;
-  fulfilledCount: number;
-  disputedCount: number;
-  avgCompletionTime?: number;
-  topAgents?: Array<{
-    agentId: string;
-    successRate: number;
-  }>;
-  totalSettlementSignals?: number;
-  signalBreakdown?: {
-    settle: number;
-    hold: number;
-    release: number;
-  };
-  disputeValue?: number;
-}
-
-export interface DashboardAgent {
-  id: string;
-  displayName: string;
-  trustLevel: string;
-  compositeScore: number | null;
-  reliabilityScore: number | null;
-  totalMandates: number;
-  mandateCount: number;
-  activeCount: number;
-  errorCount: number;
-}
-
-export interface DashboardAgentParams extends ListParams {
-  sort?: 'compositeScore' | 'reliabilityScore' | 'totalMandates' | 'displayName';
-  order?: 'asc' | 'desc';
-  trustLevel?: string;
-  minScore?: number;
-  maxScore?: number;
-}
-
-export interface DashboardMetrics {
-  granularity?: string;
-  from?: string | null;
-  to?: string | null;
-  series: Array<{
-    timestamp: string;
-    mandates: number;
-    receipts: number;
-    disputes: number;
-    avgVerificationTime?: number;
-  }>;
-}
-
-export interface DashboardMetricsParams {
-  from?: string;
-  to?: string;
-  granularity?: 'daily' | 'weekly' | 'monthly';
-}
-
-
 export interface ComplianceExport {
   exportId: string;
   status: 'processing' | 'ready';
@@ -1460,29 +1399,16 @@ export interface CreateComplianceRecordParams {
 }
 
 
-export type ProjectStatus = 'active' | 'completed' | 'cancelled' | (string & {});
-
-export interface Project {
-  id: string;
-  enterpriseId: string;
-  name: string;
-  description?: string;
-  status: ProjectStatus;
-  createdAt: string;
-  updatedAt: string;
+/**
+ * Actor envelope embedded in canonical audit payloads in v0.20.0+.
+ * Hash-chained into the payload so callers can attribute each vault entry
+ * to a specific API key / role / owner without trusting external metadata.
+ */
+export interface AuditActor {
+  actor_key_id: string | null;
+  actor_role: ApiKeyRole | (string & {}) | null;
+  actor_owner_id: string | null;
 }
-
-export interface CreateProjectParams {
-  name: string;
-  description?: string;
-}
-
-export interface UpdateProjectParams {
-  name?: string;
-  description?: string;
-  status?: ProjectStatus;
-}
-
 
 export interface AuditExportEntry {
   position: number;
@@ -1490,6 +1416,11 @@ export interface AuditExportEntry {
   entryType: string;
   description: string;
   payload: Record<string, unknown>;
+  /**
+   * Actor envelope surfaced from canonical payload's `_actor` key. Present
+   * in v0.20.0+ vault entries; absent in entries signed by older servers.
+   */
+  actor?: AuditActor;
   integrity: {
     payloadHash: string;
     /** Hash algorithm (e.g., 'SHA-256'). Optional for backward compatibility. */
@@ -1545,17 +1476,26 @@ export interface AuditStreamResult {
 }
 
 
-export type AccountType = 'enterprise' | 'agent' | 'platform';
+/**
+ * Top-level role bound to an API key.
+ * v0.20.0 renamed `enterprise` → `admin`; there is no backward-compatible alias.
+ */
+export type ApiKeyRole = 'admin' | 'agent' | 'platform';
+
+/** @deprecated Use `ApiKeyRole` — kept as an alias for migration ergonomics. */
+export type AccountType = ApiKeyRole;
 
 export interface AccountProfile {
   apiKeyId: string;
-  role: AccountType;
+  role: ApiKeyRole;
   ownerId: string;
   ownerType: string;
-  trustLevel: string;
   scopes: string[] | null;
+  /** Agent ID when `role === 'agent'`, otherwise null. */
+  agentId?: string | null;
+  /** Enterprise ID the key is scoped to, if any. */
+  enterpriseId?: string | null;
   name?: string | null;
-  verifiedAt?: string | null;
   createdAt?: string | null;
 }
 
@@ -1601,9 +1541,6 @@ export interface AdminEnterprise {
   /** URL-safe identifier for the enterprise. Auto-generated if omitted on create. */
   slug: string;
   email?: string | null;
-  trustLevel: string;
-  verifiedAt?: string | null;
-  verificationMethod?: string | null;
   mandateCount?: number;
   createdAt: string;
   /** Suggested next API calls after enterprise creation. */
@@ -1616,9 +1553,6 @@ export interface AdminAgent {
   /** URL-safe identifier for the agent. Auto-generated if omitted on create. */
   slug: string;
   email?: string | null;
-  trustLevel: string;
-  verifiedAt?: string | null;
-  verificationMethod?: string | null;
   agentCardUrl?: string | null;
   mandateCount?: number;
   createdAt: string;
@@ -1641,19 +1575,12 @@ export interface CreateEnterpriseParams {
   slug?: string;
   /** Contact email. */
   email?: string;
-  /** Initial trust level. Default: sandbox. */
-  trustLevel?: 'sandbox' | 'active' | 'verified';
   /** Initial configuration object. */
   config?: Record<string, unknown>;
 }
 
 /**
  * Parameters for creating a new agent via admin endpoint.
- * @example
- * ```ts
- * const agent = await client.admin.createAgent({ name: 'My Agent' });
- * console.log(agent.id, agent.slug);
- * ```
  */
 export interface CreateAgentParams {
   /** Display name for the agent. */
@@ -1662,8 +1589,6 @@ export interface CreateAgentParams {
   slug?: string;
   /** Contact email. */
   email?: string;
-  /** Initial trust level. Default: sandbox. */
-  trustLevel?: 'sandbox' | 'active' | 'verified';
   /** A2A agent card URL for verification. */
   agentCardUrl?: string;
   /** Enterprise ID the agent belongs to (for enterprise-scoped agents). */
@@ -1699,10 +1624,10 @@ export interface ListWebhooksParams extends ListParams {
 
 export interface AdminApiKey {
   id: string;
-  /** API key role: enterprise, agent, or platform. */
-  role?: string;
+  /** API key role: admin, agent, or platform. */
+  role?: ApiKeyRole | (string & {});
   ownerId: string;
-  ownerType: AccountType;
+  ownerType: ApiKeyRole;
   /** Whether the key is active. */
   isActive: boolean;
   /** Human-readable label. */
@@ -1715,6 +1640,8 @@ export interface AdminApiKey {
   environment?: string;
   /** Rate limit tier. */
   rateLimitTier?: string;
+  /** Key prefix (agl_adm_, agl_agt_, agl_plt_). */
+  prefix?: string;
   createdAt: string;
   lastUsedAt?: string;
   expiresAt?: string | null;
@@ -1725,10 +1652,10 @@ export interface AdminApiKey {
 }
 
 export interface CreateApiKeyParams {
-  /** Role for the key: enterprise, agent, or platform. */
-  role: 'enterprise' | 'agent' | 'platform';
+  /** Role for the key: admin, agent, or platform. */
+  role: ApiKeyRole;
   ownerId: string;
-  ownerType: AccountType;
+  ownerType: ApiKeyRole;
   /** Human-readable label. */
   label?: string;
   /** Explicit scopes to set on the key. */
@@ -1743,8 +1670,19 @@ export interface CreateApiKeyParams {
   allowedIps?: string[];
 }
 
+/** Parameters for PATCH /v1/admin/api-keys/{keyId}. */
+export interface UpdateApiKeyParams {
+  isActive?: boolean;
+  label?: string | null;
+  scopes?: string[] | null;
+  scopeProfile?: string | null;
+  expiresAt?: string | null;
+  allowedIps?: string[] | null;
+}
+
 /** Result of creating an API key via the admin endpoint. */
 export interface CreateApiKeyResult {
+  /** The raw key string — show once, then discard. Prefix matches role (agl_adm_, agl_agt_, agl_plt_). */
   apiKey: string;
   keyId: string;
   scopes: string[] | null;
@@ -1769,14 +1707,66 @@ export interface SystemHealth {
   activeConnections: number;
 }
 
-export interface UpdateTrustLevelParams {
-  trustLevel: 'sandbox' | 'active' | 'verified';
-  accountType: 'enterprise' | 'agent';
+export interface DeactivateAccountParams {
+  accountType: ApiKeyRole;
   reason?: string;
 }
 
 export interface SetCapabilitiesParams {
   contractTypes: string[];
+}
+
+/** Snapshot of an owner's rate-limit exemption. */
+export interface RateLimitExemption {
+  ownerId: string;
+  ownerType?: ApiKeyRole | (string & {});
+  reason?: string | null;
+  createdAt?: string;
+}
+
+/** Static-provisioning status payload. */
+export interface ProvisioningStatus {
+  loaded: boolean;
+  sourcePath?: string | null;
+  lastLoadedAt?: string | null;
+  entries?: Record<string, number>;
+}
+
+/** Diagnostic support-bundle payload (JSON envelope). */
+export interface SupportBundle {
+  instanceId: string;
+  generatedAt: string;
+  sections: Record<string, unknown>;
+}
+
+/** License instance identifier response. */
+export interface LicenseInstanceInfo {
+  instanceId: string;
+  createdAt?: string;
+}
+
+/** One entry in the scope-profiles discovery response. */
+export interface ScopeProfileInfo {
+  name: string;
+  description: string;
+  allowedRoles: Array<ApiKeyRole | (string & {})>;
+  scopes: string[];
+}
+
+/** Mandate lifecycle discovery response (`GET /lifecycle`). */
+export interface MandateLifecycleInfo {
+  statuses: string[];
+  transitions: Record<string, string[]>;
+  terminalStatuses: string[];
+}
+
+/** Query parameters for the platform-wide audit vault export. */
+export interface AuditVaultExportParams {
+  since?: string;
+  until?: string;
+  format?: 'json' | 'csv' | 'ndjson';
+  cursor?: string;
+  limit?: number;
 }
 
 
@@ -1809,325 +1799,6 @@ export interface JsonRpcResponse {
     data?: unknown;
   };
   id?: string | number;
-}
-
-
-export type ProxyMode = 'observe' | 'advisory' | 'enforced';
-/** Known values: ALLOWED, BLOCKED, ANNOTATED. Accepts any string for forward compatibility. */
-export type InterceptorAction = 'ALLOWED' | 'BLOCKED' | 'ANNOTATED' | (string & {});
-export type ConfidenceLevel = 'low' | 'medium' | 'high';
-export type SidecarMandateStatus = 'SHADOW' | 'FORMALIZED' | 'DISMISSED';
-export type SessionOutcome = 'active' | 'zero_action' | 'undetected' | 'inactive';
-
-export interface ProxySession {
-  id: string;
-  enterpriseId: string;
-  agentId?: string;
-  proxyInstanceId?: string;
-  startedAt: string;
-  endedAt?: string;
-  totalCalls: number;
-  matchedCalls: number;
-  coveragePercent: number;
-  sidecarMandateCount: number;
-  sidecarReceiptCount: number;
-  proxyMode: ProxyMode;
-  agentName?: string;
-  agentExternalId?: string;
-  agentMetadata?: Record<string, unknown>;
-  errorCount: number;
-  blockedCount: number;
-  sessionOutcome?: SessionOutcome;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateSessionParams {
-  startedAt: string;
-  proxyMode: ProxyMode;
-  proxyInstanceId?: string;
-  endedAt?: string;
-  agentName?: string;
-  agentExternalId?: string;
-  agentMetadata?: Record<string, unknown>;
-  errorCount?: number;
-  blockedCount?: number;
-  sessionOutcome?: SessionOutcome;
-}
-
-export interface ToolCallBatchItem {
-  toolName: string;
-  upstreamName?: string;
-  arguments: Record<string, unknown>;
-  result?: Record<string, unknown> | string;
-  durationMs?: number;
-  patternMatch?: Record<string, unknown>;
-  sidecarMandateId?: string;
-  sidecarReceiptId?: string;
-  interceptorAction?: InterceptorAction;
-  proxyToolCallId?: string;
-  occurredAt: string;
-  isError?: boolean;
-  errorMessage?: string;
-}
-
-export interface SidecarMandateBatchItem {
-  contractType: ContractType;
-  confidence: ConfidenceLevel;
-  confidenceScore: number;
-  extractedCriteria: Record<string, unknown>;
-  sourceToolCallId?: string;
-  proxySidecarMandateId?: string;
-  batchCount?: number;
-  ruleId?: string;
-  correlationId?: string | null;
-}
-
-export interface SidecarReceiptBatchItem {
-  sidecarMandateId: string;
-  extractedEvidence?: Record<string, unknown>;
-  confidence: ConfidenceLevel;
-  confidenceScore: number;
-  sourceToolCallId?: string;
-  proxySidecarReceiptId?: string;
-  correlationId?: string | null;
-}
-
-export interface ToolCatalogBatchItem {
-  upstreamName: string;
-  toolName: string;
-  description?: string;
-  inputSchema?: Record<string, unknown>;
-  discoveredAt: string;
-}
-
-export interface SyncSessionParams {
-  session: CreateSessionParams;
-  toolCalls?: ToolCallBatchItem[];
-  sidecarMandates?: SidecarMandateBatchItem[];
-  sidecarReceipts?: SidecarReceiptBatchItem[];
-  toolCatalog?: ToolCatalogBatchItem[];
-}
-
-export interface SyncSessionResult {
-  session: ProxySession;
-  toolCalls: BatchResult<unknown>['summary'];
-  sidecarMandates: BatchResult<unknown>['summary'];
-  sidecarReceipts: BatchResult<unknown>['summary'];
-  toolCatalog: BatchResult<unknown>['summary'];
-  mandateIdMap: Record<string, string>;
-}
-
-export interface ProxySidecarMandate {
-  id: string;
-  sessionId: string;
-  contractType: ContractType;
-  confidence: ConfidenceLevel;
-  confidenceScore: number;
-  extractedCriteria: Record<string, unknown>;
-  status: SidecarMandateStatus;
-  formalizedMandateId?: string;
-  sourceToolCallId?: string;
-  batchCount?: number;
-  ruleId?: string;
-  correlationId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProxySidecarReceipt {
-  id: string;
-  sessionId: string;
-  sidecarMandateId: string;
-  extractedEvidence?: Record<string, unknown>;
-  confidence: ConfidenceLevel;
-  confidenceScore: number;
-  sourceToolCallId?: string;
-  correlationId?: string;
-  createdAt: string;
-}
-
-export interface ProxyToolCall {
-  id: string;
-  sessionId: string;
-  toolName: string;
-  upstreamName?: string;
-  arguments: Record<string, unknown>;
-  result?: Record<string, unknown> | string;
-  durationMs?: number;
-  patternMatch?: Record<string, unknown>;
-  sidecarMandateId?: string;
-  sidecarReceiptId?: string;
-  interceptorAction?: InterceptorAction;
-  isError: boolean;
-  errorMessage?: string;
-  occurredAt: string;
-}
-
-export interface ProxyToolCatalogEntry {
-  id: string;
-  sessionId: string;
-  upstreamName: string;
-  toolName: string;
-  description?: string;
-  inputSchema?: Record<string, unknown>;
-  discoveredAt: string;
-}
-
-export interface SessionAnalytics {
-  totalCalls: number;
-  matchedCount: number;
-  coveragePercent: number;
-  errorCount: number;
-  blockedCount: number;
-  callsByTool: Record<string, number>;
-  estimatedTokenOverhead: number;
-}
-
-export interface AnalyticsSummary {
-  totalSessions: number;
-  totalCalls: number;
-  avgCoveragePercent: number;
-  contractTypeBreakdown: Record<string, number>;
-}
-
-export interface UpdateSidecarMandateParams {
-  status?: SidecarMandateStatus;
-  formalizedMandateId?: string;
-}
-
-export interface MandateSummary {
-  sessionId: string;
-  totalSidecarMandates: number;
-  formalized: number;
-  dismissed: number;
-  pending: number;
-  contractTypes: Record<string, number>;
-}
-
-export interface AlignmentAnalysis {
-  sessionId: string;
-  coveragePercent: number;
-  missingCategories?: string[];
-  recommendations?: string[];
-}
-
-
-/** Known values: NOTARIZED, ACCEPTED, COUNTER_PROPOSED, RECEIPT_SUBMITTED, VERDICT_PASS, VERDICT_FAIL. Accepts any string for forward compatibility. */
-export type NotarizeStatus =
-  | 'NOTARIZED'
-  | 'ACCEPTED'
-  | 'COUNTER_PROPOSED'
-  | 'REJECTED'
-  | 'RECEIPT_SUBMITTED'
-  | 'VERDICT_PASS'
-  | 'VERDICT_FAIL'
-  | (string & {});
-
-export interface NotarizedMandate {
-  id: string;
-  payloadHash: string;
-  contractType: ContractType;
-  principalId: string;
-  principalRole: 'enterprise' | 'agent';
-  performerId?: string | null;
-  status: NotarizeStatus;
-  metadata?: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface NotarizeTransition {
-  id: string;
-  fromStatus: string | null;
-  toStatus: string;
-  actorId: string;
-  actorRole: string;
-  payloadHash: string | null;
-  reason: string | null;
-  createdAt: string;
-}
-
-export interface NotarizeMandateParams {
-  contractType: ContractType;
-  payload: Record<string, unknown>;
-  performerHint?: string;
-  metadata?: Record<string, unknown>;
-}
-
-/** Result of creating/counter-proposing a notarized mandate. Same shape as NotarizedMandate. */
-export type NotarizeMandateResult = NotarizedMandate;
-
-export interface NotarizeCounterProposeParams {
-  payload: Record<string, unknown>;
-  reason?: string;
-}
-
-export interface NotarizeReceiptParams {
-  payload: Record<string, unknown>;
-}
-
-export interface NotarizeReceiptResult {
-  id: string;
-  notarizedMandateId: string;
-  payloadHash: string;
-  performerId: string;
-  metadata?: Record<string, unknown>;
-  createdAt: string;
-}
-
-export interface NotarizeVerdictParams {
-  verdict: 'PASS' | 'FAIL';
-  reason?: string;
-}
-
-export interface NotarizeVerifyParams {
-  id: string;
-  payload: Record<string, unknown>;
-}
-
-export interface NotarizeVerifyResult {
-  match: boolean;
-  storedHash: string;
-  computedHash: string;
-  notarizedAt: string;
-  type: 'mandate' | 'receipt';
-}
-
-export interface NotarizeHistory {
-  data: NotarizeTransition[];
-}
-
-
-/** Known values: approved, suspended, revoked. Accepts any string for forward compatibility. */
-export type EnterpriseAgentStatus = 'approved' | 'suspended' | 'revoked' | (string & {});
-
-export interface EnterpriseAgentRecord {
-  enterpriseId: string;
-  agentId: string;
-  status: EnterpriseAgentStatus;
-  approvedBy: string | null;
-  approvedAt: string;
-  suspendedAt: string | null;
-  revokedAt: string | null;
-  reason: string | null;
-}
-
-export interface ApproveAgentParams { reason?: string; }
-export interface RevokeAgentParams { reason?: string; }
-export interface UpdateAgentStatusParams { status: 'suspended' | 'approved'; reason?: string; }
-export interface BulkApproveAgentParams { agents: Array<{ agentId: string; reason?: string }>; }
-export interface BulkApproveResult {
-  results: Array<{ agentId: string; status: 'approved' | 'failed'; error?: string }>;
-  summary: { total: number; approved: number; failed: number };
-}
-export interface ListEnterpriseAgentsParams extends ListParams { status?: EnterpriseAgentStatus; }
-
-
-/** Enterprise-level agent approval configuration. */
-export interface ApprovalConfig {
-  /** Whether new agents require explicit approval before operating. */
-  agentApprovalRequired: boolean;
 }
 
 
@@ -2508,8 +2179,6 @@ export interface AgentProfile {
   orgUnit: string | null;
   description: string | null;
   enterpriseId: string | null;
-  trustLevel: string;
-  verificationMethod: string | null;
   agentCardUrl: string | null;
   createdAt: string;
   updatedAt: string;

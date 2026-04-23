@@ -1,118 +1,8 @@
 {
-  "generatedAt": "2026-04-10T00:00:00.000Z",
-  "source": "file://openapi.json",
-  "routeCount": 242,
+  "generatedAt": "2026-04-23T08:11:11.740Z",
+  "sourceUrl": "file://agledger-api/openapi.json",
+  "count": 188,
   "routes": [
-    {
-      "method": "GET",
-      "path": "/verification-keys",
-      "operationId": "listVerificationKeys",
-      "tag": "Verification Keys",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200, 429]
-    },
-    {
-      "method": "GET",
-      "path": "/.well-known/agledger-vault-keys.json",
-      "operationId": "getWellKnownVaultKeys",
-      "tag": "Verification Keys",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200, 429]
-    },
-    {
-      "method": "GET",
-      "path": "/health",
-      "operationId": "healthCheck",
-      "tag": "Health",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200]
-    },
-    {
-      "method": "GET",
-      "path": "/health/ready",
-      "operationId": "readinessCheck",
-      "tag": "Health",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200, 503]
-    },
-    {
-      "method": "GET",
-      "path": "/conformance",
-      "operationId": "getConformanceAlias",
-      "tag": "Conformance",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200]
-    },
-    {
-      "method": "GET",
-      "path": "/v1/conformance",
-      "operationId": "getConformance",
-      "tag": "Conformance",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200]
-    },
-    {
-      "method": "GET",
-      "path": "/lifecycle",
-      "operationId": "getLifecycle",
-      "tag": "Health",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200]
-    },
-    {
-      "method": "GET",
-      "path": "/status",
-      "operationId": "getStatus",
-      "tag": "Health",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200]
-    },
-    {
-      "method": "GET",
-      "path": "/llms.txt",
-      "operationId": "getLlmsTxt",
-      "tag": "Discovery",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200]
-    },
-    {
-      "method": "GET",
-      "path": "/llms-full.txt",
-      "operationId": "getLlmsFullTxt",
-      "tag": "Discovery",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [200]
-    },
     {
       "method": "GET",
       "path": "/.well-known/agent-card.json",
@@ -140,1621 +30,48 @@
       ]
     },
     {
+      "method": "GET",
+      "path": "/.well-known/agledger-vault-keys.json",
+      "operationId": "getWellKnownVaultKeys",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/.well-known/security.txt",
+      "operationId": "getSecurityTxt",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
       "method": "POST",
       "path": "/a2a",
       "operationId": "a2aJsonRpc",
       "tag": "A2A Protocol",
       "requiredFields": [
-        "id",
-        "jsonrpc",
-        "method"
-      ],
-      "bodyFields": [
-        "id",
         "jsonrpc",
         "method",
-        "params"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/accounts/{id}/deactivate",
-      "operationId": "adminDeactivateAccount",
-      "tag": "Admin",
-      "requiredFields": [
-        "accountType"
-      ],
-      "bodyFields": [
-        "accountType",
-        "reason"
-      ],
-      "queryFields": [],
-      "pathParams": [
         "id"
       ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/admin/accounts/{id}/trust-level",
-      "operationId": "adminSetTrustLevel",
-      "tag": "Admin",
-      "requiredFields": [
-        "accountType",
-        "trustLevel"
-      ],
       "bodyFields": [
-        "accountType",
-        "reason",
-        "trustLevel"
-      ],
-      "queryFields": [],
-      "pathParams": [
+        "jsonrpc",
+        "method",
+        "params",
         "id"
       ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/agents",
-      "operationId": "adminListAgents",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit",
-        "offset",
-        "search",
-        "trustLevel"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/agents",
-      "operationId": "adminCreateAgent",
-      "tag": "Admin",
-      "requiredFields": [
-        "name"
-      ],
-      "bodyFields": [
-        "agentCardUrl",
-        "email",
-        "name",
-        "slug",
-        "trustLevel"
-      ],
       "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        401,
-        403,
-        409,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/agents/capabilities",
-      "operationId": "adminGetFleetCapabilities",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "contractType"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PUT",
-      "path": "/admin/agents/{agentId}/capabilities",
-      "operationId": "adminSetAgentCapabilities",
-      "tag": "Admin",
-      "requiredFields": [
-        "contractTypes"
-      ],
-      "bodyFields": [
-        "contractTypes"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "agentId"
-      ],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/api-keys",
-      "operationId": "adminListApiKeys",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "ownerId"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/api-keys",
-      "operationId": "adminCreateApiKey",
-      "tag": "Admin",
-      "requiredFields": [
-        "ownerId",
-        "ownerType",
-        "role"
-      ],
-      "bodyFields": [
-        "allowedIps",
-        "environment",
-        "expiresAt",
-        "label",
-        "ownerId",
-        "ownerType",
-        "role",
-        "scopeProfile",
-        "scopes"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        401,
-        403,
-        409,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/api-keys/bulk-revoke",
-      "operationId": "adminBulkRevokeKeys",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [
-        "createdBefore",
-        "keyIds",
-        "ownerId",
-        "reason",
-        "role"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/admin/api-keys/{keyId}",
-      "operationId": "adminToggleApiKey",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [
-        "isActive",
-        "reason",
-        "scopeProfile",
-        "scopes"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "keyId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/auth-cache/flush",
-      "operationId": "adminFlushAuthCache",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/auth-cache/stats",
-      "operationId": "adminAuthCacheStats",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/enterprises",
-      "operationId": "adminListEnterprises",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit",
-        "offset",
-        "search",
-        "trustLevel"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/enterprises",
-      "operationId": "adminCreateEnterprise",
-      "tag": "Admin",
-      "requiredFields": [
-        "name"
-      ],
-      "bodyFields": [
-        "config",
-        "email",
-        "name",
-        "slug",
-        "trustLevel"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        401,
-        403,
-        409,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/enterprises/{id}/config",
-      "operationId": "adminGetEnterpriseConfig",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/admin/enterprises/{id}/config",
-      "operationId": "adminUpdateEnterpriseConfig",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [
-        "approvedSuppliers",
-        "enforcement"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PUT",
-      "path": "/admin/enterprises/{id}/config",
-      "operationId": "adminReplaceEnterpriseConfig",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [
-        "approvedSuppliers",
-        "enforcement"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/license",
-      "operationId": "adminGetLicense",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/license/instance-id",
-      "operationId": "adminGetInstanceId",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/license/reload",
-      "operationId": "adminReloadLicense",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/mandates",
-      "operationId": "adminListMandates",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "agentId",
-        "contractType",
-        "cursor",
-        "enterpriseId",
-        "from",
-        "limit",
-        "offset",
-        "order",
-        "sort",
-        "status",
-        "to"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/rate-limit-exemptions",
-      "operationId": "adminListRateLimitExemptions",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "DELETE",
-      "path": "/admin/rate-limit-exemptions/ip/{ip}",
-      "operationId": "adminRemoveIpRateLimitExemption",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "ip"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PUT",
-      "path": "/admin/rate-limit-exemptions/ip/{ip}",
-      "operationId": "adminAddIpRateLimitExemption",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "ip"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/rate-limit-exemptions/ips",
-      "operationId": "adminListIpRateLimitExemptions",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "DELETE",
-      "path": "/admin/rate-limit-exemptions/{ownerId}",
-      "operationId": "adminRemoveRateLimitExemption",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "ownerId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PUT",
-      "path": "/admin/rate-limit-exemptions/{ownerId}",
-      "operationId": "adminAddRateLimitExemption",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "ownerId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/schemas/cache/flush",
-      "operationId": "flushSchemaCache",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/system-health",
-      "operationId": "adminSystemHealth",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/vault/anchors",
-      "operationId": "adminListVaultAnchors",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "mandateId"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/vault/anchors/verify",
-      "operationId": "adminVerifyVaultAnchors",
-      "tag": "Admin",
-      "requiredFields": [
-        "mandateId"
-      ],
-      "bodyFields": [
-        "chainPosition",
-        "mandateId"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/vault/scan",
-      "operationId": "adminStartVaultScan",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [
-        "mandateIds"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        202,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/vault/scan/{jobId}",
-      "operationId": "adminGetVaultScanStatus",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "jobId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/vault/signing-keys",
-      "operationId": "adminListVaultSigningKeys",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/vault/signing-keys/rotate",
-      "operationId": "adminRotateVaultSigningKey",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/webhook-dlq",
-      "operationId": "adminListDlq",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit",
-        "offset"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/webhook-dlq/retry-all",
-      "operationId": "adminRetryAllDlq",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/admin/webhook-dlq/{dlqId}/retry",
-      "operationId": "adminRetryDlq",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "dlqId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/admin/webhooks/health",
-      "operationId": "adminGetWebhooksHealth",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "limit",
-        "offset"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/admin/webhooks/{webhookId}/circuit-breaker",
-      "operationId": "adminOverrideWebhookCircuitBreaker",
-      "tag": "Admin",
-      "requiredFields": [
-        "state"
-      ],
-      "bodyFields": [
-        "state"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "webhookId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/agents/{agentId}/capabilities",
-      "operationId": "getAgentCapabilities",
-      "tag": "Capabilities",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "agentId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PUT",
-      "path": "/agents/{agentId}/capabilities",
-      "operationId": "setAgentCapabilities",
-      "tag": "Capabilities",
-      "requiredFields": [
-        "contractTypes"
-      ],
-      "bodyFields": [
-        "contractTypes"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "agentId"
-      ],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/agents/{agentId}/history",
-      "operationId": "getAgentHistory",
-      "tag": "Reputation",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "contractType",
-        "from",
-        "limit",
-        "offset",
-        "outcome",
-        "to"
-      ],
-      "pathParams": [
-        "agentId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/agents/{agentId}/reputation",
-      "operationId": "getAgentReputation",
-      "tag": "Reputation",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "agentId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/agents/{agentId}/reputation/{contractType}",
-      "operationId": "getAgentReputationByType",
-      "tag": "Reputation",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "agentId",
-        "contractType"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/agents/{id}",
-      "operationId": "getAgent",
-      "tag": "Agents",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/agents/{id}",
-      "operationId": "updateAgentIdentity",
-      "tag": "Agents",
-      "requiredFields": [],
-      "bodyFields": [
-        "agentClass",
-        "description",
-        "orgUnit",
-        "ownerRef"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/agents/{id}/references",
-      "operationId": "getAgentReferences",
-      "tag": "References",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/agents/{id}/references",
-      "operationId": "addAgentReferences",
-      "tag": "References",
-      "requiredFields": [
-        "references"
-      ],
-      "bodyFields": [
-        "references"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        201,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/audit-vault/export",
-      "operationId": "bulkAuditVaultExport",
-      "tag": "Compliance",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "agentId",
-        "cursor",
-        "endDate",
-        "format",
-        "limit",
-        "mandateId",
-        "startDate"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/audit/enterprise-report",
-      "operationId": "getEnterpriseAuditExport",
-      "tag": "Audit",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId",
-        "from",
-        "to"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/audit/enterprise-report/analyze",
-      "operationId": "analyzeAuditReport",
-      "tag": "Audit",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId",
-        "from",
-        "model",
-        "to"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/audit/stream",
-      "operationId": "getAuditStream",
-      "tag": "Audit",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "format",
-        "limit",
-        "since"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/auth/keys/rotate",
-      "operationId": "rotateApiKey",
-      "tag": "Auth",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/auth/me",
-      "operationId": "getMe",
-      "tag": "Auth",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/auth/verify-agent-card",
-      "operationId": "verifyAgentCard",
-      "tag": "Auth",
-      "requiredFields": [
-        "agentCardUrl"
-      ],
-      "bodyFields": [
-        "agentCardUrl"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/compliance/eu-ai-act/report",
-      "operationId": "getEuAiActReport",
-      "tag": "Compliance",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId",
-        "from",
-        "to"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/compliance/export",
-      "operationId": "createComplianceExport",
-      "tag": "Compliance",
-      "requiredFields": [
-        "format"
-      ],
-      "bodyFields": [
-        "filters",
-        "format"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/compliance/export/{exportId}",
-      "operationId": "getComplianceExport",
-      "tag": "Compliance",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "exportId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/compliance/export/{exportId}/download",
-      "operationId": "downloadComplianceExport",
-      "tag": "Compliance",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "exportId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/dashboard/agents",
-      "operationId": "getEnterpriseAgents",
-      "tag": "Dashboard",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId",
-        "limit",
-        "maxScore",
-        "minScore",
-        "offset",
-        "order",
-        "sort",
-        "trustLevel"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/dashboard/alerts",
-      "operationId": "getDashboardAlerts",
-      "tag": "Dashboard",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId",
-        "threshold",
-        "windowHours"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/dashboard/audit-trail",
-      "operationId": "getAuditTrail",
-      "tag": "Dashboard",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "afterPosition",
-        "limit",
-        "mandateId",
-        "offset"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/dashboard/disputes",
-      "operationId": "getDashboardDisputes",
-      "tag": "Dashboard",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "enterpriseId",
-        "limit",
-        "status"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/dashboard/metrics",
-      "operationId": "getDashboardMetrics",
-      "tag": "Dashboard",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId",
-        "from",
-        "granularity",
-        "to"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/dashboard/summary",
-      "operationId": "getDashboardSummary",
-      "tag": "Dashboard",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/enterprises/{enterpriseId}/agents",
-      "operationId": "listEnterpriseAgents",
-      "tag": "Enterprise Agents",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit",
-        "offset",
-        "status"
-      ],
-      "pathParams": [
-        "enterpriseId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/enterprises/{enterpriseId}/agents/bulk",
-      "operationId": "bulkApproveEnterpriseAgents",
-      "tag": "Enterprise Agents",
-      "requiredFields": [
-        "agentIds"
-      ],
-      "bodyFields": [
-        "agentIds",
-        "reason"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "enterpriseId"
-      ],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "DELETE",
-      "path": "/enterprises/{enterpriseId}/agents/{agentId}",
-      "operationId": "revokeEnterpriseAgent",
-      "tag": "Enterprise Agents",
-      "requiredFields": [],
-      "bodyFields": [
-        "reason"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "agentId",
-        "enterpriseId"
-      ],
-      "responseCodes": [
-        204,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/enterprises/{enterpriseId}/agents/{agentId}",
-      "operationId": "getEnterpriseAgent",
-      "tag": "Enterprise Agents",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "agentId",
-        "enterpriseId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/enterprises/{enterpriseId}/agents/{agentId}",
-      "operationId": "updateEnterpriseAgentStatus",
-      "tag": "Enterprise Agents",
-      "requiredFields": [
-        "status"
-      ],
-      "bodyFields": [
-        "reason",
-        "status"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "agentId",
-        "enterpriseId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PUT",
-      "path": "/enterprises/{enterpriseId}/agents/{agentId}",
-      "operationId": "approveEnterpriseAgent",
-      "tag": "Enterprise Agents",
-      "requiredFields": [],
-      "bodyFields": [
-        "reason"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "agentId",
-        "enterpriseId"
-      ],
-      "responseCodes": [
-        200,
-        201,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/enterprises/{enterpriseId}/approval-config",
-      "operationId": "getApprovalConfig",
-      "tag": "Enterprise Agents",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "enterpriseId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PUT",
-      "path": "/enterprises/{enterpriseId}/approval-config",
-      "operationId": "setApprovalConfig",
-      "tag": "Enterprise Agents",
-      "requiredFields": [
-        "agentApprovalRequired"
-      ],
-      "bodyFields": [
-        "agentApprovalRequired"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "enterpriseId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/events",
-      "operationId": "listEvents",
-      "tag": "Events",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "eventType",
-        "limit",
-        "mandateId",
-        "offset",
-        "order",
-        "since"
-      ],
       "pathParams": [],
       "responseCodes": [
         200,
@@ -1772,10 +89,10 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "entryType",
         "gatewayId",
-        "limit",
+        "entryType",
         "mandateId",
+        "limit",
         "offset"
       ],
       "pathParams": [],
@@ -1795,9 +112,9 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
+        "status",
         "limit",
-        "offset",
-        "status"
+        "offset"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -1932,9 +249,9 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "contractType",
         "gatewayId",
         "hubState",
+        "contractType",
         "limit",
         "offset"
       ],
@@ -1949,8 +266,8 @@
     },
     {
       "method": "GET",
-      "path": "/federation/v1/admin/mandates/{mandateId}/criteria-status",
-      "operationId": "adminMandateCriteriaStatus",
+      "path": "/federation/v1/admin/mandates/{mandateId}/criteria-encryption-metadata",
+      "operationId": "adminMandateCriteriaEncryptionMetadata",
       "tag": "Federation Admin",
       "requiredFields": [],
       "bodyFields": [],
@@ -1974,8 +291,8 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "cursor",
-        "limit"
+        "limit",
+        "cursor"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -2051,9 +368,9 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
+        "status",
         "limit",
-        "offset",
-        "status"
+        "offset"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -2132,10 +449,10 @@
       "tag": "Federation Admin",
       "requiredFields": [],
       "bodyFields": [
-        "allowedContractTypes",
-        "expiresInHours",
         "label",
-        "metadata"
+        "expiresInHours",
+        "metadata",
+        "allowedContractTypes"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -2233,8 +550,8 @@
       "bodyFields": [],
       "queryFields": [
         "contractType",
-        "cursor",
-        "limit"
+        "limit",
+        "cursor"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -2294,8 +611,8 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "limit",
-        "sincePosition"
+        "sincePosition",
+        "limit"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -2315,10 +632,10 @@
       "bodyFields": [],
       "queryFields": [
         "category",
-        "limit",
-        "offset",
         "search",
-        "visibility"
+        "visibility",
+        "limit",
+        "offset"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -2356,12 +673,12 @@
       "operationId": "revokeGatewaySelf",
       "tag": "Federation",
       "requiredFields": [
-        "reason",
-        "revocationSecret"
+        "revocationSecret",
+        "reason"
       ],
       "bodyFields": [
-        "reason",
-        "revocationSecret"
+        "revocationSecret",
+        "reason"
       ],
       "queryFields": [],
       "pathParams": [
@@ -2381,20 +698,20 @@
       "operationId": "rotateGatewayKeys",
       "tag": "Federation",
       "requiredFields": [
-        "newEncryptionPublicKey",
         "newSigningPublicKey",
-        "nonce",
-        "signatureNewKey",
+        "newEncryptionPublicKey",
         "signatureOldKey",
-        "timestamp"
+        "signatureNewKey",
+        "timestamp",
+        "nonce"
       ],
       "bodyFields": [
-        "newEncryptionPublicKey",
         "newSigningPublicKey",
-        "nonce",
-        "signatureNewKey",
+        "newEncryptionPublicKey",
         "signatureOldKey",
-        "timestamp"
+        "signatureNewKey",
+        "timestamp",
+        "nonce"
       ],
       "queryFields": [],
       "pathParams": [
@@ -2414,14 +731,14 @@
       "operationId": "federationHeartbeat",
       "tag": "Federation",
       "requiredFields": [
-        "agentCount",
         "gatewayId",
+        "agentCount",
         "mandateCount",
         "timestamp"
       ],
       "bodyFields": [
-        "agentCount",
         "gatewayId",
+        "agentCount",
         "mandateCount",
         "timestamp"
       ],
@@ -2460,13 +777,13 @@
       "operationId": "submitMandateCriteria",
       "tag": "Federation",
       "requiredFields": [
-        "criteriaCommitment",
         "encryptedCriteria",
+        "criteriaCommitment",
         "senderEphemeralKey"
       ],
       "bodyFields": [
-        "criteriaCommitment",
         "encryptedCriteria",
+        "criteriaCommitment",
         "senderEphemeralKey"
       ],
       "queryFields": [],
@@ -2487,18 +804,18 @@
       "operationId": "peerHandshake",
       "tag": "Federation Peering",
       "requiredFields": [
-        "agentDirectory",
-        "encryptionPublicKey",
         "hubId",
+        "signingPublicKey",
+        "encryptionPublicKey",
         "peeringToken",
-        "signingPublicKey"
+        "agentDirectory"
       ],
       "bodyFields": [
-        "agentDirectory",
-        "encryptionPublicKey",
         "hubId",
+        "signingPublicKey",
+        "encryptionPublicKey",
         "peeringToken",
-        "signingPublicKey"
+        "agentDirectory"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -2516,14 +833,14 @@
       "operationId": "receivePeerAgentDirectorySync",
       "tag": "Federation Peering",
       "requiredFields": [
+        "hubId",
         "agents",
-        "directoryHash",
-        "hubId"
+        "directoryHash"
       ],
       "bodyFields": [
+        "hubId",
         "agents",
         "directoryHash",
-        "hubId",
         "since"
       ],
       "queryFields": [],
@@ -2543,13 +860,13 @@
       "tag": "Federation Peering",
       "requiredFields": [
         "gatewayId",
-        "reason",
-        "revokedAt"
+        "revokedAt",
+        "reason"
       ],
       "bodyFields": [
         "gatewayId",
-        "reason",
-        "revokedAt"
+        "revokedAt",
+        "reason"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -2567,28 +884,28 @@
       "operationId": "registerGateway",
       "tag": "Federation",
       "requiredFields": [
+        "registrationToken",
+        "organizationId",
+        "signingPublicKey",
         "encryptionPublicKey",
         "endpointUrl",
-        "nonce",
-        "organizationId",
-        "registrationToken",
         "revocationSecret",
-        "signature",
-        "signingPublicKey",
-        "timestamp"
+        "timestamp",
+        "nonce",
+        "signature"
       ],
       "bodyFields": [
-        "capabilities",
+        "registrationToken",
+        "organizationId",
         "displayName",
+        "signingPublicKey",
         "encryptionPublicKey",
         "endpointUrl",
-        "nonce",
-        "organizationId",
-        "registrationToken",
+        "capabilities",
         "revocationSecret",
-        "signature",
-        "signingPublicKey",
-        "timestamp"
+        "timestamp",
+        "nonce",
+        "signature"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -2610,17 +927,17 @@
         "contractType",
         "period",
         "totalMandates",
-        "totalPassed",
-        "totalVerified"
+        "totalVerified",
+        "totalPassed"
       ],
       "bodyFields": [
         "agentId",
         "contractType",
         "period",
-        "signature",
         "totalMandates",
+        "totalVerified",
         "totalPassed",
-        "totalVerified"
+        "signature"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -2642,14 +959,14 @@
         "visibility"
       ],
       "bodyFields": [
-        "category",
-        "description",
-        "displayName",
+        "version",
+        "visibility",
         "mandateSchema",
         "receiptSchema",
         "rulesConfig",
-        "version",
-        "visibility"
+        "displayName",
+        "description",
+        "category"
       ],
       "queryFields": [],
       "pathParams": [
@@ -2695,26 +1012,26 @@
       "tag": "Federation",
       "requiredFields": [
         "mandateId",
-        "nonce",
-        "outcomeHash",
-        "performerGatewayId",
-        "performerSignature",
         "signal",
+        "outcomeHash",
         "signalSeq",
+        "validUntil",
+        "performerGatewayId",
         "timestamp",
-        "validUntil"
+        "nonce",
+        "performerSignature"
       ],
       "bodyFields": [
         "mandateId",
-        "nonce",
+        "signal",
         "outcome",
         "outcomeHash",
-        "performerGatewayId",
-        "performerSignature",
-        "signal",
         "signalSeq",
+        "validUntil",
+        "performerGatewayId",
         "timestamp",
-        "validUntil"
+        "nonce",
+        "performerSignature"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -2732,32 +1049,32 @@
       "operationId": "federationStateTransition",
       "tag": "Federation",
       "requiredFields": [
+        "mandateId",
+        "gatewayId",
+        "state",
         "contractType",
         "criteriaHash",
-        "gatewayId",
-        "idempotencyKey",
-        "mandateId",
-        "nonce",
         "role",
         "seq",
-        "signature",
-        "state",
-        "timestamp"
+        "idempotencyKey",
+        "timestamp",
+        "nonce",
+        "signature"
       ],
       "bodyFields": [
+        "mandateId",
+        "gatewayId",
+        "state",
         "contractType",
         "criteriaHash",
-        "gatewayId",
-        "hopCount",
-        "idempotencyKey",
-        "mandateId",
-        "nonce",
-        "performerGatewayId",
         "role",
+        "performerGatewayId",
         "seq",
+        "idempotencyKey",
+        "timestamp",
+        "nonce",
         "signature",
-        "state",
-        "timestamp"
+        "hopCount"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -2790,18 +1107,567 @@
     },
     {
       "method": "GET",
-      "path": "/mandates",
-      "operationId": "listMandates",
-      "tag": "Mandates",
+      "path": "/health",
+      "operationId": "healthCheck",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/health/ready",
+      "operationId": "readinessCheck",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        503
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/healthz",
+      "operationId": "healthCheckKubernetes",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/lifecycle",
+      "operationId": "getLifecycle",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/livez",
+      "operationId": "livenessCheck",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/llms-full.txt",
+      "operationId": "getLlmsFullTxt",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/llms.txt",
+      "operationId": "getLlmsTxt",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/metrics",
+      "operationId": "getMetrics",
+      "tag": "Observability",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/readyz",
+      "operationId": "readinessCheckKubernetes",
+      "tag": "Health",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        503
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/status",
+      "operationId": "getPublicStatus",
+      "tag": "Status",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/accounts/{id}/deactivate",
+      "operationId": "adminDeactivateAccount",
+      "tag": "Admin",
+      "requiredFields": [
+        "accountType"
+      ],
+      "bodyFields": [
+        "accountType",
+        "reason"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/agents",
+      "operationId": "adminListAgents",
+      "tag": "Admin",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "cursor",
-        "enterpriseId",
-        "from",
         "limit",
         "offset",
+        "enterpriseId",
+        "search"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/agents",
+      "operationId": "adminCreateAgent",
+      "tag": "Admin",
+      "requiredFields": [
+        "name",
+        "enterpriseId"
+      ],
+      "bodyFields": [
+        "name",
+        "slug",
+        "email",
+        "enterpriseId",
+        "agentCardUrl"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        201,
+        401,
+        403,
+        409,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/agents/{agentId}/capabilities",
+      "operationId": "adminSetAgentCapabilities",
+      "tag": "Admin",
+      "requiredFields": [
+        "contractTypes"
+      ],
+      "bodyFields": [
+        "contractTypes"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/agents/capabilities",
+      "operationId": "adminGetFleetCapabilities",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "contractType"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/api-keys",
+      "operationId": "adminListApiKeys",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "ownerId"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/api-keys",
+      "operationId": "adminCreateApiKey",
+      "tag": "Admin",
+      "requiredFields": [
+        "role",
+        "ownerId",
+        "ownerType"
+      ],
+      "bodyFields": [
+        "role",
+        "ownerId",
+        "ownerType",
+        "label",
+        "expiresAt",
+        "environment",
+        "scopes",
+        "scopeProfile",
+        "allowedIps"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        201,
+        401,
+        403,
+        409,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/api-keys/{keyId}",
+      "operationId": "adminToggleApiKey",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [
+        "isActive",
+        "reason",
+        "scopes",
+        "scopeProfile"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "keyId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/api-keys/bulk-revoke",
+      "operationId": "adminBulkRevokeKeys",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [
+        "keyIds",
+        "ownerId",
+        "role",
+        "createdBefore",
+        "reason"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/auth-cache/flush",
+      "operationId": "adminFlushAuthCache",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/auth-cache/stats",
+      "operationId": "adminAuthCacheStats",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/discovery/reload",
+      "operationId": "adminReloadDiscovery",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/enterprises",
+      "operationId": "adminListEnterprises",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "cursor",
+        "limit",
+        "offset",
+        "search"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/enterprises",
+      "operationId": "adminCreateEnterprise",
+      "tag": "Admin",
+      "requiredFields": [
+        "name"
+      ],
+      "bodyFields": [
+        "name",
+        "slug",
+        "email",
+        "config"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        201,
+        401,
+        403,
+        409,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/enterprises/{id}/config",
+      "operationId": "adminGetEnterpriseConfig",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/enterprises/{id}/config",
+      "operationId": "adminUpdateEnterpriseConfig",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [
+        "enforcement",
+        "approvedSuppliers"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/license",
+      "operationId": "adminGetLicense",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/license/instance-id",
+      "operationId": "adminGetInstanceId",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/license/reload",
+      "operationId": "adminReloadLicense",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [
+        "license",
+        "licenseKey"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/mandates",
+      "operationId": "adminListMandates",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "limit",
+        "offset",
+        "cursor",
+        "enterpriseId",
         "status",
+        "contractType",
+        "agentId",
+        "sort",
+        "order",
+        "from",
         "to"
       ],
       "pathParams": [],
@@ -2815,7 +1681,764 @@
     },
     {
       "method": "POST",
-      "path": "/mandates",
+      "path": "/v1/admin/provisioning/reload",
+      "operationId": "adminProvisioningReload",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/provisioning/status",
+      "operationId": "adminProvisioningStatus",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/rate-limit-exemptions",
+      "operationId": "adminListRateLimitExemptions",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/rate-limit-exemptions/{ownerId}",
+      "operationId": "adminRemoveRateLimitExemption",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "ownerId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/rate-limit-exemptions/{ownerId}",
+      "operationId": "adminAddRateLimitExemption",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "ownerId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/schemas/cache/flush",
+      "operationId": "flushSchemaCache",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/support-bundle",
+      "operationId": "adminExportSupportBundle",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/support-bundle/upload",
+      "operationId": "adminUploadSupportBundle",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/system-health",
+      "operationId": "adminSystemHealth",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/vault/anchors",
+      "operationId": "adminListVaultAnchors",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "mandateId"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/vault/anchors/verify",
+      "operationId": "adminVerifyVaultAnchors",
+      "tag": "Admin",
+      "requiredFields": [
+        "mandateId"
+      ],
+      "bodyFields": [
+        "mandateId",
+        "chainPosition"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/vault/scan",
+      "operationId": "adminStartVaultScan",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [
+        "mandateIds",
+        "mandateId"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        202,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/vault/scan/{jobId}",
+      "operationId": "adminGetVaultScanStatus",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "jobId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/vault/signing-keys",
+      "operationId": "adminListVaultSigningKeys",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/vault/signing-keys/rotate",
+      "operationId": "adminRotateVaultSigningKey",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/webhook-dlq",
+      "operationId": "adminListDlq",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "cursor",
+        "limit",
+        "offset"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/webhook-dlq/{dlqId}/retry",
+      "operationId": "adminRetryDlq",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "dlqId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/webhook-dlq/retry-all",
+      "operationId": "adminRetryAllDlq",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/admin/webhooks/{webhookId}/circuit-breaker",
+      "operationId": "adminOverrideWebhookCircuitBreaker",
+      "tag": "Admin",
+      "requiredFields": [
+        "state"
+      ],
+      "bodyFields": [
+        "state"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "webhookId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/webhooks/health",
+      "operationId": "adminGetWebhooksHealth",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "limit",
+        "offset"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/agents/{agentId}/capabilities",
+      "operationId": "getAgentCapabilities",
+      "tag": "Capabilities",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/agents/{agentId}/capabilities",
+      "operationId": "setAgentCapabilities",
+      "tag": "Capabilities",
+      "requiredFields": [
+        "contractTypes"
+      ],
+      "bodyFields": [
+        "contractTypes"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/agents/{agentId}/history",
+      "operationId": "getAgentHistory",
+      "tag": "Reputation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "limit",
+        "offset",
+        "contractType",
+        "outcome",
+        "from",
+        "to"
+      ],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/agents/{agentId}/reputation",
+      "operationId": "getAgentReputation",
+      "tag": "Reputation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "agentId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/agents/{agentId}/reputation/{contractType}",
+      "operationId": "getAgentReputationByType",
+      "tag": "Reputation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "agentId",
+        "contractType"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/agents/{id}",
+      "operationId": "getAgent",
+      "tag": "Agents",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/agents/{id}",
+      "operationId": "updateAgentIdentity",
+      "tag": "Agents",
+      "requiredFields": [],
+      "bodyFields": [
+        "agentClass",
+        "ownerRef",
+        "orgUnit",
+        "description"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/agents/{id}/references",
+      "operationId": "getAgentReferences",
+      "tag": "References",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/agents/{id}/references",
+      "operationId": "addAgentReferences",
+      "tag": "References",
+      "requiredFields": [
+        "references"
+      ],
+      "bodyFields": [
+        "references"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        201,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/audit-vault/export",
+      "operationId": "bulkAuditVaultExport",
+      "tag": "Compliance",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "from",
+        "to",
+        "mandateId",
+        "agentId",
+        "format",
+        "cursor",
+        "limit"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/auth/keys/rotate",
+      "operationId": "rotateApiKey",
+      "tag": "Auth",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/auth/me",
+      "operationId": "getMe",
+      "tag": "Auth",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/compliance/export",
+      "operationId": "createComplianceExport",
+      "tag": "Compliance",
+      "requiredFields": [
+        "format"
+      ],
+      "bodyFields": [
+        "format",
+        "filters"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        201,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/compliance/export/{exportId}",
+      "operationId": "getComplianceExport",
+      "tag": "Compliance",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "exportId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/compliance/export/{exportId}/download",
+      "operationId": "downloadComplianceExport",
+      "tag": "Compliance",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "exportId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/conformance",
+      "operationId": "getConformance",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/events",
+      "operationId": "listEvents",
+      "tag": "Events",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "since",
+        "mandateId",
+        "eventType",
+        "limit",
+        "offset",
+        "cursor",
+        "order"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/mandates",
+      "operationId": "listMandates",
+      "tag": "Mandates",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "enterpriseId",
+        "status",
+        "contractType",
+        "agentId",
+        "from",
+        "to",
+        "limit",
+        "offset",
+        "cursor"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/mandates",
       "operationId": "createMandate",
       "tag": "Mandates",
       "requiredFields": [
@@ -2823,83 +2446,33 @@
         "criteria"
       ],
       "bodyFields": [
-        "agentId",
-        "autoActivate",
-        "commissionPct",
-        "constraintInheritance",
-        "contractType",
-        "contractVersion",
-        "criteria",
-        "deadline",
-        "dependsOn",
-        "enforcementOverrides",
         "enterpriseId",
-        "euAiActDomain",
-        "externalTaskId",
-        "humanOversight",
-        "maxSubmissions",
-        "metadata",
-        "operatingMode",
-        "parentMandateId",
-        "performerAgentId",
-        "platform",
-        "platformRef",
-        "projectId",
-        "projectRef",
-        "references",
-        "riskClassification",
-        "tolerance",
-        "verificationMode"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/mandates/agent",
-      "operationId": "createAgentMandate",
-      "tag": "Agent-to-Agent",
-      "requiredFields": [
-        "contractType",
-        "criteria"
-      ],
-      "bodyFields": [
-        "autoActivate",
-        "commissionPct",
-        "constraintInheritance",
-        "contractType",
-        "contractVersion",
-        "criteria",
-        "deadline",
-        "dependsOn",
-        "enforcementOverrides",
-        "enterpriseId",
-        "euAiActDomain",
-        "externalTaskId",
-        "humanOversight",
-        "maxSubmissions",
-        "metadata",
-        "operatingMode",
-        "parentMandateId",
-        "performerAgentId",
-        "platform",
-        "platformRef",
         "principalAgentId",
-        "projectId",
+        "contractType",
+        "contractVersion",
+        "platform",
+        "platformRef",
         "projectRef",
-        "proposalMessage",
-        "references",
-        "riskClassification",
+        "externalTaskId",
+        "criteria",
         "tolerance",
-        "verificationMode"
+        "deadline",
+        "agentId",
+        "performerAgentId",
+        "parentMandateId",
+        "commissionPct",
+        "operatingMode",
+        "verificationMode",
+        "riskClassification",
+        "euAiActDomain",
+        "humanOversight",
+        "metadata",
+        "maxSubmissions",
+        "constraintInheritance",
+        "enforcementOverrides",
+        "dependsOn",
+        "autoActivate",
+        "references"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -2914,151 +2487,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/agent/principal",
-      "operationId": "listAgentPrincipalMandates",
-      "tag": "Agent-to-Agent",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit",
-        "offset"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/mandates/agent/proposals",
-      "operationId": "listAgentProposals",
-      "tag": "Agent-to-Agent",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit",
-        "offset"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/mandates/batch",
-      "operationId": "batchGetMandates",
-      "tag": "Mandates",
-      "requiredFields": [
-        "ids"
-      ],
-      "bodyFields": [
-        "ids"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/mandates/bulk",
-      "operationId": "bulkCreateMandates",
-      "tag": "Mandates",
-      "requiredFields": [
-        "mandates"
-      ],
-      "bodyFields": [
-        "mandates"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        207,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/mandates/search",
-      "operationId": "searchMandates",
-      "tag": "Mandates",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "agentId",
-        "contractType",
-        "cursor",
-        "enterpriseId",
-        "externalTaskId",
-        "from",
-        "limit",
-        "metadata",
-        "offset",
-        "operatingMode",
-        "order",
-        "parentMandateId",
-        "projectRef",
-        "ref.id",
-        "ref.system",
-        "ref.type",
-        "sort",
-        "status",
-        "to",
-        "updatedAfter",
-        "updatedBefore",
-        "verificationMode"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/mandates/summary",
-      "operationId": "getMandateSummary",
-      "tag": "Mandates",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/mandates/{id}",
+      "path": "/v1/mandates/{id}",
       "operationId": "getMandate",
       "tag": "Mandates",
       "requiredFields": [],
@@ -3078,18 +2507,18 @@
     },
     {
       "method": "PATCH",
-      "path": "/mandates/{id}",
+      "path": "/v1/mandates/{id}",
       "operationId": "updateMandate",
       "tag": "Mandates",
       "requiredFields": [],
       "bodyFields": [
         "criteria",
+        "tolerance",
         "deadline",
+        "riskClassification",
         "euAiActDomain",
         "humanOversight",
-        "metadata",
-        "riskClassification",
-        "tolerance"
+        "metadata"
       ],
       "queryFields": [],
       "pathParams": [
@@ -3107,7 +2536,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/accept",
+      "path": "/v1/mandates/{id}/accept",
       "operationId": "acceptMandate",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
@@ -3130,7 +2559,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/accept-counter",
+      "path": "/v1/mandates/{id}/accept-counter",
       "operationId": "acceptCounterProposal",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
@@ -3151,7 +2580,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/cancel",
+      "path": "/v1/mandates/{id}/cancel",
       "operationId": "cancelMandate",
       "tag": "Mandates",
       "requiredFields": [],
@@ -3175,7 +2604,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{id}/chain",
+      "path": "/v1/mandates/{id}/chain",
       "operationId": "getMandateChain",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
@@ -3195,15 +2624,15 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/counter-propose",
+      "path": "/v1/mandates/{id}/counter-propose",
       "operationId": "counterProposeMandate",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
       "bodyFields": [
-        "counterCommissionPct",
         "counterCriteria",
-        "counterDeadline",
         "counterTolerance",
+        "counterDeadline",
+        "counterCommissionPct",
         "message"
       ],
       "queryFields": [],
@@ -3222,7 +2651,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{id}/graph",
+      "path": "/v1/mandates/{id}/graph",
       "operationId": "getMandateGraph",
       "tag": "Mandates",
       "requiredFields": [],
@@ -3242,19 +2671,19 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/outcome",
+      "path": "/v1/mandates/{id}/outcome",
       "operationId": "reportOutcome",
       "tag": "Verification",
       "requiredFields": [
-        "outcome",
-        "receiptId"
+        "receiptId",
+        "outcome"
       ],
       "bodyFields": [
+        "receiptId",
+        "outcome",
         "checks",
         "notes",
-        "outcome",
-        "reason",
-        "receiptId"
+        "reason"
       ],
       "queryFields": [],
       "pathParams": [
@@ -3272,7 +2701,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{id}/references",
+      "path": "/v1/mandates/{id}/references",
       "operationId": "getMandateReferences",
       "tag": "References",
       "requiredFields": [],
@@ -3292,7 +2721,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/references",
+      "path": "/v1/mandates/{id}/references",
       "operationId": "addMandateReferences",
       "tag": "References",
       "requiredFields": [
@@ -3317,7 +2746,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/reject",
+      "path": "/v1/mandates/{id}/reject",
       "operationId": "rejectMandate",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
@@ -3340,7 +2769,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/revision",
+      "path": "/v1/mandates/{id}/revision",
       "operationId": "requestRevision",
       "tag": "Mandates",
       "requiredFields": [],
@@ -3363,7 +2792,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{id}/sub-mandates",
+      "path": "/v1/mandates/{id}/sub-mandates",
       "operationId": "getSubMandates",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
@@ -3383,7 +2812,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/transition",
+      "path": "/v1/mandates/{id}/transition",
       "operationId": "transitionMandate",
       "tag": "Mandates",
       "requiredFields": [
@@ -3410,7 +2839,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{id}/verification-status",
+      "path": "/v1/mandates/{id}/verification-status",
       "operationId": "getVerificationStatus",
       "tag": "Verification",
       "requiredFields": [],
@@ -3430,7 +2859,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{id}/verify",
+      "path": "/v1/mandates/{id}/verify",
       "operationId": "triggerVerification",
       "tag": "Verification",
       "requiredFields": [],
@@ -3452,7 +2881,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{mandateId}/ai-impact-assessment",
+      "path": "/v1/mandates/{mandateId}/ai-impact-assessment",
       "operationId": "getAiImpactAssessment",
       "tag": "Compliance",
       "requiredFields": [],
@@ -3472,17 +2901,17 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{mandateId}/ai-impact-assessment",
+      "path": "/v1/mandates/{mandateId}/ai-impact-assessment",
       "operationId": "createAiImpactAssessment",
       "tag": "Compliance",
       "requiredFields": [
-        "domain",
-        "riskLevel"
+        "riskLevel",
+        "domain"
       ],
       "bodyFields": [
+        "riskLevel",
         "domain",
         "humanOversight",
-        "riskLevel",
         "testingResults"
       ],
       "queryFields": [],
@@ -3500,30 +2929,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{mandateId}/audit",
-      "operationId": "getMandateAudit",
-      "tag": "Compliance",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "afterPosition",
-        "limit",
-        "offset"
-      ],
-      "pathParams": [
-        "mandateId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/mandates/{mandateId}/audit-export",
+      "path": "/v1/mandates/{mandateId}/audit-export",
       "operationId": "getAuditExport",
       "tag": "Compliance",
       "requiredFields": [],
@@ -3545,7 +2951,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{mandateId}/compliance-records",
+      "path": "/v1/mandates/{mandateId}/compliance-records",
       "operationId": "listComplianceRecords",
       "tag": "Compliance",
       "requiredFields": [],
@@ -3568,19 +2974,19 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{mandateId}/compliance-records",
+      "path": "/v1/mandates/{mandateId}/compliance-records",
       "operationId": "createComplianceRecord",
       "tag": "Compliance",
       "requiredFields": [
+        "recordType",
         "attestation",
-        "attestedBy",
-        "recordType"
+        "attestedBy"
       ],
       "bodyFields": [
+        "recordType",
         "attestation",
-        "attestedAt",
         "attestedBy",
-        "recordType"
+        "attestedAt"
       ],
       "queryFields": [],
       "pathParams": [
@@ -3598,7 +3004,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{mandateId}/compliance-records/{recordId}",
+      "path": "/v1/mandates/{mandateId}/compliance-records/{recordId}",
       "operationId": "getComplianceRecord",
       "tag": "Compliance",
       "requiredFields": [],
@@ -3619,7 +3025,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{mandateId}/dispute",
+      "path": "/v1/mandates/{mandateId}/dispute",
       "operationId": "getDispute",
       "tag": "Disputes",
       "requiredFields": [],
@@ -3639,15 +3045,15 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{mandateId}/dispute",
+      "path": "/v1/mandates/{mandateId}/dispute",
       "operationId": "initiateDispute",
       "tag": "Disputes",
       "requiredFields": [
         "grounds"
       ],
       "bodyFields": [
-        "context",
-        "grounds"
+        "grounds",
+        "context"
       ],
       "queryFields": [],
       "pathParams": [
@@ -3665,7 +3071,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{mandateId}/dispute/escalate",
+      "path": "/v1/mandates/{mandateId}/dispute/escalate",
       "operationId": "escalateDispute",
       "tag": "Disputes",
       "requiredFields": [],
@@ -3686,7 +3092,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{mandateId}/dispute/evidence",
+      "path": "/v1/mandates/{mandateId}/dispute/evidence",
       "operationId": "submitDisputeEvidence",
       "tag": "Disputes",
       "requiredFields": [
@@ -3713,15 +3119,15 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{mandateId}/receipts",
+      "path": "/v1/mandates/{mandateId}/receipts",
       "operationId": "listReceipts",
       "tag": "Receipts",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "cursor",
         "limit",
         "offset",
+        "cursor",
         "structuralValidation"
       ],
       "pathParams": [
@@ -3737,7 +3143,7 @@
     },
     {
       "method": "POST",
-      "path": "/mandates/{mandateId}/receipts",
+      "path": "/v1/mandates/{mandateId}/receipts",
       "operationId": "submitReceipt",
       "tag": "Receipts",
       "requiredFields": [
@@ -3753,7 +3159,6 @@
         "mandateId"
       ],
       "responseCodes": [
-        200,
         201,
         400,
         401,
@@ -3765,7 +3170,7 @@
     },
     {
       "method": "GET",
-      "path": "/mandates/{mandateId}/receipts/{receiptId}",
+      "path": "/v1/mandates/{mandateId}/receipts/{receiptId}",
       "operationId": "getReceipt",
       "tag": "Receipts",
       "requiredFields": [],
@@ -3786,222 +3191,15 @@
     },
     {
       "method": "GET",
-      "path": "/metrics",
-      "operationId": "getMetrics",
-      "tag": "Observability",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/notarize/mandates",
-      "operationId": "notarizeMandate",
-      "tag": "Notarization",
-      "requiredFields": [
-        "contractType",
-        "payload"
-      ],
-      "bodyFields": [
-        "contractType",
-        "metadata",
-        "payload",
-        "performerHint",
-        "performerId"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/notarize/mandates/{id}",
-      "operationId": "getNotarizedMandate",
-      "tag": "Notarization",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/notarize/mandates/{id}/accept",
-      "operationId": "acceptNotarizedMandate",
-      "tag": "Notarization",
-      "requiredFields": [],
-      "bodyFields": [
-        "message"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        422,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/notarize/mandates/{id}/counter-propose",
-      "operationId": "counterProposeNotarizedMandate",
-      "tag": "Notarization",
-      "requiredFields": [
-        "payload"
-      ],
-      "bodyFields": [
-        "metadata",
-        "payload"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        422,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/notarize/mandates/{id}/history",
-      "operationId": "getNotarizedMandateHistory",
-      "tag": "Notarization",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/notarize/mandates/{id}/receipts",
-      "operationId": "submitNotarizedReceipt",
-      "tag": "Notarization",
-      "requiredFields": [
-        "payload"
-      ],
-      "bodyFields": [
-        "metadata",
-        "payload"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        201,
-        401,
-        403,
-        404,
-        422,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/notarize/mandates/{id}/verdict",
-      "operationId": "renderNotarizationVerdict",
-      "tag": "Notarization",
-      "requiredFields": [
-        "verdict"
-      ],
-      "bodyFields": [
-        "reason",
-        "verdict"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        422,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/notarize/verify",
-      "operationId": "verifyNotarizedPayload",
-      "tag": "Notarization",
-      "requiredFields": [
-        "payload"
-      ],
-      "bodyFields": [
-        "notarizedMandateId",
-        "notarizedReceiptId",
-        "payload"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/projects",
-      "operationId": "listProjects",
-      "tag": "Projects",
+      "path": "/v1/mandates/agent/proposals",
+      "operationId": "listAgentProposals",
+      "tag": "Agent-to-Agent",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "cursor",
-        "enterpriseId",
         "limit",
         "offset",
-        "status"
+        "cursor"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -4014,151 +3212,16 @@
     },
     {
       "method": "POST",
-      "path": "/projects",
-      "operationId": "createProject",
-      "tag": "Projects",
+      "path": "/v1/mandates/batch",
+      "operationId": "batchGetMandates",
+      "tag": "Mandates",
       "requiredFields": [
-        "name"
+        "ids"
       ],
       "bodyFields": [
-        "description",
-        "name"
-      ],
-      "queryFields": [
-        "enterpriseId"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "DELETE",
-      "path": "/projects/{id}",
-      "operationId": "deleteProject",
-      "tag": "Projects",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        204,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/projects/{id}",
-      "operationId": "getProject",
-      "tag": "Projects",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/projects/{id}",
-      "operationId": "updateProject",
-      "tag": "Projects",
-      "requiredFields": [],
-      "bodyFields": [
-        "description",
-        "name",
-        "status"
+        "ids"
       ],
       "queryFields": [],
-      "pathParams": [
-        "id"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/analytics",
-      "operationId": "getAnalyticsSummary",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "agentExternalId",
-        "from",
-        "proxyMode",
-        "to"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/analytics/summary",
-      "operationId": "getAnalyticsSummary",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "agentExternalId",
-        "from",
-        "proxyMode",
-        "to"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions",
-      "operationId": "listProxySessions",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "agentExternalId",
-        "agentName",
-        "cursor",
-        "limit",
-        "proxyMode",
-        "sessionOutcome"
-      ],
       "pathParams": [],
       "responseCodes": [
         200,
@@ -4170,521 +3233,60 @@
     },
     {
       "method": "POST",
-      "path": "/proxy/sessions",
-      "operationId": "createProxySession",
-      "tag": "Proxy",
+      "path": "/v1/mandates/bulk",
+      "operationId": "bulkCreateMandates",
+      "tag": "Mandates",
       "requiredFields": [
-        "proxyMode",
-        "startedAt"
+        "mandates"
       ],
       "bodyFields": [
-        "agentExternalId",
-        "agentMetadata",
-        "agentName",
-        "blockedCount",
-        "endedAt",
-        "errorCount",
-        "proxyInstanceId",
-        "proxyMode",
-        "sessionOutcome",
-        "startedAt"
+        "mandates"
       ],
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
-        201,
-        400,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}",
-      "operationId": "getProxySession",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/alignment",
-      "operationId": "getSessionAlignment",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/analytics",
-      "operationId": "getSessionAnalytics",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/mandate-summary",
-      "operationId": "getSessionMandateSummary",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/shadow-mandates",
-      "operationId": "getSessionSidecarMandates",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit"
-      ],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/proxy/sessions/{sessionId}/shadow-mandates",
-      "operationId": "ingestSidecarMandates",
-      "tag": "Proxy",
-      "requiredFields": [
-        "items"
-      ],
-      "bodyFields": [
-        "items"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
         207,
         400,
         401,
         403,
-        404,
         429,
         500
       ]
     },
     {
       "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/shadow-receipts",
-      "operationId": "getSessionSidecarReceipts",
-      "tag": "Proxy",
+      "path": "/v1/mandates/search",
+      "operationId": "searchMandates",
+      "tag": "Mandates",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "cursor",
-        "limit"
-      ],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/proxy/sessions/{sessionId}/shadow-receipts",
-      "operationId": "ingestSidecarReceipts",
-      "tag": "Proxy",
-      "requiredFields": [
-        "items"
-      ],
-      "bodyFields": [
-        "items"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        207,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/sidecar-mandates",
-      "operationId": "getSessionSidecarMandates",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit"
-      ],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/proxy/sessions/{sessionId}/sidecar-mandates",
-      "operationId": "ingestSidecarMandates",
-      "tag": "Proxy",
-      "requiredFields": [
-        "items"
-      ],
-      "bodyFields": [
-        "items"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        207,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/sidecar-receipts",
-      "operationId": "getSessionSidecarReceipts",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "limit"
-      ],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/proxy/sessions/{sessionId}/sidecar-receipts",
-      "operationId": "ingestSidecarReceipts",
-      "tag": "Proxy",
-      "requiredFields": [
-        "items"
-      ],
-      "bodyFields": [
-        "items"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        207,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/tool-calls",
-      "operationId": "getSessionToolCalls",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "cursor",
-        "isError",
-        "limit",
-        "toolName"
-      ],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/proxy/sessions/{sessionId}/tool-calls",
-      "operationId": "batchIngestToolCalls",
-      "tag": "Proxy",
-      "requiredFields": [
-        "items"
-      ],
-      "bodyFields": [
-        "items"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        207,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sessions/{sessionId}/tool-catalog",
-      "operationId": "getSessionToolCatalog",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/proxy/sessions/{sessionId}/tool-catalog",
-      "operationId": "ingestToolCatalog",
-      "tag": "Proxy",
-      "requiredFields": [
-        "items"
-      ],
-      "bodyFields": [
-        "items"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "sessionId"
-      ],
-      "responseCodes": [
-        207,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/shadow-mandates",
-      "operationId": "listAllSidecarMandates",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "confidenceMin",
+        "enterpriseId",
+        "status",
         "contractType",
-        "cursor",
+        "agentId",
+        "projectRef",
+        "externalTaskId",
+        "parentMandateId",
+        "from",
+        "to",
+        "updatedAfter",
+        "updatedBefore",
+        "verificationMode",
+        "operatingMode",
+        "metadata",
+        "ref.system",
+        "ref.type",
+        "ref.id",
+        "sort",
+        "order",
         "limit",
-        "status"
+        "offset",
+        "cursor"
       ],
       "pathParams": [],
       "responseCodes": [
         200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/proxy/shadow-mandates/{sidecarMandateId}",
-      "operationId": "updateShadowMandate",
-      "tag": "Proxy",
-      "requiredFields": [
-        "status"
-      ],
-      "bodyFields": [
-        "formalizedMandateId",
-        "status"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "sidecarMandateId"
-      ],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/proxy/sidecar-mandates",
-      "operationId": "listAllSidecarMandates",
-      "tag": "Proxy",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "confidenceMin",
-        "contractType",
-        "cursor",
-        "limit",
-        "status"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/proxy/sidecar-mandates/{sidecarMandateId}",
-      "operationId": "updateShadowMandate",
-      "tag": "Proxy",
-      "requiredFields": [
-        "status"
-      ],
-      "bodyFields": [
-        "formalizedMandateId",
-        "status"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "sidecarMandateId"
-      ],
-      "responseCodes": [
-        200,
-        400,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/proxy/sync",
-      "operationId": "syncProxySession",
-      "tag": "Proxy",
-      "requiredFields": [
-        "session"
-      ],
-      "bodyFields": [
-        "session",
-        "sidecarMandates",
-        "sidecarReceipts",
-        "toolCalls",
-        "toolCatalog"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        201,
-        400,
         401,
         403,
         429,
@@ -4693,15 +3295,15 @@
     },
     {
       "method": "GET",
-      "path": "/references",
+      "path": "/v1/references",
       "operationId": "lookupReferences",
       "tag": "References",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "refId",
+        "system",
         "refType",
-        "system"
+        "refId"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -4715,13 +3317,14 @@
     },
     {
       "method": "GET",
-      "path": "/schemas",
+      "path": "/v1/schemas",
       "operationId": "listSchemas",
       "tag": "Schemas",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "enterpriseId",
+        "includeDisabled",
         "limit",
         "offset"
       ],
@@ -4736,7 +3339,7 @@
     },
     {
       "method": "POST",
-      "path": "/schemas",
+      "path": "/v1/schemas",
       "operationId": "registerSchema",
       "tag": "Schemas",
       "requiredFields": [
@@ -4745,14 +3348,14 @@
         "receiptSchema"
       ],
       "bodyFields": [
-        "category",
-        "compatibilityMode",
         "contractType",
-        "description",
         "displayName",
-        "fieldMappings",
+        "description",
+        "category",
         "mandateSchema",
-        "receiptSchema"
+        "receiptSchema",
+        "fieldMappings",
+        "compatibilityMode"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -4768,7 +3371,7 @@
     },
     {
       "method": "GET",
-      "path": "/schemas/_blank",
+      "path": "/v1/schemas/_blank",
       "operationId": "getBlankTemplate",
       "tag": "Schemas",
       "requiredFields": [],
@@ -4784,100 +3387,14 @@
       ]
     },
     {
-      "method": "POST",
-      "path": "/schemas/import",
-      "operationId": "importSchema",
-      "tag": "Schemas",
-      "requiredFields": [
-        "compatibilityMode",
-        "contractType",
-        "exportVersion",
-        "exportedAt",
-        "versions"
-      ],
-      "bodyFields": [
-        "category",
-        "compatibilityMode",
-        "contractType",
-        "description",
-        "displayName",
-        "exportVersion",
-        "exportedAt",
-        "sharedSchemas",
-        "versions"
-      ],
-      "queryFields": [
-        "dryRun"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        201,
-        400,
-        401,
-        403,
-        409,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/schemas/meta-schema",
-      "operationId": "getMetaSchema",
-      "tag": "Schemas",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/schemas/preview",
-      "operationId": "previewSchema",
-      "tag": "Schemas",
-      "requiredFields": [
-        "contractType",
-        "mandateSchema",
-        "receiptSchema"
-      ],
-      "bodyFields": [
-        "category",
-        "compatibilityMode",
-        "contractType",
-        "description",
-        "displayName",
-        "fieldMappings",
-        "mandateSchema",
-        "receiptSchema"
-      ],
-      "queryFields": [],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
       "method": "DELETE",
-      "path": "/schemas/{contractType}",
+      "path": "/v1/schemas/{contractType}",
       "operationId": "deleteContractType",
       "tag": "Schemas",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "enterpriseId",
-        "force"
+        "enterpriseId"
       ],
       "pathParams": [
         "contractType"
@@ -4894,7 +3411,7 @@
     },
     {
       "method": "GET",
-      "path": "/schemas/{contractType}",
+      "path": "/v1/schemas/{contractType}",
       "operationId": "getSchema",
       "tag": "Schemas",
       "requiredFields": [],
@@ -4917,7 +3434,7 @@
     },
     {
       "method": "POST",
-      "path": "/schemas/{contractType}/check-compatibility",
+      "path": "/v1/schemas/{contractType}/check-compatibility",
       "operationId": "checkSchemaCompatibility",
       "tag": "Schemas",
       "requiredFields": [
@@ -4942,15 +3459,15 @@
     },
     {
       "method": "GET",
-      "path": "/schemas/{contractType}/diff",
+      "path": "/v1/schemas/{contractType}/diff",
       "operationId": "diffSchemaVersions",
       "tag": "Schemas",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "enterpriseId",
         "from",
-        "to"
+        "to",
+        "enterpriseId"
       ],
       "pathParams": [
         "contractType"
@@ -4965,8 +3482,54 @@
       ]
     },
     {
+      "method": "PATCH",
+      "path": "/v1/schemas/{contractType}/disable",
+      "operationId": "disableContractType",
+      "tag": "Schemas",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "enterpriseId"
+      ],
+      "pathParams": [
+        "contractType"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        422,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/schemas/{contractType}/enable",
+      "operationId": "enableContractType",
+      "tag": "Schemas",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "enterpriseId"
+      ],
+      "pathParams": [
+        "contractType"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        422,
+        429,
+        500
+      ]
+    },
+    {
       "method": "POST",
-      "path": "/schemas/{contractType}/export",
+      "path": "/v1/schemas/{contractType}/export",
       "operationId": "exportSchema",
       "tag": "Schemas",
       "requiredFields": [],
@@ -4989,7 +3552,7 @@
     },
     {
       "method": "GET",
-      "path": "/schemas/{contractType}/rules",
+      "path": "/v1/schemas/{contractType}/rules",
       "operationId": "getRules",
       "tag": "Schemas",
       "requiredFields": [],
@@ -5012,7 +3575,7 @@
     },
     {
       "method": "GET",
-      "path": "/schemas/{contractType}/template",
+      "path": "/v1/schemas/{contractType}/template",
       "operationId": "getSchemaTemplate",
       "tag": "Schemas",
       "requiredFields": [],
@@ -5034,7 +3597,7 @@
     },
     {
       "method": "POST",
-      "path": "/schemas/{contractType}/validate",
+      "path": "/v1/schemas/{contractType}/validate",
       "operationId": "validateReceipt",
       "tag": "Schemas",
       "requiredFields": [
@@ -5060,7 +3623,7 @@
     },
     {
       "method": "GET",
-      "path": "/schemas/{contractType}/versions",
+      "path": "/v1/schemas/{contractType}/versions",
       "operationId": "getSchemaVersions",
       "tag": "Schemas",
       "requiredFields": [],
@@ -5081,7 +3644,7 @@
     },
     {
       "method": "GET",
-      "path": "/schemas/{contractType}/versions/{version}",
+      "path": "/v1/schemas/{contractType}/versions/{version}",
       "operationId": "getSchemaVersion",
       "tag": "Schemas",
       "requiredFields": [],
@@ -5104,13 +3667,14 @@
     },
     {
       "method": "PATCH",
-      "path": "/schemas/{contractType}/versions/{version}",
+      "path": "/v1/schemas/{contractType}/versions/{version}",
       "operationId": "patchSchemaVersion",
       "tag": "Schemas",
-      "requiredFields": [],
+      "requiredFields": [
+        "compatibilityMode"
+      ],
       "bodyFields": [
-        "compatibilityMode",
-        "status"
+        "compatibilityMode"
       ],
       "queryFields": [
         "enterpriseId"
@@ -5129,8 +3693,144 @@
       ]
     },
     {
+      "method": "POST",
+      "path": "/v1/schemas/import",
+      "operationId": "importSchema",
+      "tag": "Schemas",
+      "requiredFields": [
+        "exportVersion",
+        "exportedAt",
+        "contractType",
+        "compatibilityMode",
+        "versions"
+      ],
+      "bodyFields": [
+        "exportVersion",
+        "exportedAt",
+        "contractType",
+        "displayName",
+        "description",
+        "category",
+        "compatibilityMode",
+        "versions",
+        "sharedSchemas"
+      ],
+      "queryFields": [
+        "dryRun"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        201,
+        400,
+        401,
+        403,
+        409,
+        429,
+        500
+      ]
+    },
+    {
       "method": "GET",
-      "path": "/webhooks",
+      "path": "/v1/schemas/meta-schema",
+      "operationId": "getMetaSchema",
+      "tag": "Schemas",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/schemas/preview",
+      "operationId": "previewSchema",
+      "tag": "Schemas",
+      "requiredFields": [
+        "contractType",
+        "mandateSchema",
+        "receiptSchema"
+      ],
+      "bodyFields": [
+        "contractType",
+        "displayName",
+        "description",
+        "category",
+        "mandateSchema",
+        "receiptSchema",
+        "fieldMappings",
+        "compatibilityMode"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/scope-profiles",
+      "operationId": "adminListScopeProfiles",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/siem/stream",
+      "operationId": "getAuditStream",
+      "tag": "Audit",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "since",
+        "limit",
+        "format"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/verification-keys",
+      "operationId": "listVerificationKeys",
+      "tag": "Discovery",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/webhooks",
       "operationId": "listWebhooks",
       "tag": "Webhooks",
       "requiredFields": [],
@@ -5152,17 +3852,17 @@
     },
     {
       "method": "POST",
-      "path": "/webhooks",
+      "path": "/v1/webhooks",
       "operationId": "createWebhook",
       "tag": "Webhooks",
       "requiredFields": [
-        "eventTypes",
-        "url"
+        "url",
+        "eventTypes"
       ],
       "bodyFields": [
+        "url",
         "eventTypes",
-        "format",
-        "url"
+        "format"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -5177,7 +3877,7 @@
     },
     {
       "method": "DELETE",
-      "path": "/webhooks/{webhookId}",
+      "path": "/v1/webhooks/{webhookId}",
       "operationId": "deleteWebhook",
       "tag": "Webhooks",
       "requiredFields": [],
@@ -5197,7 +3897,7 @@
     },
     {
       "method": "GET",
-      "path": "/webhooks/{webhookId}",
+      "path": "/v1/webhooks/{webhookId}",
       "operationId": "getWebhook",
       "tag": "Webhooks",
       "requiredFields": [],
@@ -5217,13 +3917,14 @@
     },
     {
       "method": "PATCH",
-      "path": "/webhooks/{webhookId}",
+      "path": "/v1/webhooks/{webhookId}",
       "operationId": "updateWebhook",
       "tag": "Webhooks",
       "requiredFields": [],
       "bodyFields": [
+        "url",
         "eventTypes",
-        "url"
+        "isPaused"
       ],
       "queryFields": [],
       "pathParams": [
@@ -5241,7 +3942,7 @@
     },
     {
       "method": "GET",
-      "path": "/webhooks/{webhookId}/deliveries",
+      "path": "/v1/webhooks/{webhookId}/deliveries",
       "operationId": "listDeliveries",
       "tag": "Webhooks",
       "requiredFields": [],
@@ -5265,14 +3966,15 @@
     },
     {
       "method": "GET",
-      "path": "/webhooks/{webhookId}/dlq",
+      "path": "/v1/webhooks/{webhookId}/dlq",
       "operationId": "listWebhookDlq",
       "tag": "Webhooks",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "limit",
-        "offset"
+        "offset",
+        "cursor"
       ],
       "pathParams": [
         "webhookId"
@@ -5288,7 +3990,28 @@
     },
     {
       "method": "POST",
-      "path": "/webhooks/{webhookId}/dlq/retry-all",
+      "path": "/v1/webhooks/{webhookId}/dlq/{dlqId}/retry",
+      "operationId": "retryWebhookDlq",
+      "tag": "Webhooks",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "webhookId",
+        "dlqId"
+      ],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/webhooks/{webhookId}/dlq/retry-all",
       "operationId": "retryAllWebhookDlq",
       "tag": "Webhooks",
       "requiredFields": [],
@@ -5308,28 +4031,7 @@
     },
     {
       "method": "POST",
-      "path": "/webhooks/{webhookId}/dlq/{dlqId}/retry",
-      "operationId": "retryWebhookDlq",
-      "tag": "Webhooks",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "dlqId",
-        "webhookId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/webhooks/{webhookId}/pause",
+      "path": "/v1/webhooks/{webhookId}/pause",
       "operationId": "pauseWebhook",
       "tag": "Webhooks",
       "requiredFields": [],
@@ -5350,7 +4052,7 @@
     },
     {
       "method": "POST",
-      "path": "/webhooks/{webhookId}/ping",
+      "path": "/v1/webhooks/{webhookId}/ping",
       "operationId": "pingWebhook",
       "tag": "Webhooks",
       "requiredFields": [],
@@ -5370,7 +4072,7 @@
     },
     {
       "method": "POST",
-      "path": "/webhooks/{webhookId}/resume",
+      "path": "/v1/webhooks/{webhookId}/resume",
       "operationId": "resumeWebhook",
       "tag": "Webhooks",
       "requiredFields": [],
@@ -5391,7 +4093,7 @@
     },
     {
       "method": "POST",
-      "path": "/webhooks/{webhookId}/rotate",
+      "path": "/v1/webhooks/{webhookId}/rotate",
       "operationId": "rotateWebhookSecret",
       "tag": "Webhooks",
       "requiredFields": [],

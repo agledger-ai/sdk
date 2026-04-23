@@ -6,7 +6,6 @@ import type {
   ListMandatesParams,
   SearchMandatesParams,
   DelegateMandateParams,
-  CreateAgentMandateParams,
   CounterProposeParams,
   BatchGetMandatesResult,
   Page,
@@ -17,8 +16,7 @@ import type {
   TypedCreateMandateParams,
   ReportOutcomeParams,
   OutcomeResult,
-  MandateStatusSummary,
-  AuditChain,
+  MandateAuditExport,
 } from '../types.js';
 import { getValidTransitions as getTransitions } from '../mandate-lifecycle.js';
 
@@ -28,16 +26,14 @@ export class MandatesResource {
   /**
    * Create a mandate. When `contractType` is a known Agentic Contract
    * Specification type, `criteria` is typed to that contract's schema.
+   *
+   * Under v0.20.0 the API unified principal creation: admin keys pass
+   * `principalAgentId`; agent keys default it to the authenticated agent.
    */
   create<T extends string>(params: TypedCreateMandateParams<T>, options?: RequestOptions): Promise<Mandate>;
   create(params: CreateMandateParams, options?: RequestOptions): Promise<Mandate>;
   create(params: CreateMandateParams, options?: RequestOptions): Promise<Mandate> {
     return this.http.post<Mandate>('/v1/mandates', params, options);
-  }
-
-  /** Create a mandate via agent auth (POST /v1/mandates/agent). */
-  createAgent(params: CreateAgentMandateParams, options?: RequestOptions): Promise<Mandate> {
-    return this.http.post<Mandate>('/v1/mandates/agent', params, options);
   }
 
   /** Get a mandate by ID. */
@@ -46,17 +42,17 @@ export class MandatesResource {
   }
 
   /** List mandates with optional filters. */
-  list(params: ListMandatesParams, options?: RequestOptions): Promise<Page<Mandate>> {
+  list(params?: ListMandatesParams, options?: RequestOptions): Promise<Page<Mandate>> {
     return this.http.getPage<Mandate>('/v1/mandates', params as unknown as Record<string, unknown>, options);
   }
 
   /** Auto-paginating iterator. Yields individual mandates across all pages. */
-  listAll(params: ListMandatesParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<Mandate> {
+  listAll(params?: ListMandatesParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<Mandate> {
     return this.http.paginate<Mandate>('/v1/mandates', params as unknown as Record<string, unknown>, options);
   }
 
   /** Search mandates with advanced filters (status, contract type, date range). */
-  search(params: SearchMandatesParams, options?: RequestOptions): Promise<Page<Mandate>> {
+  search(params?: SearchMandatesParams, options?: RequestOptions): Promise<Page<Mandate>> {
     return this.http.getPage<Mandate>('/v1/mandates/search', params as unknown as Record<string, unknown>, options);
   }
 
@@ -74,7 +70,7 @@ export class MandatesResource {
 
   /** Cancel a mandate with an optional reason. */
   cancel(id: string, reason?: string, options?: RequestOptions): Promise<Mandate> {
-    return this.transition(id, 'cancel', reason, options);
+    return this.http.post<Mandate>(`/v1/mandates/${id}/cancel`, reason ? { reason } : {}, options);
   }
 
   /** Accept a PROPOSED mandate (as performer). */
@@ -107,12 +103,15 @@ export class MandatesResource {
     return this.http.getPage<Mandate>(`/v1/mandates/${id}/sub-mandates`, undefined, options);
   }
 
-  /** Delegate a mandate by creating a child mandate via agent auth. */
+  /**
+   * Delegate a mandate by creating a child mandate. Uses the unified
+   * `POST /v1/mandates` endpoint with `parentMandateId` set.
+   */
   delegate(id: string, params: DelegateMandateParams, options?: RequestOptions): Promise<Mandate> {
-    return this.createAgent({
+    return this.create({
       ...params,
       parentMandateId: id,
-    } as CreateAgentMandateParams, options);
+    } as CreateMandateParams, options);
   }
 
   /** Create multiple mandates in a single request. */
@@ -128,17 +127,19 @@ export class MandatesResource {
     return this.http.post<BatchGetMandatesResult>('/v1/mandates/batch', { ids }, options);
   }
 
-  /** Get audit trail for a mandate. */
-  getAudit(id: string, options?: RequestOptions): Promise<AuditChain> {
-    return this.http.get<AuditChain>(`/v1/mandates/${id}/audit`, undefined, options);
+  /**
+   * Export the per-mandate, hash-chained audit trail.
+   *
+   * In v0.20.0 the old `/v1/mandates/{id}/audit` endpoint was retired in
+   * favor of the signed, canonicalized `audit-export` payload. Entries may
+   * include an `_actor` envelope (key id, role, owner id) surfaced in the
+   * canonical payload; the hash chain covers the envelope.
+   */
+  getAuditExport(mandateId: string, params?: { format?: 'json' | 'csv' | 'ndjson' }, options?: RequestOptions): Promise<MandateAuditExport> {
+    return this.http.get<MandateAuditExport>(`/v1/mandates/${mandateId}/audit-export`, params as Record<string, unknown>, options);
   }
 
-  /** List mandates where the authenticated agent is principal. */
-  listAsPrincipal(options?: RequestOptions): Promise<Page<Mandate>> {
-    return this.http.getPage<Mandate>('/v1/mandates/agent/principal', undefined, options);
-  }
-
-  /** List mandates proposed to the authenticated agent. */
+  /** List mandates proposed to the authenticated agent (pending acceptance). */
   listProposals(options?: RequestOptions): Promise<Page<Mandate>> {
     return this.http.getPage<Mandate>('/v1/mandates/agent/proposals', undefined, options);
   }
@@ -160,14 +161,19 @@ export class MandatesResource {
     return this.http.post<OutcomeResult>(`/v1/mandates/${id}/outcome`, params, options);
   }
 
-  /** Get mandate counts grouped by status. */
-  getSummary(params?: { enterpriseId?: string }, options?: RequestOptions): Promise<MandateStatusSummary> {
-    return this.http.get<MandateStatusSummary>('/v1/mandates/summary', params as Record<string, unknown>, options);
-  }
-
   /** Get the delegation graph for a mandate. */
   getGraph(id: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.get(`/v1/mandates/${id}/graph`, undefined, options);
+  }
+
+  /** Verify (trigger rule-based verification) a mandate against its receipts. */
+  verify(id: string, receiptIds?: string[], options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.post(`/v1/mandates/${id}/verify`, receiptIds ? { receiptIds } : {}, options);
+  }
+
+  /** Get verification status for a mandate. */
+  getVerificationStatus(id: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.get(`/v1/mandates/${id}/verification-status`, undefined, options);
   }
 
   /** Get valid transitions for a mandate's current status. Client-side lookup, no API call. */

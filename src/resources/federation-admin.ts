@@ -207,11 +207,11 @@ export class FederationAdminResource {
   }
 
 
-  /** Get the criteria negotiation status for a federated mandate. */
-  getMandateCriteriaStatus(
+  /** Get encryption metadata for a federated mandate's negotiated criteria. */
+  getMandateCriteriaEncryptionMetadata(
     mandateId: string,
     options?: RequestOptions,
   ): Promise<MandateCriteriaStatus> {
-    return this.http.get<MandateCriteriaStatus>(`/federation/v1/admin/mandates/${mandateId}/criteria-status`, undefined, options);
+    return this.http.get<MandateCriteriaStatus>(`/federation/v1/admin/mandates/${mandateId}/criteria-encryption-metadata`, undefined, options);
   }
 }

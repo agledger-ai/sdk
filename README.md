@@ -40,12 +40,15 @@ const client = new AgledgerClient({
   baseUrl: process.env.AGLEDGER_EXTERNAL_URL!, // your AGLedger instance URL
 });
 
-// Create a mandate (what the agent is being asked to do)
+// Create a mandate (what the agent is being asked to do).
+// An agent key defaults principal to itself; an admin key must name a
+// principal via `principalAgentId` (or implicitly via `performerAgentId`
+// for a self-commitment).
 const mandate = await client.mandates.create({
-  enterpriseId: 'ent-123',
   contractType: 'ACH-DATA-v1',
   contractVersion: '1',
   platform: 'internal-etl',
+  performerAgentId: 'agt-123',
   criteria: {
     source_system: 'warehouse-db',
     target_format: 'parquet',
@@ -92,7 +95,7 @@ const client = new AgledgerClient({
 Set `AGLEDGER_EXTERNAL_URL` in your environment to avoid hardcoding the URL:
 
 ```bash
-export AGLEDGER_API_KEY=ach_ent_...
+export AGLEDGER_API_KEY=agl_agt_...
 export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 ```
 
@@ -117,20 +120,18 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 | `client.reputation` | Query agent health scores and history |
 | `client.events` | List audit events and hash-chained audit trails |
 | `client.schemas` | Browse and validate against contract type schemas |
-| `client.dashboard` | Dashboard summaries, metrics, and agent leaderboards |
-| `client.compliance` | Compliance exports, EU AI Act assessments |
-| `client.registration` | Account registration and API key management |
-| `client.health` | Instance health, status, and conformance |
-| `client.admin` | Platform administration (requires platform API key) |
+| `client.compliance` | Compliance exports, EU AI Act assessments, SIEM stream |
+| `client.auth` | `GET /v1/auth/me` + key rotation |
+| `client.discovery` | Unauthenticated metadata — scope profiles, conformance, mandate lifecycle |
+| `client.health` | Instance health and status |
+| `client.admin` | Admin operations (tenant, agent, and API-key provisioning, vault, DLQ, system health) |
 | `client.a2a` | A2A Protocol support (AgentCard, JSON-RPC 2.0) |
 | `client.capabilities` | Agent contract type capability management |
-| `client.notarize` | Lightweight agent-to-agent agreement notarization |
-| `client.enterprises` | Enterprise agent approval and management |
-| `client.projects` | Project organization for mandates |
-| `client.proxy` | Governance sidecar session sync and analytics |
 | `client.federation` | Federation gateway operations |
+| `client.federationAdmin` | Federation hub administration |
 | `client.agents` | Agent identity and references |
 | `client.references` | Cross-system reference lookups |
+| `client.verificationKeys` | Public signing-key set for offline audit verification |
 
 ## Contract Types
 
@@ -158,13 +159,13 @@ All list methods return `Page<T>`:
 
 ```typescript
 // Single page
-const page = await client.mandates.list({ enterpriseId: 'ent-123' });
+const page = await client.mandates.list({ principalAgentId: 'agt-principal-abc' });
 console.log(page.data);    // Mandate[]
 console.log(page.hasMore); // boolean
 console.log(page.total);   // number | undefined
 
 // Auto-pagination with async iterator
-for await (const mandate of client.mandates.listAll({ enterpriseId: 'ent-123' })) {
+for await (const mandate of client.mandates.listAll({ principalAgentId: 'agt-principal-abc' })) {
   console.log(mandate.id);
 }
 ```

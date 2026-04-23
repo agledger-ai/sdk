@@ -4,17 +4,21 @@ import type {
   ExportComplianceParams,
   AiImpactAssessment,
   CreateAiImpactAssessmentParams,
-  EuAiActReport,
   ComplianceRecord,
   CreateComplianceRecordParams,
   MandateAuditExport,
   AuditStreamParams,
   AuditStreamResult,
+  AuditVaultExportParams,
   Page,
   ListParams,
   RequestOptions,
 } from '../types.js';
 
+/**
+ * Compliance, audit, and EU AI Act reporting surface. The `stream` method is
+ * backed by the SIEM NDJSON endpoint at `/v1/siem/stream`.
+ */
 export class ComplianceResource {
   constructor(private readonly http: HttpClient) {}
 
@@ -68,21 +72,6 @@ export class ComplianceResource {
     return this.http.get<AiImpactAssessment>(`/v1/mandates/${mandateId}/ai-impact-assessment`, undefined, options);
   }
 
-  /** Get the EU AI Act compliance report for the enterprise. */
-  getEuAiActReport(params?: { from?: string; to?: string }, options?: RequestOptions): Promise<EuAiActReport> {
-    return this.http.get<EuAiActReport>('/v1/compliance/eu-ai-act/report', params as Record<string, unknown>, options);
-  }
-
-  /** Get the enterprise audit report. */
-  getEnterpriseReport(params?: { from?: string; to?: string; format?: string }, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.get('/v1/audit/enterprise-report', params as Record<string, unknown>, options);
-  }
-
-  /** Trigger LLM-powered audit analysis for a mandate. */
-  analyzeAudit(mandateId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.post('/v1/audit/enterprise-report/analyze', { mandateId }, options);
-  }
-
   /** Create a compliance record (attestation) for a mandate. */
   createRecord(mandateId: string, params: CreateComplianceRecordParams, options?: RequestOptions): Promise<ComplianceRecord> {
     return this.http.post<ComplianceRecord>(`/v1/mandates/${mandateId}/compliance-records`, params, options);
@@ -103,10 +92,15 @@ export class ComplianceResource {
     return this.http.get<MandateAuditExport>(`/v1/mandates/${mandateId}/audit-export`, params as Record<string, unknown>, options);
   }
 
+  /** Export the entire audit vault (platform-wide; admin-only). */
+  exportAuditVault(params?: AuditVaultExportParams, options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.get('/v1/audit-vault/export', params as Record<string, unknown>, options);
+  }
+
   /**
    * Pull audit events as NDJSON for SIEM ingestion.
    * Returns parsed events and an opaque cursor for the next poll.
-   * Requires `audit:read` scope.
+   * Requires `audit:read` scope. Route renamed to `/v1/siem/stream` in v0.20.0.
    *
    * @example
    * ```ts
@@ -114,12 +108,11 @@ export class ComplianceResource {
    * for (const event of page.events) {
    *   await sendToSiem(event);
    * }
-   * // Next poll: use page.cursor as since for the next call
    * ```
    */
   async stream(params: AuditStreamParams, options?: RequestOptions): Promise<AuditStreamResult> {
     const { data, cursor } = await this.http.getNdjson(
-      '/v1/audit/stream',
+      '/v1/siem/stream',
       params as unknown as Record<string, unknown>,
       options,
     );
@@ -133,14 +126,6 @@ export class ComplianceResource {
   /**
    * Auto-paginating async iterator for SIEM streaming.
    * Follows the cursor automatically until no more events are available.
-   * Consumer should persist the last cursor externally for resumption.
-   *
-   * @example
-   * ```ts
-   * for await (const event of client.compliance.streamAll({ since: lastCheckpoint })) {
-   *   await sendToSiem(event);
-   * }
-   * ```
    */
   async *streamAll(
     params: AuditStreamParams,

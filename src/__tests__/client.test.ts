@@ -25,40 +25,30 @@ describe('AgledgerClient', () => {
     expect(client.reputation).toBeDefined();
     expect(client.events).toBeDefined();
     expect(client.schemas).toBeDefined();
-    expect(client.dashboard).toBeDefined();
     expect(client.compliance).toBeDefined();
-    expect(client.registration).toBeDefined();
     expect(client.health).toBeDefined();
-    expect(client.proxy).toBeDefined();
     expect(client.admin).toBeDefined();
     expect(client.a2a).toBeDefined();
     expect(client.capabilities).toBeDefined();
-  });
-
-  it('proxy has decomposed sub-resources', () => {
-    const client = new AgledgerClient({
-      apiKey: 'test_key',
-      fetch: mockFetch() as unknown as typeof globalThis.fetch,
-    });
-
-    expect(client.proxy.sessions).toBeDefined();
-    expect(client.proxy.toolCalls).toBeDefined();
-    expect(client.proxy.sidecarMandates).toBeDefined();
-    expect(client.proxy.sidecarReceipts).toBeDefined();
-    expect(client.proxy.toolCatalog).toBeDefined();
-    expect(client.proxy.analytics).toBeDefined();
+    expect(client.federation).toBeDefined();
+    expect(client.federationAdmin).toBeDefined();
+    expect(client.agents).toBeDefined();
+    expect(client.references).toBeDefined();
+    expect(client.verificationKeys).toBeDefined();
+    expect(client.auth).toBeDefined();
+    expect(client.discovery).toBeDefined();
   });
 
   it('sends correct auth header', async () => {
     const fetch = mockFetch();
     const client = new AgledgerClient({
-      apiKey: 'sk_test_abc123',
+      apiKey: 'agl_agt_test_abc123',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
 
     await client.health.check();
     const [, init] = fetch.mock.calls[0];
-    expect(init.headers.Authorization).toBe('Bearer sk_test_abc123');
+    expect(init.headers.Authorization).toBe('Bearer agl_agt_test_abc123');
   });
 
   it('uses custom base URL', async () => {
