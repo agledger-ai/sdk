@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-23T08:11:11.740Z",
+  "generatedAt": "2026-04-27T23:55:35.612Z",
   "sourceUrl": "file://agledger-api/openapi.json",
-  "count": 188,
+  "count": 196,
   "routes": [
     {
       "method": "GET",
@@ -75,6 +75,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -91,13 +92,14 @@
       "queryFields": [
         "gatewayId",
         "entryType",
-        "mandateId",
+        "recordId",
         "limit",
         "offset"
       ],
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -119,6 +121,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -140,6 +143,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -163,6 +167,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -216,6 +221,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -235,48 +241,7 @@
       ],
       "responseCodes": [
         200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/federation/v1/admin/mandates",
-      "operationId": "listFederationMandates",
-      "tag": "Federation Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "gatewayId",
-        "hubState",
-        "contractType",
-        "limit",
-        "offset"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/federation/v1/admin/mandates/{mandateId}/criteria-encryption-metadata",
-      "operationId": "adminMandateCriteriaEncryptionMetadata",
-      "tag": "Federation Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "mandateId"
-      ],
-      "responseCodes": [
-        200,
+        400,
         401,
         403,
         429,
@@ -297,6 +262,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -316,6 +282,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -335,6 +302,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -354,6 +322,7 @@
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         429,
@@ -375,6 +344,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -394,6 +364,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -413,6 +384,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -436,6 +408,52 @@
       ],
       "responseCodes": [
         200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/records",
+      "operationId": "listFederationRecords",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "gatewayId",
+        "hubState",
+        "type",
+        "recordId",
+        "limit",
+        "offset"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/records/{recordId}/criteria-encryption-metadata",
+      "operationId": "adminRecordCriteriaEncryptionMetadata",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "recordId"
+      ],
+      "responseCodes": [
+        200,
+        400,
         401,
         403,
         429,
@@ -458,6 +476,7 @@
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         429,
@@ -477,6 +496,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -496,6 +516,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -515,6 +536,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -523,18 +545,19 @@
     },
     {
       "method": "DELETE",
-      "path": "/federation/v1/admin/schemas/{contractType}/{version}",
+      "path": "/federation/v1/admin/schemas/{type}/{version}",
       "operationId": "deleteSchemaCatalogEntry",
       "tag": "Federation Admin",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
       "pathParams": [
-        "contractType",
+        "type",
         "version"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -549,13 +572,14 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "contractType",
+        "type",
         "limit",
         "cursor"
       ],
       "pathParams": [],
       "responseCodes": [
-        200
+        200,
+        400
       ]
     },
     {
@@ -576,6 +600,7 @@
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         429,
@@ -590,13 +615,14 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "contractType"
+        "type"
       ],
       "pathParams": [
         "agentId"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -617,6 +643,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -640,6 +667,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -648,7 +676,7 @@
     },
     {
       "method": "GET",
-      "path": "/federation/v1/contract-types/{contractType}",
+      "path": "/federation/v1/contract-types/{type}",
       "operationId": "getFederationContractType",
       "tag": "Federation",
       "requiredFields": [],
@@ -657,10 +685,11 @@
         "version"
       ],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -686,6 +715,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -719,6 +749,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -733,65 +764,20 @@
       "requiredFields": [
         "gatewayId",
         "agentCount",
-        "mandateCount",
+        "recordCount",
         "timestamp"
       ],
       "bodyFields": [
         "gatewayId",
         "agentCount",
-        "mandateCount",
+        "recordCount",
         "timestamp"
       ],
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
         200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/federation/v1/mandates/{mandateId}/criteria",
-      "operationId": "getMandateCriteria",
-      "tag": "Federation",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [],
-      "pathParams": [
-        "mandateId"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/federation/v1/mandates/{mandateId}/criteria",
-      "operationId": "submitMandateCriteria",
-      "tag": "Federation",
-      "requiredFields": [
-        "encryptedCriteria",
-        "criteriaCommitment",
-        "senderEphemeralKey"
-      ],
-      "bodyFields": [
-        "encryptedCriteria",
-        "criteriaCommitment",
-        "senderEphemeralKey"
-      ],
-      "queryFields": [],
-      "pathParams": [
-        "mandateId"
-      ],
-      "responseCodes": [
-        200,
+        400,
         401,
         403,
         429,
@@ -821,6 +807,7 @@
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         429,
@@ -847,6 +834,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -872,6 +860,55 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/records/{recordId}/criteria",
+      "operationId": "getRecordCriteria",
+      "tag": "Federation",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "recordId"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/federation/v1/records/{recordId}/criteria",
+      "operationId": "submitRecordCriteria",
+      "tag": "Federation",
+      "requiredFields": [
+        "encryptedCriteria",
+        "criteriaCommitment",
+        "senderEphemeralKey"
+      ],
+      "bodyFields": [
+        "encryptedCriteria",
+        "criteriaCommitment",
+        "senderEphemeralKey"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "recordId"
+      ],
+      "responseCodes": [
+        200,
+        400,
         401,
         403,
         429,
@@ -911,6 +948,7 @@
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         429,
@@ -924,17 +962,17 @@
       "tag": "Federation",
       "requiredFields": [
         "agentId",
-        "contractType",
+        "type",
         "period",
-        "totalMandates",
+        "totalRecords",
         "totalVerified",
         "totalPassed"
       ],
       "bodyFields": [
         "agentId",
-        "contractType",
+        "type",
         "period",
-        "totalMandates",
+        "totalRecords",
         "totalVerified",
         "totalPassed",
         "signature"
@@ -943,6 +981,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -951,7 +990,7 @@
     },
     {
       "method": "POST",
-      "path": "/federation/v1/schemas/{contractType}/publish",
+      "path": "/federation/v1/schemas/{type}/publish",
       "operationId": "publishFederationSchema",
       "tag": "Federation",
       "requiredFields": [
@@ -961,7 +1000,7 @@
       "bodyFields": [
         "version",
         "visibility",
-        "mandateSchema",
+        "recordSchema",
         "receiptSchema",
         "rulesConfig",
         "displayName",
@@ -970,10 +1009,11 @@
       ],
       "queryFields": [],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -982,7 +1022,7 @@
     },
     {
       "method": "POST",
-      "path": "/federation/v1/schemas/{contractType}/publish/confirm",
+      "path": "/federation/v1/schemas/{type}/publish/confirm",
       "operationId": "confirmPublishFederationSchema",
       "tag": "Federation",
       "requiredFields": [
@@ -995,10 +1035,11 @@
       ],
       "queryFields": [],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1011,7 +1052,7 @@
       "operationId": "federationSettlementSignal",
       "tag": "Federation",
       "requiredFields": [
-        "mandateId",
+        "recordId",
         "signal",
         "outcomeHash",
         "signalSeq",
@@ -1022,7 +1063,7 @@
         "performerSignature"
       ],
       "bodyFields": [
-        "mandateId",
+        "recordId",
         "signal",
         "outcome",
         "outcomeHash",
@@ -1037,6 +1078,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1049,10 +1091,10 @@
       "operationId": "federationStateTransition",
       "tag": "Federation",
       "requiredFields": [
-        "mandateId",
+        "recordId",
         "gatewayId",
         "state",
-        "contractType",
+        "type",
         "criteriaHash",
         "role",
         "seq",
@@ -1062,10 +1104,10 @@
         "signature"
       ],
       "bodyFields": [
-        "mandateId",
+        "recordId",
         "gatewayId",
         "state",
-        "contractType",
+        "type",
         "criteriaHash",
         "role",
         "performerGatewayId",
@@ -1080,6 +1122,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1099,6 +1142,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1255,6 +1299,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -1279,6 +1324,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1291,13 +1337,14 @@
       "operationId": "adminCreateAgent",
       "tag": "Admin",
       "requiredFields": [
-        "name",
         "enterpriseId"
       ],
       "bodyFields": [
         "name",
+        "displayName",
         "slug",
         "email",
+        "contactEmail",
         "enterpriseId",
         "agentCardUrl"
       ],
@@ -1305,6 +1352,7 @@
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         409,
@@ -1344,7 +1392,7 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "contractType"
+        "type"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -1369,6 +1417,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1400,6 +1449,7 @@
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         409,
@@ -1425,6 +1475,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -1449,6 +1500,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1522,6 +1574,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1533,19 +1586,20 @@
       "path": "/v1/admin/enterprises",
       "operationId": "adminCreateEnterprise",
       "tag": "Admin",
-      "requiredFields": [
-        "name"
-      ],
+      "requiredFields": [],
       "bodyFields": [
         "name",
+        "displayName",
         "slug",
         "email",
+        "contactEmail",
         "config"
       ],
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         409,
@@ -1566,6 +1620,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -1589,6 +1644,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -1644,35 +1700,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/v1/admin/mandates",
-      "operationId": "adminListMandates",
-      "tag": "Admin",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "limit",
-        "offset",
-        "cursor",
-        "enterpriseId",
-        "status",
-        "contractType",
-        "agentId",
-        "sort",
-        "order",
-        "from",
-        "to"
-      ],
-      "pathParams": [],
-      "responseCodes": [
-        200,
+        400,
         401,
         403,
         429,
@@ -1743,6 +1771,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1762,8 +1791,66 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/records",
+      "operationId": "adminListRecords",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "limit",
+        "offset",
+        "cursor",
+        "enterpriseId",
+        "status",
+        "type",
+        "agentId",
+        "sort",
+        "order",
+        "from",
+        "to"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/records/import",
+      "operationId": "adminImportRecords",
+      "tag": "Admin",
+      "requiredFields": [
+        "enterpriseId",
+        "source",
+        "records"
+      ],
+      "bodyFields": [
+        "enterpriseId",
+        "source",
+        "records"
+      ],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
         429,
         500
       ]
@@ -1844,11 +1931,12 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
-        "mandateId"
+        "recordId"
       ],
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1861,16 +1949,17 @@
       "operationId": "adminVerifyVaultAnchors",
       "tag": "Admin",
       "requiredFields": [
-        "mandateId"
+        "recordId"
       ],
       "bodyFields": [
-        "mandateId",
+        "recordId",
         "chainPosition"
       ],
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -1885,13 +1974,14 @@
       "tag": "Admin",
       "requiredFields": [],
       "bodyFields": [
-        "mandateIds",
-        "mandateId"
+        "recordIds",
+        "recordId"
       ],
       "queryFields": [],
       "pathParams": [],
       "responseCodes": [
         202,
+        400,
         401,
         403,
         429,
@@ -1911,6 +2001,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -1967,6 +2058,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -1986,6 +2078,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2027,6 +2120,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -2047,6 +2141,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -2066,6 +2161,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -2106,7 +2202,7 @@
       "queryFields": [
         "limit",
         "offset",
-        "contractType",
+        "type",
         "outcome",
         "from",
         "to"
@@ -2116,6 +2212,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -2135,6 +2232,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -2143,7 +2241,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/agents/{agentId}/reputation/{contractType}",
+      "path": "/v1/agents/{agentId}/reputation/{type}",
       "operationId": "getAgentReputationByType",
       "tag": "Reputation",
       "requiredFields": [],
@@ -2151,10 +2249,11 @@
       "queryFields": [],
       "pathParams": [
         "agentId",
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2175,6 +2274,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2200,6 +2300,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2220,6 +2321,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2262,7 +2364,7 @@
       "queryFields": [
         "from",
         "to",
-        "mandateId",
+        "recordId",
         "agentId",
         "format",
         "cursor",
@@ -2271,8 +2373,101 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/audit/tenant-reads/checkpoints",
+      "operationId": "listTenantAdminReadsCheckpoints",
+      "tag": "Audit",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "limit"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/audit/tenant-reads/checkpoints/{id}",
+      "operationId": "getTenantAdminReadsCheckpoint",
+      "tag": "Audit",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/audit/tenant-reads/checkpoints/{id}/cosign",
+      "operationId": "cosignTenantAdminReadsCheckpoint",
+      "tag": "Audit",
+      "requiredFields": [
+        "witnessKeyId",
+        "witnessSignature"
+      ],
+      "bodyFields": [
+        "witnessKeyId",
+        "witnessSignature"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        409,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/audit/tenant-reads/checkpoints/{id}/proof",
+      "operationId": "getTenantAdminReadsInclusionProof",
+      "tag": "Audit",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "leaf"
+      ],
+      "pathParams": [
+        "id"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
         429,
         500
       ]
@@ -2325,6 +2520,7 @@
       "pathParams": [],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         429,
@@ -2344,6 +2540,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2364,6 +2561,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2386,6 +2584,29 @@
     },
     {
       "method": "GET",
+      "path": "/v1/disputes",
+      "operationId": "listDisputes",
+      "tag": "Disputes",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "status",
+        "recordId",
+        "limit",
+        "offset"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/v1/events",
       "operationId": "listEvents",
       "tag": "Events",
@@ -2393,7 +2614,7 @@
       "bodyFields": [],
       "queryFields": [
         "since",
-        "mandateId",
+        "recordId",
         "eventType",
         "limit",
         "offset",
@@ -2403,6 +2624,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -2411,15 +2633,15 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates",
-      "operationId": "listMandates",
-      "tag": "Mandates",
+      "path": "/v1/records",
+      "operationId": "listRecords",
+      "tag": "Records",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "enterpriseId",
         "status",
-        "contractType",
+        "type",
         "agentId",
         "from",
         "to",
@@ -2430,6 +2652,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -2438,17 +2661,17 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates",
-      "operationId": "createMandate",
-      "tag": "Mandates",
+      "path": "/v1/records",
+      "operationId": "createRecord",
+      "tag": "Records",
       "requiredFields": [
-        "contractType",
+        "type",
         "criteria"
       ],
       "bodyFields": [
         "enterpriseId",
         "principalAgentId",
-        "contractType",
+        "type",
         "contractVersion",
         "platform",
         "platformRef",
@@ -2459,7 +2682,7 @@
         "deadline",
         "agentId",
         "performerAgentId",
-        "parentMandateId",
+        "parentRecordId",
         "commissionPct",
         "operatingMode",
         "verificationMode",
@@ -2472,6 +2695,9 @@
         "enforcementOverrides",
         "dependsOn",
         "autoActivate",
+        "outcome",
+        "correlationId",
+        "requestedBy",
         "references"
       ],
       "queryFields": [],
@@ -2487,9 +2713,9 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{id}",
-      "operationId": "getMandate",
-      "tag": "Mandates",
+      "path": "/v1/records/{id}",
+      "operationId": "getRecord",
+      "tag": "Records",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
@@ -2498,6 +2724,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2507,9 +2734,9 @@
     },
     {
       "method": "PATCH",
-      "path": "/v1/mandates/{id}",
-      "operationId": "updateMandate",
-      "tag": "Mandates",
+      "path": "/v1/records/{id}",
+      "operationId": "updateRecord",
+      "tag": "Records",
       "requiredFields": [],
       "bodyFields": [
         "criteria",
@@ -2536,8 +2763,8 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/accept",
-      "operationId": "acceptMandate",
+      "path": "/v1/records/{id}/accept",
+      "operationId": "acceptRecord",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
       "bodyFields": [
@@ -2559,7 +2786,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/accept-counter",
+      "path": "/v1/records/{id}/accept-counter",
       "operationId": "acceptCounterProposal",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
@@ -2580,9 +2807,9 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/cancel",
-      "operationId": "cancelMandate",
-      "tag": "Mandates",
+      "path": "/v1/records/{id}/cancel",
+      "operationId": "cancelRecord",
+      "tag": "Records",
       "requiredFields": [],
       "bodyFields": [
         "reason"
@@ -2604,8 +2831,8 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{id}/chain",
-      "operationId": "getMandateChain",
+      "path": "/v1/records/{id}/chain",
+      "operationId": "getRecordChain",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
       "bodyFields": [],
@@ -2615,6 +2842,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2624,8 +2852,8 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/counter-propose",
-      "operationId": "counterProposeMandate",
+      "path": "/v1/records/{id}/counter-propose",
+      "operationId": "counterProposeRecord",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
       "bodyFields": [
@@ -2651,9 +2879,9 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{id}/graph",
-      "operationId": "getMandateGraph",
-      "tag": "Mandates",
+      "path": "/v1/records/{id}/graph",
+      "operationId": "getRecordGraph",
+      "tag": "Records",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
@@ -2662,6 +2890,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2671,7 +2900,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/outcome",
+      "path": "/v1/records/{id}/outcome",
       "operationId": "reportOutcome",
       "tag": "Verification",
       "requiredFields": [
@@ -2701,8 +2930,8 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{id}/references",
-      "operationId": "getMandateReferences",
+      "path": "/v1/records/{id}/references",
+      "operationId": "getRecordReferences",
       "tag": "References",
       "requiredFields": [],
       "bodyFields": [],
@@ -2712,6 +2941,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2721,8 +2951,8 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/references",
-      "operationId": "addMandateReferences",
+      "path": "/v1/records/{id}/references",
+      "operationId": "addRecordReferences",
       "tag": "References",
       "requiredFields": [
         "references"
@@ -2746,8 +2976,8 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/reject",
-      "operationId": "rejectMandate",
+      "path": "/v1/records/{id}/reject",
+      "operationId": "rejectRecord",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
       "bodyFields": [
@@ -2769,9 +2999,9 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/revision",
+      "path": "/v1/records/{id}/revision",
       "operationId": "requestRevision",
-      "tag": "Mandates",
+      "tag": "Records",
       "requiredFields": [],
       "bodyFields": [
         "reason"
@@ -2792,8 +3022,8 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{id}/sub-mandates",
-      "operationId": "getSubMandates",
+      "path": "/v1/records/{id}/sub-records",
+      "operationId": "getSubRecords",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
       "bodyFields": [],
@@ -2803,6 +3033,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2812,9 +3043,9 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/transition",
-      "operationId": "transitionMandate",
-      "tag": "Mandates",
+      "path": "/v1/records/{id}/transition",
+      "operationId": "transitionRecord",
+      "tag": "Records",
       "requiredFields": [
         "action"
       ],
@@ -2839,7 +3070,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{id}/verification-status",
+      "path": "/v1/records/{id}/verification-status",
       "operationId": "getVerificationStatus",
       "tag": "Verification",
       "requiredFields": [],
@@ -2850,6 +3081,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2859,7 +3091,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{id}/verify",
+      "path": "/v1/records/{id}/verify",
       "operationId": "triggerVerification",
       "tag": "Verification",
       "requiredFields": [],
@@ -2872,6 +3104,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2881,17 +3114,18 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{mandateId}/ai-impact-assessment",
+      "path": "/v1/records/{recordId}/ai-impact-assessment",
       "operationId": "getAiImpactAssessment",
       "tag": "Compliance",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2901,7 +3135,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{mandateId}/ai-impact-assessment",
+      "path": "/v1/records/{recordId}/ai-impact-assessment",
       "operationId": "createAiImpactAssessment",
       "tag": "Compliance",
       "requiredFields": [
@@ -2916,10 +3150,11 @@
       ],
       "queryFields": [],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         201,
+        400,
         401,
         403,
         409,
@@ -2929,7 +3164,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{mandateId}/audit-export",
+      "path": "/v1/records/{recordId}/audit-export",
       "operationId": "getAuditExport",
       "tag": "Compliance",
       "requiredFields": [],
@@ -2938,10 +3173,11 @@
         "format"
       ],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2951,7 +3187,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{mandateId}/compliance-records",
+      "path": "/v1/records/{recordId}/compliance-records",
       "operationId": "listComplianceRecords",
       "tag": "Compliance",
       "requiredFields": [],
@@ -2961,10 +3197,11 @@
         "offset"
       ],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -2974,7 +3211,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{mandateId}/compliance-records",
+      "path": "/v1/records/{recordId}/compliance-records",
       "operationId": "createComplianceRecord",
       "tag": "Compliance",
       "requiredFields": [
@@ -2990,7 +3227,7 @@
       ],
       "queryFields": [],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         201,
@@ -3004,18 +3241,19 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{mandateId}/compliance-records/{recordId}",
+      "path": "/v1/records/{recordId}/compliance-records/{complianceRecordId}",
       "operationId": "getComplianceRecord",
       "tag": "Compliance",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
       "pathParams": [
-        "mandateId",
-        "recordId"
+        "recordId",
+        "complianceRecordId"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3025,17 +3263,18 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{mandateId}/dispute",
+      "path": "/v1/records/{recordId}/dispute",
       "operationId": "getDispute",
       "tag": "Disputes",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3045,7 +3284,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{mandateId}/dispute",
+      "path": "/v1/records/{recordId}/dispute",
       "operationId": "initiateDispute",
       "tag": "Disputes",
       "requiredFields": [
@@ -3057,7 +3296,7 @@
       ],
       "queryFields": [],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         201,
@@ -3071,14 +3310,14 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{mandateId}/dispute/escalate",
+      "path": "/v1/records/{recordId}/dispute/escalate",
       "operationId": "escalateDispute",
       "tag": "Disputes",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         200,
@@ -3092,7 +3331,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{mandateId}/dispute/evidence",
+      "path": "/v1/records/{recordId}/dispute/evidence",
       "operationId": "submitDisputeEvidence",
       "tag": "Disputes",
       "requiredFields": [
@@ -3105,7 +3344,7 @@
       ],
       "queryFields": [],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         201,
@@ -3119,7 +3358,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{mandateId}/receipts",
+      "path": "/v1/records/{recordId}/receipts",
       "operationId": "listReceipts",
       "tag": "Receipts",
       "requiredFields": [],
@@ -3131,10 +3370,11 @@
         "structuralValidation"
       ],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3143,7 +3383,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/{mandateId}/receipts",
+      "path": "/v1/records/{recordId}/receipts",
       "operationId": "submitReceipt",
       "tag": "Receipts",
       "requiredFields": [
@@ -3156,7 +3396,7 @@
       ],
       "queryFields": [],
       "pathParams": [
-        "mandateId"
+        "recordId"
       ],
       "responseCodes": [
         201,
@@ -3170,18 +3410,19 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/{mandateId}/receipts/{receiptId}",
+      "path": "/v1/records/{recordId}/receipts/{receiptId}",
       "operationId": "getReceipt",
       "tag": "Receipts",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [],
       "pathParams": [
-        "mandateId",
+        "recordId",
         "receiptId"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3191,7 +3432,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/agent/proposals",
+      "path": "/v1/records/agent/proposals",
       "operationId": "listAgentProposals",
       "tag": "Agent-to-Agent",
       "requiredFields": [],
@@ -3204,6 +3445,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3212,9 +3454,9 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/batch",
-      "operationId": "batchGetMandates",
-      "tag": "Mandates",
+      "path": "/v1/records/batch",
+      "operationId": "batchGetRecords",
+      "tag": "Records",
       "requiredFields": [
         "ids"
       ],
@@ -3225,6 +3467,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3233,14 +3476,14 @@
     },
     {
       "method": "POST",
-      "path": "/v1/mandates/bulk",
-      "operationId": "bulkCreateMandates",
-      "tag": "Mandates",
+      "path": "/v1/records/bulk",
+      "operationId": "bulkCreateRecords",
+      "tag": "Records",
       "requiredFields": [
-        "mandates"
+        "records"
       ],
       "bodyFields": [
-        "mandates"
+        "records"
       ],
       "queryFields": [],
       "pathParams": [],
@@ -3255,19 +3498,38 @@
     },
     {
       "method": "GET",
-      "path": "/v1/mandates/search",
-      "operationId": "searchMandates",
-      "tag": "Mandates",
+      "path": "/v1/records/me/verdict-statistics",
+      "operationId": "getOwnVerdictStatistics",
+      "tag": "Records",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/records/search",
+      "operationId": "searchRecords",
+      "tag": "Records",
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
         "enterpriseId",
         "status",
-        "contractType",
+        "category",
+        "correlationId",
+        "type",
         "agentId",
         "projectRef",
         "externalTaskId",
-        "parentMandateId",
+        "parentRecordId",
         "from",
         "to",
         "updatedAfter",
@@ -3287,10 +3549,24 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
         500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/records/summary",
+      "operationId": null,
+      "tag": "Records",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        410
       ]
     },
     {
@@ -3331,6 +3607,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3343,16 +3620,15 @@
       "operationId": "registerSchema",
       "tag": "Schemas",
       "requiredFields": [
-        "contractType",
-        "mandateSchema",
-        "receiptSchema"
+        "type",
+        "recordSchema"
       ],
       "bodyFields": [
-        "contractType",
+        "type",
         "displayName",
         "description",
         "category",
-        "mandateSchema",
+        "recordSchema",
         "receiptSchema",
         "fieldMappings",
         "compatibilityMode"
@@ -3388,7 +3664,7 @@
     },
     {
       "method": "DELETE",
-      "path": "/v1/schemas/{contractType}",
+      "path": "/v1/schemas/{type}",
       "operationId": "deleteContractType",
       "tag": "Schemas",
       "requiredFields": [],
@@ -3397,10 +3673,11 @@
         "enterpriseId"
       ],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3411,7 +3688,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/schemas/{contractType}",
+      "path": "/v1/schemas/{type}",
       "operationId": "getSchema",
       "tag": "Schemas",
       "requiredFields": [],
@@ -3421,10 +3698,11 @@
         "format"
       ],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3434,112 +3712,20 @@
     },
     {
       "method": "POST",
-      "path": "/v1/schemas/{contractType}/check-compatibility",
+      "path": "/v1/schemas/{type}/check-compatibility",
       "operationId": "checkSchemaCompatibility",
       "tag": "Schemas",
       "requiredFields": [
-        "mandateSchema",
+        "recordSchema",
         "receiptSchema"
       ],
       "bodyFields": [
-        "mandateSchema",
+        "recordSchema",
         "receiptSchema"
       ],
       "queryFields": [],
       "pathParams": [
-        "contractType"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "GET",
-      "path": "/v1/schemas/{contractType}/diff",
-      "operationId": "diffSchemaVersions",
-      "tag": "Schemas",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "from",
-        "to",
-        "enterpriseId"
-      ],
-      "pathParams": [
-        "contractType"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/v1/schemas/{contractType}/disable",
-      "operationId": "disableContractType",
-      "tag": "Schemas",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId"
-      ],
-      "pathParams": [
-        "contractType"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        422,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "PATCH",
-      "path": "/v1/schemas/{contractType}/enable",
-      "operationId": "enableContractType",
-      "tag": "Schemas",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId"
-      ],
-      "pathParams": [
-        "contractType"
-      ],
-      "responseCodes": [
-        200,
-        401,
-        403,
-        404,
-        422,
-        429,
-        500
-      ]
-    },
-    {
-      "method": "POST",
-      "path": "/v1/schemas/{contractType}/export",
-      "operationId": "exportSchema",
-      "tag": "Schemas",
-      "requiredFields": [],
-      "bodyFields": [],
-      "queryFields": [
-        "enterpriseId",
-        "versions"
-      ],
-      "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
@@ -3552,7 +3738,103 @@
     },
     {
       "method": "GET",
-      "path": "/v1/schemas/{contractType}/rules",
+      "path": "/v1/schemas/{type}/diff",
+      "operationId": "diffSchemaVersions",
+      "tag": "Schemas",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "from",
+        "to",
+        "enterpriseId"
+      ],
+      "pathParams": [
+        "type"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/schemas/{type}/disable",
+      "operationId": "disableContractType",
+      "tag": "Schemas",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "enterpriseId"
+      ],
+      "pathParams": [
+        "type"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        422,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/schemas/{type}/enable",
+      "operationId": "enableContractType",
+      "tag": "Schemas",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "enterpriseId"
+      ],
+      "pathParams": [
+        "type"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        422,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/v1/schemas/{type}/export",
+      "operationId": "exportSchema",
+      "tag": "Schemas",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "enterpriseId",
+        "versions"
+      ],
+      "pathParams": [
+        "type"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/schemas/{type}/rules",
       "operationId": "getRules",
       "tag": "Schemas",
       "requiredFields": [],
@@ -3562,10 +3844,11 @@
         "format"
       ],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3575,7 +3858,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/schemas/{contractType}/template",
+      "path": "/v1/schemas/{type}/template",
       "operationId": "getSchemaTemplate",
       "tag": "Schemas",
       "requiredFields": [],
@@ -3584,10 +3867,11 @@
         "enterpriseId"
       ],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3597,7 +3881,7 @@
     },
     {
       "method": "POST",
-      "path": "/v1/schemas/{contractType}/validate",
+      "path": "/v1/schemas/{type}/validate",
       "operationId": "validateReceipt",
       "tag": "Schemas",
       "requiredFields": [
@@ -3611,10 +3895,11 @@
         "format"
       ],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3623,7 +3908,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/schemas/{contractType}/versions",
+      "path": "/v1/schemas/{type}/versions",
       "operationId": "getSchemaVersions",
       "tag": "Schemas",
       "requiredFields": [],
@@ -3632,10 +3917,11 @@
         "enterpriseId"
       ],
       "pathParams": [
-        "contractType"
+        "type"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3644,7 +3930,7 @@
     },
     {
       "method": "GET",
-      "path": "/v1/schemas/{contractType}/versions/{version}",
+      "path": "/v1/schemas/{type}/versions/{version}",
       "operationId": "getSchemaVersion",
       "tag": "Schemas",
       "requiredFields": [],
@@ -3653,11 +3939,12 @@
         "enterpriseId"
       ],
       "pathParams": [
-        "contractType",
+        "type",
         "version"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3667,7 +3954,7 @@
     },
     {
       "method": "PATCH",
-      "path": "/v1/schemas/{contractType}/versions/{version}",
+      "path": "/v1/schemas/{type}/versions/{version}",
       "operationId": "patchSchemaVersion",
       "tag": "Schemas",
       "requiredFields": [
@@ -3680,11 +3967,12 @@
         "enterpriseId"
       ],
       "pathParams": [
-        "contractType",
+        "type",
         "version"
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3700,14 +3988,14 @@
       "requiredFields": [
         "exportVersion",
         "exportedAt",
-        "contractType",
+        "type",
         "compatibilityMode",
         "versions"
       ],
       "bodyFields": [
         "exportVersion",
         "exportedAt",
-        "contractType",
+        "type",
         "displayName",
         "description",
         "category",
@@ -3753,16 +4041,15 @@
       "operationId": "previewSchema",
       "tag": "Schemas",
       "requiredFields": [
-        "contractType",
-        "mandateSchema",
-        "receiptSchema"
+        "type",
+        "recordSchema"
       ],
       "bodyFields": [
-        "contractType",
+        "type",
         "displayName",
         "description",
         "category",
-        "mandateSchema",
+        "recordSchema",
         "receiptSchema",
         "fieldMappings",
         "compatibilityMode"
@@ -3771,6 +4058,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3809,6 +4097,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3844,6 +4133,7 @@
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3888,6 +4178,7 @@
       ],
       "responseCodes": [
         204,
+        400,
         401,
         403,
         404,
@@ -3908,6 +4199,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -3958,6 +4250,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3981,6 +4274,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -4002,6 +4296,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -4022,6 +4317,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,
@@ -4063,6 +4359,7 @@
       ],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         404,

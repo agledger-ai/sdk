@@ -7,8 +7,8 @@ import type {
   ListFederationGatewaysParams,
   FederationGateway,
   AdminRevokeGatewayParams,
-  QueryFederationMandatesParams,
-  FederationMandate,
+  QueryFederationRecordsParams,
+  FederationRecord,
   FederationAuditLogParams,
   FederationAuditEntry,
   FederationHealthSummary,
@@ -20,7 +20,7 @@ import type {
   PeeringToken,
   PeerRegistrationParams,
   ReputationContribution,
-  MandateCriteriaStatus,
+  RecordCriteriaStatus,
 } from '../types.js';
 
 export class FederationAdminResource {
@@ -51,12 +51,12 @@ export class FederationAdminResource {
     return this.http.post(`/federation/v1/admin/gateways/${gatewayId}/revoke`, params, options);
   }
 
-  /** Query federation mandates tracked by the hub. */
-  queryMandates(
-    params?: QueryFederationMandatesParams,
+  /** Query federation Records tracked by the hub. */
+  queryRecords(
+    params?: QueryFederationRecordsParams,
     options?: RequestOptions,
-  ): Promise<Page<FederationMandate>> {
-    return this.http.getPage('/federation/v1/admin/mandates', params as Record<string, unknown>, options);
+  ): Promise<Page<FederationRecord>> {
+    return this.http.getPage('/federation/v1/admin/records', params as Record<string, unknown>, options);
   }
 
   /** Query the federation audit log (hash-chained). */
@@ -67,7 +67,7 @@ export class FederationAdminResource {
     return this.http.getPage('/federation/v1/admin/audit-log', params as Record<string, unknown>, options);
   }
 
-  /** Get the federation health summary: gateway counts, mandate counts, audit chain length. */
+  /** Get the federation health summary: gateway counts, Record counts, audit chain length. */
   getHealth(options?: RequestOptions): Promise<FederationHealthSummary> {
     return this.http.get('/federation/v1/admin/health', undefined, options);
   }
@@ -180,13 +180,13 @@ export class FederationAdminResource {
   }
 
 
-  /** Delete a specific version of a federated contract type schema. */
+  /** Delete a specific version of a federated Type schema. */
   deleteSchemaVersion(
-    contractType: string,
+    type: string,
     version: string,
     options?: RequestOptions,
   ): Promise<{ deleted: boolean }> {
-    return this.http.delete(`/federation/v1/admin/schemas/${contractType}/${version}`, undefined, options);
+    return this.http.delete(`/federation/v1/admin/schemas/${type}/${version}`, undefined, options);
   }
 
 
@@ -207,11 +207,11 @@ export class FederationAdminResource {
   }
 
 
-  /** Get encryption metadata for a federated mandate's negotiated criteria. */
-  getMandateCriteriaEncryptionMetadata(
-    mandateId: string,
+  /** Get encryption metadata for a federated Record's negotiated criteria. */
+  getRecordCriteriaEncryptionMetadata(
+    recordId: string,
     options?: RequestOptions,
-  ): Promise<MandateCriteriaStatus> {
-    return this.http.get<MandateCriteriaStatus>(`/federation/v1/admin/mandates/${mandateId}/criteria-encryption-metadata`, undefined, options);
+  ): Promise<RecordCriteriaStatus> {
+    return this.http.get<RecordCriteriaStatus>(`/federation/v1/admin/records/${recordId}/criteria-encryption-metadata`, undefined, options);
   }
 }

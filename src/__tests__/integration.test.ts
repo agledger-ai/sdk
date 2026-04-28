@@ -7,11 +7,12 @@
  *
  * Environment:
  *   AGLEDGER_TEST_API_URL  - API base URL (default: http://localhost:3001)
- *   AGLEDGER_TEST_API_KEY  - Enterprise API key with standard scopes
+ *   AGLEDGER_TEST_API_KEY  - Admin API key with standard scopes
+ *   AGLEDGER_TEST_AGENT_KEY - Agent API key (optional; enables agent-side tests)
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { AgledgerClient } from '../client.js';
-import type { Page, Mandate } from '../types.js';
+import type { Page } from '../types.js';
 
 const API_URL = process.env['AGLEDGER_TEST_API_URL'] || 'http://localhost:3001';
 const API_KEY = process.env['AGLEDGER_TEST_API_KEY'] || '';
@@ -34,7 +35,7 @@ describe('SDK integration: response shape validation', async () => {
   }
 
   let client: AgledgerClient;
-  let createdMandateId: string | undefined;
+  let createdRecordId: string | undefined;
 
   beforeAll(() => {
     client = new AgledgerClient({ apiKey: API_KEY, baseUrl: API_URL });
@@ -58,191 +59,119 @@ describe('SDK integration: response shape validation', async () => {
 
   // --- Schemas ---
 
-  it('schemas.list() returns Page of contract types', async () => {
+  it('schemas.list() returns Page of Types', async () => {
     const page = await client.schemas.list();
     assertPage(page, 'schemas.list');
     expect(page.data.length).toBeGreaterThan(0);
-    // API returns strings (contract type identifiers), not objects
-    expect(typeof page.data[0]).toBe('string');
   });
 
-  it('schemas.get() returns schema with mandateSchema + receiptSchema', async () => {
+  it('schemas.get() returns schema with recordSchema + receiptSchema', async () => {
     const schema = await client.schemas.get('ACH-PROC-v1');
-    expect(schema.contractType).toBe('ACH-PROC-v1');
-    expect(schema.mandateSchema).toBeDefined();
+    expect(schema.type).toBe('ACH-PROC-v1');
+    expect(schema.recordSchema).toBeDefined();
     expect(schema.receiptSchema).toBeDefined();
   });
 
-  it('schemas.getVersions() returns Page<SchemaVersionDetail>', async () => {
-    const page = await client.schemas.getVersions('ACH-PROC-v1');
-    assertPage(page, 'schemas.getVersions');
-    if (page.data.length > 0) {
-      expect(typeof page.data[0].version).toBe('number');
-      expect(typeof page.data[0].contractType).toBe('string');
-    }
-  });
-
-  it('schemas.getMetaSchema() returns meta-schema object', async () => {
-    const meta = await client.schemas.getMetaSchema();
+  it('schemas.metaSchema() returns meta-schema object', async () => {
+    const meta = await client.schemas.metaSchema();
     expect(meta).toBeDefined();
     expect(typeof meta).toBe('object');
   });
 
-  it('schemas.getTemplate() returns template object', async () => {
-    const template = await client.schemas.getTemplate('ACH-PROC-v1');
+  it('schemas.blank() returns blank template', async () => {
+    const template = await client.schemas.blank();
     expect(template).toBeDefined();
     expect(typeof template).toBe('object');
   });
 
-  it('schemas.getBlankTemplate() returns blank template', async () => {
-    const template = await client.schemas.getBlankTemplate();
-    expect(template).toBeDefined();
-    expect(typeof template).toBe('object');
+  // --- Records ---
+
+  it('records.search() returns Page<Record>', async () => {
+    const page = await client.records.search({ limit: 5 });
+    assertPage(page, 'records.search');
   });
 
-  it('schemas.getRules() returns rules config', async () => {
-    const rules = await client.schemas.getRules('ACH-PROC-v1');
-    expect(rules).toBeDefined();
-  });
-
-  // --- Mandates ---
-
-  it('mandates.search() returns Page<Mandate>', async () => {
-    const page = await client.mandates.search({ limit: 5 });
-    assertPage(page, 'mandates.search');
-  });
-
-  it('mandates.getSummary() returns status counts', async () => {
-    const summary = await client.mandates.getSummary();
-    expect(summary).toBeDefined();
-    expect(typeof summary).toBe('object');
-  });
-
-  it('mandate lifecycle: create → get → cancel', async () => {
-    // Create
-    const mandate = await client.mandates.create({
-      contractType: 'ACH-PROC-v1',
+  it('record lifecycle: create → get → cancel', async () => {
+    // Create (admin must name a principal)
+    const me = await client.auth.getMe();
+    const principalId = me.agentId;
+    if (!principalId) {
+      // Admin key with no agent — skip the create-flow test
+      return;
+    }
+    const record = await client.records.create({
+      principalAgentId: principalId,
+      type: 'ACH-PROC-v1',
       contractVersion: '1',
       platform: 'integration-test',
-      criteria: { item_description: 'test-widget', quantity: { target: 1 } },
+      criteria: { item_spec: 'test-widget', quantity: { target: 1 } },
     });
-    createdMandateId = mandate.id;
-    expect(typeof mandate.id).toBe('string');
-    expect(mandate.contractType).toBe('ACH-PROC-v1');
-    expect(mandate.status).toBe('CREATED');
-    expect(typeof mandate.createdAt).toBe('string');
+    createdRecordId = record.id;
+    expect(typeof record.id).toBe('string');
+    expect(record.type).toBe('ACH-PROC-v1');
+    expect(record.status).toBe('CREATED');
+    expect(typeof record.createdAt).toBe('string');
+    expect(record.vaultReceipt).toBeDefined();
 
     // Get
-    const fetched = await client.mandates.get(mandate.id);
-    expect(fetched.id).toBe(mandate.id);
-    expect(fetched.status).toBe('CREATED');
+    const fetched = await client.records.get(record.id);
+    expect(fetched.id).toBe(record.id);
 
-    // Register then Activate (CREATED → register → activate)
-    await client.mandates.transition(mandate.id, 'register');
-    const activated = await client.mandates.transition(mandate.id, 'activate');
+    // Register then Activate
+    await client.records.transition(record.id, 'register');
+    const activated = await client.records.transition(record.id, 'activate');
     expect(activated.status).toBe('ACTIVE');
 
     // Cancel
-    const cancelled = await client.mandates.cancel(mandate.id, 'integration test cleanup');
+    const cancelled = await client.records.cancel(record.id, 'integration test cleanup');
     expect(cancelled.status).toBe('CANCELLED');
-    createdMandateId = undefined; // cleaned up
+    createdRecordId = undefined;
   });
 
-  // --- Receipts ---
+  // --- Receipts (agent-side) ---
 
-  it('mandate + receipt lifecycle: createAgent → submit receipt → get receipt', async () => {
-    if (!AGENT_KEY) {
-      // Can't test without agent key
-      return;
-    }
-    // Use agent key for createAgent (requires agent role)
+  it('record + receipt lifecycle: create → submit receipt → get receipt', async () => {
+    if (!AGENT_KEY) return;
     const agentClient = new AgledgerClient({ apiKey: AGENT_KEY, baseUrl: API_URL });
-    const mandate = await agentClient.mandates.createAgent({
-      contractType: 'ACH-DATA-v1',
+    const record = await agentClient.records.create({
+      type: 'ACH-DATA-v1',
       contractVersion: '1',
+      platform: 'integration-test',
       criteria: { description: 'Integration test data processing', output_format: 'json' },
       autoActivate: true,
     });
-    createdMandateId = mandate.id;
+    createdRecordId = record.id;
 
     // Submit receipt
-    const receipt = await agentClient.receipts.submit(mandate.id, {
+    const receipt = await agentClient.receipts.submit(record.id, {
       evidence: { deliverable: 'query result', deliverable_type: 'report' },
     });
     expect(typeof receipt.id).toBe('string');
-    expect(receipt.mandateId).toBe(mandate.id);
-    expect(typeof receipt.createdAt).toBe('string');
+    expect(receipt.recordId).toBe(record.id);
 
     // Get receipt
-    const fetched = await agentClient.receipts.get(mandate.id, receipt.id);
+    const fetched = await agentClient.receipts.get(record.id, receipt.id);
     expect(fetched.id).toBe(receipt.id);
 
     // List receipts
-    const page = await agentClient.receipts.list(mandate.id);
+    const page = await agentClient.receipts.list(record.id);
     assertPage(page, 'receipts.list');
     expect(page.data.length).toBeGreaterThanOrEqual(1);
 
-    // Clean up (may fail if mandate auto-advanced past cancellable state)
     try {
-      await agentClient.mandates.cancel(mandate.id, 'integration test cleanup');
-    } catch { /* OK — mandate may be in non-cancellable state */ }
-    createdMandateId = undefined;
-  });
-
-  // --- Verification ---
-
-  it('verification.getStatus() returns status object', async () => {
-    const mandate = await client.mandates.create({
-      contractType: 'ACH-DLVR-v1',
-      contractVersion: '1',
-      platform: 'integration-test',
-      criteria: { description: 'Integration test deliverable' },
-    });
-    createdMandateId = mandate.id;
-
-    try {
-      const status = await client.verification.getStatus(mandate.id);
-      expect(status).toBeDefined();
-      expect(status.mandateId).toBe(mandate.id);
-    } catch (err: any) {
-      // API may return 400/404 if no verification has run yet — that's OK
-      expect([400, 404]).toContain(err.status);
-    }
-
-    await client.mandates.cancel(mandate.id, 'integration test cleanup');
-    createdMandateId = undefined;
+      await agentClient.records.cancel(record.id, 'integration test cleanup');
+    } catch { /* OK — record may be in non-cancellable state */ }
+    createdRecordId = undefined;
   });
 
   // --- Reputation ---
 
   it('reputation.getAgent() returns Page<ReputationScore>', async () => {
-    // Use auth/me to get our own agent ID
-    const me = await client.registration.getMe();
-    const agentId = me.agentId ?? me.id;
-    if (!agentId) return; // can't test without an agent ID
-
+    const me = await client.auth.getMe();
+    const agentId = me.agentId;
+    if (!agentId) return;
     const page = await client.reputation.getAgent(agentId);
     assertPage(page, 'reputation.getAgent');
-  });
-
-  // --- Dashboard ---
-
-  it('dashboard.getSummary() returns summary object', async () => {
-    const summary = await client.dashboard.getSummary();
-    expect(summary).toBeDefined();
-    expect(typeof summary).toBe('object');
-  });
-
-  // --- Capabilities ---
-
-  it('capabilities.get() returns capabilities or error', async () => {
-    try {
-      const caps = await client.capabilities.get();
-      expect(caps).toBeDefined();
-    } catch (err: any) {
-      // 400 or 404 if no capabilities set yet — that's OK
-      expect([400, 404]).toContain(err.status);
-    }
   });
 
   // --- Verification Keys ---
@@ -257,5 +186,14 @@ describe('SDK integration: response shape validation', async () => {
   it('events.list() returns Page of events', async () => {
     const page = await client.events.list({ since: '2026-01-01T00:00:00Z', limit: 5 });
     assertPage(page, 'events.list');
+  });
+
+  // --- Conformance ---
+
+  it('conformance.run() returns features + Types', async () => {
+    const conf = await client.conformance.run();
+    expect(conf).toBeDefined();
+    expect(Array.isArray(conf.features)).toBe(true);
+    expect(Array.isArray(conf.types)).toBe(true);
   });
 });

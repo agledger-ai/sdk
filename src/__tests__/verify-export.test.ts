@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateKeyPairSync, createHash, createPrivateKey, sign } from 'node:crypto';
 import { verifyExport, canonicalize } from '../verify/verify-export.js';
-import type { MandateAuditExport } from '../types.js';
+import type { RecordAuditExport } from '../types.js';
 
 interface Keypair {
   publicKeyBase64: string;
@@ -46,15 +46,15 @@ function signEntry(
   };
 }
 
-function makeExport(kp: Keypair, keyId = 'vault-key-1', mandateId = 'MND-test-001'): MandateAuditExport {
-  const e1 = signEntry(kp, keyId, 1, { event: 'mandate_created', mandateId }, null);
-  const e2 = signEntry(kp, keyId, 2, { event: 'mandate_activated', mandateId }, e1.integrity.payloadHash);
-  const e3 = signEntry(kp, keyId, 3, { event: 'receipt_submitted', mandateId, count: 100 }, e2.integrity.payloadHash);
+function makeExport(kp: Keypair, keyId = 'vault-key-1', recordId = 'REC-test-001'): RecordAuditExport {
+  const e1 = signEntry(kp, keyId, 1, { event: 'record_created', recordId }, null);
+  const e2 = signEntry(kp, keyId, 2, { event: 'record_activated', recordId }, e1.integrity.payloadHash);
+  const e3 = signEntry(kp, keyId, 3, { event: 'receipt_submitted', recordId, count: 100 }, e2.integrity.payloadHash);
   return {
     exportMetadata: {
-      mandateId,
+      recordId,
       enterpriseId: 'ent-001',
-      contractType: 'ACH-PROC-v1',
+      type: 'ACH-PROC-v1',
       exportDate: '2026-04-17T00:00:00Z',
       totalEntries: 3,
       chainIntegrity: true,

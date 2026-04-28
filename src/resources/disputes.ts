@@ -5,39 +5,49 @@ import type {
   CreateDisputeParams,
   EvidenceType,
   RequestOptions,
+  Page,
+  ListDisputesParams,
 } from '../types.js';
 
 export class DisputesResource {
   constructor(private readonly http: HttpClient) {}
 
   /**
-   * Initiate a dispute on a mandate. Returns the dispute object (from the create envelope).
+   * List disputes across the tenant. Filter by status or recordId.
+   * Backed by `GET /v1/disputes`.
+   */
+  list(params?: ListDisputesParams, options?: RequestOptions): Promise<Page<Dispute>> {
+    return this.http.getPage<Dispute>('/v1/disputes', params as unknown as Record<string, unknown>, options);
+  }
+
+  /**
+   * Initiate a dispute on a Record. Returns the dispute object (from the create envelope).
    *
    * @example
    * ```ts
-   * const dispute = await client.disputes.create('mnd-123', {
+   * const dispute = await client.disputes.create('rec-123', {
    *   grounds: 'pricing_dispute',
    *   context: 'Invoice amount exceeds agreed tolerance',
    * });
    * ```
    */
-  async create(mandateId: string, params: CreateDisputeParams, options?: RequestOptions): Promise<Dispute> {
-    const response = await this.http.post<Record<string, unknown>>(`/v1/mandates/${mandateId}/dispute`, params, options);
+  async create(recordId: string, params: CreateDisputeParams, options?: RequestOptions): Promise<Dispute> {
+    const response = await this.http.post<Record<string, unknown>>(`/v1/records/${recordId}/dispute`, params, options);
     // API may return { dispute, tier1Result } envelope on create
     return (response.dispute ?? response) as Dispute;
   }
 
   /**
-   * Get the dispute for a mandate, including submitted evidence.
+   * Get the dispute for a Record, including submitted evidence.
    * Returns the full envelope: `{ dispute, evidence }`.
    */
-  get(mandateId: string, options?: RequestOptions): Promise<DisputeResponse> {
-    return this.http.get<DisputeResponse>(`/v1/mandates/${mandateId}/dispute`, undefined, options);
+  get(recordId: string, options?: RequestOptions): Promise<DisputeResponse> {
+    return this.http.get<DisputeResponse>(`/v1/records/${recordId}/dispute`, undefined, options);
   }
 
   /** Escalate a dispute to the next review tier. */
-  escalate(mandateId: string, options?: RequestOptions): Promise<Dispute> {
-    return this.http.post<Dispute>(`/v1/mandates/${mandateId}/dispute/escalate`, undefined, options);
+  escalate(recordId: string, options?: RequestOptions): Promise<Dispute> {
+    return this.http.post<Dispute>(`/v1/records/${recordId}/dispute/escalate`, undefined, options);
   }
 
   /**
@@ -45,17 +55,17 @@ export class DisputesResource {
    *
    * @example
    * ```ts
-   * await client.disputes.submitEvidence('mnd-123', {
+   * await client.disputes.submitEvidence('rec-123', {
    *   evidenceType: 'document',
    *   payload: { url: 'https://...', description: 'Invoice copy' },
    * });
    * ```
    */
   submitEvidence(
-    mandateId: string,
+    recordId: string,
     params: { evidenceType: EvidenceType; payload: Record<string, unknown> },
     options?: RequestOptions,
   ): Promise<Record<string, unknown>> {
-    return this.http.post(`/v1/mandates/${mandateId}/dispute/evidence`, params, options);
+    return this.http.post(`/v1/records/${recordId}/dispute/evidence`, params, options);
   }
 }

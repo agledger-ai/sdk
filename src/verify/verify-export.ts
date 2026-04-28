@@ -1,8 +1,8 @@
 import { createHash, createPublicKey, verify as cryptoVerify, type KeyObject } from 'node:crypto';
-import type { MandateAuditExport, AuditExportEntry } from '../types.js';
+import type { RecordAuditExport, AuditExportEntry } from '../types.js';
 
 /**
- * Offline verification of an AGLedger audit export.
+ * Offline verification of an AGLedger Record audit export.
  *
  * Re-implements the vault's per-entry integrity check (RFC 8785 JCS → SHA-256
  * → Ed25519 over `{position}:{payloadHash}:{previousHash}`) and walks the hash
@@ -10,7 +10,7 @@ import type { MandateAuditExport, AuditExportEntry } from '../types.js';
  *
  * This is the client-side companion to the tamper-evident audit trail described
  * at `/.well-known/agledger-vault-keys.json` and returned by
- * `GET /v1/mandates/:id/audit-export`.
+ * `GET /v1/records/:id/audit-export`.
  */
 
 /** A single entry's verification result. */
@@ -54,8 +54,8 @@ export interface VerifyExportResult {
   };
   /** Per-entry results in order. */
   entries: EntryVerificationResult[];
-  /** Mandate ID from the export metadata, for logging/identification. */
-  mandateId: string;
+  /** Record ID from the export metadata, for logging/identification. */
+  recordId: string;
 }
 
 export interface VerifyExportOptions {
@@ -79,13 +79,13 @@ const SUPPORTED_HASH = new Set(['SHA-256', 'sha-256', 'sha256']);
 const SUPPORTED_SIG = new Set(['Ed25519', 'ed25519']);
 
 /**
- * Verify a mandate audit export offline.
+ * Verify a Record audit export offline.
  *
  * @example
  * ```ts
  * import { verifyExport } from '@agledger/sdk/verify';
  *
- * const exportData = await client.compliance.exportMandate('MND_123');
+ * const exportData = await client.records.getAuditExport('REC_123');
  * const result = verifyExport(exportData);
  * if (!result.valid) {
  *   console.error(`Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.reason}`);
@@ -93,7 +93,7 @@ const SUPPORTED_SIG = new Set(['Ed25519', 'ed25519']);
  * ```
  */
 export function verifyExport(
-  exportData: MandateAuditExport,
+  exportData: RecordAuditExport,
   options: VerifyExportOptions = {},
 ): VerifyExportResult {
   const meta = exportData.exportMetadata;
@@ -117,7 +117,7 @@ export function verifyExport(
       verifiedEntries: 0,
       brokenAt: { position: 0, reason: 'unsupported_algorithm', detail },
       entries: [result],
-      mandateId: meta.mandateId,
+      recordId: meta.recordId,
     };
   }
 
@@ -140,12 +140,12 @@ export function verifyExport(
     verifiedEntries,
     brokenAt,
     entries: entryResults,
-    mandateId: meta.mandateId,
+    recordId: meta.recordId,
   };
 }
 
 function resolveKeys(
-  exportData: MandateAuditExport,
+  exportData: RecordAuditExport,
   options: VerifyExportOptions,
 ): Record<string, string> {
   const meta = exportData.exportMetadata;

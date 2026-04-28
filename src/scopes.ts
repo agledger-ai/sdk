@@ -1,7 +1,7 @@
 /**
  * API key scope constants and scope profiles.
  *
- * Mirrors the authoritative definitions in agledger-api/src/shared/scopes.ts.
+ * Mirrors the authoritative definitions in agledger-api/src/shared/scope-constants.ts.
  * Keep this file in lockstep with the API; the SDK enum must be a strict
  * subset (or equal set) of the API's scope list.
  */
@@ -10,9 +10,9 @@
 export type ApiKeyRole = 'admin' | 'agent' | 'platform';
 
 export const Scopes = {
-  // Mandate lifecycle
-  MANDATES_READ: 'mandates:read',
-  MANDATES_WRITE: 'mandates:write',
+  // Record lifecycle
+  RECORDS_READ: 'records:read',
+  RECORDS_WRITE: 'records:write',
 
   // Receipts
   RECEIPTS_READ: 'receipts:read',
@@ -70,7 +70,7 @@ export interface ScopeProfile {
 export const ScopeProfiles: Record<string, ScopeProfile> = {
   'admin-observer': {
     name: 'admin-observer',
-    description: 'Read-only admin — audit, compliance, events, disputes, reputation, schemas, webhooks, mandates, receipts',
+    description: 'Read-only admin — audit, compliance, events, disputes, reputation, schemas, webhooks, records, receipts',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.AUDIT_READ,
@@ -80,13 +80,13 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
       Scopes.REPUTATION_READ,
       Scopes.SCHEMAS_READ,
       Scopes.WEBHOOKS_READ,
-      Scopes.MANDATES_READ,
+      Scopes.RECORDS_READ,
       Scopes.RECEIPTS_READ,
     ],
   },
   'admin-standard': {
     name: 'admin-standard',
-    description: 'Default admin — full tenant governance plus mandate/receipt action rights (admin actions signed as admin in vault)',
+    description: 'Default admin — full tenant governance plus Record/receipt action rights (admin actions signed as admin in vault)',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.AUDIT_READ,
@@ -106,8 +106,8 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
       Scopes.ADMIN_KEYS,
       Scopes.ADMIN_SYSTEM,
       Scopes.ADMIN_BACKFILL,
-      Scopes.MANDATES_READ,
-      Scopes.MANDATES_WRITE,
+      Scopes.RECORDS_READ,
+      Scopes.RECORDS_WRITE,
       Scopes.RECEIPTS_READ,
       Scopes.RECEIPTS_WRITE,
     ],
@@ -125,7 +125,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'admin-schema': {
     name: 'admin-schema',
-    description: 'Schema registry management — create, version, disable/enable custom types',
+    description: 'Schema registry management — create, version, disable/enable custom Types',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.SCHEMAS_READ,
@@ -135,11 +135,11 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'agent-full': {
     name: 'agent-full',
-    description: 'Full agent — mandate lifecycle, receipts, disputes, events, and schemas',
+    description: 'Full agent — Record lifecycle, receipts, disputes, events, and schemas',
     allowedRoles: ['agent'],
     scopes: [
-      Scopes.MANDATES_READ,
-      Scopes.MANDATES_WRITE,
+      Scopes.RECORDS_READ,
+      Scopes.RECORDS_WRITE,
       Scopes.RECEIPTS_READ,
       Scopes.RECEIPTS_WRITE,
       Scopes.AGENTS_READ,
@@ -150,19 +150,19 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'agent-readonly': {
     name: 'agent-readonly',
-    description: 'Read-only agent — view mandate history',
+    description: 'Read-only agent — view Record history',
     allowedRoles: ['agent'],
     scopes: [
-      Scopes.MANDATES_READ,
+      Scopes.RECORDS_READ,
       Scopes.RECEIPTS_READ,
     ],
   },
   'agent-performer-only': {
     name: 'agent-performer-only',
-    description: 'Performer agent — can deliver receipts and read mandates, but cannot be principal of new mandates',
+    description: 'Performer agent — can deliver receipts and read Records, but cannot be principal of new Records',
     allowedRoles: ['agent'],
     scopes: [
-      Scopes.MANDATES_READ,
+      Scopes.RECORDS_READ,
       Scopes.RECEIPTS_READ,
       Scopes.RECEIPTS_WRITE,
       Scopes.SCHEMAS_READ,

@@ -2,10 +2,9 @@ import type { HttpClient } from '../http.js';
 import type { AccountProfile, RequestOptions } from '../types.js';
 
 /**
- * Authentication resource — only two routes survived v0.20.0:
- * `GET /v1/auth/me` (identity + scopes) and `POST /v1/auth/keys/rotate`
- * (atomic key rotation). Everything else (registration, password, email
- * verification) was removed; provisioning happens via admin endpoints.
+ * Authentication resource — `GET /v1/auth/me` (identity + scopes) and
+ * `POST /v1/auth/keys/rotate` (atomic key rotation). Account provisioning
+ * happens via the admin endpoints.
  */
 export class AuthResource {
   constructor(private readonly http: HttpClient) {}

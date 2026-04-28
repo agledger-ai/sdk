@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyExport } from '../verify/verify-export.js';
-import type { MandateAuditExport } from '../types.js';
+import type { RecordAuditExport } from '../types.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VECTORS_DIR = join(HERE, '..', '..', '..', 'testdata', 'verifier');
@@ -30,7 +30,7 @@ describe('verifyExport — shared test vectors', () => {
 
   for (const vector of manifest.vectors) {
     it(`${vector.file} → ${vector.expected}`, () => {
-      const exportData: MandateAuditExport = JSON.parse(
+      const exportData: RecordAuditExport = JSON.parse(
         readFileSync(join(VECTORS_DIR, vector.file), 'utf8'),
       );
       const result = verifyExport(exportData);

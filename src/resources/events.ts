@@ -1,5 +1,5 @@
 import type { HttpClient } from '../http.js';
-import type { AgledgerEvent, AuditChain, Page, ListParams, RequestOptions, AutoPaginateOptions } from '../types.js';
+import type { AgledgerEvent, Page, ListParams, RequestOptions, AutoPaginateOptions } from '../types.js';
 
 export class EventsResource {
   constructor(private readonly http: HttpClient) {}
@@ -29,10 +29,5 @@ export class EventsResource {
       params as unknown as Record<string, unknown>,
       options,
     );
-  }
-
-  /** Get the hash-chained audit trail for a mandate. */
-  getAuditChain(mandateId: string, options?: RequestOptions): Promise<AuditChain> {
-    return this.http.get<AuditChain>(`/v1/mandates/${mandateId}/audit`, undefined, options);
   }
 }

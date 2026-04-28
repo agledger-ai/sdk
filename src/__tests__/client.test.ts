@@ -17,7 +17,7 @@ describe('AgledgerClient', () => {
       fetch: mockFetch() as unknown as typeof globalThis.fetch,
     });
 
-    expect(client.mandates).toBeDefined();
+    expect(client.records).toBeDefined();
     expect(client.receipts).toBeDefined();
     expect(client.verification).toBeDefined();
     expect(client.disputes).toBeDefined();
@@ -28,6 +28,8 @@ describe('AgledgerClient', () => {
     expect(client.compliance).toBeDefined();
     expect(client.health).toBeDefined();
     expect(client.admin).toBeDefined();
+    expect(client.admin.records).toBeDefined();
+    expect(client.admin.vault).toBeDefined();
     expect(client.a2a).toBeDefined();
     expect(client.capabilities).toBeDefined();
     expect(client.federation).toBeDefined();
@@ -37,6 +39,8 @@ describe('AgledgerClient', () => {
     expect(client.verificationKeys).toBeDefined();
     expect(client.auth).toBeDefined();
     expect(client.discovery).toBeDefined();
+    expect(client.audit).toBeDefined();
+    expect(client.audit.tenantReadsCheckpoints).toBeDefined();
   });
 
   it('sends correct auth header', async () => {

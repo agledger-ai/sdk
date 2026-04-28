@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import {
-  MANDATE_TRANSITIONS,
+  RECORD_TRANSITIONS,
   TERMINAL_STATUSES,
   canTransitionTo,
   getValidTransitions,
   isTerminalStatus,
-} from '../mandate-lifecycle.js';
+} from '../record-lifecycle.js';
 
-describe('MANDATE_TRANSITIONS', () => {
+describe('RECORD_TRANSITIONS', () => {
   it('contains all expected display statuses', () => {
-    const statuses = Object.keys(MANDATE_TRANSITIONS);
+    const statuses = Object.keys(RECORD_TRANSITIONS);
     expect(statuses).toContain('CREATED');
     expect(statuses).toContain('ACTIVE');
     expect(statuses).toContain('PROCESSING');
@@ -17,7 +17,10 @@ describe('MANDATE_TRANSITIONS', () => {
     expect(statuses).toContain('FAILED');
     expect(statuses).toContain('REJECTED');
     expect(statuses).toContain('REVISION_REQUESTED');
-    expect(statuses.length).toBe(11);
+    expect(statuses).toContain('RECORDED');
+    expect(statuses).toContain('DISPUTED');
+    expect(statuses).toContain('PENDING_ARBITRATION');
+    expect(statuses.length).toBeGreaterThanOrEqual(13);
   });
 });
 
@@ -28,6 +31,8 @@ describe('TERMINAL_STATUSES', () => {
     expect(TERMINAL_STATUSES).toContain('EXPIRED');
     expect(TERMINAL_STATUSES).toContain('CANCELLED');
     expect(TERMINAL_STATUSES).toContain('REJECTED');
+    expect(TERMINAL_STATUSES).toContain('RECORDED');
+    expect(TERMINAL_STATUSES).toContain('PENDING_ARBITRATION');
   });
 
   it('does not include non-terminal statuses', () => {
@@ -85,6 +90,7 @@ describe('getValidTransitions', () => {
   it('returns empty array for terminal statuses', () => {
     expect(getValidTransitions('FULFILLED')).toEqual([]);
     expect(getValidTransitions('REJECTED')).toEqual([]);
+    expect(getValidTransitions('RECORDED')).toEqual([]);
   });
 
   it('returns empty array for unknown statuses (forward compat)', () => {
@@ -97,6 +103,7 @@ describe('isTerminalStatus', () => {
     expect(isTerminalStatus('FULFILLED')).toBe(true);
     expect(isTerminalStatus('EXPIRED')).toBe(true);
     expect(isTerminalStatus('CANCELLED')).toBe(true);
+    expect(isTerminalStatus('RECORDED')).toBe(true);
   });
 
   it('returns false for non-terminal statuses', () => {

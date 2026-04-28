@@ -13,31 +13,31 @@ export class ReceiptsResource {
   constructor(private readonly http: HttpClient) {}
 
   /**
-   * Submit a receipt. When the mandate's contract type is known,
-   * pass a generic to get typed `evidence` fields.
+   * Submit a receipt. When the Record's Type is known, pass a generic to
+   * get typed `evidence` fields.
    *
    * @example
-   * client.receipts.submit<'ACH-DATA-v1'>(mandateId, {
+   * client.receipts.submit<'ACH-DATA-v1'>(recordId, {
    *   agentId: 'agent-1',
    *   evidence: { deliverable: '/out.parquet', deliverable_type: 'file_ref', row_count: 50000 },
    * });
    */
-  submit<T extends string>(mandateId: string, params: TypedSubmitReceiptParams<T>, options?: RequestOptions): Promise<Receipt>;
-  submit(mandateId: string, params: SubmitReceiptParams, options?: RequestOptions): Promise<Receipt>;
-  submit(mandateId: string, params: SubmitReceiptParams, options?: RequestOptions): Promise<Receipt> {
-    return this.http.post<Receipt>(`/v1/mandates/${mandateId}/receipts`, params, options);
+  submit<T extends string>(recordId: string, params: TypedSubmitReceiptParams<T>, options?: RequestOptions): Promise<Receipt>;
+  submit(recordId: string, params: SubmitReceiptParams, options?: RequestOptions): Promise<Receipt>;
+  submit(recordId: string, params: SubmitReceiptParams, options?: RequestOptions): Promise<Receipt> {
+    return this.http.post<Receipt>(`/v1/records/${recordId}/receipts`, params, options);
   }
 
-  get(mandateId: string, receiptId: string, options?: RequestOptions): Promise<Receipt> {
-    return this.http.get<Receipt>(`/v1/mandates/${mandateId}/receipts/${receiptId}`, undefined, options);
+  get(recordId: string, receiptId: string, options?: RequestOptions): Promise<Receipt> {
+    return this.http.get<Receipt>(`/v1/records/${recordId}/receipts/${receiptId}`, undefined, options);
   }
 
-  list(mandateId: string, params?: ListParams, options?: RequestOptions): Promise<Page<Receipt>> {
-    return this.http.getPage<Receipt>(`/v1/mandates/${mandateId}/receipts`, params as Record<string, unknown>, options);
+  list(recordId: string, params?: ListParams, options?: RequestOptions): Promise<Page<Receipt>> {
+    return this.http.getPage<Receipt>(`/v1/records/${recordId}/receipts`, params as Record<string, unknown>, options);
   }
 
   /** Auto-paginating iterator. Yields individual receipts. */
-  listAll(mandateId: string, params?: ListParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<Receipt> {
-    return this.http.paginate<Receipt>(`/v1/mandates/${mandateId}/receipts`, params as Record<string, unknown>, options);
+  listAll(recordId: string, params?: ListParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<Receipt> {
+    return this.http.paginate<Receipt>(`/v1/records/${recordId}/receipts`, params as Record<string, unknown>, options);
   }
 }

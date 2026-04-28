@@ -102,7 +102,7 @@ export interface BulkCreateResult {
   results: Array<{
     index: number;
     status: number;
-    data?: Mandate;
+    data?: RecordRow;
     error?: string;
   }>;
   summary: {
@@ -113,8 +113,15 @@ export interface BulkCreateResult {
 }
 
 
-/** Known values: ACH-PROC-v1, ACH-DLVR-v1, ACH-DATA-v1, ACH-TXN-v1, ACH-ORCH-v1, ACH-COMM-v1, ACH-AUTH-v1, ACH-INFRA-v1, ACH-DEL-v1, ACH-ANALYZE-v1, ACH-COORD-v1, ACH-MON-v1, ACH-REVIEW-v1. Accepts any string for forward compatibility. */
-export type ContractType =
+/**
+ * Record Type identifier (e.g. 'ACH-PROC-v1').
+ *
+ * Known values: ACH-PROC-v1, ACH-DLVR-v1, ACH-DATA-v1, ACH-TXN-v1, ACH-ORCH-v1,
+ * ACH-COMM-v1, ACH-AUTH-v1, ACH-INFRA-v1, ACH-DEL-v1, ACH-ANALYZE-v1,
+ * ACH-COORD-v1, ACH-MON-v1, ACH-REVIEW-v1. Accepts any string for forward
+ * compatibility (custom Types registered via the Schema Development Toolkit).
+ */
+export type RecordType =
   | 'ACH-PROC-v1'
   | 'ACH-DLVR-v1'
   | 'ACH-DATA-v1'
@@ -136,9 +143,9 @@ export interface Denomination {
   currency: string;
 }
 
-// Typed Criteria per Contract Type (Agentic Contract Specification)
+// Typed Criteria per Record Type (Agentic Contract Specification)
 //
-// These interfaces describe the known fields for each contract type.
+// These interfaces describe the known fields for each Type.
 // All criteria types also accept additional fields via intersection
 // with Record<string, unknown> for forward compatibility.
 
@@ -184,7 +191,7 @@ export interface OrchestrationCriteria {
   priority?: 'low' | 'medium' | 'high' | 'critical';
   deadline?: string;
   delegation_depth?: number;
-  parent_mandate_ref?: string;
+  parent_record_ref?: string;
 }
 
 /** ACH-COMM-v1: Notifications, messages, and alerting. */
@@ -200,89 +207,79 @@ export interface CommunicationCriteria {
 /** ACH-AUTH-v1: Permission changes, credential grants, and access control. */
 export interface AuthorizationCriteria {
   description: string;
-  action_type?: 'grant' | 'revoke' | 'create_credential' | 'rotate' | 'user_management';
-  target_identity?: string;
-  permission_scope?: string;
-  resource_scope?: string;
-  expiration?: string;
+  permission_change?: string;
+  target_principal?: string;
+  resource?: string;
+  scope?: string;
+  duration?: string;
+  approval_required?: boolean;
 }
 
 /** ACH-INFRA-v1: Infrastructure changes, cloud provisioning, and config updates. */
 export interface InfrastructureCriteria {
   description: string;
-  action_type?: 'ddl' | 'provision' | 'deploy' | 'config_change';
-  resource_name?: string;
+  action?: string;
   resource_type?: string;
+  resource_name?: string;
   environment?: string;
-  region?: string;
-  rollback_possible?: boolean;
-}
-
-/** ACH-ANALYZE-v1: Analysis, research, synthesis, and evaluation tasks. */
-export interface AnalyzeCriteria {
-  objective: string;
-  scope?: string;
-  output_format?: string;
-  depth?: 'overview' | 'standard' | 'deep_dive';
-  constraints?: { max_sources?: number; time_budget_seconds?: number; cost_budget?: Denomination };
-  evaluation_criteria?: string[];
-  deadline?: string;
-}
-
-/** ACH-COORD-v1: Multi-agent coordination, planning, and orchestration. */
-export interface CoordinationCriteria {
-  objective: string;
-  participants?: string[];
-  deliverables?: string[];
-  success_criteria?: Record<string, unknown>;
-  budget?: Denomination;
-  deadline?: string;
+  config_changes?: Record<string, unknown>;
+  estimated_cost?: Denomination;
 }
 
 /** ACH-DEL-v1: Deletions, cancellations, and reversals. */
 export interface DestructiveCriteria {
   description: string;
-  action_type?: 'delete' | 'cancel' | 'refund' | 'archive' | 'terminate';
-  target_identifier?: string;
-  is_cascade?: boolean;
-  justification?: string;
-  original_ref?: string;
-  reversal_amount?: number;
+  action?: string;
+  target?: string;
+  reversible?: boolean;
+  approval_chain?: string[];
 }
 
-/** ACH-MON-v1: Monitoring and observation — agents watching for conditions, detecting anomalies, tracking thresholds, and reporting alerts. */
+/** ACH-ANALYZE-v1: Research, analysis, and investigation tasks. */
+export interface AnalyzeCriteria {
+  description: string;
+  research_question?: string;
+  scope?: string;
+  budget?: Denomination;
+  deadline?: string;
+}
+
+/** ACH-COORD-v1: Multi-party coordination and consensus building. */
+export interface CoordinationCriteria {
+  description: string;
+  participants?: string[];
+  consensus_threshold?: number;
+  deadline?: string;
+}
+
+/** ACH-MON-v1: Monitoring, observation, threshold tracking, and alerts. */
 export interface MonitoringCriteria {
   description: string;
-  monitor_type?: 'threshold' | 'anomaly' | 'availability' | 'compliance' | 'change_detection';
-  target?: string;
-  condition?: string;
-  check_interval_seconds?: number;
-  alert_channels?: string[];
-  budget?: Denomination;
-  deadline?: string;
+  observed_resource?: string;
+  threshold?: number;
+  comparison?: 'gt' | 'lt' | 'eq' | 'gte' | 'lte';
+  duration_seconds?: number;
 }
 
-/** ACH-REVIEW-v1: Review and approval — an agent or human reviews an artifact and renders a decision. */
+/** ACH-REVIEW-v1: Review, approval, and quality gate decisions. */
 export interface ReviewCriteria {
   description: string;
-  artifact_ref: string;
-  artifact_type?: string;
-  review_criteria?: string[];
-  decision_options?: string[];
-  requires_justification?: boolean;
-  budget?: Denomination;
-  deadline?: string;
+  artifact_ref?: string;
+  reviewers?: string[];
+  approval_count?: number;
+  rubric?: Record<string, unknown>;
 }
 
 
 /** ACH-PROC-v1 receipt evidence. */
 export interface ProcurementEvidence {
-  item_secured: string;
-  quantity: number;
-  total_cost: Denomination;
-  supplier: { id: string; name: string; rating?: number };
-  confirmation_ref: string;
+  deliverable: string;
+  deliverable_type: string;
+  summary: string;
+  quantity_supplied?: number;
   unit_price?: Denomination;
+  total_cost?: Denomination;
+  supplier?: string;
   submitted_at?: string;
 }
 
@@ -290,10 +287,10 @@ export interface ProcurementEvidence {
 export interface DeliverableEvidence {
   deliverable: string;
   deliverable_type: string;
-  output_format?: string;
-  language?: string;
+  summary: string;
   item_count?: number;
-  total_cost?: Denomination;
+  language?: string;
+  word_count?: number;
   submitted_at?: string;
 }
 
@@ -301,75 +298,66 @@ export interface DeliverableEvidence {
 export interface DataProcessingEvidence {
   deliverable: string;
   deliverable_type: string;
-  output_format?: string;
+  summary?: string;
   row_count?: number;
-  total_cost?: Denomination;
+  byte_count?: number;
+  schema_summary?: string;
   submitted_at?: string;
 }
 
 /** ACH-TXN-v1 receipt evidence. */
 export interface TransactionEvidence {
-  confirmations: Array<{
-    type?: string;
-    provider?: string;
-    ref?: string;
-    transaction_id?: string;
-    amount?: number | Denomination;
-    status?: string;
-    timestamp?: string;
-    cost?: Denomination;
-  }>;
-  total_cost?: Denomination;
-  summary?: string;
+  deliverable: string;
+  deliverable_type: string;
+  summary: string;
+  amount?: Denomination;
+  reference?: string;
   submitted_at?: string;
 }
 
 /** ACH-ORCH-v1 receipt evidence. */
 export interface OrchestrationEvidence {
-  task_id: string;
-  status?: string;
-  deliverable?: string;
-  completed_by?: string;
-  completed_at?: string;
+  deliverable: string;
+  deliverable_type: string;
+  summary: string;
+  participants?: number;
+  sub_records_created?: number;
+  sub_records_fulfilled?: number;
+  submitted_at?: string;
 }
 
 /** ACH-COMM-v1 receipt evidence. */
 export interface CommunicationEvidence {
-  action: string;
-  message_id?: string;
-  recipient?: string;
-  channel?: string;
+  deliverable: string;
+  deliverable_type: string;
+  summary: string;
+  channel_type?: string;
   delivery_status?: string;
-  sent_at?: string;
-  webhook_url?: string;
-  event_type?: string;
-  response_code?: number;
+  recipients_count?: number;
+  delivery_receipt?: string;
+  submitted_at?: string;
 }
 
 /** ACH-AUTH-v1 receipt evidence. */
 export interface AuthorizationEvidence {
-  action: string;
-  target_identity?: string;
-  permission_scope?: string;
-  resource_scope?: string;
-  credential_id?: string;
-  status?: string;
-  expires_at?: string;
-  performed_at?: string;
+  deliverable: string;
+  deliverable_type: string;
+  summary: string;
+  approver?: string;
+  granted?: boolean;
+  granted_at?: string;
+  submitted_at?: string;
 }
 
 /** ACH-INFRA-v1 receipt evidence. */
 export interface InfrastructureEvidence {
   action: string;
-  resource_name?: string;
-  resource_type?: string;
-  status?: string;
-  deployment_id?: string;
-  environment?: string;
-  config_key?: string;
-  previous_value?: string;
-  new_value?: string;
-  performed_at?: string;
+  resource_name: string;
+  resource_type: string;
+  status: string;
+  environment: string;
+  cost?: Denomination;
+  submitted_at?: string;
 }
 
 /** ACH-ANALYZE-v1 receipt evidence. */
@@ -388,8 +376,8 @@ export interface CoordinationEvidence {
   deliverable_type: string;
   summary: string;
   participants_engaged?: number;
-  sub_mandates_created?: number;
-  sub_mandates_fulfilled?: number;
+  sub_records_created?: number;
+  sub_records_fulfilled?: number;
   submitted_at?: string;
 }
 
@@ -429,7 +417,7 @@ export interface ReviewEvidence {
 }
 
 
-/** Maps known contract type strings to their criteria interfaces. */
+/** Maps known Type strings to their criteria interfaces. */
 export interface CriteriaMap {
   'ACH-PROC-v1': ProcurementCriteria;
   'ACH-DLVR-v1': DeliverableCriteria;
@@ -446,7 +434,7 @@ export interface CriteriaMap {
   'ACH-REVIEW-v1': ReviewCriteria;
 }
 
-/** Maps known contract type strings to their evidence interfaces. */
+/** Maps known Type strings to their evidence interfaces. */
 export interface EvidenceMap {
   'ACH-PROC-v1': ProcurementEvidence;
   'ACH-DLVR-v1': DeliverableEvidence;
@@ -463,27 +451,27 @@ export interface EvidenceMap {
   'ACH-REVIEW-v1': ReviewEvidence;
 }
 
-/** Resolves to the typed criteria for known contract types, or Record<string, unknown> for unknown types. */
+/** Resolves to the typed criteria for known Types, or Record<string, unknown> for unknown Types. */
 export type CriteriaFor<T extends string> =
   T extends keyof CriteriaMap ? CriteriaMap[T] & Record<string, unknown> : Record<string, unknown>;
 
-/** Resolves to the typed evidence for known contract types, or Record<string, unknown> for unknown types. */
+/** Resolves to the typed evidence for known Types, or Record<string, unknown> for unknown Types. */
 export type EvidenceFor<T extends string> =
   T extends keyof EvidenceMap ? EvidenceMap[T] & Record<string, unknown> : Record<string, unknown>;
 
-/** Typed mandate creation params for a specific contract type. */
-export type TypedCreateMandateParams<T extends string> = Omit<CreateMandateParams, 'contractType' | 'criteria'> & {
-  contractType: T;
+/** Typed Record creation params for a specific Type. */
+export type TypedCreateRecordParams<T extends string> = Omit<CreateRecordParams, 'type' | 'criteria'> & {
+  type: T;
   criteria: CriteriaFor<T>;
 };
 
-/** Typed receipt submission params for a specific contract type. */
+/** Typed receipt submission params for a specific Type. */
 export type TypedSubmitReceiptParams<T extends string> = Omit<SubmitReceiptParams, 'evidence'> & {
   evidence: EvidenceFor<T>;
 };
 
-export interface ContractSchema {
-  contractType: ContractType;
+export interface TypeSchema {
+  type: RecordType;
   displayName?: string;
   description?: string;
   category?: string;
@@ -491,10 +479,10 @@ export interface ContractSchema {
   version?: number;
   latestVersion?: number;
   status?: SchemaVersionStatus;
-  mandateSchema: Record<string, unknown>;
+  recordSchema: Record<string, unknown>;
   receiptSchema: Record<string, unknown>;
   rulesConfig?: {
-    contractType?: string;
+    type?: string;
     syncRuleIds: string[];
     asyncRuleIds: string[];
     fieldMappings?: Record<string, unknown>[];
@@ -538,7 +526,7 @@ export interface MetaSchema {
   allowedFormats: string[];
   allowedRefs: string[];
   limits: {
-    contractTypeMaxLength: number;
+    typeMaxLength: number;
     maxFieldMappings: number;
     ruleIdPattern: string;
     ruleIdMaxLength: number;
@@ -556,7 +544,7 @@ export interface MetaSchema {
   };
   sharedSchemas: Record<string, unknown>;
   examples: {
-    minimalMandate: Record<string, unknown>;
+    minimalRecord: Record<string, unknown>;
     minimalReceipt: Record<string, unknown>;
   };
 }
@@ -564,7 +552,7 @@ export interface MetaSchema {
 /** Known values for SchemaFieldMapping.valueType. Accepts 'expression' for expression-based rules. */
 export type SchemaFieldMappingValueType = 'number' | 'denomination' | 'string' | 'boolean' | 'datetime' | 'expression';
 
-/** Field mapping between mandate criteria and receipt evidence for verification rules. */
+/** Field mapping between Record criteria and receipt evidence for verification rules. */
 export interface SchemaFieldMapping {
   ruleId: string;
   criteriaPath: string;
@@ -575,14 +563,14 @@ export interface SchemaFieldMapping {
   expression?: string;
 }
 
-/** Template for creating a new contract type schema. */
+/** Template for creating a new Record type schema. */
 export interface SchemaTemplate {
-  sourceType: ContractType | null;
+  sourceType: RecordType | null;
   template: {
-    contractType: string;
+    type: string;
     displayName: string;
     description: string;
-    mandateSchema: Record<string, unknown>;
+    recordSchema: Record<string, unknown>;
     receiptSchema: Record<string, unknown>;
     fieldMappings: SchemaFieldMapping[];
   };
@@ -590,12 +578,12 @@ export interface SchemaTemplate {
 
 /** Input for previewing a schema before registration. */
 export interface SchemaPreviewInput {
-  contractType: string;
+  type: string;
   displayName: string;
   description?: string;
   category?: string;
-  mandateSchema: Record<string, unknown>;
-  receiptSchema: Record<string, unknown>;
+  recordSchema: Record<string, unknown>;
+  receiptSchema?: Record<string, unknown>;
   fieldMappings?: SchemaFieldMapping[];
   compatibilityMode?: SchemaCompatibilityMode;
 }
@@ -616,10 +604,10 @@ export interface SchemaPreviewError {
 
 /** Result of diffing two schema versions. */
 export interface SchemaDiffResult {
-  contractType: ContractType;
+  type: RecordType;
   from: { version: number; createdAt: string; status: string };
   to: { version: number; createdAt: string; status: string };
-  mandate: { changes: SchemaDiffChange[] };
+  record: { changes: SchemaDiffChange[] };
   receipt: { changes: SchemaDiffChange[] };
   overallCompatibility: { backward: boolean; forward: boolean };
 }
@@ -636,7 +624,7 @@ export interface SchemaDiffChange {
 export interface SchemaExportResult {
   exportVersion: number;
   exportedAt: string;
-  contractType: ContractType;
+  type: RecordType;
   displayName: string;
   description: string;
   category: string;
@@ -649,7 +637,7 @@ export interface SchemaExportResult {
 export interface SchemaExportVersion {
   version: number;
   status: SchemaVersionStatus;
-  mandateSchema: Record<string, unknown>;
+  recordSchema: Record<string, unknown>;
   receiptSchema: Record<string, unknown>;
   rulesConfig: Record<string, unknown>;
   createdAt: string;
@@ -658,7 +646,9 @@ export interface SchemaExportVersion {
 /** Payload for importing a schema bundle. */
 export interface SchemaImportPayload {
   exportVersion: number;
-  contractType: string;
+  exportedAt?: string;
+  type: string;
+  compatibilityMode?: string;
   versions: Record<string, unknown>[];
   [key: string]: unknown;
 }
@@ -666,7 +656,7 @@ export interface SchemaImportPayload {
 /** Result of a schema import. */
 export interface SchemaImportResult {
   imported: {
-    contractType: string;
+    type: string;
     versionsCreated: number[];
     subjectIds: string[];
   };
@@ -676,19 +666,19 @@ export interface SchemaImportResult {
 export interface SchemaImportDryRunResult {
   valid: boolean;
   wouldCreate: {
-    contractType: string;
+    type: string;
     versions: number[];
   };
 }
 
-/** Parameters for registering a new custom contract type schema. */
+/** Parameters for registering a new custom Type schema. */
 export interface RegisterSchemaParams {
-  contractType: string;
+  type: string;
   displayName: string;
   description?: string;
   category?: string;
-  mandateSchema: Record<string, unknown>;
-  receiptSchema: Record<string, unknown>;
+  recordSchema: Record<string, unknown>;
+  receiptSchema?: Record<string, unknown>;
   fieldMappings?: SchemaFieldMapping[];
   compatibilityMode?: SchemaCompatibilityMode;
 }
@@ -696,7 +686,7 @@ export interface RegisterSchemaParams {
 /** Detail for a specific schema version. */
 export interface SchemaVersionDetail {
   id: string;
-  contractType: ContractType;
+  type: RecordType;
   version: number;
   enterpriseId: string | null;
   displayName: string;
@@ -717,7 +707,7 @@ export interface UpdateSchemaVersionParams {
 
 /** Result of a compatibility check against an existing schema. */
 export interface SchemaCompatibilityResult {
-  mandate: { compatible: boolean; changes: SchemaDiffChange[] };
+  record: { compatible: boolean; changes: SchemaDiffChange[] };
   receipt: { compatible: boolean; changes: SchemaDiffChange[] };
 }
 
@@ -734,31 +724,39 @@ export interface ImportSchemaOptions {
 }
 
 
-/** Performer's response to a mandate proposal. */
+/** Performer's response to a Record proposal. */
 export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED' | (string & {});
 
-/** Customer-facing mandate statuses. The API maps internal states to these display statuses. Accepts any string for forward compatibility. */
-export type MandateStatus =
+/** Customer-facing Record statuses. The API maps internal states to these display statuses. Accepts any string for forward compatibility. */
+export type RecordStatus =
   | 'CREATED'
   | 'PROPOSED'
   | 'ACTIVE'
   | 'PROCESSING'
   | 'REVISION_REQUESTED'
+  | 'DISPUTED'
   | 'FULFILLED'
   | 'FAILED'
   | 'REMEDIATED'
   | 'EXPIRED'
+  | 'PENDING_ARBITRATION'
   | 'CANCELLED'
   | 'REJECTED'
+  | 'RECORDED'
   | (string & {});
 
-/** Known values: register, activate, settle, cancel, refund. Accepts any string for forward compatibility. */
-export type MandateTransitionAction =
+/**
+ * Record transition action accepted by `POST /v1/records/{id}/transition`.
+ *
+ * Known values: register, propose, activate, cancel. Read `nextActions` on the
+ * Record response for the exact set valid right now — display state `CREATED`
+ * covers two internal states (DRAFT, REGISTERED) which accept different actions.
+ */
+export type RecordTransitionAction =
   | 'register'
+  | 'propose'
   | 'activate'
-  | 'settle'
   | 'cancel'
-  | 'refund'
   | (string & {});
 
 export type OperatingMode = 'cleartext' | 'encrypted';
@@ -767,82 +765,128 @@ export type VerificationMode = 'auto' | 'principal' | 'gated' | (string & {});
 
 export type RiskClassification = 'high' | 'limited' | 'minimal' | 'unclassified';
 
-/** Constraint inheritance mode from parent mandate. */
+/** Constraint inheritance mode from parent Record. */
 export type ConstraintInheritanceMode = 'none' | 'advisory' | 'enforced';
 
 /** Dispute evidence types. */
 export type EvidenceType = 'screenshot' | 'external_lookup' | 'document' | 'communication' | 'other' | (string & {});
 
+
 /**
- * A mandate — a registered commitment between a principal and a performer.
+ * Inline tamper-evident receipt for the head of a Record's audit chain.
+ *
+ * Lets a notarize-only caller verify the Record was chained without a
+ * follow-up call to `/v1/records/{id}/audit-export`.
+ */
+export interface VaultReceipt {
+  /** Per-Record monotonic chain position of the head entry (1-indexed). */
+  chainPosition: number;
+  /** Hex sha256 over the canonical (RFC 8785) entry payload. */
+  leafHash: string;
+  /** leafHash of the prior entry (null only on chainPosition === 1). */
+  previousHash: string | null;
+  /** Ed25519 signature over (chainPosition, leafHash, previousHash). Null when the engine boots without a vault signing key. */
+  signature: string | null;
+  /** ID of the vault signing key — resolves to a public key at GET /v1/verification-keys. */
+  signingKeyId: string | null;
+  /** Most recent signed checkpoint covering this chain position, or null until the next 6h sweep. */
+  signedCheckpointRef: string | null;
+}
+
+/**
+ * SCITT-style inclusion-proof receipt. Present only on tenant-admin
+ * cross-party reads — proves the read was logged.
+ */
+export interface RecordReadReceipt {
+  /** Per-enterprise monotonic leaf index in the tenant_admin_reads chain. */
+  leafIndex: number;
+  /** Hex sha256 of the canonical chain entry. */
+  leafHash: string;
+  /** Most recent signed checkpoint that includes this leaf, or null until the next 6h sweep covers it. */
+  signedCheckpointRef: string | null;
+}
+
+/**
+ * A Record — a registered commitment between a principal and a performer.
  * Records what was asked, by whom, and when. The contract is the product.
  *
- * v0.20.0: principal is always an agent (via `principalAgentId`). Admin keys
- * name the principal explicitly; agent keys default to self (which sets
- * `selfCommitment=true` when principal === performer).
+ * Named `RecordRow` (matching the API's openapi schema name) to avoid
+ * colliding with TypeScript's built-in `Record<K, V>` utility type.
  *
  * @example
  * ```ts
  * // Admin naming a principal
- * const mandate = await client.mandates.create({
+ * const record = await client.records.create({
  *   principalAgentId: 'agt_abc',
- *   contractType: 'ACH-PROC-v1',
+ *   type: 'ACH-PROC-v1',
  *   contractVersion: '1',
  *   platform: 'internal',
- *   criteria: { item: 'widgets', maxQuantity: 100 },
+ *   criteria: { item_spec: 'widgets', quantity: { target: 100 } },
  * });
  * ```
  */
-export interface Mandate {
-  /** Unique mandate ID (UUID). */
+export interface RecordRow {
+  /** Unique Record ID (UUID). */
   id: string;
-  /** Enterprise tenant that owns this mandate (null when no enterprise scope). */
-  enterpriseId: string | null;
+  /** Enterprise tenant that owns this Record. */
+  enterpriseId: string;
   /** Agent assigned as performer, or null if unassigned. */
   agentId: string | null;
-  /** Agentic Contract Specification type (e.g., 'ACH-PROC-v1'). */
-  contractType: ContractType;
-  /** Version of the contract schema. */
+  /** Agent ID of the principal. */
+  principalAgentId: string;
+  /** API key that created this Record (admin, agent, or platform). See audit_vault for the chain of custody. */
+  createdByKeyId: string;
+  /** Record Type, e.g. 'ACH-PROC-v1'. */
+  type: RecordType;
+  /** Version of the Type schema. */
   contractVersion: string;
-  /** Platform where this mandate operates. */
+  /** Platform where this Record operates. */
   platform: string;
   /** External reference ID on the platform. */
-  platformRef?: string;
+  platformRef?: string | null;
   /** Current lifecycle status. Use `getValidTransitions()` to see allowed next states. */
-  status: MandateStatus;
-  /** Acceptance criteria — what the performer must deliver. Typed per contract type. */
+  status: RecordStatus;
+  /** Acceptance criteria — what the performer must deliver. Typed per Type. */
   criteria: Record<string, unknown>;
-  /** Tolerance bands for numeric criteria (e.g., quantity_pct: 5 allows 5% variance). */
+  /** Tolerance bands for numeric criteria (e.g., quantityPct: 5 allows 5% variance). */
   tolerance?: Record<string, unknown>;
   /** ISO 8601 deadline for completion. */
-  deadline?: string;
+  deadline?: string | null;
   /** Commission percentage for the performing agent. */
-  commissionPct?: number;
+  commissionPct?: number | null;
+  /** Computed commission amount, or null. */
+  commissionAmount?: number | null;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
   /** Verification mode: auto (rules auto-settle), principal (hold for verdict), gated (rules then verdict). */
   verificationMode?: VerificationMode;
   /** EU AI Act risk classification. */
   riskClassification?: RiskClassification;
-  /** EU AI Act domain (e.g., 'healthcare', 'finance'). */
-  euAiActDomain?: string;
+  /** EU AI Act high-risk domain (only when riskClassification=high). */
+  euAiActDomain?: string | null;
   /** Human oversight configuration for EU AI Act compliance. */
-  humanOversight?: Record<string, unknown>;
-  /** Performer's response to a proposed mandate. */
-  acceptanceStatus?: AcceptanceStatus;
-  /** Project grouping reference for related mandates. */
-  projectRef?: string;
-  /** Parent mandate ID in a delegation chain. */
-  parentMandateId?: string;
-  /** Root mandate ID at the top of the delegation chain. */
-  rootMandateId?: string;
+  humanOversight?: Record<string, unknown> | null;
+  /** Performer's response to a proposed Record. */
+  acceptanceStatus?: AcceptanceStatus | null;
+  /** ISO 8601 timestamp when the performer responded to a proposal. */
+  acceptanceRespondedAt?: string | null;
+  /** Project grouping reference for related Records. */
+  projectRef?: string | null;
+  /** Parent Record ID in a delegation chain. */
+  parentRecordId?: string | null;
+  /** Root Record ID at the top of the delegation chain. */
+  rootRecordId?: string | null;
   /** Depth in the delegation chain (0 = root). */
   chainDepth?: number;
+  /** IDs of child Records in the delegation chain (present on single-Record fetch only). */
+  childRecordIds?: string[];
+  /** Delegation-shell indicator: true when parent's principal enterprise equals this child's performer enterprise. NULL on root and on children without a performer. Informational only. */
+  parentPrincipalEnterpriseMatchesPerformer?: boolean | null;
   /** Reason provided for the last state transition. */
   lastTransitionReason?: string | null;
   /** Actor who triggered the last state transition. */
   lastTransitionBy?: string | null;
-  /** Reason from the most recent verdict or revision request. Unlike lastTransitionReason, this persists across subsequent state changes. */
+  /** Reason from the most recent verdict or revision request. Persists across subsequent state changes. */
   lastVerdictReason?: string | null;
   /** ISO 8601 timestamp of the most recent verdict or revision request. */
   lastVerdictAt?: string | null;
@@ -850,55 +894,63 @@ export interface Mandate {
   submissionCount: number;
   /** Maximum allowed submissions, or null for unlimited. */
   maxSubmissions: number | null;
+  /** Number of revisions consumed by RESUBMIT_RECEIPT calls. */
+  revisionCount?: number;
+  /** Maximum revisions allowed before OVERFLOW_REJECT (default 3). */
+  maxRevisions?: number;
+  /** Number of disputes opened against this Record. */
+  disputeCount?: number;
+  /** Maximum disputes allowed (default 1 in v1). */
+  maxDisputes?: number;
+  /** True iff a deadline is set AND has passed. */
+  pastDeadline?: boolean;
   /** Optimistic concurrency version. */
   version: number;
   /** ISO 8601 creation timestamp. */
   createdAt: string;
   /** ISO 8601 last update timestamp. */
   updatedAt: string;
-  /** ISO 8601 timestamp when the mandate was activated. */
-  activatedAt?: string;
-  /** ISO 8601 timestamp when the mandate was fulfilled. */
-  fulfilledAt?: string;
-  /** Valid next actions from current state (e.g. 'register', 'activate', 'cancel'). */
+  /** ISO 8601 timestamp when the Record was activated. */
+  activatedAt?: string | null;
+  /** ISO 8601 timestamp when the Record was fulfilled. */
+  fulfilledAt?: string | null;
+  /** Valid next actions from current state — exact action names accepted by /transition right now. */
   nextActions?: string[];
   /** Valid target statuses from current state. */
   validTransitions?: string[];
   /** Hint for receipt evidence fields, or null if no receipt expected. Use schemaUrl for the full JSON Schema. */
-  receiptHint?: { requiredFields: string[]; schemaUrl?: string } | null;
+  receiptHint?: { requiredFields: string[]; optionalFields?: string[]; schemaUrl?: string } | null;
   /** Advisory enforcement warnings from the most recent transition. */
   advisoryWarnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
-  /** URL to the contract type schema definition. */
+  /** URL to the Type schema definition. */
   schemaUrl?: string;
   /** Verification check results, or null if not yet verified. */
   verificationChecks?: Record<string, unknown> | null;
   /** Overall verification outcome: PASS, FAIL, or null if not verified. */
   verificationOutcome?: 'PASS' | 'FAIL' | null;
-  /** Agent ID of the principal. Always an agent in v0.20.0+. */
-  principalAgentId?: string;
-  /** True when principal and performer are the same agent (server-computed). */
+  /** True when principal and performer are the same agent at creation. Auto-verdict is blocked on self-commits. */
   selfCommitment?: boolean;
-  /** IDs of child mandates in a delegation chain. */
-  childMandateIds?: string[];
-  /** Calculated commission amount, or null. */
-  commissionAmount?: number | null;
-  /** Constraint inheritance mode from parent mandate. */
+  /** Constraint inheritance mode from parent Record. */
   constraintInheritance?: ConstraintInheritanceMode;
   /** True when a transition was a no-op (already in target state). */
   noOp?: boolean;
-  /** Project ID for grouping related mandates. */
-  projectId?: string | null;
   /** External task ID from the caller's system. */
   externalTaskId?: string | null;
-  /** Mandate IDs this mandate depends on. */
+  /** Record IDs this Record depends on. */
   dependsOn?: string[];
   /** Per-field enforcement overrides. */
   enforcementOverrides?: Record<string, unknown> | null;
-  /** Arbitrary metadata attached to the mandate. */
+  /** Arbitrary metadata attached to the Record. */
   metadata?: Record<string, unknown> | null;
-  /** ISO 8601 timestamp when the performer responded to a proposal. */
-  acceptanceRespondedAt?: string | null;
-  /** External entity references attached to this mandate (present on single-mandate fetch only). */
+  /** Free-form taxonomy of what kind of artifact this Record represents — denormalized from the Type at create. Immutable. */
+  category?: string | null;
+  /** Optional free-form outcome supplied at create. Stored on metadata.outcome and surfaced here regardless of Type. */
+  outcome?: 'success' | 'failure' | 'denied' | 'partial' | (string & {}) | null;
+  /** Optional grouping ID supplied at create. Multiple Records sharing a correlationId can be queried via /v1/records/search?correlationId=... */
+  correlationId?: string | null;
+  /** Free-form identifier of the human or upstream system that asked for the work. */
+  requestedBy?: string | null;
+  /** External entity references attached to this Record (present on single-Record fetch only). */
   references?: Array<{
     id: string;
     system: string;
@@ -910,22 +962,25 @@ export interface Mandate {
     createdAt: string;
     createdBy: string;
   }>;
-  /** Suggested next API calls based on current mandate state. */
+  /** Suggested next API calls based on current Record state. */
   nextSteps?: NextStep[];
+  /** Inline tamper-evident receipt for the head of this Record's audit chain. */
+  vaultReceipt?: VaultReceipt;
+  /** SCITT-style inclusion-proof receipt; present only on tenant-admin cross-party reads. */
+  recordRead?: RecordReadReceipt;
 }
 
 /**
- * Parameters for creating a new mandate via the unified `POST /v1/mandates`
- * endpoint. v0.20.0 collapsed the separate admin/agent creation paths.
+ * Parameters for `POST /v1/records`.
  *
  * - Admin keys: set `principalAgentId` to name the principal explicitly.
  * - Agent keys: `principalAgentId` may be omitted; the server defaults it to
  *   the authenticated agent. Set `performerAgentId` to delegate to another agent.
  */
-export interface CreateMandateParams {
+export interface CreateRecordParams {
   /**
    * Agent ID that serves as principal (the party assigning the work).
-   * Required for admin-authored mandates; optional for agent keys (defaults
+   * Required for admin-authored Records; optional for agent keys (defaults
    * to the authenticated agent).
    */
   principalAgentId?: string;
@@ -938,23 +993,23 @@ export interface CreateMandateParams {
    * the server to infer from the key's tenant context.
    */
   enterpriseId?: string;
-  /** Contract type (e.g., 'ACH-PROC-v1'). Determines criteria schema. */
-  contractType: ContractType;
-  /** Contract schema version. */
+  /** Record Type, e.g. 'ACH-PROC-v1'. Determines criteria schema. */
+  type: RecordType;
+  /** Type schema version. */
   contractVersion?: string;
   /** Platform identifier. */
   platform?: string;
   /** External reference ID on the platform. */
   platformRef?: string;
-  /** Acceptance criteria. Typed per contract type when using generic overload. */
+  /** Acceptance criteria. Typed per Type when using generic overload. */
   criteria: Record<string, unknown>;
-  /** Numeric tolerance bands (e.g., `{ quantity_pct: 5 }`). */
+  /** Numeric tolerance bands (e.g., `{ quantityPct: 5 }`). */
   tolerance?: Record<string, unknown>;
   /** ISO 8601 deadline for completion. */
   deadline?: string;
   /** Commission percentage for the performing agent. */
   commissionPct?: number;
-  /** Max receipt submissions allowed (1-100). Null/omit for unlimited. */
+  /** Max receipt submissions allowed. Null/omit for unlimited. */
   maxSubmissions?: number;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
@@ -966,14 +1021,24 @@ export interface CreateMandateParams {
   euAiActDomain?: string;
   /** Human oversight configuration. */
   humanOversight?: Record<string, unknown>;
-  /** Parent mandate ID for delegation. */
-  parentMandateId?: string;
+  /** Parent Record ID for delegation. */
+  parentRecordId?: string;
   /** External task ID from caller's system. */
   externalTaskId?: string;
-  /** Mandate IDs this depends on. */
+  /** Project grouping reference. */
+  projectRef?: string;
+  /** Record IDs this depends on. */
   dependsOn?: string[];
   /** Arbitrary metadata. */
   metadata?: Record<string, unknown>;
+  /** Free-form category — surfaced on the response. */
+  category?: string;
+  /** Optional outcome (success/failure/denied/partial); stored on metadata.outcome and surfaced on the response. */
+  outcome?: 'success' | 'failure' | 'denied' | 'partial' | (string & {});
+  /** Optional grouping ID — multiple Records sharing a correlationId can be queried together. */
+  correlationId?: string;
+  /** Free-form identifier of the human or upstream system that asked for the work. */
+  requestedBy?: string;
   /** Auto-transition to ACTIVE after create (CREATED → register → activate in one request). */
   autoActivate?: boolean;
   /** Proposal message shown to the performer for A2A negotiation. */
@@ -984,7 +1049,7 @@ export interface CreateMandateParams {
   enforcementOverrides?: Record<string, unknown>;
 }
 
-export interface UpdateMandateParams {
+export interface UpdateRecordParams {
   criteria?: Record<string, unknown>;
   tolerance?: Record<string, unknown>;
   deadline?: string;
@@ -994,15 +1059,15 @@ export interface UpdateMandateParams {
   metadata?: Record<string, unknown>;
 }
 
-export interface ListMandatesParams extends ListParams {
+export interface ListRecordsParams extends ListParams {
   enterpriseId?: string;
-  status?: MandateStatus;
+  status?: RecordStatus;
 }
 
-export interface SearchMandatesParams extends ListParams {
+export interface SearchRecordsParams extends ListParams {
   enterpriseId?: string;
-  status?: MandateStatus;
-  contractType?: ContractType;
+  status?: RecordStatus;
+  type?: RecordType;
   agentId?: string;
   principalAgentId?: string;
   performerAgentId?: string;
@@ -1011,7 +1076,8 @@ export interface SearchMandatesParams extends ListParams {
   sort?: string;
   order?: 'asc' | 'desc';
   externalTaskId?: string;
-  parentMandateId?: string;
+  parentRecordId?: string;
+  correlationId?: string;
   updatedAfter?: string;
   updatedBefore?: string;
   verificationMode?: VerificationMode;
@@ -1020,20 +1086,20 @@ export interface SearchMandatesParams extends ListParams {
 }
 
 /**
- * Parameters for delegating a mandate (child mandate under a parent).
- * Creates a mandate via the unified `POST /v1/mandates` with `parentMandateId`.
+ * Parameters for delegating a Record (child Record under a parent).
+ * Creates a Record via the unified `POST /v1/records` with `parentRecordId`.
  */
-export interface DelegateMandateParams {
+export interface DelegateRecordParams {
   principalAgentId?: string;
   performerAgentId?: string;
-  contractType: ContractType;
+  type: RecordType;
   contractVersion?: string;
   platform?: string;
   criteria: Record<string, unknown>;
   commissionPct?: number;
 }
 
-/** Parameters for counter-proposing modified terms on a mandate. */
+/** Parameters for counter-proposing modified terms on a Record. */
 export interface CounterProposeParams {
   counterCriteria?: Record<string, unknown>;
   counterTolerance?: Record<string, unknown>;
@@ -1042,9 +1108,15 @@ export interface CounterProposeParams {
   message?: string;
 }
 
-/** Result of a batch mandate fetch. */
-export interface BatchGetMandatesResult {
-  data: Mandate[];
+/** Result of a batch Record fetch. */
+export interface BatchGetRecordsResult {
+  data: RecordRow[];
+}
+
+/** Per-item options for bulk-create. */
+export interface BulkCreateRecordItem extends CreateRecordParams {
+  /** Per-Record idempotency key (caller-supplied). Replay-safe for high-volume notarize ingest. Scoped to (callerOwnerId, key); 7-day TTL. */
+  idempotencyKey?: string;
 }
 
 
@@ -1052,12 +1124,12 @@ export interface BatchGetMandatesResult {
 export type StructuralValidation = 'ACCEPTED' | 'INVALID' | 'WARNING' | (string & {});
 
 /**
- * A receipt — structured evidence submitted by a performer claiming completion of a mandate.
+ * A receipt — structured evidence submitted by a performer claiming completion of a Record.
  * The principal reviews the receipt and renders a verdict (accept/reject).
  */
 export interface Receipt {
   id: string;
-  mandateId: string;
+  recordId: string;
   agentId: string;
   evidence: Record<string, unknown>;
   evidenceHash?: string;
@@ -1067,8 +1139,8 @@ export interface Receipt {
   validationErrors?: string[] | null;
   /** Validation warnings (non-blocking). */
   warnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
-  /** Current status of the parent mandate (denormalized). */
-  mandateStatus?: MandateStatus;
+  /** Current status of the parent Record (denormalized). */
+  recordStatus?: RecordStatus;
   /** Idempotency key used when submitting. */
   idempotencyKey?: string | null;
   createdAt: string;
@@ -1089,7 +1161,7 @@ export type VerificationOutcome = 'PASS' | 'FAIL' | 'REVIEW_REQUIRED' | (string 
 export type SettlementSignal = 'SETTLE' | 'HOLD' | 'RELEASE' | (string & {});
 
 export interface VerificationResult {
-  mandateId: string;
+  recordId: string;
   receipts: Array<{
     receiptId: string;
     phase1Result?: Record<string, unknown>;
@@ -1099,7 +1171,7 @@ export interface VerificationResult {
 }
 
 export interface VerificationStatus {
-  mandateId: string;
+  recordId: string;
   phase1Status: string;
   phase2Status: string;
   lastVerifiedAt?: string;
@@ -1114,7 +1186,7 @@ export interface ReportOutcomeParams {
 }
 
 export interface OutcomeResult {
-  mandateId: string;
+  recordId: string;
   receiptId: string;
   outcome: 'PASS' | 'FAIL';
   signal: SettlementSignal;
@@ -1125,7 +1197,7 @@ export interface OutcomeResult {
 }
 
 
-export interface MandateStatusSummary {
+export interface RecordStatusSummary {
   countsByStatus: Record<string, number>;
   total: number;
 }
@@ -1147,7 +1219,7 @@ export type DisputeStatus =
 export type DisputeGrounds =
   | 'equivalent_item'
   | 'fraudulent_receipt'
-  | 'mandate_ambiguity'
+  | 'record_ambiguity'
   | 'pricing_dispute'
   | 'quality_issue'
   | 'other'
@@ -1156,7 +1228,7 @@ export type DisputeGrounds =
 /** Dispute object. Note: GET /dispute returns { dispute, evidence } envelope. */
 export interface Dispute {
   id: string;
-  mandateId: string;
+  recordId: string;
   initiatedByRole: string;
   initiatedById: string;
   grounds: DisputeGrounds;
@@ -1186,35 +1258,38 @@ export interface CreateDisputeParams {
   context?: string;
 }
 
+/** Query parameters for the tenant-wide dispute listing. */
+export interface ListDisputesParams extends ListParams {
+  status?: DisputeStatus;
+  recordId?: string;
+}
+
 
 /** Known webhook event types matching the AGLedger API. Accepts any string for forward compatibility. */
 export type WebhookEventType =
-  | 'mandate.created'
-  | 'mandate.receipt_submitted'
-  | 'mandate.verification_complete'
-  | 'mandate.fulfilled'
-  | 'mandate.settled'
-  | 'mandate.failed'
-  | 'mandate.expired'
-  | 'mandate.cancelled'
-  | 'mandate.proposed'
-  | 'mandate.proposal_accepted'
-  | 'mandate.proposal_rejected'
-  | 'mandate.delegated'
+  | 'record.created'
+  | 'record.receipt_submitted'
+  | 'record.verification_complete'
+  | 'record.fulfilled'
+  | 'record.settled'
+  | 'record.failed'
+  | 'record.expired'
+  | 'record.cancelled'
+  | 'record.proposed'
+  | 'record.proposal_accepted'
+  | 'record.proposal_rejected'
+  | 'record.delegated'
   | 'signal.emitted'
   | 'dispute.opened'
   | 'dispute.resolved'
-  | 'proxy.session.synced'
-  | 'proxy.mandate.detected'
-  | 'proxy.mandate.formalized'
-  | 'mandate.revision_requested'
-  | 'federation.mandate.offered'
-  | 'federation.mandate.accepted'
-  | 'federation.mandate.state_changed'
+  | 'record.revision_requested'
+  | 'federation.record.offered'
+  | 'federation.record.accepted'
+  | 'federation.record.state_changed'
   | 'federation.settlement.signal'
   | 'federation.gateway.registered'
   | 'federation.gateway.revoked'
-  | 'mandate.reference_added'
+  | 'record.reference_added'
   | 'agent.reference_added'
   | (string & {});
 
@@ -1273,17 +1348,17 @@ export interface WebhookTestResult {
 }
 
 
-/** Per-contract-type reputation score for an agent. */
+/** Per-Type reputation score for an agent. */
 export interface ReputationScore {
   agentId: string;
-  contractType: string;
+  type: string;
   reliabilityScore: number;
   accuracyScore: number;
   efficiencyScore: number;
   compositeScore: number;
   confidenceLevel: string;
   formulaVersion: string;
-  totalMandates: number;
+  totalRecords: number;
   totalPassed: number;
   totalVerified: number;
   lastUpdatedAt: string;
@@ -1292,37 +1367,33 @@ export interface ReputationScore {
 
 /** Transaction history entry for an agent. */
 export interface ReputationHistoryEntry {
-  mandateId: string;
-  contractType: string;
+  recordId: string;
+  type: string;
   status: string;
   outcome: string;
   createdAt: string;
   completedAt?: string;
 }
 
+/** Per (principal, performer) verdict statistics surfaced by `/v1/records/me/verdict-statistics`. */
+export interface VerdictStatistics {
+  data: Array<{
+    principalAgentId: string;
+    performerAgentId: string;
+    verdictPassCount: number;
+    verdictFailCount: number;
+    cancelAfterReceiptCount: number;
+  }>;
+}
+
 
 export interface AgledgerEvent {
   id: string;
   eventType: string;
-  mandateId: string | null;
+  recordId: string | null;
   agentId: string | null;
   payload: Record<string, unknown>;
   createdAt: string;
-}
-
-export interface AuditChain {
-  mandateId: string;
-  chainStart: string;
-  entries: Array<{
-    index: number;
-    hash: string;
-    previousHash: string | null;
-    event: string;
-    actor: string;
-    timestamp: string;
-    signature?: string;
-  }>;
-  isValid: boolean;
 }
 
 
@@ -1341,13 +1412,13 @@ export interface ExportComplianceParams {
     enterpriseId?: string;
     from?: string;
     to?: string;
-    contractTypes?: ContractType[];
+    types?: RecordType[];
   };
 }
 
 export interface AiImpactAssessment {
   id: string;
-  mandateId: string;
+  recordId: string;
   riskLevel: RiskClassification;
   domain: string;
   overseerName?: string;
@@ -1364,7 +1435,7 @@ export interface CreateAiImpactAssessmentParams {
 }
 
 export interface EuAiActReport {
-  mandates: Array<{
+  records: Array<{
     id: string;
     riskClassification: RiskClassification;
     domain: string;
@@ -1382,7 +1453,7 @@ export type ComplianceRecordType = 'workplace_notification' | 'affected_persons'
 
 export interface ComplianceRecord {
   id: string;
-  mandateId: string;
+  recordId: string;
   enterpriseId: string;
   recordType: ComplianceRecordType;
   attestation: Record<string, unknown>;
@@ -1400,9 +1471,9 @@ export interface CreateComplianceRecordParams {
 
 
 /**
- * Actor envelope embedded in canonical audit payloads in v0.20.0+.
- * Hash-chained into the payload so callers can attribute each vault entry
- * to a specific API key / role / owner without trusting external metadata.
+ * Actor envelope embedded in canonical audit payloads, hash-chained into
+ * the payload so callers can attribute each vault entry to a specific API
+ * key / role / owner without trusting external metadata.
  */
 export interface AuditActor {
   actor_key_id: string | null;
@@ -1416,32 +1487,35 @@ export interface AuditExportEntry {
   entryType: string;
   description: string;
   payload: Record<string, unknown>;
-  /**
-   * Actor envelope surfaced from canonical payload's `_actor` key. Present
-   * in v0.20.0+ vault entries; absent in entries signed by older servers.
-   */
+  /** Actor envelope surfaced from canonical payload's `_actor` key. */
   actor?: AuditActor;
   integrity: {
     payloadHash: string;
-    /** Hash algorithm (e.g., 'SHA-256'). Optional for backward compatibility. */
+    /** Hash algorithm (e.g., 'SHA-256'). */
     hashAlg?: string;
     previousHash: string | null;
     signature: string | null;
-    /** Signature algorithm (e.g., 'Ed25519'). Optional for backward compatibility. */
+    /** Signature algorithm (e.g., 'Ed25519'). */
     signatureAlg?: string;
     signingKeyId: string | null;
     valid: boolean;
   };
 }
 
-export interface MandateAuditExport {
+/** Audit export envelope returned by GET /v1/records/{id}/audit-export. */
+export interface RecordAuditExport {
   exportMetadata: {
-    mandateId: string;
+    recordId: string;
     enterpriseId: string | null;
-    contractType: string;
+    /** Record Type. */
+    type: string;
+    operatingMode?: 'cleartext' | 'encrypted';
     exportDate: string;
     totalEntries: number;
+    /** Latest signed checkpoint position for this Record, or null if no checkpoint has been written yet. */
+    expectedEntries?: number | null;
     chainIntegrity: boolean;
+    chainIntegrityReason?: 'chain_broken_at' | 'audit_vault_row_missing_for_checkpoint' | 'checkpoint_hash_mismatch' | null;
     exportFormatVersion: string;
     canonicalization: string;
     /** Active signing key at export time (SPKI DER base64). */
@@ -1449,7 +1523,7 @@ export interface MandateAuditExport {
     /**
      * Map of keyId → SPKI DER base64 public key. Includes retired keys referenced
      * by entries in this export. Required for offline verification when keys
-     * have rotated mid-trail. Optional for backward compatibility.
+     * have rotated mid-trail.
      */
     signingPublicKeys?: Record<string, string>;
   };
@@ -1476,14 +1550,119 @@ export interface AuditStreamResult {
 }
 
 
-/**
- * Top-level role bound to an API key.
- * v0.20.0 renamed `enterprise` → `admin`; there is no backward-compatible alias.
- */
-export type ApiKeyRole = 'admin' | 'agent' | 'platform';
+/** Tenant-admin reads checkpoint (SCITT-style signed tree head). */
+export interface TenantReadsCheckpoint {
+  id: string;
+  enterpriseId: string;
+  treeSize: number;
+  rootHash: string;
+  /** Signed tree head bytes (base64 or canonical-bytes form, deployment-defined). */
+  sthBytes?: string;
+  signature?: string | null;
+  signingKeyId?: string | null;
+  createdAt: string;
+  /** Witness cosignatures attached after creation. */
+  cosignatures?: Array<{
+    witnessKeyId: string;
+    witnessSignature: string;
+    cosignedAt: string;
+  }>;
+}
 
-/** @deprecated Use `ApiKeyRole` — kept as an alias for migration ergonomics. */
-export type AccountType = ApiKeyRole;
+/** Cosign payload for a tenant-reads checkpoint. */
+export interface CosignCheckpointParams {
+  /** Identifier for the witness key (verifier-supplied; e.g. fingerprint or DID). */
+  witnessKeyId: string;
+  /** Witness signature over the checkpoint's STH bytes. Format/algorithm is the customer's choice. */
+  witnessSignature: string;
+}
+
+/** Inclusion-proof response for a leaf within a tenant-reads checkpoint. */
+export interface TenantReadsInclusionProof {
+  checkpointId: string;
+  leafIndex: number;
+  leafHash: string;
+  /** Sibling hashes from leaf up to the signed root. */
+  proof: string[];
+  rootHash: string;
+}
+
+
+/** Vault scan job request body for `POST /v1/admin/vault/scan`. */
+export interface StartVaultScanParams {
+  /** Optional list of Record IDs to scan. Omit to scan all Records. */
+  recordIds?: string[];
+  /** Convenience: scan a single Record. Merged into recordIds if both are given. */
+  recordId?: string;
+}
+
+/** Vault anchor verify request body. */
+export interface VerifyVaultAnchorsParams {
+  recordId: string;
+  /** Specific chain position to verify (omit for latest 10). */
+  chainPosition?: number;
+}
+
+
+/** Backfill source entry for `POST /v1/admin/records/import`. */
+export interface BackfillRecord {
+  principalAgentId: string;
+  performerAgentId?: string | null;
+  type: string;
+  contractVersion?: string;
+  platform: string;
+  platformRef?: string | null;
+  criteria: Record<string, unknown>;
+  /** Terminal status from the historical system. */
+  terminalStatus:
+    | 'FULFILLED'
+    | 'REMEDIATED'
+    | 'EXPIRED'
+    | 'REJECTED'
+    | 'VERIFIED_FAIL'
+    | 'CANCELLED_DRAFT'
+    | 'CANCELLED_PRE_WORK'
+    | 'CANCELLED_IN_PROGRESS'
+    | (string & {});
+  createdAt: string;
+  activatedAt?: string;
+  /** Required when terminalStatus = 'FULFILLED'. */
+  fulfilledAt?: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface AdminImportRecordsParams {
+  enterpriseId: string;
+  /** Free-form label identifying the source system. Recorded in every imported vault entry. */
+  source: string;
+  /** Up to 100 entries per batch. */
+  records: BackfillRecord[];
+}
+
+export interface AdminImportRecordsResult {
+  imported: number;
+  recordIds: string[];
+  /** Source label that was recorded in vault entries. */
+  source: string;
+  /** Suggested next API calls (e.g. spot-check audit export of the first imported Record). */
+  nextSteps?: NextStep[];
+}
+
+/** Query parameters for `GET /v1/admin/records`. */
+export interface QueryAdminRecordsParams extends ListParams {
+  enterpriseId?: string;
+  status?: string;
+  type?: string;
+  agentId?: string;
+  sort?: string;
+  order?: 'asc' | 'desc';
+  from?: string;
+  to?: string;
+}
+
+
+export type { ApiKeyRole } from './scopes.js';
+import type { ApiKeyRole } from './scopes.js';
 
 export interface AccountProfile {
   apiKeyId: string;
@@ -1525,7 +1704,7 @@ export interface StatusResponse {
 export interface ConformanceResponse {
   protocolVersion: string;
   features: string[];
-  contractTypes: ContractType[];
+  types: RecordType[];
   maxBatchSize?: number;
   rateLimits?: {
     requests: number;
@@ -1541,7 +1720,7 @@ export interface AdminEnterprise {
   /** URL-safe identifier for the enterprise. Auto-generated if omitted on create. */
   slug: string;
   email?: string | null;
-  mandateCount?: number;
+  recordCount?: number;
   createdAt: string;
   /** Suggested next API calls after enterprise creation. */
   nextSteps?: NextStep[];
@@ -1554,7 +1733,7 @@ export interface AdminAgent {
   slug: string;
   email?: string | null;
   agentCardUrl?: string | null;
-  mandateCount?: number;
+  recordCount?: number;
   createdAt: string;
   /** Suggested next API calls after agent creation. */
   nextSteps?: NextStep[];
@@ -1603,14 +1782,6 @@ export interface EnterpriseConfig {
 /**
  * Parameters for replacing enterprise configuration (desired-state semantics).
  * The entire config object is replaced — omitted fields are removed.
- * @example
- * ```ts
- * await client.admin.setEnterpriseConfig('ent_abc123', {
- *   agentApprovalRequired: true,
- *   allowSelfApproval: false,
- *   defaultScopes: ['mandate:read', 'receipt:write'],
- * });
- * ```
  */
 export interface SetEnterpriseConfigParams {
   [key: string]: unknown;
@@ -1753,8 +1924,8 @@ export interface ScopeProfileInfo {
   scopes: string[];
 }
 
-/** Mandate lifecycle discovery response (`GET /lifecycle`). */
-export interface MandateLifecycleInfo {
+/** Record lifecycle discovery response (`GET /lifecycle`). */
+export interface RecordLifecycleInfo {
   statuses: string[];
   transitions: Record<string, string[]>;
   terminalStatuses: string[];
@@ -1802,17 +1973,75 @@ export interface JsonRpcResponse {
 }
 
 
+/**
+ * RFC 9457 problem-details response shape returned by the API on every error
+ * (`application/problem+json`). The SDK tolerates absent fields; only `error`
+ * and `message` are practically guaranteed.
+ */
 export interface ApiErrorResponse {
-  error: string;
-  message: string;
+  // RFC 9457 standard fields
+  type?: string;
+  title?: string;
+  status?: number;
+  detail?: string;
+  instance?: string;
+
+  // AGLedger extension fields
+  /** Machine-readable error code (e.g., NOT_FOUND, VALIDATION_ERROR, FORBIDDEN). */
+  error?: string;
+  /** Human-readable error description. */
+  message?: string;
+  /** Unique request identifier for support correlation. */
   requestId?: string;
+  /** Stable code alias — some endpoints set `code`, others set `error`; SDK normalizes. */
   code?: string;
+  /** Whether the client should retry this request. */
   retryable?: boolean;
-  details?: ValidationErrorDetail[] | Record<string, unknown>;
-  /** Recovery hint forwarded from the API body when present. */
+  /** Validation error details (present on 400/422). */
+  details?: ValidationErrorDetail[] | Record<string, unknown> | unknown[] | null;
+  /** Structured validation errors (RFC 9457 extension, present on 400). */
+  errors?: Record<string, unknown>[] | null;
+  /** Suggested correction when a typo is detected. */
   suggestion?: string;
-  /** Documentation link forwarded from the API body when present. */
+  /** Documentation link. */
   docUrl?: string;
+  /** Machine-readable recovery guidance pointing to relevant endpoints. */
+  recoveryHint?: string;
+  /** Concrete GET URL the agent should re-fetch (set on 422 INVALID_ACTION when the path includes a Record id). */
+  refreshUrl?: string;
+  /** Permission scopes the key is missing on 403. */
+  missingScopes?: string[];
+  /** License features missing for the current tier. */
+  missingFeatures?: string[];
+  /** Current license tier. */
+  currentTier?: string;
+  /** Required tier for the missing features. */
+  requiredTier?: string;
+  /** Guided next actions for AI agents. */
+  nextSteps?: NextStep[];
+  /** State details for 422 INVALID_ACTION. */
+  currentState?: string;
+  attemptedAction?: string;
+  attemptedTransition?: string;
+  validTransitions?: string[];
+  allowedActions?: string[];
+  /** Permitted enum values when a field failed an enum constraint or "no such X" lookup. */
+  allowedValues?: unknown[];
+  /** Role/actor labels permitted for this action. */
+  allowedActors?: string[];
+  /** Reason code for 409 conflicts. */
+  reason?: string;
+  /** Schema/field hints for 400 record/receipt creation errors. */
+  hint?: string;
+  requiredFields?: string[];
+  optionalFields?: string[];
+  examplePayload?: Record<string, unknown>;
+  schemaUrl?: string;
+  recordType?: string;
+  /** Schema validation errors. */
+  validationErrors?: Record<string, unknown>[];
+  constraintViolations?: Record<string, unknown>[];
+  constraint?: string;
 }
 
 export interface ValidationErrorDetail {
@@ -1824,7 +2053,7 @@ export interface ValidationErrorDetail {
 }
 
 
-/** Hub-level state for a federated mandate (simplified 6-state model). */
+/** Hub-level state for a federated Record (simplified 6-state model). */
 export type HubState = 'OFFERED' | 'ACCEPTED' | 'ACTIVE' | 'COMPLETED' | 'DISPUTED' | 'TERMINAL';
 
 /** Gateway registration status. */
@@ -1833,7 +2062,7 @@ export type GatewayStatus = 'active' | 'suspended' | 'revoked';
 /** Reason for revoking a gateway. */
 export type RevocationReason = 'key_compromise' | 'decommission' | 'administrative';
 
-/** Verification outcome for federated mandates. */
+/** Verification outcome for federated Records. */
 export type FederationVerificationOutcome = 'PASS' | 'FAIL';
 
 /** Settlement signal type relayed between gateways. */
@@ -1847,8 +2076,8 @@ export type FederationAuditEntryType =
   | 'GATEWAY_KEY_ROTATED'
   | 'AGENT_REGISTERED'
   | 'AGENT_REMOVED'
-  | 'MANDATE_OFFERED'
-  | 'MANDATE_STATE_SYNC'
+  | 'RECORD_OFFERED'
+  | 'RECORD_STATE_SYNC'
   | 'SIGNAL_RELAYED'
   | 'TOKEN_CREATED'
   | 'ADMIN_REVOCATION'
@@ -1891,7 +2120,7 @@ export interface RegisterGatewayResult {
 export interface HeartbeatParams {
   gatewayId: string;
   agentCount: number;
-  mandateCount: number;
+  recordCount: number;
   timestamp: string;
 }
 
@@ -1912,7 +2141,7 @@ export interface HeartbeatResult {
 /** Parameters for registering a federated agent. */
 export interface RegisterFederatedAgentParams {
   agentId: string;
-  contractTypes: string[];
+  types: string[];
   displayName?: string;
 }
 
@@ -1920,23 +2149,23 @@ export interface RegisterFederatedAgentParams {
 export interface FederationAgent {
   agentId: string;
   gatewayId: string;
-  contractTypes: string[];
+  types: string[];
   displayName: string | null;
   registeredAt: string;
 }
 
 /** Parameters for listing federated agents. */
 export interface ListFederatedAgentsParams extends ListParams {
-  contractType?: string;
+  type?: string;
 }
 
 
 /** Parameters for submitting a cross-boundary state transition. */
 export interface SubmitStateTransitionParams {
-  mandateId: string;
+  recordId: string;
   gatewayId: string;
   state: string;
-  contractType: string;
+  type: string;
   criteriaHash: string;
   role: 'principal' | 'performer';
   seq: number;
@@ -1959,7 +2188,7 @@ export interface StateTransitionResult {
 
 /** Parameters for relaying a settlement signal. */
 export interface RelaySignalParams {
-  mandateId: string;
+  recordId: string;
   signal: FederationSettlementSignal;
   outcomeHash: string;
   signalSeq: number;
@@ -2009,7 +2238,7 @@ export interface CreateRegistrationTokenParams {
   label?: string;
   expiresInHours?: number;
   metadata?: Record<string, unknown> | null;
-  allowedContractTypes?: string[];
+  allowedTypes?: string[];
 }
 
 /** A federation registration token. */
@@ -2034,7 +2263,7 @@ export interface FederationGateway {
   capabilities: string[];
   lastHeartbeat: string | null;
   lastAgentCount: number;
-  lastMandateCount: number;
+  lastRecordCount: number;
   revokedAt: string | null;
   revocationReason: string | null;
   registeredAt: string;
@@ -2051,19 +2280,19 @@ export interface ResetSequenceParams {
 }
 
 
-/** Query parameters for listing federation mandates (admin). */
-export interface QueryFederationMandatesParams extends ListParams {
+/** Query parameters for listing federation Records (admin). */
+export interface QueryFederationRecordsParams extends ListParams {
   gatewayId?: string;
   hubState?: HubState;
-  contractType?: string;
+  type?: string;
 }
 
-/** A federation mandate as tracked by the hub. */
-export interface FederationMandate {
-  mandateId: string;
+/** A federation Record as tracked by the hub. */
+export interface FederationRecord {
+  recordId: string;
   principalGatewayId: string;
   performerGatewayId: string | null;
-  contractType: string;
+  type: string;
   criteriaHash: string;
   hubState: HubState;
   subStatus: string | null;
@@ -2082,7 +2311,7 @@ export interface FederationMandate {
 export interface FederationAuditLogParams extends ListParams {
   gatewayId?: string;
   entryType?: FederationAuditEntryType;
-  mandateId?: string;
+  recordId?: string;
 }
 
 /** A federation audit log entry (hash-chained). */
@@ -2090,7 +2319,7 @@ export interface FederationAuditEntry {
   id: string;
   entryType: FederationAuditEntryType;
   gatewayId: string | null;
-  mandateId: string | null;
+  recordId: string | null;
   payload: Record<string, unknown>;
   payloadHash: string;
   previousHash: string | null;
@@ -2110,7 +2339,7 @@ export interface FederationHealthSummary {
     suspended: number;
     revoked: number;
   };
-  mandates: Record<string, number>;
+  records: Record<string, number>;
   auditChainLength: number;
   lastAuditEntry: string | null;
 }
@@ -2126,7 +2355,7 @@ export interface ListOutboundDlqParams {
 export interface FederationDlqEntry {
   id: string;
   jobType: string;
-  mandateId: string | null;
+  recordId: string | null;
   agentId: string | null;
   payload: Record<string, unknown>;
   errorMessage: string;
@@ -2134,18 +2363,6 @@ export interface FederationDlqEntry {
   createdAt: string;
 }
 
-
-/** Query parameters for admin mandate listing. */
-export interface QueryAdminMandatesParams extends ListParams {
-  enterpriseId?: string;
-  status?: string;
-  contractType?: string;
-  agentId?: string;
-  sort?: string;
-  order?: 'asc' | 'desc';
-  from?: string;
-  to?: string;
-}
 
 /** Parameters for updating a webhook circuit breaker (admin). */
 export interface UpdateCircuitBreakerParams {
@@ -2308,7 +2525,7 @@ export interface PeeringToken {
 }
 
 
-/** Parameters for publishing a contract type schema to the federation. */
+/** Parameters for publishing a Type schema to the federation. */
 export interface SchemaPublishParams {
   schema: Record<string, unknown>;
   visibility?: 'hub-only' | 'full';
@@ -2320,22 +2537,22 @@ export interface SchemaConfirmParams {
 }
 
 
-/** Cross-boundary criteria for a federated mandate. */
-export interface FederationMandateCriteria {
-  mandateId: string;
+/** Cross-boundary criteria for a federated Record. */
+export interface FederationRecordCriteria {
+  recordId: string;
   criteria: Record<string, unknown>;
   submittedBy: string;
   submittedAt: string;
 }
 
-/** Parameters for submitting cross-boundary mandate criteria. */
-export interface SubmitMandateCriteriaParams {
+/** Parameters for submitting cross-boundary Record criteria. */
+export interface SubmitRecordCriteriaParams {
   criteria: Record<string, unknown>;
 }
 
-/** Criteria negotiation status for a federated mandate. */
-export interface MandateCriteriaStatus {
-  mandateId: string;
+/** Criteria negotiation status for a federated Record. */
+export interface RecordCriteriaStatus {
+  recordId: string;
   principalSubmitted: boolean;
   performerSubmitted: boolean;
   agreementReached: boolean;
@@ -2346,7 +2563,7 @@ export interface MandateCriteriaStatus {
 export interface ReputationContribution {
   agentId: string;
   gatewayId: string;
-  contractType: string;
+  type: string;
   outcome: string;
   contributedAt: string;
 }
@@ -2354,9 +2571,9 @@ export interface ReputationContribution {
 /** Parameters for contributing reputation data. */
 export interface ContributeReputationParams {
   agentId: string;
-  contractType: string;
+  type: string;
   outcome: string;
-  mandateId?: string;
+  recordId?: string;
 }
 
 /** Aggregated federated reputation for an agent. */
@@ -2364,7 +2581,7 @@ export interface FederationAgentReputation {
   agentId: string;
   overallScore: number;
   contributions: number;
-  byContractType: Record<string, { score: number; count: number }>;
+  byType: Record<string, { score: number; count: number }>;
 }
 
 
@@ -2377,7 +2594,7 @@ export interface RevocationBroadcastParams {
 
 /** Parameters for synchronizing the agent directory with a peer. */
 export interface AgentDirectorySyncParams {
-  agents: Array<{ agentId: string; contractTypes: string[] }>;
+  agents: Array<{ agentId: string; types: string[] }>;
 }
 
 /** Parameters for registering a peer gateway. */
@@ -2389,20 +2606,3 @@ export interface PeerRegistrationParams {
 }
 
 
-/** A dashboard alert. */
-export interface DashboardAlert {
-  id: string;
-  severity: string;
-  message: string;
-  createdAt: string;
-}
-
-
-/** @deprecated Use `Page<T>` instead. */
-export type PaginationParams = ListParams;
-/** @deprecated Use `Page<T>` instead. */
-export interface PaginatedResponse<T> { data: T[]; total: number; limit: number; offset: number; }
-/** @deprecated Use `Page<T>` instead. */
-export interface CursorPaginatedResponse<T> { data: T[]; nextCursor?: string | null; next_cursor?: string | null; }
-/** @deprecated Use `AgledgerEvent` instead. */
-export type AuditEvent = AgledgerEvent;

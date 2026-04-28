@@ -45,13 +45,54 @@ describe('AgledgerApiError classifier methods', () => {
 
   describe('isStateError()', () => {
     it('returns true for 422', () => {
-      const err = new UnprocessableError({ message: 'Mandate is FULFILLED' });
+      const err = new UnprocessableError({ message: 'Record is FULFILLED' });
       expect(err.isStateError()).toBe(true);
     });
 
     it('returns false for 400', () => {
       const err = new ValidationError({ message: 'Missing field' });
       expect(err.isStateError()).toBe(false);
+    });
+  });
+
+  describe('recoveryHint and refreshUrl', () => {
+    it('forwards recoveryHint and refreshUrl on 422 INVALID_ACTION', () => {
+      const err = new UnprocessableError({
+        message: 'Action not allowed',
+        code: 'INVALID_ACTION',
+        recoveryHint: 'GET /v1/records/{id} and read nextActions',
+        refreshUrl: '/v1/records/rec-123',
+        currentState: 'CREATED',
+        allowedActions: ['register', 'cancel'],
+      });
+      expect(err.recoveryHint).toBe('GET /v1/records/{id} and read nextActions');
+      expect(err.refreshUrl).toBe('/v1/records/rec-123');
+    });
+
+    it('leaves recoveryHint undefined when API omits it', () => {
+      const err = new ValidationError({ message: 'Bad input' });
+      expect(err.recoveryHint).toBeUndefined();
+      expect(err.refreshUrl).toBeUndefined();
+    });
+  });
+
+  describe('PermissionError missingScopes', () => {
+    it('reads missingScopes from RFC 9457 top-level field (v0.21+)', () => {
+      const err = new PermissionError({
+        message: 'Missing scope',
+        code: 'INSUFFICIENT_SCOPE',
+        missingScopes: ['records:write'],
+      });
+      expect(err.missingScopes).toEqual(['records:write']);
+    });
+
+    it('falls back to details.missingScopes for older response shapes', () => {
+      const err = new PermissionError({
+        message: 'Missing scope',
+        code: 'INSUFFICIENT_SCOPE',
+        details: { missingScopes: ['records:write'] },
+      });
+      expect(err.missingScopes).toEqual(['records:write']);
     });
   });
 
@@ -81,10 +122,10 @@ describe('AgledgerApiError classifier methods', () => {
     it('forwards docUrl from API body when present', () => {
       const err = new AgledgerApiError(422, {
         message: 'Wrong state',
-        code: 'MANDATE_NOT_ACTIVE',
-        docUrl: 'https://www.agledger.ai/docs/errors/MANDATE_NOT_ACTIVE',
+        code: 'RECORD_NOT_ACTIVE',
+        docUrl: 'https://www.agledger.ai/docs/errors/RECORD_NOT_ACTIVE',
       });
-      expect(err.docUrl).toBe('https://www.agledger.ai/docs/errors/MANDATE_NOT_ACTIVE');
+      expect(err.docUrl).toBe('https://www.agledger.ai/docs/errors/RECORD_NOT_ACTIVE');
     });
 
     it('is undefined when API does not return docUrl', () => {
@@ -95,8 +136,8 @@ describe('AgledgerApiError classifier methods', () => {
 
   describe('suggestion', () => {
     it('forwards suggestion from API body when present', () => {
-      const err = new AgledgerApiError(400, { message: 'Bad', suggestion: 'Try passing contractType' });
-      expect(err.suggestion).toBe('Try passing contractType');
+      const err = new AgledgerApiError(400, { message: 'Bad', suggestion: "Did you mean 'type'?" });
+      expect(err.suggestion).toBe("Did you mean 'type'?");
     });
 
     it('is undefined when API does not return suggestion', () => {

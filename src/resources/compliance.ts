@@ -6,7 +6,6 @@ import type {
   CreateAiImpactAssessmentParams,
   ComplianceRecord,
   CreateComplianceRecordParams,
-  MandateAuditExport,
   AuditStreamParams,
   AuditStreamResult,
   AuditVaultExportParams,
@@ -62,34 +61,29 @@ export class ComplianceResource {
     throw new Error(`Export ${exportId} did not complete within ${timeout}ms`);
   }
 
-  /** Create an AI impact assessment for a mandate (EU AI Act). */
-  createAssessment(mandateId: string, params: CreateAiImpactAssessmentParams, options?: RequestOptions): Promise<AiImpactAssessment> {
-    return this.http.post<AiImpactAssessment>(`/v1/mandates/${mandateId}/ai-impact-assessment`, params, options);
+  /** Create an AI impact assessment for a Record (EU AI Act). */
+  createAssessment(recordId: string, params: CreateAiImpactAssessmentParams, options?: RequestOptions): Promise<AiImpactAssessment> {
+    return this.http.post<AiImpactAssessment>(`/v1/records/${recordId}/ai-impact-assessment`, params, options);
   }
 
-  /** Get the AI impact assessment for a mandate. */
-  getAssessment(mandateId: string, options?: RequestOptions): Promise<AiImpactAssessment> {
-    return this.http.get<AiImpactAssessment>(`/v1/mandates/${mandateId}/ai-impact-assessment`, undefined, options);
+  /** Get the AI impact assessment for a Record. */
+  getAssessment(recordId: string, options?: RequestOptions): Promise<AiImpactAssessment> {
+    return this.http.get<AiImpactAssessment>(`/v1/records/${recordId}/ai-impact-assessment`, undefined, options);
   }
 
-  /** Create a compliance record (attestation) for a mandate. */
-  createRecord(mandateId: string, params: CreateComplianceRecordParams, options?: RequestOptions): Promise<ComplianceRecord> {
-    return this.http.post<ComplianceRecord>(`/v1/mandates/${mandateId}/compliance-records`, params, options);
+  /** Create a compliance record (attestation) for a Record. */
+  createRecord(recordId: string, params: CreateComplianceRecordParams, options?: RequestOptions): Promise<ComplianceRecord> {
+    return this.http.post<ComplianceRecord>(`/v1/records/${recordId}/compliance-records`, params, options);
   }
 
-  /** List compliance records for a mandate. */
-  listRecords(mandateId: string, params?: ListParams, options?: RequestOptions): Promise<Page<ComplianceRecord>> {
-    return this.http.getPage<ComplianceRecord>(`/v1/mandates/${mandateId}/compliance-records`, params as Record<string, unknown>, options);
+  /** List compliance records for a Record. */
+  listRecords(recordId: string, params?: ListParams, options?: RequestOptions): Promise<Page<ComplianceRecord>> {
+    return this.http.getPage<ComplianceRecord>(`/v1/records/${recordId}/compliance-records`, params as Record<string, unknown>, options);
   }
 
   /** Get a specific compliance record. */
-  getRecord(mandateId: string, recordId: string, options?: RequestOptions): Promise<ComplianceRecord> {
-    return this.http.get<ComplianceRecord>(`/v1/mandates/${mandateId}/compliance-records/${recordId}`, undefined, options);
-  }
-
-  /** Export the per-mandate audit trail (hash-chained, signed entries). */
-  exportMandate(mandateId: string, params?: { format?: 'json' | 'csv' | 'ndjson' }, options?: RequestOptions): Promise<MandateAuditExport> {
-    return this.http.get<MandateAuditExport>(`/v1/mandates/${mandateId}/audit-export`, params as Record<string, unknown>, options);
+  getRecord(recordId: string, complianceRecordId: string, options?: RequestOptions): Promise<ComplianceRecord> {
+    return this.http.get<ComplianceRecord>(`/v1/records/${recordId}/compliance-records/${complianceRecordId}`, undefined, options);
   }
 
   /** Export the entire audit vault (platform-wide; admin-only). */
@@ -100,7 +94,7 @@ export class ComplianceResource {
   /**
    * Pull audit events as NDJSON for SIEM ingestion.
    * Returns parsed events and an opaque cursor for the next poll.
-   * Requires `audit:read` scope. Route renamed to `/v1/siem/stream` in v0.20.0.
+   * Requires `audit:read` scope. Route mounted at `/v1/siem/stream`.
    *
    * @example
    * ```ts

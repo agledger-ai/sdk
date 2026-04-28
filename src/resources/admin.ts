@@ -9,7 +9,7 @@ import type {
   Page,
   ListParams,
   RequestOptions,
-  ContractType,
+  RecordType,
   CreateApiKeyParams,
   UpdateApiKeyParams,
   CreateApiKeyResult,
@@ -17,7 +17,7 @@ import type {
   CreateAgentParams,
   EnterpriseConfig,
   SetEnterpriseConfigParams,
-  QueryAdminMandatesParams,
+  QueryAdminRecordsParams,
   UpdateCircuitBreakerParams,
   CircuitBreakerResult,
   LicenseInfo,
@@ -26,20 +26,96 @@ import type {
   VaultAnchor,
   VaultAnchorVerifyResult,
   VaultScanJob,
+  StartVaultScanParams,
+  VerifyVaultAnchorsParams,
   AuthCacheStats,
   ProvisioningStatus,
   SupportBundle,
   RateLimitExemption,
   DeactivateAccountParams,
+  AdminImportRecordsParams,
+  AdminImportRecordsResult,
+  RecordRow,
 } from '../types.js';
 
 /**
+ * Admin sub-resource for Records — tenant-wide listing and historical backfill.
+ */
+export class AdminRecordsResource {
+  constructor(private readonly http: HttpClient) {}
+
+  /** List Records across all enterprises (platform admin). Supports filters. */
+  list(params?: QueryAdminRecordsParams, options?: RequestOptions): Promise<Page<RecordRow>> {
+    return this.http.getPage<RecordRow>('/v1/admin/records', params as Record<string, unknown>, options);
+  }
+
+  /**
+   * Backfill historical Records from an external source. Up to 100 entries per
+   * batch, atomic per request (any per-item failure rolls the whole batch back).
+   * Each imported entry lands directly in its declared terminal state with
+   * backdated timestamps and a `BACKFILL_IMPORT` vault entry tagged with the
+   * given source label.
+   *
+   * Requires admin role + `admin:backfill` scope.
+   */
+  import(params: AdminImportRecordsParams, options?: RequestOptions): Promise<AdminImportRecordsResult> {
+    return this.http.post<AdminImportRecordsResult>('/v1/admin/records/import', params, options);
+  }
+}
+
+/**
+ * Admin sub-resource for vault inspection and signing-key management.
+ */
+export class AdminVaultResource {
+  constructor(private readonly http: HttpClient) {
+    this.anchors = {
+      list: (params?: { recordId?: string }, options?: RequestOptions) =>
+        http.get<VaultAnchor[]>('/v1/admin/vault/anchors', params as Record<string, unknown>, options),
+      verify: (params: VerifyVaultAnchorsParams, options?: RequestOptions) =>
+        http.post<VaultAnchorVerifyResult>('/v1/admin/vault/anchors/verify', params, options),
+    };
+    this.scan = {
+      run: (params?: StartVaultScanParams, options?: RequestOptions) =>
+        http.post<VaultScanJob>('/v1/admin/vault/scan', params ?? {}, options),
+      status: (jobId: string, options?: RequestOptions) =>
+        http.get<VaultScanJob>(`/v1/admin/vault/scan/${jobId}`, undefined, options),
+    };
+    this.signingKeys = {
+      list: (options?: RequestOptions) =>
+        http.get<VaultSigningKey[]>('/v1/admin/vault/signing-keys', undefined, options),
+      rotate: (options?: RequestOptions) =>
+        http.post<VaultSigningKey>('/v1/admin/vault/signing-keys/rotate', {}, options),
+    };
+  }
+
+  readonly anchors: {
+    list(params?: { recordId?: string }, options?: RequestOptions): Promise<VaultAnchor[]>;
+    verify(params: VerifyVaultAnchorsParams, options?: RequestOptions): Promise<VaultAnchorVerifyResult>;
+  };
+
+  readonly scan: {
+    run(params?: StartVaultScanParams, options?: RequestOptions): Promise<VaultScanJob>;
+    status(jobId: string, options?: RequestOptions): Promise<VaultScanJob>;
+  };
+
+  readonly signingKeys: {
+    list(options?: RequestOptions): Promise<VaultSigningKey[]>;
+    rotate(options?: RequestOptions): Promise<VaultSigningKey>;
+  };
+}
+
+/**
  * Admin resource — tenant governance, key management, enterprise provisioning,
- * and platform operations. In v0.20.0 the role label changed: admin keys carry
- * role `admin` (was `enterprise`) and the prefix is `agl_adm_`.
+ * vault inspection, and platform operations. Requires an `admin`-role key.
  */
 export class AdminResource {
-  constructor(private readonly http: HttpClient) {}
+  readonly records: AdminRecordsResource;
+  readonly vault: AdminVaultResource;
+
+  constructor(private readonly http: HttpClient) {
+    this.records = new AdminRecordsResource(http);
+    this.vault = new AdminVaultResource(http);
+  }
 
   /** List all enterprises on the platform. */
   listEnterprises(params?: ListParams, options?: RequestOptions): Promise<Page<AdminEnterprise>> {
@@ -72,13 +148,13 @@ export class AdminResource {
     return this.http.post(`/v1/admin/accounts/${accountId}/deactivate`, params, options);
   }
 
-  /** Set an agent's contract type capabilities (PUT — replaces all). */
+  /** Set an agent's Type capabilities (PUT — replaces all). */
   setCapabilities(agentId: string, params: SetCapabilitiesParams, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.put(`/v1/admin/agents/${agentId}/capabilities`, params, options);
   }
 
   /** Get capabilities of all agents in the fleet. */
-  getFleetCapabilities(options?: RequestOptions): Promise<Page<{ agentId: string; capabilities: ContractType[] }>> {
+  getFleetCapabilities(options?: RequestOptions): Promise<Page<{ agentId: string; capabilities: RecordType[] }>> {
     return this.http.getPage('/v1/admin/agents/capabilities', undefined, options);
   }
 
@@ -133,11 +209,6 @@ export class AdminResource {
   /** Reload the license file from disk without restarting the service. */
   reloadLicense(options?: RequestOptions): Promise<{ reloaded: boolean }> {
     return this.http.post('/v1/admin/license/reload', {}, options);
-  }
-
-  /** List mandates across all enterprises (platform admin). Supports filters. */
-  listMandates(params?: QueryAdminMandatesParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
-    return this.http.getPage('/v1/admin/mandates', params as Record<string, unknown>, options);
   }
 
   /** Reload the static-provisioning config from disk. */
@@ -205,36 +276,6 @@ export class AdminResource {
     return this.http.patch<CircuitBreakerResult>(`/v1/admin/webhooks/${webhookId}/circuit-breaker`, params, options);
   }
 
-  /** List all vault signing keys (active and rotated). */
-  listVaultSigningKeys(options?: RequestOptions): Promise<VaultSigningKey[]> {
-    return this.http.get<VaultSigningKey[]>('/v1/admin/vault/signing-keys', undefined, options);
-  }
-
-  /** Rotate the vault signing key. Creates a new key and deprecates the current one. */
-  rotateVaultSigningKey(options?: RequestOptions): Promise<VaultSigningKey> {
-    return this.http.post<VaultSigningKey>('/v1/admin/vault/signing-keys/rotate', {}, options);
-  }
-
-  /** List vault trust anchors. */
-  listVaultAnchors(options?: RequestOptions): Promise<VaultAnchor[]> {
-    return this.http.get<VaultAnchor[]>('/v1/admin/vault/anchors', undefined, options);
-  }
-
-  /** Verify all vault trust anchors against their expected hashes. */
-  verifyVaultAnchors(options?: RequestOptions): Promise<VaultAnchorVerifyResult> {
-    return this.http.post<VaultAnchorVerifyResult>('/v1/admin/vault/anchors/verify', {}, options);
-  }
-
-  /** Start an asynchronous vault integrity scan. Returns a job ID for polling. */
-  startVaultScan(options?: RequestOptions): Promise<VaultScanJob> {
-    return this.http.post<VaultScanJob>('/v1/admin/vault/scan', {}, options);
-  }
-
-  /** Get the status of a vault integrity scan job. */
-  getVaultScanStatus(jobId: string, options?: RequestOptions): Promise<VaultScanJob> {
-    return this.http.get<VaultScanJob>(`/v1/admin/vault/scan/${jobId}`, undefined, options);
-  }
-
   /** Flush the auth cache. Forces re-validation of all cached credentials. */
   flushAuthCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
     return this.http.post('/v1/admin/auth-cache/flush', {}, options);
@@ -245,7 +286,7 @@ export class AdminResource {
     return this.http.get<AuthCacheStats>('/v1/admin/auth-cache/stats', undefined, options);
   }
 
-  /** Flush the schema cache. Forces re-loading of all contract type schemas. */
+  /** Flush the schema cache. Forces re-loading of all Type schemas. */
   flushSchemaCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
     return this.http.post('/v1/admin/schemas/cache/flush', {}, options);
   }

@@ -17,11 +17,11 @@ import type {
   RevokeGatewayParams,
   FederationCatchUpParams,
   FederationAuditEntry,
-  ContractSchema,
+  TypeSchema,
   SchemaPublishParams,
   SchemaConfirmParams,
-  FederationMandateCriteria,
-  SubmitMandateCriteriaParams,
+  FederationRecordCriteria,
+  SubmitRecordCriteriaParams,
   ContributeReputationParams,
   FederationAgentReputation,
   RevocationBroadcastParams,
@@ -67,7 +67,7 @@ export class FederationResource {
     return this.http.post('/federation/v1/agents', params, options);
   }
 
-  /** List federated agents, optionally filtered by contract type. */
+  /** List federated agents, optionally filtered by Type. */
   listAgents(
     params?: ListFederatedAgentsParams,
     options?: RequestOptions,
@@ -146,54 +146,54 @@ export class FederationResource {
   }
 
 
-  /** Publish a contract type schema to the federation. */
+  /** Publish a Type schema to the federation. */
   publishSchema(
-    contractType: string,
+    type: string,
     params: SchemaPublishParams,
     options?: RequestOptions,
-  ): Promise<ContractSchema> {
-    return this.http.post<ContractSchema>(`/federation/v1/schemas/${contractType}/publish`, params, options);
+  ): Promise<TypeSchema> {
+    return this.http.post<TypeSchema>(`/federation/v1/schemas/${type}/publish`, params, options);
   }
 
   /** Confirm a pending schema publication. */
   confirmSchemaPublish(
-    contractType: string,
+    type: string,
     params: SchemaConfirmParams,
     options?: RequestOptions,
-  ): Promise<ContractSchema> {
-    return this.http.post<ContractSchema>(`/federation/v1/schemas/${contractType}/publish/confirm`, params, options);
+  ): Promise<TypeSchema> {
+    return this.http.post<TypeSchema>(`/federation/v1/schemas/${type}/publish/confirm`, params, options);
   }
 
 
-  /** List all contract types available in the federation. */
-  listContractTypes(options?: RequestOptions): Promise<ContractSchema[]> {
-    return this.http.get<ContractSchema[]>('/federation/v1/contract-types', undefined, options);
+  /** List all Types available in the federation. */
+  listTypes(options?: RequestOptions): Promise<TypeSchema[]> {
+    return this.http.get<TypeSchema[]>('/federation/v1/contract-types', undefined, options);
   }
 
-  /** Get details for a specific federated contract type. */
-  getContractType(
-    contractType: string,
+  /** Get details for a specific federated Type. */
+  getType(
+    type: string,
     options?: RequestOptions,
-  ): Promise<ContractSchema> {
-    return this.http.get<ContractSchema>(`/federation/v1/contract-types/${contractType}`, undefined, options);
+  ): Promise<TypeSchema> {
+    return this.http.get<TypeSchema>(`/federation/v1/contract-types/${type}`, undefined, options);
   }
 
 
-  /** Get cross-boundary criteria for a federated mandate. */
-  getMandateCriteria(
-    mandateId: string,
+  /** Get cross-boundary criteria for a federated Record. */
+  getRecordCriteria(
+    recordId: string,
     options?: RequestOptions,
-  ): Promise<FederationMandateCriteria> {
-    return this.http.get<FederationMandateCriteria>(`/federation/v1/mandates/${mandateId}/criteria`, undefined, options);
+  ): Promise<FederationRecordCriteria> {
+    return this.http.get<FederationRecordCriteria>(`/federation/v1/records/${recordId}/criteria`, undefined, options);
   }
 
-  /** Submit cross-boundary criteria for a federated mandate. */
-  submitMandateCriteria(
-    mandateId: string,
-    params: SubmitMandateCriteriaParams,
+  /** Submit cross-boundary criteria for a federated Record. */
+  submitRecordCriteria(
+    recordId: string,
+    params: SubmitRecordCriteriaParams,
     options?: RequestOptions,
-  ): Promise<FederationMandateCriteria> {
-    return this.http.post<FederationMandateCriteria>(`/federation/v1/mandates/${mandateId}/criteria`, params, options);
+  ): Promise<FederationRecordCriteria> {
+    return this.http.post<FederationRecordCriteria>(`/federation/v1/records/${recordId}/criteria`, params, options);
   }
 
 

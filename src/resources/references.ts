@@ -9,13 +9,23 @@ export class ReferencesResource {
     return this.http.get<ReferenceLookupResult>('/v1/references', params as Record<string, string>, options);
   }
 
-  /** Add external references to a mandate. */
-  addMandateReferences(mandateId: string, references: Record<string, unknown>[], options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.post(`/v1/mandates/${mandateId}/references`, { references }, options);
+  /** Add external references to a Record. */
+  addRecordReferences(recordId: string, references: Record<string, unknown>[], options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.post(`/v1/records/${recordId}/references`, { references }, options);
   }
 
-  /** Get a mandate's external references. */
-  getMandateReferences(mandateId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.get(`/v1/mandates/${mandateId}/references`, undefined, options);
+  /** Get a Record's external references. */
+  getRecordReferences(recordId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.get(`/v1/records/${recordId}/references`, undefined, options);
+  }
+
+  /** Add external references to an agent. */
+  addAgentReferences(agentId: string, references: Record<string, unknown>[], options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.post(`/v1/agents/${agentId}/references`, { references }, options);
+  }
+
+  /** Get an agent's external references. */
+  getAgentReferences(agentId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
+    return this.http.get(`/v1/agents/${agentId}/references`, undefined, options);
   }
 }

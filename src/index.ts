@@ -19,9 +19,9 @@ export type {
   BatchResult,
   BulkCreateResult,
 
-  // Contract types
-  ContractType,
-  ContractSchema,
+  // Record Types
+  RecordType,
+  TypeSchema,
   SchemaValidationResult,
   Denomination,
 
@@ -49,7 +49,7 @@ export type {
   ExportSchemaOptions,
   ImportSchemaOptions,
 
-  // Typed criteria per contract type (Agentic Contract Specification)
+  // Typed criteria per Type (Agentic Contract Specification)
   ProcurementCriteria,
   DeliverableCriteria,
   DataProcessingCriteria,
@@ -64,7 +64,7 @@ export type {
   MonitoringCriteria,
   ReviewCriteria,
 
-  // Typed evidence per contract type
+  // Typed evidence per Type
   ProcurementEvidence,
   DeliverableEvidence,
   DataProcessingEvidence,
@@ -84,26 +84,29 @@ export type {
   EvidenceMap,
   CriteriaFor,
   EvidenceFor,
-  TypedCreateMandateParams,
+  TypedCreateRecordParams,
   TypedSubmitReceiptParams,
 
-  // Mandates
+  // Records
   AcceptanceStatus,
-  MandateStatus,
-  MandateTransitionAction,
+  RecordStatus,
+  RecordTransitionAction,
   OperatingMode,
   VerificationMode,
   RiskClassification,
   ConstraintInheritanceMode,
   EvidenceType,
-  Mandate,
-  CreateMandateParams,
-  UpdateMandateParams,
-  ListMandatesParams,
-  SearchMandatesParams,
-  DelegateMandateParams,
+  RecordRow,
+  CreateRecordParams,
+  UpdateRecordParams,
+  ListRecordsParams,
+  SearchRecordsParams,
+  DelegateRecordParams,
   CounterProposeParams,
-  BatchGetMandatesResult,
+  BatchGetRecordsResult,
+  BulkCreateRecordItem,
+  VaultReceipt,
+  RecordReadReceipt,
 
   // Receipts
   StructuralValidation,
@@ -119,6 +122,7 @@ export type {
   // Outcome (Principal Verdict)
   ReportOutcomeParams,
   OutcomeResult,
+  VerdictStatistics,
 
   // Disputes
   DisputeStatus,
@@ -126,6 +130,7 @@ export type {
   Dispute,
   DisputeResponse,
   CreateDisputeParams,
+  ListDisputesParams,
 
   // Webhooks
   WebhookEventType,
@@ -140,7 +145,6 @@ export type {
 
   // Events & Audit
   AgledgerEvent,
-  AuditChain,
 
   // Rate limits
   RateLimitInfo,
@@ -152,24 +156,32 @@ export type {
   CreateAiImpactAssessmentParams,
   EuAiActReport,
 
-  // Compliance Records (per-mandate)
+  // Compliance Records (per-Record)
   ComplianceRecordType,
   ComplianceRecord,
   CreateComplianceRecordParams,
 
-  // Audit Export (per-mandate)
+  // Audit Export (per-Record)
   AuditExportEntry,
   AuditActor,
-  MandateAuditExport,
+  RecordAuditExport,
 
   // Audit Stream (SIEM) & Vault
   AuditStreamParams,
   AuditStreamResult,
   AuditVaultExportParams,
 
+  // Tenant-admin reads checkpoints (SCITT-style)
+  TenantReadsCheckpoint,
+  CosignCheckpointParams,
+  TenantReadsInclusionProof,
+
+  // Vault admin
+  StartVaultScanParams,
+  VerifyVaultAnchorsParams,
+
   // Auth & identity
   ApiKeyRole,
-  AccountType,
   AccountProfile,
 
   // Health & Conformance & Discovery
@@ -178,7 +190,7 @@ export type {
   StatusResponse,
   ConformanceResponse,
   ScopeProfileInfo,
-  MandateLifecycleInfo,
+  RecordLifecycleInfo,
 
   // Admin
   AdminEnterprise,
@@ -200,6 +212,10 @@ export type {
   SupportBundle,
   LicenseInstanceInfo,
   ListWebhooksParams,
+  AdminImportRecordsParams,
+  AdminImportRecordsResult,
+  BackfillRecord,
+  QueryAdminRecordsParams,
 
   // A2A Protocol
   AgentCard,
@@ -236,8 +252,8 @@ export type {
   ListFederationGatewaysParams,
   FederationGateway,
   AdminRevokeGatewayParams,
-  QueryFederationMandatesParams,
-  FederationMandate,
+  QueryFederationRecordsParams,
+  FederationRecord,
   FederationAuditLogParams,
   FederationAuditEntry,
   FederationHealthSummary,
@@ -245,8 +261,7 @@ export type {
   ListOutboundDlqParams,
   FederationDlqEntry,
 
-  // Admin — Circuit breaker / mandate search
-  QueryAdminMandatesParams,
+  // Admin — Circuit breaker / search
   UpdateCircuitBreakerParams,
   CircuitBreakerResult,
 
@@ -286,10 +301,10 @@ export type {
   SchemaPublishParams,
   SchemaConfirmParams,
 
-  // Federation — Mandate Criteria
-  FederationMandateCriteria,
-  SubmitMandateCriteriaParams,
-  MandateCriteriaStatus,
+  // Federation — Record Criteria
+  FederationRecordCriteria,
+  SubmitRecordCriteriaParams,
+  RecordCriteriaStatus,
 
   // Federation — Reputation
   ReputationContribution,
@@ -304,16 +319,6 @@ export type {
   // Errors
   ApiErrorResponse,
   ValidationErrorDetail,
-
-  // Deprecated — use the above types instead
-  /** @deprecated Use `ListParams` */
-  PaginationParams,
-  /** @deprecated Use `Page<T>` */
-  PaginatedResponse,
-  /** @deprecated Use `Page<T>` */
-  CursorPaginatedResponse,
-  /** @deprecated Use `AgledgerEvent` */
-  AuditEvent,
 } from './types.js';
 
 // Error classes
@@ -337,14 +342,14 @@ export {
 export { Scopes, ScopeProfiles } from './scopes.js';
 export type { Scope, ScopeProfile, ScopeProfileName } from './scopes.js';
 
-// Mandate State Machine
+// Record State Machine
 export {
-  MANDATE_TRANSITIONS,
+  RECORD_TRANSITIONS,
   TERMINAL_STATUSES,
   canTransitionTo,
   getValidTransitions,
   isTerminalStatus,
-} from './mandate-lifecycle.js';
+} from './record-lifecycle.js';
 
 // Prompt Context Builders
-export { mandateToContext, receiptToContext, errorToContext } from './prompt-context.js';
+export { recordToContext, receiptToContext, errorToContext } from './prompt-context.js';

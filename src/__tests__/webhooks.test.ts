@@ -3,7 +3,7 @@ import { signPayload, parseSignatureHeader, verifySignature, constructEvent } fr
 
 describe('Webhook Verification', () => {
   const secret = 'whsec_test_secret_key';
-  const body = '{"event":"mandate.fulfilled","data":{"id":"mnd-123"}}';
+  const body = '{"event":"record.fulfilled","data":{"id":"rec-123"}}';
 
   describe('signPayload', () => {
     it('produces valid header format', () => {
@@ -89,8 +89,8 @@ describe('Webhook Verification', () => {
 
   describe('constructEvent', () => {
     const eventBody = JSON.stringify({
-      type: 'mandate.created',
-      data: { id: 'mnd-123', status: 'CREATED' },
+      type: 'record.created',
+      data: { id: 'rec-123', status: 'CREATED' },
       timestamp: '2026-03-16T12:00:00Z',
       id: 'evt-456',
     });
@@ -98,8 +98,8 @@ describe('Webhook Verification', () => {
     it('verifies and parses in one step', () => {
       const { header } = signPayload(eventBody, secret);
       const event = constructEvent(eventBody, header, secret);
-      expect(event.type).toBe('mandate.created');
-      expect(event.data).toEqual({ id: 'mnd-123', status: 'CREATED' });
+      expect(event.type).toBe('record.created');
+      expect(event.data).toEqual({ id: 'rec-123', status: 'CREATED' });
       expect(event.timestamp).toBe('2026-03-16T12:00:00Z');
       expect(event.id).toBe('evt-456');
     });

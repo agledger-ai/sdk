@@ -170,7 +170,7 @@ describe('HttpClient', () => {
           message: "This endpoint requires scope 'agents:manage'.",
           details: {
             missingScopes: ['agents:manage'],
-            keyScopes: ['mandates:read', 'mandates:write'],
+            keyScopes: ['records:read', 'records:write'],
           },
         },
       });
@@ -181,7 +181,7 @@ describe('HttpClient', () => {
         expect(err).toBeInstanceOf(PermissionError);
         const pe = err as PermissionError;
         expect(pe.missingScopes).toEqual(['agents:manage']);
-        expect(pe.keyScopes).toEqual(['mandates:read', 'mandates:write']);
+        expect(pe.keyScopes).toEqual(['records:read', 'records:write']);
       }
     });
 

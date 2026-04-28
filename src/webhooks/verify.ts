@@ -1,15 +1,15 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import type { WebhookEventType, Mandate, Receipt, VerificationResult, Dispute } from '../types.js';
+import type { WebhookEventType, RecordRow, Receipt, VerificationResult, Dispute } from '../types.js';
 import { SignatureVerificationError } from '../errors.js';
 
 const MAX_TOLERANCE_SECONDS = 300;
 
 /** A verified webhook event with typed payload. */
 export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
-  /** Event type (e.g., 'mandate.created', 'receipt.submitted'). */
+  /** Event type (e.g., 'record.created', 'receipt.submitted'). */
   type: T;
   /** Event payload — the resource that triggered the event. */
-  data: T extends `mandate.${string}` ? Mandate
+  data: T extends `record.${string}` ? RecordRow
     : T extends `receipt.${string}` ? Receipt
     : T extends `verification.${string}` ? VerificationResult
     : T extends `dispute.${string}` ? Dispute
@@ -35,8 +35,8 @@ export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
  * import { constructEvent } from '@agledger/sdk/webhooks';
  *
  * const event = constructEvent(rawBody, req.headers['x-agledger-signature'], secret);
- * if (event.type === 'mandate.created') {
- *   console.log(event.data.id); // typed as Mandate
+ * if (event.type === 'record.created') {
+ *   console.log(event.data.id); // typed as RecordRow
  * }
  * ```
  */

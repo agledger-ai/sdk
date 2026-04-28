@@ -14,29 +14,48 @@ export class AgledgerError extends Error {
 /**
  * API returned an error response. All HTTP errors extend this.
  *
- * Fields mirror the API error body verbatim. The SDK does not invent content:
- * `docUrl`, `suggestion`, `nextSteps`, etc. only appear when the API returns them.
+ * Fields mirror the API error body verbatim — the SDK does not invent content.
+ * The API responds with RFC 9457 `application/problem+json`. Standard fields
+ * (`type`, `title`, `status`, `detail`, `instance`) are surfaced alongside
+ * AGLedger extension fields (`error`, `code`, `requestId`, `retryable`,
+ * `docUrl`, `suggestion`, `recoveryHint`, `missingScopes`, `nextSteps`, …).
  *
  * Key properties for consumers:
  * - `status` — HTTP status code
- * - `code` — stable machine-readable error code (from API body)
+ * - `code` — stable machine-readable error code (from API body `code` or `error`)
  * - `retryable` — API's `retryable` flag, falling back to status-based classification (429/5xx)
  * - `requestId` — correlation ID (from API body or `X-Request-Id` header)
  * - `docUrl` — documentation link, only if the API returned one
- * - `suggestion` — recovery hint, only if the API returned one
+ * - `suggestion` — typo-correction hint, only if the API returned one
+ * - `recoveryHint` — machine-readable recovery guidance (e.g. on 422 INVALID_ACTION)
+ * - `refreshUrl` — concrete GET URL to re-fetch state (e.g. on 422 INVALID_ACTION)
  * - `validationErrors` — field-level validation details (for 400/422)
  */
 export class AgledgerApiError extends AgledgerError {
   readonly status: number;
   readonly code: string;
   readonly requestId?: string;
-  readonly details?: ValidationErrorDetail[] | Record<string, unknown>;
+  readonly details?: ValidationErrorDetail[] | Record<string, unknown> | unknown[];
 
   /** Documentation link for this error, forwarded from the API body when present. */
   readonly docUrl?: string;
 
-  /** Recovery hint forwarded from the API body when present. */
+  /** Recovery hint forwarded from the API body when present (typo-correction tier). */
   readonly suggestion?: string;
+
+  /**
+   * Machine-readable recovery guidance pointing the caller at the right
+   * endpoint or refresh action. Set on 422 INVALID_ACTION and other
+   * state-rejection errors where the API can name a corrective step.
+   */
+  readonly recoveryHint?: string;
+
+  /**
+   * Concrete GET URL the agent should re-fetch to read fresh
+   * `nextActions` / `validTransitions` / `allowedActions`. Set on 422
+   * INVALID_ACTION when the request path includes a Record id.
+   */
+  readonly refreshUrl?: string;
 
   /**
    * Whether this error is retryable.
@@ -46,15 +65,17 @@ export class AgledgerApiError extends AgledgerError {
   readonly retryable: boolean;
 
   constructor(status: number, body: ApiErrorResponse) {
-    super(body.message || `API error ${status}`);
+    super(body.message || body.detail || body.title || `API error ${status}`);
     this.name = 'AgledgerApiError';
     this.status = status;
     this.code = body.code || body.error || 'unknown';
     this.requestId = body.requestId;
-    this.details = body.details;
+    this.details = body.details ?? undefined;
     this.retryable = body.retryable ?? (status === 429 || status >= 500);
     this.docUrl = body.docUrl;
     this.suggestion = body.suggestion;
+    this.recoveryHint = body.recoveryHint;
+    this.refreshUrl = body.refreshUrl;
   }
 
   /** Whether this error is retryable (429, 5xx, network errors). Delegates to the `retryable` property. */
@@ -80,7 +101,7 @@ export class AgledgerApiError extends AgledgerError {
   /** Field-level validation errors, normalized from various API formats. */
   get validationErrors(): ValidationErrorDetail[] {
     if (!this.details) return [];
-    if (Array.isArray(this.details)) return this.details;
+    if (Array.isArray(this.details)) return this.details as ValidationErrorDetail[];
     // Handle Ajv-style errors nested under .errors
     const rec = this.details as Record<string, unknown>;
     if (Array.isArray(rec.errors)) {
@@ -109,8 +130,15 @@ export class PermissionError extends AgledgerApiError {
   constructor(body: ApiErrorResponse) {
     super(403, body);
     this.name = 'PermissionError';
+    // RFC 9457 surfaces missingScopes as a top-level extension field; older
+    // bodies nested it under details.
+    if (Array.isArray(body.missingScopes)) {
+      this.missingScopes = body.missingScopes;
+    } else {
+      const details = body.details as Record<string, unknown> | undefined;
+      this.missingScopes = Array.isArray(details?.missingScopes) ? details.missingScopes as string[] : [];
+    }
     const details = body.details as Record<string, unknown> | undefined;
-    this.missingScopes = Array.isArray(details?.missingScopes) ? details.missingScopes as string[] : [];
     this.keyScopes = Array.isArray(details?.keyScopes) ? details.keyScopes as string[] : null;
   }
 }
@@ -147,6 +175,14 @@ export class ValidationError extends AgledgerApiError {
   }
 }
 
+/**
+ * 422 Unprocessable — the request was valid but the resource state won't
+ * accept it (e.g. INVALID_ACTION on `POST /v1/records/{id}/transition`).
+ *
+ * On INVALID_ACTION the API attaches `recoveryHint` and `refreshUrl` (and
+ * `currentState` / `allowedActions` via `details`) — surfaced on the base
+ * `AgledgerApiError` properties.
+ */
 export class UnprocessableError extends AgledgerApiError {
   constructor(body: ApiErrorResponse) {
     super(422, body);

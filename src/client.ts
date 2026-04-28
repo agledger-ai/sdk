@@ -1,6 +1,6 @@
 import type { AgledgerClientOptions, RateLimitInfo, RequestOptions } from './types.js';
 import { HttpClient } from './http.js';
-import { MandatesResource } from './resources/mandates.js';
+import { RecordsResource } from './resources/records.js';
 import { ReceiptsResource } from './resources/receipts.js';
 import { VerificationResource } from './resources/verification.js';
 import { DisputesResource } from './resources/disputes.js';
@@ -20,11 +20,12 @@ import { ReferencesResource } from './resources/references.js';
 import { VerificationKeysResource } from './resources/verification-keys.js';
 import { AuthResource } from './resources/auth.js';
 import { DiscoveryResource } from './resources/discovery.js';
+import { AuditResource } from './resources/audit.js';
 
 export class AgledgerClient {
   private readonly http: HttpClient;
 
-  readonly mandates: MandatesResource;
+  readonly records: RecordsResource;
   readonly receipts: ReceiptsResource;
   readonly verification: VerificationResource;
   readonly disputes: DisputesResource;
@@ -44,6 +45,7 @@ export class AgledgerClient {
   readonly verificationKeys: VerificationKeysResource;
   readonly auth: AuthResource;
   readonly discovery: DiscoveryResource;
+  readonly audit: AuditResource;
 
   /** Rate limit info from the most recent API response. Null if headers not present. */
   get rateLimitInfo(): RateLimitInfo | null {
@@ -84,7 +86,7 @@ export class AgledgerClient {
 
   /**
    * Request ID from the most recent API response (`X-Request-Id` header).
-   * Useful for debugging and correlating requests across mandate chains.
+   * Useful for debugging and correlating requests across Record chains.
    * Null if the API did not return the header.
    */
   get lastRequestId(): string | null {
@@ -94,7 +96,7 @@ export class AgledgerClient {
   constructor(options: AgledgerClientOptions) {
     const http = new HttpClient(options);
     this.http = http;
-    this.mandates = new MandatesResource(http);
+    this.records = new RecordsResource(http);
     this.receipts = new ReceiptsResource(http);
     this.verification = new VerificationResource(http);
     this.disputes = new DisputesResource(http);
@@ -114,6 +116,7 @@ export class AgledgerClient {
     this.verificationKeys = new VerificationKeysResource(http);
     this.auth = new AuthResource(http);
     this.discovery = new DiscoveryResource(http);
+    this.audit = new AuditResource(http);
   }
 }
 
@@ -124,7 +127,7 @@ export class AgledgerClient {
  * @example
  * ```ts
  * const fc = createFederationClient({ bearerToken: result.bearerToken });
- * await fc.federation.heartbeat({ gatewayId, agentCount: 0, mandateCount: 0, timestamp: new Date().toISOString() });
+ * await fc.federation.heartbeat({ gatewayId, agentCount: 0, recordCount: 0, timestamp: new Date().toISOString() });
  * ```
  */
 export function createFederationClient(options: {

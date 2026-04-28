@@ -73,7 +73,7 @@ describe('FederationResource', () => {
     await client.federation.heartbeat({
       gatewayId: 'gw-001',
       agentCount: 5,
-      mandateCount: 10,
+      recordCount: 10,
       timestamp: '2026-03-31T00:05:00Z',
     });
 
@@ -86,19 +86,19 @@ describe('FederationResource', () => {
   it('registerAgent() posts to /federation/v1/agents', async () => {
     await client.federation.registerAgent({
       agentId: 'agent-001',
-      contractTypes: ['ACH-PROC-v1', 'ACH-DLVR-v1'],
+      types: ['ACH-PROC-v1', 'ACH-DLVR-v1'],
     });
 
     const { url, init } = lastCall(fetch);
     expect(url).toContain('/federation/v1/agents');
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body as string);
-    expect(body.contractTypes).toEqual(['ACH-PROC-v1', 'ACH-DLVR-v1']);
+    expect(body.types).toEqual(['ACH-PROC-v1', 'ACH-DLVR-v1']);
   });
 
   it('listAgents() supports cursor pagination', async () => {
     fetch = mockFetch({
-      data: [{ agentId: 'a1', gatewayId: 'gw-1', contractTypes: [], displayName: null, registeredAt: '2026-03-31T00:00:00Z' }],
+      data: [{ agentId: 'a1', gatewayId: 'gw-1', types: [], displayName: null, registeredAt: '2026-03-31T00:00:00Z' }],
       nextCursor: 'cursor-abc',
       hasMore: true,
     });
@@ -107,10 +107,10 @@ describe('FederationResource', () => {
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
 
-    const page = await client.federation.listAgents({ contractType: 'ACH-PROC-v1', limit: 10 });
+    const page = await client.federation.listAgents({ type: 'ACH-PROC-v1', limit: 10 });
     const { url } = lastCall(fetch);
     expect(url).toContain('/federation/v1/agents');
-    expect(url).toContain('contractType=ACH-PROC-v1');
+    expect(url).toContain('type=ACH-PROC-v1');
     expect(url).toContain('limit=10');
     expect(page.data).toHaveLength(1);
     expect(page.hasMore).toBe(true);
@@ -119,10 +119,10 @@ describe('FederationResource', () => {
 
   it('submitStateTransition() posts signed transition', async () => {
     await client.federation.submitStateTransition({
-      mandateId: 'm-001',
+      recordId: 'r-001',
       gatewayId: 'gw-001',
       state: 'ACTIVE',
-      contractType: 'ACH-PROC-v1',
+      type: 'ACH-PROC-v1',
       criteriaHash: 'a'.repeat(64),
       role: 'principal',
       seq: 1,
@@ -139,7 +139,7 @@ describe('FederationResource', () => {
 
   it('relaySignal() posts settlement signal', async () => {
     await client.federation.relaySignal({
-      mandateId: 'm-001',
+      recordId: 'r-001',
       signal: 'SETTLE',
       outcome: 'PASS',
       outcomeHash: 'b'.repeat(64),
@@ -250,16 +250,16 @@ describe('FederationAdminResource', () => {
     expect(init.method).toBe('POST');
   });
 
-  it('queryMandates() supports hubState filter', async () => {
+  it('queryRecords() supports hubState filter', async () => {
     fetch = mockFetch({ data: [], total: 0 });
     client = new AgledgerClient({
       apiKey: 'admin_api_key',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
 
-    await client.federationAdmin.queryMandates({ hubState: 'ACTIVE', contractType: 'ACH-PROC-v1' });
+    await client.federationAdmin.queryRecords({ hubState: 'ACTIVE', type: 'ACH-PROC-v1' });
     const { url } = lastCall(fetch);
-    expect(url).toContain('/federation/v1/admin/mandates');
+    expect(url).toContain('/federation/v1/admin/records');
     expect(url).toContain('hubState=ACTIVE');
   });
 
@@ -328,7 +328,7 @@ describe('createFederationClient', () => {
     const fc = createFederationClient({ bearerToken: 'bt-abc' });
     expect(fc.federation).toBeDefined();
     expect((fc as Record<string, unknown>).admin).toBeUndefined();
-    expect((fc as Record<string, unknown>).mandates).toBeUndefined();
+    expect((fc as Record<string, unknown>).records).toBeUndefined();
   });
 
   it('uses bearer token for authenticated requests', async () => {
@@ -341,7 +341,7 @@ describe('createFederationClient', () => {
     await fc.federation.heartbeat({
       gatewayId: 'gw-001',
       agentCount: 0,
-      mandateCount: 0,
+      recordCount: 0,
       timestamp: '2026-03-31T00:05:00Z',
     });
 
