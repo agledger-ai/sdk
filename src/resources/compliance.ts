@@ -9,6 +9,8 @@ import type {
   AuditStreamParams,
   AuditStreamResult,
   AuditVaultExportParams,
+  VaultCheckpoint,
+  ListVaultCheckpointsParams,
   Page,
   ListParams,
   RequestOptions,
@@ -89,6 +91,21 @@ export class ComplianceResource {
   /** Export the entire audit vault (platform-wide; admin-only). */
   exportAuditVault(params?: AuditVaultExportParams, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.get('/v1/audit-vault/export', params as Record<string, unknown>, options);
+  }
+
+  /**
+   * List vault checkpoints for offline integrity verification. Filter by
+   * `recordId` to scope to a single record, or omit to walk the global chain.
+   */
+  listVaultCheckpoints(
+    params?: ListVaultCheckpointsParams,
+    options?: RequestOptions,
+  ): Promise<Page<VaultCheckpoint>> {
+    return this.http.getPage<VaultCheckpoint>(
+      '/v1/audit-vault/checkpoints',
+      params as Record<string, unknown>,
+      options,
+    );
   }
 
   /**

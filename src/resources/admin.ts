@@ -36,6 +36,8 @@ import type {
   AdminImportRecordsParams,
   AdminImportRecordsResult,
   RecordRow,
+  StringOverride,
+  SetStringOverrideParams,
 } from '../types.js';
 
 /**
@@ -105,16 +107,59 @@ export class AdminVaultResource {
 }
 
 /**
+ * Admin sub-resource for tenant string overrides — customize bundled
+ * user-facing strings (banner copy, error suggestions, next-step text).
+ */
+export class AdminStringsResource {
+  constructor(private readonly http: HttpClient) {}
+
+  /** List the bundled-default string keys that can be overridden. */
+  listKeys(options?: RequestOptions): Promise<{ data: string[]; count: number; keys: string[] }> {
+    return this.http.get('/v1/admin/strings/keys', undefined, options);
+  }
+
+  /** List current string overrides for this tenant, including drift state. */
+  listOverrides(options?: RequestOptions): Promise<{ data: StringOverride[] }> {
+    return this.http.get('/v1/admin/strings/overrides', undefined, options);
+  }
+
+  /** Get a single string override (or its bundled default if no override is set). */
+  getOverride(key: string, options?: RequestOptions): Promise<StringOverride> {
+    return this.http.get<StringOverride>(`/v1/admin/strings/overrides/${encodeURIComponent(key)}`, undefined, options);
+  }
+
+  /** Set or update a string override. */
+  setOverride(key: string, params: SetStringOverrideParams, options?: RequestOptions): Promise<StringOverride> {
+    return this.http.put<StringOverride>(`/v1/admin/strings/overrides/${encodeURIComponent(key)}`, params, options);
+  }
+
+  /** Clear a string override (revert to bundled default). */
+  deleteOverride(key: string, options?: RequestOptions): Promise<StringOverride> {
+    return this.http.delete<StringOverride>(`/v1/admin/strings/overrides/${encodeURIComponent(key)}`, undefined, options);
+  }
+
+  /**
+   * List overrides whose bundled default has changed since the override was
+   * written — admin should reconfirm each is still appropriate.
+   */
+  listDrift(options?: RequestOptions): Promise<{ data: StringOverride[] }> {
+    return this.http.get('/v1/admin/strings/drift', undefined, options);
+  }
+}
+
+/**
  * Admin resource — tenant governance, key management, enterprise provisioning,
  * vault inspection, and platform operations. Requires an `admin`-role key.
  */
 export class AdminResource {
   readonly records: AdminRecordsResource;
   readonly vault: AdminVaultResource;
+  readonly strings: AdminStringsResource;
 
   constructor(private readonly http: HttpClient) {
     this.records = new AdminRecordsResource(http);
     this.vault = new AdminVaultResource(http);
+    this.strings = new AdminStringsResource(http);
   }
 
   /** List all enterprises on the platform. */

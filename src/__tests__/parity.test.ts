@@ -50,7 +50,7 @@ for (const route of manifest.routes) {
 }
 
 describe('route manifest', () => {
-  it('is loaded and has the v0.21 route surface', () => {
+  it('is loaded and has the current route surface', () => {
     expect(routeCount).toBeGreaterThan(150);
     expect(manifest.routes.length).toBe(routeCount);
   });
@@ -118,6 +118,18 @@ describe('critical routes exist in the current API spec', () => {
 
     // SIEM stream
     ['GET', '/v1/siem/stream'],
+
+    // Added in v0.22
+    ['GET', '/v1/agents'],
+    ['GET', '/v1/audit-vault/checkpoints'],
+    ['POST', '/v1/records/{recordId}/dispute/withdraw'],
+    ['GET', '/federation/v1/admin/gateway-status'],
+    ['GET', '/v1/admin/strings/keys'],
+    ['GET', '/v1/admin/strings/overrides'],
+    ['GET', '/v1/admin/strings/overrides/{key}'],
+    ['PUT', '/v1/admin/strings/overrides/{key}'],
+    ['DELETE', '/v1/admin/strings/overrides/{key}'],
+    ['GET', '/v1/admin/strings/drift'],
   ];
 
   for (const [method, path] of CRITICAL_ROUTES) {

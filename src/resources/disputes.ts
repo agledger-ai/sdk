@@ -7,6 +7,7 @@ import type {
   RequestOptions,
   Page,
   ListDisputesParams,
+  WithdrawDisputeParams,
 } from '../types.js';
 
 export class DisputesResource {
@@ -48,6 +49,19 @@ export class DisputesResource {
   /** Escalate a dispute to the next review tier. */
   escalate(recordId: string, options?: RequestOptions): Promise<Dispute> {
     return this.http.post<Dispute>(`/v1/records/${recordId}/dispute/escalate`, undefined, options);
+  }
+
+  /** Withdraw an open dispute. Optional `reason` is recorded in the audit trail. */
+  withdraw(
+    recordId: string,
+    params?: WithdrawDisputeParams,
+    options?: RequestOptions,
+  ): Promise<Dispute> {
+    return this.http.post<Dispute>(
+      `/v1/records/${recordId}/dispute/withdraw`,
+      params ?? {},
+      options,
+    );
   }
 
   /**

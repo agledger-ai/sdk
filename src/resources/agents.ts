@@ -1,8 +1,33 @@
 import type { HttpClient } from '../http.js';
-import type { AgentProfile, UpdateAgentParams, RequestOptions } from '../types.js';
+import type {
+  AgentProfile,
+  AgentDirectoryEntry,
+  UpdateAgentParams,
+  ListParams,
+  Page,
+  RequestOptions,
+  AutoPaginateOptions,
+} from '../types.js';
 
 export class AgentsResource {
   constructor(private readonly http: HttpClient) {}
+
+  /**
+   * List agents in the caller's tenant (peer directory).
+   * Returns the lightweight directory shape — for full agent identity use
+   * {@link AgentsResource.get}.
+   */
+  list(params?: ListParams, options?: RequestOptions): Promise<Page<AgentDirectoryEntry>> {
+    return this.http.getPage<AgentDirectoryEntry>('/v1/agents', params as Record<string, unknown>, options);
+  }
+
+  /** Auto-paginating iterator over the tenant agent directory. */
+  listAll(
+    params?: ListParams,
+    options?: RequestOptions & AutoPaginateOptions,
+  ): AsyncGenerator<AgentDirectoryEntry> {
+    return this.http.paginate<AgentDirectoryEntry>('/v1/agents', params as Record<string, unknown>, options);
+  }
 
   /** Get an agent by ID. */
   get(agentId: string, options?: RequestOptions): Promise<AgentProfile> {

@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-04-27T23:55:35.612Z",
-  "sourceUrl": "file://agledger-api/openapi.json",
-  "count": 196,
+  "generatedAt": "2026-05-01T05:16:53.307Z",
+  "sourceUrl": "local v0.22.13 spec",
+  "count": 206,
   "routes": [
     {
       "method": "GET",
@@ -19,7 +19,7 @@
     {
       "method": "GET",
       "path": "/.well-known/agent.json",
-      "operationId": "getAgentCard",
+      "operationId": "getAgentCardLegacyAlias",
       "tag": "A2A Protocol",
       "requiredFields": [],
       "bodyFields": [],
@@ -94,12 +94,30 @@
         "entryType",
         "recordId",
         "limit",
-        "offset"
+        "offset",
+        "cursor"
       ],
       "pathParams": [],
       "responseCodes": [
         200,
         400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/federation/v1/admin/gateway-status",
+      "operationId": "getGatewayStatus",
+      "tag": "Federation Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
         401,
         403,
         429,
@@ -428,7 +446,8 @@
         "type",
         "recordId",
         "limit",
-        "offset"
+        "offset",
+        "cursor"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -1874,6 +1893,126 @@
     },
     {
       "method": "GET",
+      "path": "/v1/admin/strings/drift",
+      "operationId": "adminListStringDrift",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/strings/keys",
+      "operationId": "adminListStringKeys",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/strings/overrides",
+      "operationId": "adminListStringOverrides",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/strings/overrides/{key}",
+      "operationId": "adminClearStringOverride",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "key"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        409,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/admin/strings/overrides/{key}",
+      "operationId": "adminGetStringOverride",
+      "tag": "Admin",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [],
+      "pathParams": [
+        "key"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/v1/admin/strings/overrides/{key}",
+      "operationId": "adminSetStringOverride",
+      "tag": "Admin",
+      "requiredFields": [
+        "value"
+      ],
+      "bodyFields": [
+        "value"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "key"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        409,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/v1/admin/support-bundle",
       "operationId": "adminExportSupportBundle",
       "tag": "Admin",
@@ -2150,6 +2289,27 @@
     },
     {
       "method": "GET",
+      "path": "/v1/agents",
+      "operationId": "listAgentsInTenant",
+      "tag": "Agents",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "cursor",
+        "limit"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/v1/agents/{agentId}/capabilities",
       "operationId": "getAgentCapabilities",
       "tag": "Capabilities",
@@ -2292,7 +2452,8 @@
         "agentClass",
         "ownerRef",
         "orgUnit",
-        "description"
+        "description",
+        "agentCardUrl"
       ],
       "queryFields": [],
       "pathParams": [
@@ -2350,6 +2511,28 @@
         401,
         403,
         404,
+        429,
+        500
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/v1/audit-vault/checkpoints",
+      "operationId": "listVaultCheckpoints",
+      "tag": "Compliance",
+      "requiredFields": [],
+      "bodyFields": [],
+      "queryFields": [
+        "recordId",
+        "cursor",
+        "limit"
+      ],
+      "pathParams": [],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
         429,
         500
       ]
@@ -2593,7 +2776,8 @@
         "status",
         "recordId",
         "limit",
-        "offset"
+        "offset",
+        "cursor"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -3357,6 +3541,30 @@
       ]
     },
     {
+      "method": "POST",
+      "path": "/v1/records/{recordId}/dispute/withdraw",
+      "operationId": "withdrawDispute",
+      "tag": "Disputes",
+      "requiredFields": [],
+      "bodyFields": [
+        "reason"
+      ],
+      "queryFields": [],
+      "pathParams": [
+        "recordId"
+      ],
+      "responseCodes": [
+        200,
+        400,
+        401,
+        403,
+        404,
+        422,
+        429,
+        500
+      ]
+    },
+    {
       "method": "GET",
       "path": "/v1/records/{recordId}/receipts",
       "operationId": "listReceipts",
@@ -3559,7 +3767,7 @@
     {
       "method": "GET",
       "path": "/v1/records/summary",
-      "operationId": null,
+      "operationId": "recordsSummaryRetired",
       "tag": "Records",
       "requiredFields": [],
       "bodyFields": [],
@@ -3652,10 +3860,13 @@
       "tag": "Schemas",
       "requiredFields": [],
       "bodyFields": [],
-      "queryFields": [],
+      "queryFields": [
+        "withReceipt"
+      ],
       "pathParams": [],
       "responseCodes": [
         200,
+        400,
         401,
         403,
         429,
@@ -3828,6 +4039,7 @@
         400,
         401,
         403,
+        404,
         429,
         500
       ]

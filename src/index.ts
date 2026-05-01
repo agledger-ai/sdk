@@ -131,6 +131,7 @@ export type {
   DisputeResponse,
   CreateDisputeParams,
   ListDisputesParams,
+  WithdrawDisputeParams,
 
   // Webhooks
   WebhookEventType,
@@ -170,6 +171,8 @@ export type {
   AuditStreamParams,
   AuditStreamResult,
   AuditVaultExportParams,
+  VaultCheckpoint,
+  ListVaultCheckpointsParams,
 
   // Tenant-admin reads checkpoints (SCITT-style)
   TenantReadsCheckpoint,
@@ -216,6 +219,8 @@ export type {
   AdminImportRecordsResult,
   BackfillRecord,
   QueryAdminRecordsParams,
+  StringOverride,
+  SetStringOverrideParams,
 
   // A2A Protocol
   AgentCard,
@@ -260,6 +265,7 @@ export type {
   ResetSequenceParams,
   ListOutboundDlqParams,
   FederationDlqEntry,
+  FederationGatewayStatus,
 
   // Admin — Circuit breaker / search
   UpdateCircuitBreakerParams,
@@ -267,6 +273,7 @@ export type {
 
   // Agents
   AgentProfile,
+  AgentDirectoryEntry,
   UpdateAgentParams,
 
   // References

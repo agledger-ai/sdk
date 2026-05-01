@@ -2606,3 +2606,86 @@ export interface PeerRegistrationParams {
 }
 
 
+/**
+ * A configurable user-facing string. AGLedger ships bundled defaults and lets
+ * tenant admins override individual keys (banner copy, error suggestions, etc.).
+ * `drift` is true when the bundled default has changed since the override was
+ * written — admin should reconfirm the override is still appropriate.
+ */
+export interface StringOverride {
+  key: string;
+  value: string | null;
+  bundledDefault: string | null;
+  defaultHash: string | null;
+  currentDefaultHash: string | null;
+  drift: boolean;
+  managedBy: 'provisioning' | null;
+  createdBy: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+/** Parameters for setting a string override. */
+export interface SetStringOverrideParams {
+  value: string;
+}
+
+
+/** Federation gateway-side runtime status (this node's view of its hub link). */
+export interface FederationGatewayStatus {
+  mode: 'standalone' | 'gateway' | 'hub';
+  registered: boolean;
+  gatewayId: string | null;
+  hubUrl: string | null;
+  registeredAt: string | null;
+  currentSeq: number | null;
+  bearerTokenExpiresAt: string | null;
+  outboundDlqCount: number;
+  nextSteps: NextStep[];
+}
+
+
+/**
+ * A row in the tenant agent directory returned by `GET /v1/agents`.
+ * Use this for peer discovery; for full agent identity use `agents.get(id)`.
+ */
+export interface AgentDirectoryEntry {
+  id: string;
+  enterpriseId: string;
+  displayName: string | null;
+  slug: string;
+  agentCardUrl: string | null;
+  agentClass: 'personal' | 'system' | 'team' | 'ephemeral';
+  orgUnit: string | null;
+  description: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
+/**
+ * A vault checkpoint row used for offline integrity verification.
+ * Each row corresponds to a hash-chained vault entry for a specific record.
+ */
+export interface VaultCheckpoint {
+  id: string;
+  recordId: string;
+  chainPosition: number;
+  payloadHash: string;
+  signature: string | null;
+  signingKeyId: string | null;
+  signatureAlg: string | null;
+  createdAt: string;
+}
+
+/** Query parameters for listing vault checkpoints. */
+export interface ListVaultCheckpointsParams extends ListParams {
+  recordId?: string;
+}
+
+
+/** Parameters for withdrawing a dispute. Reason is optional context. */
+export interface WithdrawDisputeParams {
+  reason?: string;
+}

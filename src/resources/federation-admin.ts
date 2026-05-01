@@ -21,6 +21,7 @@ import type {
   PeerRegistrationParams,
   ReputationContribution,
   RecordCriteriaStatus,
+  FederationGatewayStatus,
 } from '../types.js';
 
 export class FederationAdminResource {
@@ -70,6 +71,15 @@ export class FederationAdminResource {
   /** Get the federation health summary: gateway counts, Record counts, audit chain length. */
   getHealth(options?: RequestOptions): Promise<FederationHealthSummary> {
     return this.http.get('/federation/v1/admin/health', undefined, options);
+  }
+
+  /**
+   * Gateway-side federation status — this node's view of its own hub link
+   * (mode, registration, sequence number, DLQ depth). Different from
+   * `getHealth()`, which is the hub's view of all gateways.
+   */
+  getGatewayStatus(options?: RequestOptions): Promise<FederationGatewayStatus> {
+    return this.http.get('/federation/v1/admin/gateway-status', undefined, options);
   }
 
   /**
