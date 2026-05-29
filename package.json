@@ -1,0 +1,93 @@
+{
+  "name": "@agledger/sdk",
+  "version": "0.8.12",
+  "description": "AGLedger™ SDK — Accountability and audit infrastructure for agentic systems.",
+  "license": "SEE LICENSE IN LICENSE",
+  "sideEffects": false,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js",
+      "default": "./dist/types.js"
+    },
+    "./webhooks": {
+      "types": "./dist/webhooks/verify.d.ts",
+      "import": "./dist/webhooks/verify.js",
+      "default": "./dist/webhooks/verify.js"
+    },
+    "./verify": {
+      "types": "./dist/verify/verify-export.d.ts",
+      "import": "./dist/verify/verify-export.js",
+      "default": "./dist/verify/verify-export.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/__tests__",
+    "!dist/**/*.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prebuild": "rm -rf dist *.tsbuildinfo",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "agledger",
+    "agentic",
+    "accountability",
+    "audit",
+    "record",
+    "verification",
+    "governance",
+    "a2a",
+    "sdk",
+    "ai-agent",
+    "ai-governance",
+    "ai-safety",
+    "compliance",
+    "eu-ai-act",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agledger-ai/sdk"
+  },
+  "homepage": "https://agledger.ai",
+  "bugs": {
+    "url": "https://github.com/agledger-ai/sdk/issues"
+  },
+  "author": "AGLedger LLC",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "dependencies": {
+    "@agledger/verify-core": "^0.1.3",
+    "http-message-signatures": "^1.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "cborg": "^5.1.1",
+    "prettier": "^3.4.0",
+    "typescript": "^6.0.0",
+    "vitest": "^4.1.0"
+  }
+}
