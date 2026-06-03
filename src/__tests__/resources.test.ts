@@ -1,0 +1,1214 @@
+import { describe, it, expect, vi } from 'vitest';
+import { AgledgerClient } from '../client.js';
+
+function createMockClient(responseOverride?: unknown) {
+  const fetch = vi.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: vi.fn().mockResolvedValue(responseOverride ?? { id: 'test-id', status: 'CREATED' }),
+    headers: new Headers(),
+  });
+  const client = new AgledgerClient({
+    apiKey: 'test_key',
+    fetch: fetch as unknown as typeof globalThis.fetch,
+    maxRetries: 0,
+  });
+  return { client, fetch };
+}
+
+function createPageMockClient(data: unknown[] = []) {
+  return createMockClient({ data, hasMore: false });
+}
+
+describe('RecordsResource', () => {
+  it('creates a record (admin, explicit principalAgentId)', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.create({
+      principalAgentId: 'agt-principal',
+      type: 'ACH-PROC-v1',
+      contractVersion: '1',
+      platform: 'test',
+      criteria: { item_spec: 'Widget' },
+    });
+
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.type).toBe('ACH-PROC-v1');
+    expect(body.principalAgentId).toBe('agt-principal');
+    expect(body.principalType).toBeUndefined();
+    expect(body.contractType).toBeUndefined();
+  });
+
+  it('creates a record with typed criteria', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.create({
+      type: 'ACH-DATA-v1',
+      contractVersion: '1',
+      platform: 'internal-etl',
+      criteria: {
+        description: 'Nightly ETL pipeline',
+        output_format: 'parquet',
+        row_count_min: 100_000,
+      },
+    });
+
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.type).toBe('ACH-DATA-v1');
+    expect(body.criteria.description).toBe('Nightly ETL pipeline');
+    expect(body.criteria.row_count_min).toBe(100_000);
+  });
+
+  it('creates a record with untyped criteria for unknown Types', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.create({
+      type: 'ACH-CUSTOM-v1',
+      contractVersion: '1',
+      platform: 'test',
+      criteria: { custom_field: 'any value' },
+    });
+
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.type).toBe('ACH-CUSTOM-v1');
+    expect(body.criteria.custom_field).toBe('any value');
+  });
+
+  it('gets a record by ID', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.get('rec-123');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123');
+  });
+
+  it('lists records with optional orgId filter', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.records.list({ orgId: 'ent-123' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/records');
+    expect(url).toContain('orgId=ent-123');
+  });
+
+  it('lists records without filters', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.records.list();
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/records');
+  });
+
+  it('searches records with filters', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.records.search({ orgId: 'ent-123', status: 'ACTIVE', type: 'ACH-TXN-v1' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/records/search');
+    expect(url).toContain('status=ACTIVE');
+    expect(url).toContain('type=ACH-TXN-v1');
+  });
+
+  it('transitions a record with reason', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.transition('rec-123', 'cancel', 'Budget exceeded');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/rec-123/transition');
+    expect(JSON.parse(init.body)).toEqual({ action: 'cancel', reason: 'Budget exceeded' });
+  });
+
+  it('cancel passes reason through', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.cancel('rec-123', 'No longer needed');
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.reason).toBe('No longer needed');
+  });
+
+  it('counter-proposes on a record', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.counterPropose('rec-123', { counterCriteria: { price: 50 }, message: 'Lower price' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/rec-123/counter-propose');
+    expect(JSON.parse(init.body).message).toBe('Lower price');
+  });
+
+  it('batch-gets records by ID', async () => {
+    const { client, fetch } = createMockClient({ data: [] });
+    await client.records.batchGet(['id-1', 'id-2']);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/batch');
+    expect(JSON.parse(init.body).ids).toEqual(['id-1', 'id-2']);
+  });
+
+  it('accepts a counter-proposal', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.acceptCounter('rec-123');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/accept-counter');
+  });
+
+  it('gets delegation chain, unwrapping the paginated envelope to the row array', async () => {
+    // The endpoint returns `{ data, total, hasMore }`, not a bare array — getChain
+    // must return `data`, not the envelope object (F-730).
+    const { client, fetch } = createMockClient({
+      data: [{ id: 'rec-123' }, { id: 'rec-456' }],
+      total: 2,
+      hasMore: false,
+    });
+    const chain = await client.records.getChain('rec-123');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/chain');
+    expect(chain.map((r) => r.id)).toEqual(['rec-123', 'rec-456']);
+  });
+
+  it('gets sub-records', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.records.getSubRecords('rec-123');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/sub-records');
+  });
+
+  it('delegates a record via unified POST /v1/records with parentRecordId', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.delegate('rec-123', {
+      principalAgentId: 'agent-principal',
+      performerAgentId: 'agent-456',
+      type: 'ACH-PROC-v1',
+      contractVersion: '1',
+      platform: 'test',
+      criteria: {},
+      commissionPct: 10,
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toMatch(/\/records(?!\/)/);
+    const body = JSON.parse(init.body);
+    expect(body).toHaveProperty('parentRecordId', 'rec-123');
+    expect(body).toHaveProperty('performerAgentId', 'agent-456');
+  });
+
+  it('bulk creates records with optional per-item idempotencyKey', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.bulkCreate([
+      { type: 'ACH-PROC-v1', contractVersion: '1', platform: 'test', criteria: {}, idempotencyKey: 'k1' },
+    ]);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/bulk');
+    const body = JSON.parse(init.body);
+    expect(body.records).toHaveLength(1);
+    expect(body.records[0].idempotencyKey).toBe('k1');
+  });
+
+  it('lists proposals', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.records.listProposals();
+    expect(fetch.mock.calls[0][0]).toContain('/records/agent/proposals');
+  });
+
+  it('createAndActivate creates then registers then activates', async () => {
+    let callCount = 0;
+    const fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      const status = callCount === 1 ? 'CREATED'
+        : callCount === 2 ? 'CREATED'
+        : 'ACTIVE';
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ id: 'rec-new', status }),
+        headers: new Headers(),
+      });
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+    const result = await client.records.createAndActivate({
+      type: 'ACH-PROC-v1',
+      contractVersion: '1',
+      platform: 'test',
+      criteria: {},
+    });
+    expect(result.status).toBe('ACTIVE');
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(fetch.mock.calls[1][0]).toContain('/records/rec-new/transition');
+    expect(JSON.parse(fetch.mock.calls[1][1].body).action).toBe('register');
+    expect(fetch.mock.calls[2][0]).toContain('/records/rec-new/transition');
+    expect(JSON.parse(fetch.mock.calls[2][1].body).action).toBe('activate');
+  });
+
+  it('getValidTransitions returns client-side transitions', () => {
+    const { client } = createMockClient();
+    const record = { status: 'CREATED' } as import('../types.js').RecordRow;
+    const transitions = client.records.getValidTransitions(record);
+    expect(transitions).toContain('ACTIVE');
+    expect(transitions).toContain('PROPOSED');
+    expect(transitions).toContain('CANCELLED');
+  });
+
+  it('submits the principal verdict on a record', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.submitVerdict('rec-123', { completionId: 'cmp-1', verdict: 'accept' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/rec-123/verdict');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({ completionId: 'cmp-1', verdict: 'accept' });
+  });
+
+  it('exports per-record audit trail via getAuditExport', async () => {
+    const { client, fetch } = createMockClient({ exportMetadata: {}, entries: [] });
+    await client.records.getAuditExport('rec-123', { format: 'json' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/records/rec-123/audit-export');
+    expect(url).toContain('format=json');
+  });
+
+  it('fetches own verdict statistics', async () => {
+    const { client, fetch } = createMockClient({ data: [] });
+    await client.records.myVerdictStatistics();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/records/me/verdict-statistics');
+  });
+});
+
+describe('CompletionsResource', () => {
+  it('submits a completion', async () => {
+    const { client, fetch } = createMockClient();
+    await client.completions.submit('rec-123', { evidence: { delivered: true } });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/rec-123/completions');
+    expect(init.method).toBe('POST');
+  });
+
+  it('submits a completion with typed evidence', async () => {
+    const { client, fetch } = createMockClient();
+    await client.completions.submit<'ACH-INFRA-v1'>('rec-123', {
+      evidence: {
+        action: 'deploy_service',
+        resource_name: 'api-gateway',
+        resource_type: 'service',
+        status: 'running',
+        environment: 'staging',
+      },
+    });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.evidence.action).toBe('deploy_service');
+    expect(body.evidence.environment).toBe('staging');
+  });
+
+  it('lists completions for a record', async () => {
+    const { client, fetch } = createPageMockClient();
+    const result = await client.completions.list('rec-123');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/completions');
+    expect(result.data).toEqual([]);
+  });
+});
+
+describe('GateResource', () => {
+  it('triggers gate evaluation', async () => {
+    const { client, fetch } = createMockClient();
+    await client.gate.evaluate('rec-123', ['cmp-1', 'cmp-2']);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/rec-123/evaluate');
+    const body = JSON.parse(init.body);
+    expect(body.completionIds).toEqual(['cmp-1', 'cmp-2']);
+  });
+
+  it('gets gate status', async () => {
+    const { client, fetch } = createMockClient();
+    await client.gate.getStatus('rec-123');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/gate-status');
+  });
+});
+
+describe('DisputesResource', () => {
+  it('creates a dispute', async () => {
+    const { client, fetch } = createMockClient();
+    await client.disputes.create('rec-123', { grounds: 'pricing_dispute' });
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/dispute');
+  });
+
+  it('escalates a dispute', async () => {
+    const { client, fetch } = createMockClient();
+    await client.disputes.escalate('rec-123');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/dispute/escalate');
+  });
+
+  it('lists disputes org-wide', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.disputes.list({ status: 'OPENED' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/disputes');
+    expect(url).toContain('status=OPENED');
+  });
+});
+
+describe('WebhooksResource', () => {
+  it('creates a webhook with eventTypes', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.create({ url: 'https://example.com/hook', eventTypes: ['record.created'] });
+    const [, init] = fetch.mock.calls[0];
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.eventTypes).toEqual(['record.created']);
+    expect(body.events).toBeUndefined();
+  });
+
+  it('pings a webhook', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.ping('wh-123');
+    expect(fetch.mock.calls[0][0]).toContain('/webhooks/wh-123/ping');
+  });
+
+  it('deletes a webhook', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: vi.fn(),
+      headers: new Headers(),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+    await client.webhooks.delete('wh-123');
+    expect(fetch.mock.calls[0][1].method).toBe('DELETE');
+  });
+
+  it('lists deliveries with status filter', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.webhooks.listDeliveries('wh-123', { status: 'FAILED' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/webhooks/wh-123/deliveries');
+    expect(url).toContain('status=FAILED');
+  });
+
+  it('rotates webhook secret', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.rotate('wh-123');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/webhooks/wh-123/rotate');
+    expect(init.method).toBe('POST');
+  });
+
+  it('gets a single webhook by ID', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.get('wh-123');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123');
+    expect(fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('pauses a webhook', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.pause('wh-123');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123/pause');
+    expect(fetch.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('resumes a webhook', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.resume('wh-123');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123/resume');
+    expect(fetch.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('updates a webhook', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.update('wh-123', { url: 'https://new.example.com/hook' });
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123');
+    expect(fetch.mock.calls[0][1].method).toBe('PATCH');
+  });
+
+  it('lists webhooks filtered by URL', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.webhooks.list({ url: 'https://example.com/hook' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/webhooks');
+    expect(url).toContain('url=https');
+  });
+});
+
+describe('ComplianceResource', () => {
+  it('exports compliance data', async () => {
+    const { client, fetch } = createMockClient();
+    await client.compliance.export({ format: 'json' });
+    expect(fetch.mock.calls[0][0]).toContain('/compliance/export');
+  });
+
+  it('creates AI impact assessment', async () => {
+    const { client, fetch } = createMockClient();
+    await client.compliance.createAssessment('rec-123', { riskLevel: 'high', domain: 'healthcare' });
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/ai-impact-assessment');
+  });
+
+  it('creates a compliance record for a record', async () => {
+    const { client, fetch } = createMockClient();
+    await client.compliance.createRecord('rec-123', {
+      recordType: 'workplace_notification',
+      attestation: { notified: true },
+      attestedBy: 'admin@example.com',
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/rec-123/compliance-records');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body).recordType).toBe('workplace_notification');
+  });
+
+  it('lists compliance records for a record', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.compliance.listRecords('rec-123');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/compliance-records');
+  });
+
+  it('gets a specific compliance record', async () => {
+    const { client, fetch } = createMockClient();
+    await client.compliance.getRecord('rec-123', 'comp-456');
+    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/compliance-records/comp-456');
+  });
+
+  it('exports per-record audit trail', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.getAuditExport('rec-123', { format: 'json' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/records/rec-123/audit-export');
+    expect(url).toContain('format=json');
+  });
+
+  it('streams audit events as NDJSON', async () => {
+    const events = [
+      { type: 'record.created', timestamp: '2026-01-01T00:00:00Z', id: 'evt-1' },
+      { type: 'record.fulfilled', timestamp: '2026-01-01T01:00:00Z', id: 'evt-2' },
+    ];
+    const ndjson = events.map((e) => JSON.stringify(e)).join('\n') + '\n';
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(ndjson),
+      headers: new Headers({
+        'X-AGLedger-Stream-Cursor': '2026-01-01T01:00:00Z_evt-2',
+      }),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const result = await client.compliance.stream({ since: '2026-01-01T00:00:00Z' });
+    expect(result.events).toHaveLength(2);
+    expect(result.events[0]).toHaveProperty('type', 'record.created');
+    expect(result.cursor).toBe('2026-01-01T01:00:00Z_evt-2');
+    expect(result.hasMore).toBe(false);
+
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/siem/stream');
+    expect(url).toContain('since=');
+    expect(fetch.mock.calls[0][1].headers.Accept).toBe('application/x-ndjson');
+  });
+
+  it('stream returns hasMore when event count equals limit', async () => {
+    const events = Array.from({ length: 5 }, (_, i) => ({
+      type: 'record.created',
+      timestamp: `2026-01-01T0${i}:00:00Z`,
+      id: `evt-${i}`,
+    }));
+    const ndjson = events.map((e) => JSON.stringify(e)).join('\n') + '\n';
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(ndjson),
+      headers: new Headers({
+        'X-AGLedger-Stream-Cursor': '2026-01-01T04:00:00Z_evt-4',
+      }),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const result = await client.compliance.stream({ since: '2026-01-01T00:00:00Z', limit: 5 });
+    expect(result.events).toHaveLength(5);
+    expect(result.hasMore).toBe(true);
+    expect(result.cursor).toBe('2026-01-01T04:00:00Z_evt-4');
+  });
+
+  it('streamAll iterates across multiple pages', async () => {
+    const page1Events = [
+      { type: 'record.created', timestamp: '2026-01-01T00:00:00Z', id: 'evt-1' },
+      { type: 'record.fulfilled', timestamp: '2026-01-01T01:00:00Z', id: 'evt-2' },
+    ];
+    const page2Events = [
+      { type: 'record.expired', timestamp: '2026-01-01T02:00:00Z', id: 'evt-3' },
+    ];
+    let callCount = 0;
+    const fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          text: vi.fn().mockResolvedValue(page1Events.map((e) => JSON.stringify(e)).join('\n') + '\n'),
+          headers: new Headers({
+            'X-AGLedger-Stream-Cursor': '2026-01-01T01:00:00Z_evt-2',
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(page2Events.map((e) => JSON.stringify(e)).join('\n') + '\n'),
+        headers: new Headers(),
+      });
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const allEvents: Record<string, unknown>[] = [];
+    for await (const event of client.compliance.streamAll({ since: '2026-01-01T00:00:00Z', limit: 2 })) {
+      allEvents.push(event);
+    }
+    expect(allEvents).toHaveLength(3);
+    expect(allEvents[2]).toHaveProperty('type', 'record.expired');
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('ReputationResource', () => {
+  it('gets agent reputation', async () => {
+    const { client, fetch } = createMockClient();
+    await client.reputation.getAgent('agent-123');
+    expect(fetch.mock.calls[0][0]).toContain('/agents/agent-123/reputation');
+  });
+
+  it('gets agent history at correct path', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.reputation.getHistory('agent-123', { from: '2026-01-01' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/agents/agent-123/history');
+    expect(url).not.toContain('/reputation/history');
+    expect(url).toContain('from=2026-01-01');
+  });
+});
+
+describe('HealthResource', () => {
+  it('checks health', async () => {
+    const { client, fetch } = createMockClient();
+    await client.health.check();
+    expect(fetch.mock.calls[0][0]).toContain('/health');
+  });
+
+  it('checks status', async () => {
+    const { client, fetch } = createMockClient();
+    await client.health.status();
+    expect(fetch.mock.calls[0][0]).toContain('/status');
+  });
+
+});
+
+describe('AuthResource', () => {
+  it('gets authenticated profile', async () => {
+    const { client, fetch } = createMockClient();
+    await client.auth.getMe();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/auth/me');
+  });
+
+  it('rotates the current API key', async () => {
+    const { client, fetch } = createMockClient({ apiKey: 'agl_adm_newkey', keyId: 'key-abc' });
+    await client.auth.rotateKey();
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/auth/keys/rotate');
+    expect(init.method).toBe('POST');
+  });
+});
+
+describe('DiscoveryResource', () => {
+  it('lists scope profiles', async () => {
+    const { client, fetch } = createMockClient([{ name: 'admin-standard', scopes: [], allowedRoles: ['admin'], description: '' }]);
+    await client.discovery.getScopeProfiles();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/scope-profiles');
+  });
+
+  it('gets conformance', async () => {
+    const { client, fetch } = createMockClient();
+    await client.discovery.getConformance();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/conformance');
+  });
+
+  it('gets lifecycle', async () => {
+    const { client, fetch } = createMockClient();
+    await client.discovery.getLifecycle();
+    expect(fetch.mock.calls[0][0]).toContain('/lifecycle');
+  });
+});
+
+describe('AuditResource', () => {
+  it('lists org-reads checkpoints', async () => {
+    const { client, fetch } = createMockClient({ data: [] });
+    await client.audit.orgReadsCheckpoints.list({ limit: 10 });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/audit/org-reads/checkpoints');
+    expect(url).toContain('limit=10');
+  });
+
+  it('gets a single org-reads checkpoint', async () => {
+    const { client, fetch } = createMockClient();
+    await client.audit.orgReadsCheckpoints.get('chk-1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/audit/org-reads/checkpoints/chk-1');
+  });
+
+  it('cosigns a org-reads checkpoint', async () => {
+    const { client, fetch } = createMockClient();
+    await client.audit.orgReadsCheckpoints.cosign('chk-1', {
+      witnessKeyId: 'fp:abc',
+      witnessSignature: 'sig...',
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/audit/org-reads/checkpoints/chk-1/cosign');
+    expect(init.method).toBe('POST');
+  });
+
+  it('fetches an inclusion proof for a leaf', async () => {
+    const { client, fetch } = createMockClient();
+    await client.audit.orgReadsCheckpoints.proof('chk-1', 'leafhash');
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/audit/org-reads/checkpoints/chk-1/proof');
+    expect(url).toContain('leaf=leafhash');
+  });
+});
+
+describe('AdminResource', () => {
+  it('lists orgs', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.admin.listOrgs();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/orgs');
+  });
+
+  it('lists agents', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.admin.listAgents();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/agents');
+  });
+
+  it('lists DLQ entries', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.admin.listDlq();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/webhook-dlq');
+  });
+
+  it('retries DLQ entry', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.retryDlq('dlq-123');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/webhook-dlq/dlq-123/retry');
+  });
+
+  it('gets system health', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.getSystemHealth();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/system-health');
+  });
+
+  it('creates API key with role and scopes', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.createApiKey({
+      role: 'admin',
+      ownerId: 'ent-1',
+      ownerType: 'admin',
+      scopes: ['records:read', 'records:write'],
+    });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.role).toBe('admin');
+    expect(body.scopes).toEqual(['records:read', 'records:write']);
+  });
+
+  it('creates API key with scope profile', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.createApiKey({
+      role: 'agent',
+      ownerId: 'agt-1',
+      ownerType: 'agent',
+      scopeProfile: 'agent-performer-only',
+    });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.scopeProfile).toBe('agent-performer-only');
+  });
+
+  it('creates an org (flat response)', async () => {
+    const { client, fetch } = createMockClient({
+      id: 'org-1', name: 'Acme Corp', createdAt: '2026-01-01T00:00:00Z',
+    });
+    const result = await client.admin.createOrg({ name: 'Acme Corp', displayName: 'Acme' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/orgs');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.name).toBe('Acme Corp');
+    expect(body.displayName).toBe('Acme');
+    expect(result.id).toBe('org-1');
+  });
+
+  it('creates an agent (flat response)', async () => {
+    const { client, fetch } = createMockClient({
+      id: 'agt-1', displayName: 'My Agent', createdAt: '2026-01-01T00:00:00Z',
+    });
+    const result = await client.admin.createAgent({ name: 'My Agent', displayName: 'My Agent', orgId: 'org-1' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/agents');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.name).toBe('My Agent');
+    expect(body.orgId).toBe('org-1');
+    expect(result.id).toBe('agt-1');
+  });
+
+  it('toggles API key with isActive field', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.toggleApiKey('key-1', false);
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.isActive).toBe(false);
+  });
+
+  it('bulk revokes API keys', async () => {
+    const { client, fetch } = createMockClient({ revoked: 3 });
+    await client.admin.bulkRevokeApiKeys(['key-1', 'key-2', 'key-3']);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/api-keys/bulk-revoke');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.keyIds).toEqual(['key-1', 'key-2', 'key-3']);
+  });
+
+  it('sets capabilities with PUT', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.setCapabilities('agt-1', { contractTypes: ['ACH-PROC-v1'] });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/agents/agt-1/capabilities');
+    expect(init.method).toBe('PUT');
+  });
+
+  it('gets org config', async () => {
+    const { client, fetch } = createMockClient({ agentApprovalRequired: true });
+    await client.admin.getOrgConfig('ent-1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/orgs/ent-1/config');
+    expect(fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('deactivates an org', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.deactivateOrg('org-1', { reason: 'test' });
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/orgs/org-1/deactivate');
+    expect(fetch.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('deactivates an agent', async () => {
+    const { client, fetch } = createMockClient();
+    await client.admin.deactivateAgent('agent-1', { reason: 'test' });
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/agents/agent-1/deactivate');
+    expect(fetch.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('patches org config with PATCH semantics', async () => {
+    const configPayload = { agentApprovalRequired: true, allowSelfApproval: false };
+    const { client, fetch } = createMockClient(configPayload);
+    await client.admin.updateOrgConfig('ent-1', configPayload);
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/orgs/ent-1/config');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body);
+    expect(body.agentApprovalRequired).toBe(true);
+  });
+
+  it('lists owner-level rate limit exemptions', async () => {
+    const { client, fetch } = createMockClient([{ ownerId: 'ent-1' }]);
+    await client.admin.listRateLimitExemptions();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/rate-limit-exemptions');
+    expect(fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('sets rate limit exemption for owner', async () => {
+    const { client, fetch } = createMockClient({ ownerId: 'ent-1' });
+    await client.admin.setRateLimitExemption('ent-1', { reason: 'VIP' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/rate-limit-exemptions/ent-1');
+    expect(init.method).toBe('PUT');
+  });
+
+  it('deletes rate limit exemption for owner', async () => {
+    const { client, fetch } = createMockClient({});
+    await client.admin.deleteRateLimitExemption('ent-1');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/rate-limit-exemptions/ent-1');
+    expect(init.method).toBe('DELETE');
+  });
+
+  it('reloads license', async () => {
+    const { client, fetch } = createMockClient({ reloaded: true });
+    await client.admin.reloadLicense();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/license/reload');
+    expect(fetch.mock.calls[0][1].method).toBe('POST');
+  });
+
+  it('gets license instance id', async () => {
+    const { client, fetch } = createMockClient({ instanceId: 'inst-abc' });
+    await client.admin.getLicenseInstanceId();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/license/instance-id');
+  });
+
+  it('reloads provisioning config', async () => {
+    const { client, fetch } = createMockClient({ reloaded: true });
+    await client.admin.reloadProvisioning();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/provisioning/reload');
+  });
+
+  it('gets provisioning status', async () => {
+    const { client, fetch } = createMockClient({ loaded: true });
+    await client.admin.getProvisioningStatus();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/provisioning/status');
+  });
+
+  it('gets webhook health', async () => {
+    const { client, fetch } = createPageMockClient([{ id: 'wh-1', circuitState: 'closed' }]);
+    await client.admin.getWebhookHealth();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/webhooks/health');
+    expect(fetch.mock.calls[0][1].method).toBe('GET');
+  });
+
+  it('updates webhook circuit breaker', async () => {
+    const { client, fetch } = createMockClient({ id: 'wh-1', circuitState: 'open', consecutiveFailures: 5 });
+    const result = await client.admin.updateCircuitBreaker('wh-1', { state: 'open' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/admin/webhooks/wh-1/circuit-breaker');
+    expect(init.method).toBe('PATCH');
+    const body = JSON.parse(init.body);
+    expect(body.state).toBe('open');
+    expect(result.circuitState).toBe('open');
+  });
+
+  describe('admin.records', () => {
+    it('lists Records platform-wide', async () => {
+      const { client, fetch } = createPageMockClient();
+      await client.admin.records.list({ orgId: 'ent-1', status: 'ACTIVE' });
+      const url = fetch.mock.calls[0][0];
+      expect(url).toContain('/v1/admin/records');
+      expect(url).toContain('orgId=ent-1');
+    });
+
+    it('imports a backfill batch', async () => {
+      const { client, fetch } = createMockClient({ imported: 1, recordIds: ['rec-1'], source: 'SAP' });
+      await client.admin.records.import({
+        orgId: 'ent-1',
+        source: 'SAP',
+        records: [{
+          principalAgentId: 'agt-1',
+          type: 'ACH-PROC-v1',
+          platform: 'sap',
+          criteria: { item_spec: 'thing' },
+          terminalStatus: 'FULFILLED',
+          createdAt: '2024-01-01T00:00:00Z',
+          fulfilledAt: '2024-01-02T00:00:00Z',
+        }],
+      });
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toContain('/v1/admin/records/import');
+      expect(init.method).toBe('POST');
+      const body = JSON.parse(init.body);
+      expect(body.source).toBe('SAP');
+      expect(body.records).toHaveLength(1);
+    });
+  });
+
+  describe('admin.vault', () => {
+    it('lists vault anchors', async () => {
+      const { client, fetch } = createMockClient([]);
+      await client.admin.vault.anchors.list({ recordId: 'rec-1' });
+      const url = fetch.mock.calls[0][0];
+      expect(url).toContain('/v1/admin/vault/anchors');
+      expect(url).toContain('recordId=rec-1');
+    });
+
+    it('verifies vault anchors', async () => {
+      const { client, fetch } = createMockClient({ valid: true, anchorsChecked: 5, errors: [] });
+      await client.admin.vault.anchors.verify({ recordId: 'rec-1' });
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toContain('/v1/admin/vault/anchors/verify');
+      expect(init.method).toBe('POST');
+    });
+
+    it('starts a vault scan', async () => {
+      const { client, fetch } = createMockClient({ jobId: 'job-1', status: 'pending' });
+      await client.admin.vault.scan.run({ recordIds: ['rec-1', 'rec-2'] });
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toContain('/v1/admin/vault/scan');
+      expect(init.method).toBe('POST');
+    });
+
+    it('checks vault scan status', async () => {
+      const { client, fetch } = createMockClient({ jobId: 'job-1', status: 'completed' });
+      await client.admin.vault.scan.status('job-1');
+      expect(fetch.mock.calls[0][0]).toContain('/v1/admin/vault/scan/job-1');
+    });
+
+    it('lists vault signing keys', async () => {
+      const { client, fetch } = createMockClient([]);
+      await client.admin.vault.signingKeys.list();
+      expect(fetch.mock.calls[0][0]).toContain('/v1/admin/vault/signing-keys');
+    });
+
+    it('rotates the vault signing key', async () => {
+      const { client, fetch } = createMockClient({ id: 'k1', publicKey: 'p', algorithm: 'Ed25519', status: 'active', createdAt: 'now', rotatedAt: null });
+      await client.admin.vault.signingKeys.rotate();
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toContain('/v1/admin/vault/signing-keys/rotate');
+      expect(init.method).toBe('POST');
+    });
+  });
+});
+
+describe('A2aResource', () => {
+  it('fetches agent card', async () => {
+    const { client, fetch } = createMockClient();
+    await client.a2a.getAgentCard();
+    expect(fetch.mock.calls[0][0]).toContain('/.well-known/agent-card.json');
+  });
+
+  it('dispatches JSON-RPC request', async () => {
+    const { client, fetch } = createMockClient();
+    await client.a2a.dispatch({ jsonrpc: '2.0', method: 'tasks/send', params: { task: 'test' }, id: '1' });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.jsonrpc).toBe('2.0');
+    expect(body.method).toBe('tasks/send');
+  });
+
+  it('call() auto-generates JSON-RPC envelope', async () => {
+    const { client, fetch } = createMockClient();
+    await client.a2a.call('tasks/send', { task: 'hello' });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.jsonrpc).toBe('2.0');
+    expect(body.method).toBe('tasks/send');
+    expect(body.id).toBeDefined();
+  });
+});
+
+describe('CapabilitiesResource', () => {
+  it('gets agent capabilities', async () => {
+    const { client, fetch } = createMockClient();
+    await client.capabilities.get('agent-123');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/agents/agent-123/capabilities');
+  });
+
+  it('sets agent capabilities via PUT', async () => {
+    const { client, fetch } = createMockClient();
+    await client.capabilities.set('agent-123', { contractTypes: ['ACH-PROC-v1', 'ACH-DATA-v1'] });
+    const [, init] = fetch.mock.calls[0];
+    expect(init.method).toBe('PUT');
+    const body = JSON.parse(init.body);
+    expect(body.contractTypes).toEqual(['ACH-PROC-v1', 'ACH-DATA-v1']);
+  });
+});
+
+describe('SchemasResource', () => {
+  it('lists Types from /v1/schemas', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.schemas.list();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas');
+  });
+
+  it('gets a Type schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.get('ACH-PROC-v1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1');
+  });
+
+  it('gets rules for a Type', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.getRules('ACH-PROC-v1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/rules');
+  });
+
+  it('validates completion against schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.validateCompletion('ACH-PROC-v1', { quantity: 100 });
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/validate');
+  });
+
+  it('gets meta-schema via metaSchema()', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.metaSchema();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/meta-schema');
+  });
+
+  it('gets template for Type', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.getTemplate('ACH-PROC-v1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/template');
+  });
+
+  it('gets blank template via blank()', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.blank();
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/_blank');
+  });
+
+  it('lists schema versions', async () => {
+    const { client, fetch } = createMockClient([]);
+    await client.schemas.getVersions('ACH-PROC-v1');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/versions');
+  });
+
+  it('gets specific schema version', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.getVersion('ACH-PROC-v1', 1);
+    expect(fetch.mock.calls[0][0]).toContain('/v1/schemas/ACH-PROC-v1/versions/1');
+  });
+
+  it('diffs two versions', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.diff('ACH-PROC-v1', 1, 2);
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1/diff');
+    expect(url).toContain('from=1');
+    expect(url).toContain('to=2');
+  });
+
+  it('previews a schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.preview({
+      type: 'ACH-CUSTOM-v1',
+      displayName: 'Custom',
+      recordSchema: {},
+      completionSchema: {},
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/preview');
+    expect(init.method).toBe('POST');
+  });
+
+  it('checks compatibility', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.checkCompatibility('ACH-PROC-v1', {
+      recordSchema: {},
+      completionSchema: {},
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1/check-compatibility');
+    expect(init.method).toBe('POST');
+  });
+
+  it('registers a schema', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.register({
+      type: 'ACH-CUSTOM-v1',
+      displayName: 'Custom',
+      recordSchema: {},
+      completionSchema: {},
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toHaveProperty('type', 'ACH-CUSTOM-v1');
+  });
+
+  it('updates a version', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.updateVersion('ACH-PROC-v1', 1, { status: 'DEPRECATED' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1/versions/1');
+    expect(init.method).toBe('PATCH');
+  });
+
+  it('disables a Type', async () => {
+    const { client, fetch } = createMockClient({ type: 'ACH-CUSTOM-v1', status: 'DISABLED' });
+    await client.schemas.disable('ACH-CUSTOM-v1');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/ACH-CUSTOM-v1/disable');
+    expect(init.method).toBe('PATCH');
+  });
+
+  it('enables a Type', async () => {
+    const { client, fetch } = createMockClient({ type: 'ACH-CUSTOM-v1', status: 'ACTIVE' });
+    await client.schemas.enable('ACH-CUSTOM-v1');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/ACH-CUSTOM-v1/enable');
+    expect(init.method).toBe('PATCH');
+  });
+
+  it('exports a schema with versions param', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.exportSchema('ACH-PROC-v1', { versions: '1,2' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/ACH-PROC-v1/export');
+    expect(url).toContain('versions=1%2C2');
+    expect(init.method).toBe('POST');
+  });
+
+  it('imports a schema via import_()', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.import_({ exportVersion: 1, type: 'ACH-CUSTOM-v1', versions: [{}] });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/import');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toHaveProperty('type', 'ACH-CUSTOM-v1');
+  });
+
+  it('preview-imports with dryRun', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.previewImport({ exportVersion: 1, type: 'ACH-CUSTOM-v1', versions: [{}] });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/schemas/import');
+    expect(url).toContain('dryRun=true');
+  });
+
+  it('registers a schema with expression field mapping', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.register({
+      type: 'ACH-CUSTOM-v1',
+      displayName: 'Custom Expression',
+      recordSchema: {},
+      completionSchema: {},
+      fieldMappings: [
+        {
+          ruleId: 'expr-amount-check',
+          criteriaPath: 'criteria.target',
+          evidencePath: 'evidence.amount',
+          valueType: 'expression',
+          expression: 'abs(evidence.amount - criteria.target) <= tolerance.amount',
+          toleranceField: 'criteria.tolerance',
+        },
+      ],
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body).toHaveProperty('type', 'ACH-CUSTOM-v1');
+    expect(body.fieldMappings).toHaveLength(1);
+    expect(body.fieldMappings[0]).toMatchObject({
+      ruleId: 'expr-amount-check',
+      valueType: 'expression',
+      expression: 'abs(evidence.amount - criteria.target) <= tolerance.amount',
+    });
+  });
+
+  it('previews a schema with expression field mapping', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.preview({
+      type: 'ACH-CUSTOM-v1',
+      displayName: 'Custom Expression Preview',
+      recordSchema: {},
+      completionSchema: {},
+      fieldMappings: [
+        {
+          ruleId: 'expr-budget-check',
+          criteriaPath: 'criteria.budget',
+          evidencePath: 'evidence.spent',
+          valueType: 'expression',
+          expression: 'abs(evidence.amount - criteria.target) <= tolerance.amount',
+        },
+      ],
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/schemas/preview');
+    expect(init.method).toBe('POST');
+    const body = JSON.parse(init.body);
+    expect(body.fieldMappings).toHaveLength(1);
+    expect(body.fieldMappings[0].valueType).toBe('expression');
+    expect(body.fieldMappings[0].expression).toBe(
+      'abs(evidence.amount - criteria.target) <= tolerance.amount',
+    );
+  });
+});
