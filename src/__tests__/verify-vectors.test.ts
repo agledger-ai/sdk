@@ -17,8 +17,8 @@ import type { RecordAuditExport } from '../types.js';
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-// agledger-sdk/src/__tests__ -> repo root is three levels up.
-const CONFORMANCE_DIR = join(HERE, '..', '..', '..', 'testdata', 'conformance');
+// src/__tests__ -> repo root is two levels up (standalone source-of-truth repo).
+const CONFORMANCE_DIR = join(HERE, '..', '..', 'testdata', 'conformance');
 
 interface ManifestVector {
   file: string;
