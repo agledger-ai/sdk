@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import type {
   AgledgerClientOptions,
   RequestOptions,
@@ -25,7 +26,13 @@ const DEFAULT_BASE_URL = 'https://agledger.example.com';
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
-const SDK_VERSION = '0.8.14';
+
+// Derive the SDK version from package.json at runtime so the telemetry headers
+// (User-Agent / X-SDK-Version) can never drift from the published version.
+// At runtime this file is dist/http.js, so `../package.json` resolves to the
+// shipped package root package.json (always included in the npm tarball).
+const require = createRequire(import.meta.url);
+const { version: SDK_VERSION } = require('../package.json') as { version: string };
 
 export class HttpClient {
   private readonly apiKey: string;

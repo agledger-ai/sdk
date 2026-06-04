@@ -11,9 +11,11 @@
  * A clean route diff (194/194) hid all of it. Never again: this test fails CI
  * the moment the API adds/renames a field a mapped SDK model doesn't carry.
  *
- * Regenerate the snapshot from a checked-in API spec:
- *   node scripts/gen-schema-fields.mjs <openapi.json> agledger-sdk/src/__tests__/schema-fields.json
- * The weekly update-route-manifest workflow regenerates it from prod OpenAPI.
+ * schema-fields.json is regenerated MANUALLY from the production OpenAPI spec
+ * (`GET /openapi.json`) on an API version bump, then committed. There is no
+ * automated regeneration workflow or generator script in this repo — refresh
+ * the snapshot by hand when the API's model field shapes change, and re-run
+ * this test to confirm parity.
  */
 
 import { describe, it, expect } from 'vitest';

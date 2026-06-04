@@ -4,6 +4,20 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.16] - 2026-06-04
+
+### Fixed
+
+- The SDK version string (`User-Agent` / `X-SDK-Version` telemetry headers) is now derived from `package.json` at runtime instead of a hardcoded literal — it had drifted to a stale value and can no longer fall out of sync. A guard test asserts the emitted header equals the package version.
+
+### Changed
+
+- Parity-test comments (`parity.test.ts`, `schema-parity.test.ts`) corrected to reflect that `routes.json` / `schema-fields.json` are regenerated **manually** from the production OpenAPI and committed — removed dead references to a regeneration workflow/script that do not exist in this repo.
+
+### Build
+
+- `declarationMap` disabled for the published build so shipped `.d.ts` files no longer carry `sourceMappingURL` comments pointing at unshipped `.d.ts.map` sources.
+
 ## [0.8.15] - 2026-06-04
 
 No functional change. First release published from CI with **build provenance** via npm trusted publishing (OIDC) — npm attaches a Sigstore provenance attestation automatically; verify with `npm audit signatures`. A CycloneDX SBOM is attached to the release. This package now lives in its own source-of-truth repo `agledger-ai/sdk` and resolves `@agledger/verify-core@0.1.4`.
