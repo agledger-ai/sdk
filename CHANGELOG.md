@@ -4,6 +4,10 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.15] - 2026-06-04
+
+No functional change. First release published from CI with **build provenance** via npm trusted publishing (OIDC) — npm attaches a Sigstore provenance attestation automatically; verify with `npm audit signatures`. A CycloneDX SBOM is attached to the release. This package now lives in its own source-of-truth repo `agledger-ai/sdk` and resolves `@agledger/verify-core@0.1.4`.
+
 ## [0.8.14] - 2026-06-02
 
 ### Changed — EU AI Act sync to API v0.27.0/v0.27.1 (validated live)
