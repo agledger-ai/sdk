@@ -2,11 +2,13 @@
  * SDK ↔ API Parity Test
  *
  * Validates that the SDK's route contracts stay in sync with the API's
- * OpenAPI spec. Uses the route manifest (routes.json) generated from the
- * API spec as the source of truth.
+ * OpenAPI spec. Uses the route manifest (routes.json) committed in this
+ * directory as the pinned source of truth.
  *
- * Regenerate the manifest from a checked-in API spec:
- *   node -e "..." (see .github/workflows/update-route-manifest.yml)
+ * routes.json is regenerated MANUALLY from the production OpenAPI spec
+ * (`GET /openapi.json`) on an API version bump, then committed. There is no
+ * automated regeneration workflow in this repo — bump the snapshot by hand
+ * when the API surface changes, and re-run this test to confirm parity.
  *
  * The test is deliberately a focused invariant check, not an exhaustive
  * method enumeration — a per-method table drifts constantly and obscures

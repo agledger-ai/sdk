@@ -9,7 +9,8 @@
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, extname } from 'node:path';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { HttpClient } from '../src/http.js';
 
 const ROOT = join(import.meta.dirname, '..');
 
@@ -88,6 +89,33 @@ describe('no per-file copyright boilerplate', () => {
       }
     }
     expect(violations, `Per-file copyright found:\n${violations.join('\n')}`).toHaveLength(0);
+  });
+});
+
+describe('SDK version telemetry header matches package.json', () => {
+  it('emits X-SDK-Version / User-Agent derived from package.json (no drift)', async () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
+      version: string;
+    };
+
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: vi.fn().mockResolvedValue({}),
+      headers: new Headers(),
+    });
+
+    const client = new HttpClient({
+      apiKey: 'test_key',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+    await client.get('/test');
+
+    const [, init] = fetch.mock.calls[0] as [string, { headers: Record<string, string> }];
+    expect(init.headers['X-SDK-Version']).toBe(pkg.version);
+    expect(init.headers['User-Agent']).toBe(`agledger-node/${pkg.version}`);
   });
 });
 
