@@ -152,6 +152,14 @@ export interface TypeSchema {
   version?: number;
   latestVersion?: number;
   status?: SchemaVersionStatus;
+  /**
+   * Default gate mode for records of this type when the create payload omits
+   * `gateMode`. `auto` (engine default) lets the rules engine render the verdict
+   * and auto-settle; `principal` forces a principal-held verdict. An explicit
+   * per-record `gateMode` always wins. Row-only metadata — not canonicalized
+   * into the manifest digest.
+   */
+  defaultGateMode?: GateMode;
   recordSchema: Record<string, unknown>;
   completionSchema: Record<string, unknown>;
   rulesConfig?: {
@@ -255,6 +263,8 @@ export interface SchemaPreviewInput {
   displayName: string;
   description?: string;
   category?: string;
+  /** Default gate mode for records of this type — see {@link RegisterSchemaParams.defaultGateMode}. */
+  defaultGateMode?: GateMode;
   recordSchema: Record<string, unknown>;
   completionSchema?: Record<string, unknown>;
   fieldMappings?: SchemaFieldMapping[];
@@ -350,6 +360,13 @@ export interface RegisterSchemaParams {
   displayName: string;
   description?: string;
   category?: string;
+  /**
+   * Default gate mode applied to records of this type when the create payload
+   * omits `gateMode`. Omit for the engine default (`auto`). Set `principal` so
+   * records created from the quickStart cannot silently auto-settle. An explicit
+   * per-record `gateMode` always wins.
+   */
+  defaultGateMode?: GateMode;
   recordSchema: Record<string, unknown>;
   completionSchema?: Record<string, unknown>;
   fieldMappings?: SchemaFieldMapping[];
@@ -1027,6 +1044,7 @@ export type DisputeGrounds =
   | 'record_ambiguity'
   | 'pricing_dispute'
   | 'quality_issue'
+  | 'verdict_disagreement'
   | 'other'
   | (string & {});
 
@@ -1105,10 +1123,14 @@ export type WebhookEventType =
   | 'record.proposed'
   | 'record.proposal_accepted'
   | 'record.proposal_rejected'
+  | 'record.proposal_counter_proposed'
   | 'record.delegated'
   | 'record.revision_requested'
   // Cascading gate
   | 'cascading.gate.complete'
+  // EU AI Act compliance filings
+  | 'record.ai_impact_assessment_filed'
+  | 'record.compliance_attestation_filed'
   // Settlement & disputes
   | 'signal.emitted'
   | 'signal.received'

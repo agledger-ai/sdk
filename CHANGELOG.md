@@ -4,6 +4,16 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] - 2026-06-08
+
+General-availability release, tracking AGLedger API **v1.0.0 GA**. No breaking changes from the 0.8.x line — the `agentId`→`performerAgentId` rename and the COSE_Sign1 chain envelope landed earlier in the 0.8.x series and are unchanged here. Route surface and the field-level parity snapshots are verified identical to API v1.0.0 (194/194 routes, zero drift across tracked models); parity snapshots bumped to `apiVersion 1.0.0`.
+
+### Added
+
+- `WebhookEventType`: `record.proposal_counter_proposed`, `record.ai_impact_assessment_filed`, `record.compliance_attestation_filed` — now advertised in the API's subscribable event enum.
+- `DisputeGrounds`: `verdict_disagreement`.
+- `defaultGateMode?: GateMode` on `TypeSchema`, `RegisterSchemaParams`, and `SchemaPreviewInput` — the per-contract-type default gate mode (API #704). Live-validated: registering a type with `defaultGateMode: 'principal'` propagates to a created record's `gateMode`.
+
 ## [0.8.16] - 2026-06-04
 
 ### Fixed
