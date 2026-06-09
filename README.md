@@ -10,7 +10,6 @@ Two runtime dependencies, each used only by an opt-in entry point: `cborg` (COSE
 - [How it works](https://agledger.ai/how-it-works) — the four-endpoint lifecycle: record, completion, verdict, fulfill
 - [Glossary](https://agledger.ai/glossary) — canonical definitions of Record, Completion, SCITT Receipt, Verdict, Settlement Signal
 - [Documentation](https://agledger.ai/docs) — installation, integration guides, API reference
-- [Protocol (AOAP)](https://agledger.ai/protocol) — the coordination language behind AGLedger
 
 ## Why AGLedger?
 
@@ -365,4 +364,4 @@ Full details: [agledger.ai/pricing](https://agledger.ai/pricing) | [License Agre
 
 Proprietary. Copyright (c) 2026 AGLedger LLC. All rights reserved. See [LICENSE](./LICENSE) for details.
 
-AGLedger, Agentic Ledger, Settlement Signal, and Agentic Operations and Accountability Protocol (AOAP) are trademarks of AGLedger LLC. Patent pending.
+AGLedger is a trademark of AGLedger LLC, and Settlement Signal is a pending trademark of AGLedger LLC. All other trademarks are the property of their respective owners. Patent pending.
