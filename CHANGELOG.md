@@ -4,6 +4,13 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-06-10
+
+### Changed
+
+- **License re-sync.** `LICENSE` is now a verbatim copy of the canonical AGLedger SDK license template **v1.5**: §7 trademarks trimmed to **AGLedger + Settlement Signal (pending)** (removed the retired "Agentic Ledger" / AOAP claims), §6 export language modernized to ENC §740.17(b)(1) mass-market self-classification, and §1 carries the no-inspection / no-training / no-usage-data representation. README: dropped the retired AOAP protocol link and trimmed the trademark footer to match LICENSE §7.
+- No code changes; republished so the distributed tarball carries the corrected license text.
+
 ## [1.0.0] - 2026-06-08
 
 General-availability release, tracking AGLedger API **v1.0.0 GA**. No breaking changes from the 0.8.x line — the `agentId`→`performerAgentId` rename and the COSE_Sign1 chain envelope landed earlier in the 0.8.x series and are unchanged here. Route surface and the field-level parity snapshots are verified identical to API v1.0.0 (194/194 routes, zero drift across tracked models); parity snapshots bumped to `apiVersion 1.0.0`.
