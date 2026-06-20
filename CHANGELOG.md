@@ -4,6 +4,18 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] - 2026-06-20
+
+### Changed
+
+- Bumped `@agledger/verify-core` to `^1.0.0` (now GA at 1.0.0 alongside the API and this SDK). No SDK-surface or behavior changes — the verification core is byte-for-byte identical to the previous 0.1.x line.
+
+## [1.0.2] - 2026-06-18
+
+### Fixed
+
+- **CodeQL `js/polynomial-redos`.** Replaced a regex-based trailing-slash strip with a linear scan, removing the polynomial-backtracking vector flagged by CodeQL. No public-API or behavior change.
+
 ## [1.0.1] - 2026-06-10
 
 ### Changed
