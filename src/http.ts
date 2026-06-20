@@ -34,6 +34,14 @@ const MAX_BACKOFF = 30_000;
 const require = createRequire(import.meta.url);
 const { version: SDK_VERSION } = require('../package.json') as { version: string };
 
+// Strip trailing slashes with a single linear scan. A regex like /\/+$/ is
+// O(n^2) on inputs of many slashes (CodeQL js/polynomial-redos); this is O(n).
+function stripTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 47 /* '/' */) end--;
+  return s.slice(0, end);
+}
+
 export class HttpClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -56,7 +64,7 @@ export class HttpClient {
 
   constructor(options: AgledgerClientOptions) {
     this.apiKey = options.apiKey;
-    this.baseUrl = (options.baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
+    this.baseUrl = stripTrailingSlashes(options.baseUrl || DEFAULT_BASE_URL);
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);
