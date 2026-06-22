@@ -4,6 +4,7 @@ import type {
   CreateRecordParams,
   UpdateRecordParams,
   ListRecordsParams,
+  GetRecordParams,
   SearchRecordsParams,
   DelegateRecordParams,
   CounterProposeParams,
@@ -36,9 +37,16 @@ export class RecordsResource {
     return this.http.post<RecordRow>('/v1/records', params, options);
   }
 
-  /** Get a Record by ID. */
-  get(id: string, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.get<RecordRow>(`/v1/records/${id}`, undefined, options);
+  /**
+   * Get a Record by ID. Pass `{ integrity: true }` to re-verify the audit chain
+   * and cross-check the served row against it (result on {@link RecordRow.integrity}).
+   */
+  get(id: string, params?: GetRecordParams, options?: RequestOptions): Promise<RecordRow> {
+    return this.http.get<RecordRow>(
+      `/v1/records/${id}`,
+      params as unknown as Record<string, unknown>,
+      options,
+    );
   }
 
   /** List Records with optional filters. */

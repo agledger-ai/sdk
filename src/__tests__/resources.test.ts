@@ -80,12 +80,28 @@ describe('RecordsResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/records/rec-123');
   });
 
+  it('gets a record with integrity re-verification', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.get('rec-123', { integrity: true });
+    const url = fetch.mock.calls[0][0] as string;
+    expect(url).toContain('/records/rec-123');
+    expect(url).toContain('integrity=true');
+  });
+
   it('lists records with optional orgId filter', async () => {
     const { client, fetch } = createPageMockClient();
     await client.records.list({ orgId: 'ent-123' });
     const url = fetch.mock.calls[0][0];
     expect(url).toContain('/records');
     expect(url).toContain('orgId=ent-123');
+  });
+
+  it('lists records with the actionable agent-recovery filter', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.records.list({ actionable: true });
+    const url = fetch.mock.calls[0][0] as string;
+    expect(url).toContain('/records');
+    expect(url).toContain('actionable=true');
   });
 
   it('lists records without filters', async () => {
@@ -614,6 +630,13 @@ describe('AuthResource', () => {
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/auth/keys/rotate');
     expect(init.method).toBe('POST');
+  });
+
+  it('rotates the current API key with a grace period', async () => {
+    const { client, fetch } = createMockClient({ apiKey: 'agl_adm_newkey', keyId: 'key-abc' });
+    await client.auth.rotateKey({ gracePeriodSeconds: 300 });
+    const [, init] = fetch.mock.calls[0];
+    expect(JSON.parse(init.body as string)).toEqual({ gracePeriodSeconds: 300 });
   });
 });
 

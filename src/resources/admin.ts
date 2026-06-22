@@ -188,7 +188,13 @@ export class AdminResource {
     return this.http.getPage<AdminOrg>('/v1/admin/orgs', params as Record<string, unknown>, options);
   }
 
-  /** Create a new org. Returns the org resource (flat object). */
+  /**
+   * Create a new org. Returns the org resource (flat object).
+   *
+   * Dev/test only — `POST /v1/admin/orgs` is not registered in a production
+   * deployment (dropped from the canonical OpenAPI spec in API v1.0.1) and 404s
+   * there. Provision production orgs via the operator `provisioning/` YAML.
+   */
   createOrg(params: CreateOrgParams, options?: RequestOptions): Promise<AdminOrg> {
     return this.http.post<AdminOrg>('/v1/admin/orgs', params, options);
   }
