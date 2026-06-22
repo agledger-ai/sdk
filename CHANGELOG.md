@@ -13,7 +13,7 @@ Tracks AGLedger API **v1.0.3** (was pinned to v1.0.0). A full route + field-leve
 - **`records.get(id, { integrity: true })`** — re-verify the Record's audit chain and cross-check the served row against it (API #732). The result is exposed on the new `RecordRow.integrity` field (typed `RecordIntegrity`: `verified`, `integrityLevel`, `reason`, `entries`, `projectionChecked`, `driftFields`).
 - **`records.list({ actionable: true })`** — the agent-recovery query: every Record whose next action awaits the caller's structural side, across all statuses (API #731). Agent keys only.
 - **`auth.rotateKey({ gracePeriodSeconds })`** — keep the old key valid for an overlap window instead of an immediate hard cutover (API #793).
-- **`compliance.export({ embed })`** — inline cryptographic evidence into the export packet so a regulator can verify each claim offline (API #771).
+- **`compliance.export({ embed })`** — inline cryptographic evidence (currently `signed-statements`) into the export packet so a regulator can verify each claim offline (API #771).
 - New exported types: `RecordIntegrity`, `GetRecordParams`, `RotateKeyParams`.
 
 ### Changed
