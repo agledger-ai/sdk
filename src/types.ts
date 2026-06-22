@@ -1405,8 +1405,9 @@ export interface ExportComplianceParams {
   fields?: string[];
   /**
    * Inline cryptographic evidence into the packet so a regulator can verify each
-   * claim offline without calling back to the API (API #771). Each listed class
-   * embeds its proof (e.g. `signed-statements`, `receipts`); omit for a reference-only export.
+   * claim offline without calling back to the API (API #771). Currently the only
+   * value is `signed-statements` (embeds each record's full COSE_Sign1 chain plus a
+   * `verification` block); omit for a reference-only export.
    */
   embed?: string[];
 }
