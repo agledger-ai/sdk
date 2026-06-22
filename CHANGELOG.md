@@ -4,6 +4,24 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-06-22
+
+Tracks AGLedger API **v1.0.3** (was pinned to v1.0.0). A full route + field-level drift sweep against the live v1.0.3 OpenAPI surfaced four additive gaps and one spec removal; parity snapshots regenerated to `apiVersion 1.0.3` (193 routes). All additions are backward-compatible.
+
+### Added
+
+- **`records.get(id, { integrity: true })`** — re-verify the Record's audit chain and cross-check the served row against it (API #732). The result is exposed on the new `RecordRow.integrity` field (typed `RecordIntegrity`: `verified`, `integrityLevel`, `reason`, `entries`, `projectionChecked`, `driftFields`).
+- **`records.list({ actionable: true })`** — the agent-recovery query: every Record whose next action awaits the caller's structural side, across all statuses (API #731). Agent keys only.
+- **`auth.rotateKey({ gracePeriodSeconds })`** — keep the old key valid for an overlap window instead of an immediate hard cutover (API #793).
+- **`compliance.export({ embed })`** — inline cryptographic evidence into the export packet so a regulator can verify each claim offline (API #771).
+- New exported types: `RecordIntegrity`, `GetRecordParams`, `RotateKeyParams`.
+
+### Changed
+
+- `records.get` signature is now `get(id, params?, options?)` (was `get(id, options?)`) to carry the `integrity` query param. Source-compatible for all existing single-argument call sites.
+- `admin.createOrg()` is documented as **dev/test-only** — `POST /v1/admin/orgs` was dropped from the canonical API spec in v1.0.1 (never registered in production; provision prod orgs via operator `provisioning/` YAML). The route-parity test no longer asserts it as a canonical route.
+- Refreshed runtime-dependency lockfile pins in range: `cborg` 5.1.1 → 5.1.3, `http-message-signatures` 1.0.5 → 1.0.6. No behavior change. `npm audit`: 0 vulnerabilities.
+
 ## [1.0.3] - 2026-06-20
 
 ### Changed

@@ -2,6 +2,7 @@ import type { HttpClient } from '../http.js';
 import type {
   AccountProfile,
   RequestOptions,
+  RotateKeyParams,
   IssueEphemeralCertParams,
   IssueEphemeralCertResult,
 } from '../types.js';
@@ -20,9 +21,16 @@ export class AuthResource {
     return this.http.get<AccountProfile>('/v1/auth/me', undefined, options);
   }
 
-  /** Rotate the current API key. Old key is immediately revoked. */
-  rotateKey(options?: RequestOptions): Promise<{ apiKey: string; keyId: string }> {
-    return this.http.post('/v1/auth/keys/rotate', undefined, options);
+  /**
+   * Rotate the current API key. The old key is revoked immediately unless
+   * `{ gracePeriodSeconds }` is passed (API #793), which keeps it valid for an
+   * overlap window so in-flight callers can swap without a hard cutover.
+   */
+  rotateKey(
+    params?: RotateKeyParams,
+    options?: RequestOptions,
+  ): Promise<{ apiKey: string; keyId: string }> {
+    return this.http.post('/v1/auth/keys/rotate', params ?? undefined, options);
   }
 
   /**

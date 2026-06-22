@@ -718,6 +718,37 @@ export interface RecordRow {
   sharedToPeers?: string[];
   /** Whether this Record participates in revenue share, or null when not configured. */
   share?: boolean | null;
+  /**
+   * Tamper-evidence result, present only when the Record was read with
+   * `?integrity=true` ({@link GetRecordParams.integrity}). Re-verifies the full
+   * audit chain AND cross-checks that the fields in this response match what the
+   * chain asserts. `verified: false` means this body may not match the signed
+   * evidence — treat the audit-export as authoritative.
+   */
+  integrity?: RecordIntegrity;
+}
+
+/** Tamper-evidence result attached to a Record read with `?integrity=true` (API #732). */
+export interface RecordIntegrity {
+  /**
+   * True iff the full audit chain re-verifies (hash re-derive, linkage,
+   * signatures, checkpoint cross-check) AND the record fields served here match
+   * what the chain asserts. False ⇒ read the audit-export as the source of truth.
+   */
+  verified: boolean;
+  /** Strength of the chain verification — whether every entry was signed or only hash-linked. */
+  integrityLevel: 'hash_chain_only' | 'hash_chain_partial_signatures' | 'hash_chain_and_signatures' | 'invalid';
+  /**
+   * Failure class when `verified` is false; null when verified. `record_projection_drift`
+   * = the served row diverges from the verified chain (see {@link driftFields}).
+   */
+  reason: string | null;
+  /** Number of audit-chain entries verified. */
+  entries: number;
+  /** True when the row-vs-chain projection cross-check ran. */
+  projectionChecked: boolean;
+  /** Record fields that diverged from the chain when `reason` is `record_projection_drift`. */
+  driftFields: string[];
 }
 
 /**
@@ -863,6 +894,23 @@ export interface ListRecordsParams extends ListParams {
   imported?: boolean;
   /** Filter by originating system identifier. */
   source?: string;
+  /**
+   * Agent-recovery query (API #731): return every Record whose next action awaits
+   * the caller's structural side, across all statuses (open proposals, ACTIVE work,
+   * revision requests, counter-proposals/verdicts). Agent keys only — admin/platform
+   * keys 400 (use the per-row `awaitingActor` field instead).
+   */
+  actionable?: boolean;
+}
+
+/** Options for {@link RecordsResource.get}. */
+export interface GetRecordParams {
+  /**
+   * Re-verify the Record's audit chain and cross-check the served row against it,
+   * returning the result on {@link RecordRow.integrity} (API #732). Costs a chain
+   * walk; omit for plain reads.
+   */
+  integrity?: boolean;
 }
 
 export interface SearchRecordsParams extends ListParams {
@@ -1355,6 +1403,12 @@ export interface ExportComplianceParams {
    * 400 with the allowed set in the response body. Max 64.
    */
   fields?: string[];
+  /**
+   * Inline cryptographic evidence into the packet so a regulator can verify each
+   * claim offline without calling back to the API (API #771). Each listed class
+   * embeds its proof (e.g. `signed-statements`, `receipts`); omit for a reference-only export.
+   */
+  embed?: string[];
 }
 
 export interface AiImpactAssessment {
@@ -2748,6 +2802,15 @@ export interface EphemeralCert {
 }
 
 /** Parameters for `POST /v1/auth/oidc/cert` — exchange an OIDC token for a cert. */
+/** Options for {@link AuthResource.rotateKey}. */
+export interface RotateKeyParams {
+  /**
+   * Overlap window (seconds) the OLD key stays valid after rotation (API #793).
+   * Omit to revoke the old key immediately.
+   */
+  gracePeriodSeconds?: number;
+}
+
 export interface IssueEphemeralCertParams {
   oidcToken: string;
   /** Caller-generated public key (JWK) the cert will be bound to. */
