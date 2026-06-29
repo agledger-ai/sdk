@@ -119,6 +119,43 @@ describe('SDK version telemetry header matches package.json', () => {
   });
 });
 
+describe('em-dash density in shipped markdown', () => {
+  /** Maximum em-dash (U+2014) characters allowed per markdown file. */
+  const MAX_EM_DASHES = 4;
+
+  /** Collect all *.md files under the repo, skipping vendored/build dirs and CHANGELOG.md. */
+  function collectMarkdownFiles(dir: string): string[] {
+    const results: string[] = [];
+    for (const entry of readdirSync(dir)) {
+      if (entry === 'node_modules' || entry === 'dist' || entry === 'build' || entry === '.git') {
+        continue;
+      }
+      const full = join(dir, entry);
+      const stat = statSync(full);
+      if (stat.isDirectory()) {
+        results.push(...collectMarkdownFiles(full));
+      } else if (extname(full) === '.md' && entry !== 'CHANGELOG.md') {
+        results.push(full);
+      }
+    }
+    return results;
+  }
+
+  it(`should not contain more than ${MAX_EM_DASHES} em-dashes per file`, () => {
+    const violations: string[] = [];
+    for (const file of collectMarkdownFiles(ROOT)) {
+      const count = (readFileSync(file, 'utf8').match(/—/g) ?? []).length;
+      if (count > MAX_EM_DASHES) {
+        violations.push(`${relPath(file)}  ${count} em-dashes (max ${MAX_EM_DASHES})`);
+      }
+    }
+    expect(
+      violations,
+      `Markdown files with too many em-dashes (—):\n${violations.join('\n')}`,
+    ).toHaveLength(0);
+  });
+});
+
 describe('publishable package cleans dist before building', () => {
   it('build wipes dist/ (prebuild rm -rf dist) so no orphans ship', () => {
     const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as {
