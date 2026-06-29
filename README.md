@@ -6,10 +6,10 @@ Two runtime dependencies, each used only by an opt-in entry point: `cborg` (COSE
 
 **Learn more**
 
-- [agledger.ai](https://agledger.ai) — what AGLedger is and why Layer 3 accountability matters
-- [How it works](https://agledger.ai/how-it-works) — the four-endpoint lifecycle: record, completion, verdict, fulfill
-- [Glossary](https://agledger.ai/glossary) — canonical definitions of Record, Completion, SCITT Receipt, Verdict, Settlement Signal
-- [Documentation](https://agledger.ai/docs) — installation, integration guides, API reference
+- [agledger.ai](https://agledger.ai): what AGLedger is and why Layer 3 accountability matters
+- [How it works](https://agledger.ai/how-it-works): the four-endpoint lifecycle (record, completion, verdict, fulfill)
+- [Glossary](https://agledger.ai/glossary): canonical definitions of Record, Completion, SCITT Receipt, Verdict, Settlement Signal
+- [Documentation](https://agledger.ai/docs): installation, integration guides, API reference
 
 ## Why AGLedger?
 
@@ -115,8 +115,8 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 - **Auto-pagination** via async iterators
 - **Webhook signature verification** (separate import to keep browser bundles lean)
 - **TypeScript-first** with full type coverage and forward-compatible enums
-- **RFC 9457 problem-details** error surface — `recoveryHint` and `refreshUrl` on 422 INVALID_ACTION steer agents back to the correct corrective endpoint
-- **`client.request()` escape hatch** for unmodeled or new endpoints — pass method + path + body and get back the API response untouched
+- **RFC 9457 problem-details** error surface: `recoveryHint` and `refreshUrl` on 422 INVALID_ACTION steer agents back to the correct corrective endpoint
+- **`client.request()` escape hatch** for unmodeled or new endpoints. Pass method + path + body and get back the API response untouched
 
 ## Resources
 
@@ -135,7 +135,7 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 | `client.compliance` | Compliance exports, EU AI Act assessments, SIEM stream |
 | `client.audit` | Org-admin reads checkpoints (SCITT-style signed tree heads) |
 | `client.auth` | `GET /v1/auth/me` + key rotation |
-| `client.discovery` | Unauthenticated metadata — scope profiles, protocol conformance (`conformance()`), Record lifecycle |
+| `client.discovery` | Unauthenticated metadata: scope profiles, protocol conformance (`conformance()`), Record lifecycle |
 | `client.health` | Instance health and status |
 | `client.admin` | Admin operations (org + agent + API-key provisioning, vault, DLQ, system health, plus `admin.records.{list, import}` and `admin.vault.{anchors, scan, signingKeys}`) |
 | `client.a2a` | A2A Protocol support (AgentCard, JSON-RPC 2.0) |
@@ -148,7 +148,7 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 
 ## Types (formerly Contract Types)
 
-There are **no built-in Types** — an org owns its entire type namespace (no reserved prefixes). A Type is a versioned JSON Schema you register that defines a Record's criteria/completion shape and gate rules; the API validates each Record server-side against it.
+There are **no built-in Types**. An org owns its entire type namespace (no reserved prefixes). A Type is a versioned JSON Schema you register that defines a Record's criteria/completion shape and gate rules; the API validates each Record server-side against it.
 
 Every new org is auto-seeded (best-effort, idempotent) with four **editable** sample Types you can use as-is, edit, rename, or delete:
 
@@ -209,7 +209,7 @@ Error classes: `AuthenticationError`, `PermissionError`, `NotFoundError`, `Valid
 
 Webhooks ship in two signing schemes, selected per subscription via `signingAlg`:
 
-**HMAC** (`signingAlg: 'hmac'`, the default) — shared-secret HMAC-SHA256:
+**HMAC** (`signingAlg: 'hmac'`, the default), shared-secret HMAC-SHA256:
 
 ```typescript
 import { verifySignature } from '@agledger/sdk/webhooks';
@@ -270,8 +270,8 @@ chain, and verifies the Ed25519 signature over each `Sig_structure`. Format 2.0
 (was 1.0 JCS + detached Ed25519). `brokenAt.code` is a canonical SCREAMING_SNAKE
 `FailureCode` (e.g. `CHAIN_HASH_MISMATCH`, `CHAIN_SIGNATURE_INVALID`).
 
-This is a thin wrapper over [`@agledger/verify-core`](https://www.npmjs.com/package/@agledger/verify-core)
-— the same body of logic the CLI `verify` command and the MCP `agledger_verify`
+This is a thin wrapper over [`@agledger/verify-core`](https://www.npmjs.com/package/@agledger/verify-core):
+the same body of logic the CLI `verify` command and the MCP `agledger_verify`
 tool run, so a chain that passes here passes identically in all of them. Single
 CBOR dependency (`cborg`); no network.
 

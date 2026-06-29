@@ -9,15 +9,15 @@ engine wire format bumps the corpus; the verifiers update in lockstep.
 
 **`agledger-api` owns generation** (it owns the contract: wire format + dump
 producer + corpus). The fixtures here are produced by `agledger-api`'s
-`scripts/generate-conformance-corpus.ts` — it boots the real engine, captures
+`scripts/generate-conformance-corpus.ts`. It boots the real engine, captures
 byte-faithful `/audit-export` JSON and `dump-vault` NDJSON, then applies
 controlled tamper transforms. Regenerate (on a wire-format change) from an
 `agledger-api` checkout with a local Postgres up: `pnpm generate:corpus`. Each
 manifest carries a `provenance` block recording the producing api SHA + version.
-Do NOT hand-edit fixtures — regenerate.
+Do NOT hand-edit fixtures. Regenerate.
 
 Lesson encoded here (F-682): fixtures MUST mirror the real export/dump shape
-exactly — never a bilingual superset (e.g. carrying both `position` and
+exactly, never a bilingual superset (e.g. carrying both `position` and
 `chainPosition`). A superset masks field-name drift.
 
 ## Layout
@@ -36,7 +36,7 @@ testdata/conformance/
 ```
 
 Two manifests (by input kind) because export vectors are verified by
-`verifyAuditExport` and dump vectors by the dump verifier — different
+`verifyAuditExport` and dump vectors by the dump verifier, which are different
 entrypoints. Together they are one corpus.
 
 ## Manifest schema (both files share it)
@@ -67,7 +67,7 @@ entrypoints. Together they are one corpus.
 ```
 
 A runner: load each vector of the kind it supports, run the verifier with
-`options`, then assert `expect` and — on fail — that `brokenAt.code ===
+`options`, then assert `expect` and (on fail) that `brokenAt.code ===
 failureCode` (and `brokenAt.position === brokenAt` when given), plus any
 `expectSignatureCoverage`. A runner MUST fail loudly if a `pass` vector fails or
 a `fail` vector passes/returns the wrong code — that is the whole point.
@@ -129,8 +129,8 @@ an unsigned chain (all-zero 64-byte sig) that PASSES with
 `expectSignatureCoverage {signed:0, unsigned:N}` (proves unsigned is reported as
 hash-chain-only, never as cryptographically signed).
 
-**Dump** (`manifest-dump.json`): valid; `CHAIN_EMPTY` (empty/truncated vault —
+**Dump** (`manifest-dump.json`): valid; `CHAIN_EMPTY` (empty/truncated vault,
 the fail-closed fix); `CHECKPOINT_ROW_MISSING`; `CHECKPOINT_HASH_MISMATCH`;
 `CHAIN_PAYLOAD_BINDING_MISMATCH`; `CHAIN_OIDC_ACTOR_MISMATCH`; `CHAIN_KEY_EXPIRED`
-(entry signed outside the key's activated..retired window — the retired-key
+(entry signed outside the key's activated..retired window, the retired-key
 fail-open fix); `TENANT_CHECKPOINT_ROOT_MISMATCH`; `TENANT_CHECKPOINT_FORK`.
