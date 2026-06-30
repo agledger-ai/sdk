@@ -22,7 +22,7 @@ Enterprises deploying AI agents need to know what each agent was asked to do, wh
 
 ## Vocabulary
 
-A **Record** (formerly Mandate) is a registered commitment between a principal and a performer. A **Type** (formerly Contract Type) is the versioned JSON Schema defining a Record's shape. The rename happened in API v0.21 / SDK 0.7.0 — the underlying state machine and audit chain are unchanged. A **Completion** is the performer's evidence submission (renamed from Receipt → Completion in 0.8.0 to align with SCITT vocabulary, where "Receipt" is reserved for the cryptographic Merkle inclusion proof).
+A **Record** (formerly Mandate) is a registered commitment between a principal and a performer. A **Type** (formerly Contract Type) is the versioned JSON Schema defining a Record's shape. The rename happened in API v0.21 / SDK 0.7.0; the underlying state machine and audit chain are unchanged. A **Completion** is the performer's evidence submission (renamed from Receipt → Completion in 0.8.0 to align with SCITT vocabulary, where "Receipt" is reserved for the cryptographic Merkle inclusion proof).
 
 ## Get Started
 
@@ -221,7 +221,7 @@ const isValid = verifySignature(
 );
 ```
 
-**Ed25519** (`signingAlg: 'ed25519'`) — RFC 9421 HTTP Message Signatures signed
+**Ed25519** (`signingAlg: 'ed25519'`) is RFC 9421 HTTP Message Signatures signed
 with the Server's vault key. The receiver holds no secret and verifies against
 the Server's published public key, giving non-repudiation for the Settlement
 Signal hop. Settlement-event subscriptions default to this when the Server has a
@@ -347,7 +347,7 @@ PROPOSED   EXPIRED    FAILED ──> REMEDIATED
 REJECTED            REVISION_REQUESTED ──> PROCESSING (resubmit)
 ```
 
-`RECORDED` is a terminal status for notarize-only Types — Records of a Type
+`RECORDED` is a terminal status for notarize-only Types. Records of a Type
 that did not declare a completion phase land here at create.
 
 ## API Documentation
