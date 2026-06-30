@@ -21,6 +21,7 @@ export type {
 
   // Record Types
   RecordType,
+  SchemaListItem,
   TypeSchema,
   SchemaValidationResult,
 
@@ -77,6 +78,7 @@ export type {
   // Completions
   StructuralValidation,
   Completion,
+  CompletionSettlementSignal,
   SubmitCompletionParams,
 
   // Gate (evaluation + status)

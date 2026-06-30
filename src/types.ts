@@ -144,6 +144,39 @@ export type RecordType =
   | 'delegated-workflow-v1'
   | (string & {});
 
+/**
+ * A row from the Type catalog (`GET /v1/schemas`): one entry per
+ * (publisher, type). Lighter than {@link TypeSchema}: enough to triage the
+ * catalog and pick a type to read in full via `schemas.get(type)`.
+ */
+export interface SchemaListItem {
+  /** Type identifier (e.g. `acme-po-v1`). */
+  type: RecordType;
+  /** Latest version number for this type. */
+  version?: number;
+  /** Lifecycle status. `DISABLED` types reject new records. */
+  status?: 'ACTIVE' | 'DISABLED' | (string & {});
+  /** Human-readable name, or null. */
+  displayName?: string | null;
+  /** Customer-defined taxonomy label (no engine semantics), or null. */
+  category?: string | null;
+  /** Truncated preview of the per-type description (full text on `schemas.get(type)`), or null. */
+  description?: string | null;
+  /** URL to fetch a forkable template seeded from this type. */
+  templateUrl?: string;
+  /** Publisher label that owns this row. */
+  publisher?: string;
+  /** Owning org id, or null for platform-bundled types. Present only on platform-key reads without `orgId`. */
+  orgId?: string | null;
+  /**
+   * Lifecycle discriminator (API #817): `auto` or `principal` for a gated type,
+   * `null` for notarize-only / no-default-gate. Mirrors `defaultGateMode` on
+   * `schemas.get(type)` so a row alone distinguishes a gated type from a
+   * notarize-only one without a per-type GET.
+   */
+  defaultGateMode?: GateMode | null;
+}
+
 export interface TypeSchema {
   type: RecordType;
   displayName?: string;
@@ -154,10 +187,10 @@ export interface TypeSchema {
   status?: SchemaVersionStatus;
   /**
    * Default gate mode for records of this type when the create payload omits
-   * `gateMode`. `auto` (engine default) lets the rules engine render the verdict
-   * and auto-settle; `principal` forces a principal-held verdict. An explicit
-   * per-record `gateMode` always wins. Row-only metadata — not canonicalized
-   * into the manifest digest.
+   * `gateMode`. `auto` (engine default) auto-settles against the principal's
+   * pre-configured predicates; `principal` forces a principal-held verdict. An
+   * explicit per-record `gateMode` always wins. Row-only metadata, not
+   * canonicalized into the manifest digest.
    */
   defaultGateMode?: GateMode;
   recordSchema: Record<string, unknown>;
@@ -451,10 +484,11 @@ export type RecordTransitionAction =
 
 export type OperatingMode = 'cleartext' | 'encrypted';
 /**
- * Gate mode. Known values: `auto` (rules engine renders the verdict and
- * auto-settles) or `principal` (engine runs an advisory pass when rules exist,
- * then the principal renders accept/reject). Accepts any string for forward
- * compatibility.
+ * Gate mode. Known values: `auto` (the gate evaluates the principal's
+ * pre-configured predicates and auto-settles) or `principal` (the engine runs an
+ * advisory pass when rules exist, then the principal renders accept/reject).
+ * Either way the verdict is the principal's; AGLedger holds the signed decision
+ * and never renders it. Accepts any string for forward compatibility.
  */
 export type GateMode = 'auto' | 'principal' | (string & {});
 
@@ -579,7 +613,7 @@ export interface RecordRow {
   commissionAmount?: number | null;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
-  /** Gate mode: auto (rules engine renders the verdict and auto-settles), or principal (engine advisory pass, then the principal renders accept/reject). */
+  /** Gate mode: auto (auto-settles against the principal's pre-configured predicates), or principal (engine advisory pass, then the principal renders accept/reject). */
   gateMode?: GateMode;
   /** EU AI Act risk classification. */
   riskClassification?: RiskClassification;
@@ -831,7 +865,7 @@ export interface CreateRecordParams {
   maxSubmissions?: number;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
-  /** Gate mode: auto (default — rules engine renders the verdict and auto-settles), or principal (engine advisory pass, then the principal renders accept/reject). */
+  /** Gate mode: auto (default; auto-settles against the principal's pre-configured predicates), or principal (engine advisory pass, then the principal renders accept/reject). */
   gateMode?: GateMode;
   /** EU AI Act risk classification. */
   riskClassification?: RiskClassification;
@@ -993,11 +1027,39 @@ export interface Completion {
   verdict?: Verdict | null;
   /** Reason attached to the most recent verdict, or null. */
   lastVerdictReason?: string | null;
+  /**
+   * The auto-gate's settlement decision, surfaced inline so the caller learns
+   * settle-vs-hold-vs-reject at completion time without a follow-up GET (API
+   * #816). `structuralValidation: 'ACCEPTED'` means only the body parsed; this
+   * field carries the gate's decision. Null when the gate did not render inline
+   * (encrypted Records, principal-mode held at PENDING_VERDICT, or the inline run
+   * was skipped); read `recordStatus` and `records.get(id)` in that case.
+   */
+  settlementSignal?: CompletionSettlementSignal | null;
   /** Idempotency key used when submitting. */
   idempotencyKey?: string | null;
   createdAt: string;
   /** Suggested next API calls after completion submission. */
   nextSteps?: NextStep[];
+}
+
+/**
+ * The auto-gate's inline settlement decision on a {@link Completion} (API #816).
+ * A leaner projection than {@link SettlementSignalSummary} (no federation delivery
+ * state), carrying just the gate outcome the caller needs at completion time.
+ */
+export interface CompletionSettlementSignal {
+  /** The gate decision in GET /v1/records vocabulary: SETTLE, HOLD, or RELEASE. */
+  recommendation: 'SETTLE' | 'HOLD' | 'RELEASE';
+  /** Engine verdict that drove the recommendation. */
+  outcome: 'accept' | 'reject';
+  /**
+   * Discriminator code (same as the settlement webhook), e.g. `AUTO_SETTLE`, or
+   * `AUTO_SETTLE_WITHIN_TOLERANCE` (API #824) when the gate cleared only via a
+   * non-zero tolerance band rather than the base criteria threshold. Null when
+   * not classifiable.
+   */
+  reasonCode?: string | null;
 }
 
 export interface SubmitCompletionParams {
@@ -2352,9 +2414,11 @@ export interface RelaySignalParams {
   schemaRef?: FederationSchemaRef;
   /**
    * F-722 / CR-11: machine-readable cause for the signal
-   * (`AUTO_SETTLE` / `AUTO_FAIL` / `PRINCIPAL_ACCEPT` / `PRINCIPAL_REJECT` /
-   * `DISPUTE_OVERTURNED` / `TIMED_OUT` / `REMEDIATED` / `CANCEL_PRE_WORK` /
-   * `CANCEL_IN_PROGRESS` / `OVERFLOW_REJECT` / `ARBITRATION_*` …). Null on older peers.
+   * (`AUTO_SETTLE` / `AUTO_SETTLE_WITHIN_TOLERANCE` / `AUTO_FAIL` /
+   * `PRINCIPAL_ACCEPT` / `PRINCIPAL_REJECT` / `DISPUTE_OVERTURNED` / `TIMED_OUT` /
+   * `REMEDIATED` / `CANCEL_PRE_WORK` / `CANCEL_IN_PROGRESS` / `OVERFLOW_REJECT` /
+   * `ARBITRATION_*` …). `AUTO_SETTLE_WITHIN_TOLERANCE` (API #824) marks an
+   * auto-settle that cleared only via a non-zero tolerance band. Null on older peers.
    */
   reasonCode?: string | null;
   /** F-722 / CR-11: ruleIds that failed when a gate evaluation produced this HOLD. Null for non-rule terminals or older peers. */

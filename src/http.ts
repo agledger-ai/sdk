@@ -27,7 +27,7 @@ const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
 
-// Derive the SDK version from package.json at runtime so the telemetry headers
+// Derive the SDK version from package.json at runtime so the version headers
 // (User-Agent / X-SDK-Version) can never drift from the published version.
 // At runtime this file is dist/http.js, so `../package.json` resolves to the
 // shipped package root package.json (always included in the npm tarball).
