@@ -356,7 +356,7 @@ API documentation is available at your instance's `/docs` endpoint (Swagger UI).
 
 ## Licensing
 
-AGLedger is **free for single-node deployments** (Docker Compose with bundled database). An Enterprise License ($8,000 one-time, per database instance) is required for external database connections, federation, and multi-node deployments. The license is perpetual -- production never stops due to licensing.
+AGLedger is **free for single-node deployments** (Docker Compose with bundled database). A perpetual Enterprise License (per database instance) is required for external database connections, federation, and multi-node deployments. The license is perpetual -- production never stops due to licensing. See the pricing page below for current terms.
 
 Full details: [agledger.ai/pricing](https://agledger.ai/pricing) | [License Agreement](https://agledger.ai/license)
 

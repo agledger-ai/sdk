@@ -1,6 +1,7 @@
 import type { HttpClient } from '../http.js';
 import type {
   RecordType,
+  SchemaListItem,
   TypeSchema,
   SchemaValidationResult,
   Page,
@@ -25,9 +26,9 @@ import type {
 export class SchemasResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** List available Type schemas. */
-  list(params?: { orgId?: string }, options?: RequestOptions): Promise<Page<RecordType>> {
-    return this.http.getPage<RecordType>('/v1/schemas', params as Record<string, unknown>, options);
+  /** List available Type schemas, one catalog row per (publisher, type). */
+  list(params?: { orgId?: string }, options?: RequestOptions): Promise<Page<SchemaListItem>> {
+    return this.http.getPage<SchemaListItem>('/v1/schemas', params as Record<string, unknown>, options);
   }
 
   /** Delete a custom Type schema. */

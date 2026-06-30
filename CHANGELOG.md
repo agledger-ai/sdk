@@ -4,6 +4,23 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.0.5] - 2026-06-29
+
+Tracks AGLedger API **v1.1.0** (was pinned to v1.0.3). Route surface is identical (193 routes); this is a field- and doc-level sync. All changes are backward-compatible.
+
+### Added
+
+- **`Completion.settlementSignal`** (API #816): the auto-gate's settle/hold/reject decision, surfaced inline on a submitted Completion so the caller learns the outcome without a follow-up `records.get`. Typed `CompletionSettlementSignal` (`recommendation`, `outcome`, `reasonCode`); null when the gate did not render inline (encrypted Records, principal-mode held at PENDING_VERDICT, or skipped).
+- **`schemas.list()` now returns typed catalog rows** (`Page<SchemaListItem>`, was `Page<RecordType>`). The API has always returned row objects (`type`, `version`, `status`, `displayName`, `category`, `description`, `templateUrl`, `publisher`, `orgId`), now including **`defaultGateMode`** (API #817): the lifecycle discriminator that distinguishes a gated type from a notarize-only one from the list row alone.
+- New exported types: `SchemaListItem`, `CompletionSettlementSignal`.
+
+### Changed
+
+- `reasonCode` docs note the new `AUTO_SETTLE_WITHIN_TOLERANCE` value (API #824): an auto-settle that cleared only via a non-zero tolerance band rather than the base criteria threshold. The field stays `string | null`, so no type change.
+- Gate-mode docs no longer say "the rules engine renders the verdict": auto mode auto-settles against the principal's pre-configured predicates; the verdict is always the principal's and AGLedger only holds the signed decision.
+- Licensing section drops the stale dollar figure and points at the pricing page for current terms.
+- Parity snapshot regenerated to `apiVersion 1.1.0`.
+
 ## [1.0.4] - 2026-06-22
 
 Tracks AGLedger API **v1.0.3** (was pinned to v1.0.0). A full route + field-level drift sweep against the live v1.0.3 OpenAPI surfaced four additive gaps and one spec removal; parity snapshots regenerated to `apiVersion 1.0.3` (193 routes). All additions are backward-compatible.
