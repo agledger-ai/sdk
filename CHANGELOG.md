@@ -4,9 +4,11 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.1.0] - 2026-07-06
+## [1.2.0] - 2026-07-06
 
 Tracks AGLedger API **v1.2.0** (was v1.1.0). Route surface is identical (193 routes); the API delta is additive, and this release also replaces a schema-import surface that had drifted so far from the shipped API that it could not work. Live-validated against a local API v1.2.0.
+
+Version note: 1.1.0 is skipped because the retired pre-GA release line already published a 1.1.0 to npm (now deprecated); npm never allows a version number to be reused.
 
 ### Added
 
