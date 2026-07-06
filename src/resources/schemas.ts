@@ -12,15 +12,13 @@ import type {
   SchemaPreviewResult,
   SchemaDiffResult,
   SchemaExportResult,
-  SchemaImportPayload,
-  SchemaImportResult,
-  SchemaImportDryRunResult,
+  SchemaManifest,
+  SchemaImportParams,
   RegisterSchemaParams,
   SchemaVersionDetail,
   UpdateSchemaVersionParams,
   SchemaCompatibilityResult,
   ExportSchemaOptions,
-  ImportSchemaOptions,
 } from '../types.js';
 
 export class SchemasResource {
@@ -119,17 +117,14 @@ export class SchemasResource {
     return this.http.post<SchemaExportResult>(`/v1/schemas/${type}/export`, undefined, options, params);
   }
 
-  /** Import a schema bundle. */
-  import_(payload: SchemaImportPayload, opts?: Omit<ImportSchemaOptions, 'dryRun'>, options?: RequestOptions): Promise<SchemaImportResult> {
-    const params: Record<string, unknown> = {};
-    if (opts?.orgId) params.orgId = opts.orgId;
-    return this.http.post<SchemaImportResult>('/v1/schemas/import', payload, options, params);
-  }
-
-  /** Dry-run import to preview what would be created without persisting. */
-  previewImport(payload: SchemaImportPayload, opts?: Omit<ImportSchemaOptions, 'dryRun'>, options?: RequestOptions): Promise<SchemaImportDryRunResult> {
-    const params: Record<string, unknown> = { dryRun: true };
-    if (opts?.orgId) params.orgId = opts.orgId;
-    return this.http.post<SchemaImportDryRunResult>('/v1/schemas/import', payload, options, params);
+  /**
+   * Import a third-party schema manifest (DESIGN-SCHEMA-CATALOG.md §4).
+   * Idempotent on full-tuple match (publisher, type, version, org, digest) —
+   * re-posting the same manifest returns the existing row (HTTP 200 instead
+   * of 201). Posting the same publisher/type/version with different bytes is
+   * a 409. Requires the `schemas:admin` scope.
+   */
+  import_(manifest: SchemaManifest, params?: SchemaImportParams, options?: RequestOptions): Promise<SchemaVersionDetail> {
+    return this.http.post<SchemaVersionDetail>('/v1/schemas/import', { manifest, ...params }, options);
   }
 }
