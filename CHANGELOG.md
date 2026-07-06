@@ -4,6 +4,34 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-07-06
+
+Tracks AGLedger API **v1.2.0** (was v1.1.0). Route surface is identical (193 routes); the API delta is additive, and this release also replaces a schema-import surface that had drifted so far from the shipped API that it could not work. Live-validated against a local API v1.2.0.
+
+### Added
+
+- **Webhook `recordTypes` filter** (API #825): `webhooks.create()` and `webhooks.update()` accept `recordTypes`, and the `Webhook` row carries it back. `["*"]` means all record types (wildcard sentinel); any other array means record-scoped events are delivered ONLY for the listed types (fail-closed). Omit for no filter.
+- **`records.accept(id, message?)`** (API #855): optional acceptance rationale, symmetric with `reject()`. The API stores one rationale field; `reason`/`notes` are wire-level aliases of `message` on all four handshake endpoints (#780).
+- **`SchemaFieldMapping.maxTolerance`** (API #824): per-rule cap on the per-record tolerance. `0` forbids any tolerance (undodgeable threshold gate); a positive value pins the widest band a record may declare; omitted = uncapped. Accepted on `schemas.register()` and `schemas.preview()` mappings and echoed back in `rulesConfig`.
+- **`rulesConfig` echoed on schema writes** (API #855): `schemas.register()`, `schemas.import_()`, `schemas.updateVersion()` and `getVersions()` rows now carry the compiled `rulesConfig`. New exported type `SchemaRulesConfig`; `TypeSchema.rulesConfig` and `SchemaVersionDetail.rulesConfig` are now fully typed (`fieldMappings` was `Record<string, unknown>[]`).
+
+### Fixed
+
+- **`schemas.import_()` now works.** It previously sent a schema *export bundle* (`exportVersion`/`versions[]`) with `orgId` in the query string; the shipped API has required a `manifest` body since the Schema Catalog redesign, so every call failed with 400. The method now takes a `SchemaManifest` plus row-only options (`SchemaImportParams`: `orgId`, `federatable`, `defaultShare`, `defaultGateMode`, `coSignRequired`, `flipRecordStatusOnDispute`, `federateDisputes`) in the body, and returns the created/existing `SchemaVersionDetail` row (HTTP 200 on an idempotent re-post, 201 on create).
+- **`SchemaVersionDetail` matches the wire.** The old shape carried a fictional `isBuiltin` and missed roughly half the row (`publisher`, `manifestDigest`, `trustClass`, `federatable`, `defaultShare`, `defaultGateMode`, `coSignRequired`, `flipRecordStatusOnDispute`, `federateDisputes`, `rulesConfig`, `quickStart`, `nextSteps`). It now models the subject row across all five endpoints that return it, with the `getVersion()` projection differences documented on the type.
+- `SchemaExportResult.nextSteps` added; README now names `exportSchema()` correctly.
+
+### Removed
+
+- **`schemas.previewImport()` and the `dryRun` option.** The API has no dry-run on `/v1/schemas/import`; the flag was silently ignored, so a "preview" would have performed a real import had the body ever validated. Use `schemas.preview()` for pre-registration validation of locally authored schemas.
+- Types `SchemaImportPayload`, `SchemaImportResult`, `SchemaImportDryRunResult`, `ImportSchemaOptions` (replaced by `SchemaManifest` + `SchemaImportParams`).
+
+### Changed
+
+- Parity snapshots regenerated to `apiVersion 1.2.0`.
+
+Semver note: this is a minor, not a major, because the removed/reshaped import surface was inoperable against every shipped v1.x API (each call 400d), so no working integration can regress.
+
 ## [1.0.6] - 2026-06-29
 
 ### Changed

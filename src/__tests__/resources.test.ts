@@ -151,6 +151,20 @@ describe('RecordsResource', () => {
     expect(JSON.parse(init.body).ids).toEqual(['id-1', 'id-2']);
   });
 
+  it('accept passes the optional message through', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.accept('rec-123', 'Terms look good');
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/records/rec-123/accept');
+    expect(JSON.parse(init.body).message).toBe('Terms look good');
+  });
+
+  it('accept sends an empty body when no message is given', async () => {
+    const { client, fetch } = createMockClient();
+    await client.records.accept('rec-123');
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({});
+  });
+
   it('accepts a counter-proposal', async () => {
     const { client, fetch } = createMockClient();
     await client.records.acceptCounter('rec-123');
@@ -359,6 +373,17 @@ describe('WebhooksResource', () => {
     const body = JSON.parse(init.body);
     expect(body.eventTypes).toEqual(['record.created']);
     expect(body.events).toBeUndefined();
+  });
+
+  it('creates a webhook with a recordTypes filter', async () => {
+    const { client, fetch } = createMockClient();
+    await client.webhooks.create({
+      url: 'https://example.com/hook',
+      eventTypes: ['record.created'],
+      recordTypes: ['acme-po-v1'],
+    });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.recordTypes).toEqual(['acme-po-v1']);
   });
 
   it('pings a webhook', async () => {
@@ -1159,21 +1184,24 @@ describe('SchemasResource', () => {
     expect(init.method).toBe('POST');
   });
 
-  it('imports a schema via import_()', async () => {
+  it('imports a schema manifest via import_()', async () => {
     const { client, fetch } = createMockClient();
-    await client.schemas.import_({ exportVersion: 1, type: 'ACH-CUSTOM-v1', versions: [{}] });
+    const manifest = {
+      manifestVersion: '1.0',
+      publisher: 'acme',
+      type: 'acme-po-v1',
+      version: '1.0',
+      recordSchema: { type: 'object' },
+    };
+    await client.schemas.import_(manifest, { defaultGateMode: 'principal' });
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/schemas/import');
+    // orgId and the other row-only options ride in the body, not the query string.
+    expect(url).not.toContain('?');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body)).toHaveProperty('type', 'ACH-CUSTOM-v1');
-  });
-
-  it('preview-imports with dryRun', async () => {
-    const { client, fetch } = createMockClient();
-    await client.schemas.previewImport({ exportVersion: 1, type: 'ACH-CUSTOM-v1', versions: [{}] });
-    const url = fetch.mock.calls[0][0];
-    expect(url).toContain('/v1/schemas/import');
-    expect(url).toContain('dryRun=true');
+    const body = JSON.parse(init.body);
+    expect(body.manifest).toEqual(manifest);
+    expect(body.defaultGateMode).toBe('principal');
   });
 
   it('registers a schema with expression field mapping', async () => {

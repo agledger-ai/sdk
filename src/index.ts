@@ -39,15 +39,14 @@ export type {
   SchemaDiffChange,
   SchemaExportResult,
   SchemaExportVersion,
-  SchemaImportPayload,
-  SchemaImportResult,
-  SchemaImportDryRunResult,
+  SchemaManifest,
+  SchemaImportParams,
+  SchemaRulesConfig,
   RegisterSchemaParams,
   SchemaVersionDetail,
   UpdateSchemaVersionParams,
   SchemaCompatibilityResult,
   ExportSchemaOptions,
-  ImportSchemaOptions,
 
   // Records
   AcceptanceStatus,

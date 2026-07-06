@@ -195,13 +195,7 @@ export interface TypeSchema {
   defaultGateMode?: GateMode;
   recordSchema: Record<string, unknown>;
   completionSchema: Record<string, unknown>;
-  rulesConfig?: {
-    type?: string;
-    syncRuleIds: string[];
-    asyncRuleIds: string[];
-    fieldMappings?: Record<string, unknown>[];
-    commissionSourceField?: string;
-  };
+  rulesConfig?: SchemaRulesConfig;
   quickStart?: {
     criteria: Record<string, unknown>;
     evidence: Record<string, unknown>;
@@ -275,6 +269,15 @@ export interface SchemaFieldMapping {
   valueType: SchemaFieldMappingValueType;
   /** Safe expression string. Required when valueType is 'expression'. */
   expression?: string;
+  /**
+   * Cap on the per-record tolerance a caller may pass for this rule (API
+   * #824). `0` forbids any tolerance (the rule is an undodgeable threshold
+   * gate); a positive value pins the widest band a record may declare.
+   * Omitted = uncapped. The cap applies in whatever unit the tolerance key
+   * uses (percent for `*Pct`/`*_pct` keys, absolute otherwise). Enforced
+   * with 400 at every tolerance write (create, bulk, update). Must be >= 0.
+   */
+  maxTolerance?: number;
 }
 
 /** Template for creating a new Record type schema. */
@@ -347,6 +350,8 @@ export interface SchemaExportResult {
   compatibilityMode: SchemaCompatibilityMode;
   versions: SchemaExportVersion[];
   sharedSchemas: Record<string, unknown>;
+  /** Suggested next API calls after the export. */
+  nextSteps?: NextStep[];
 }
 
 /** Individual version within a schema export. */
@@ -359,32 +364,53 @@ export interface SchemaExportVersion {
   createdAt: string;
 }
 
-/** Payload for importing a schema bundle. */
-export interface SchemaImportPayload {
-  exportVersion: number;
-  exportedAt?: string;
+/**
+ * A third-party schema manifest for `POST /v1/schemas/import`
+ * (DESIGN-SCHEMA-CATALOG.md §4). The manifest is JCS-canonicalized and
+ * SHA-256 hashed server-side; the digest persists on the subject row so
+ * federation peers can verify schema equality by digest, not name. The API
+ * rejects unknown manifest keys (`additionalProperties: false`).
+ */
+export interface SchemaManifest {
+  /** Envelope version (currently `"1.0"`). */
+  manifestVersion: string;
+  /** Publisher coordination label (1-64 lowercase alphanumerics + hyphens). `local` and `local-*` / `*-local` are reserved. */
+  publisher: string;
+  /** Type identifier. */
   type: string;
-  compatibilityMode?: string;
-  versions: Record<string, unknown>[];
-  [key: string]: unknown;
+  /** SemVer-ish version string; the major component is stored as the subject version. */
+  version: string;
+  recordSchema: Record<string, unknown>;
+  completionSchema?: Record<string, unknown>;
+  publishedAt?: string;
+  displayName?: string;
+  description?: string;
+  category?: string;
+  compatibility?: 'none' | 'backward' | 'forward' | 'full';
+  deprecation?: { since?: string; replacedBy?: string } | null;
+  /** Advisory documentation only; the engine never reads this field. */
+  previousVersion?: string | null;
+  fieldMappings?: Record<string, unknown>[];
+  tolerances?: Record<string, unknown>;
 }
 
-/** Result of a schema import. */
-export interface SchemaImportResult {
-  imported: {
-    type: string;
-    versionsCreated: number[];
-    subjectIds: string[];
-  };
-}
-
-/** Result of a dry-run schema import. */
-export interface SchemaImportDryRunResult {
-  valid: boolean;
-  wouldCreate: {
-    type: string;
-    versions: number[];
-  };
+/**
+ * Row-only metadata options accepted alongside the manifest on
+ * `POST /v1/schemas/import`. None of these are canonicalized into the
+ * manifest digest.
+ */
+export interface SchemaImportParams {
+  /** Override target org (platform keys only). */
+  orgId?: string;
+  /** Whether this engine exposes the schema to federated peer hubs. Default true. */
+  federatable?: boolean;
+  /** V1 sharing default for records of this type. Omit to inherit the global default. */
+  defaultShare?: boolean;
+  /** Default gate mode for records of this type when the create payload omits `gateMode`. */
+  defaultGateMode?: GateMode;
+  coSignRequired?: boolean;
+  flipRecordStatusOnDispute?: boolean;
+  federateDisputes?: boolean;
 }
 
 /** Parameters for registering a new custom Type schema. */
@@ -406,20 +432,63 @@ export interface RegisterSchemaParams {
   compatibilityMode?: SchemaCompatibilityMode;
 }
 
-/** Detail for a specific schema version. */
+/** Verification-rule configuration echoed on schema reads and writes. */
+export interface SchemaRulesConfig {
+  type?: string;
+  syncRuleIds: string[];
+  asyncRuleIds: string[];
+  fieldMappings?: SchemaFieldMapping[];
+  commissionSourceField?: string;
+}
+
+/**
+ * A schema-version subject row, returned by `schemas.register()`,
+ * `schemas.import_()`, `schemas.updateVersion()`, `schemas.getVersions()`
+ * and `schemas.getVersion()`.
+ *
+ * `getVersion()` projects the row differently: it includes `recordSchema` and
+ * `completionSchema` (and may include `latestVersion`) but omits `id`,
+ * `orgId`, `compatibilityMode`, `createdAt` and `updatedAt` — hence those
+ * fields are optional here. Absent fields are omitted from the wire entirely,
+ * not sent as null.
+ */
 export interface SchemaVersionDetail {
-  id: string;
+  id?: string;
   type: RecordType;
   version: number;
-  orgId: string | null;
-  displayName: string;
-  description: string;
-  category: string;
-  compatibilityMode: SchemaCompatibilityMode;
+  orgId?: string | null;
+  displayName: string | null;
+  description: string | null;
+  category: string | null;
+  compatibilityMode?: SchemaCompatibilityMode;
   status: SchemaVersionStatus;
-  isBuiltin: boolean;
-  createdAt: string;
-  updatedAt: string;
+  /** Publisher label that owns this row (`local` for locally registered types). */
+  publisher?: string;
+  /** SHA-256 digest of the JCS-canonicalized manifest; peers verify schema equality by digest. */
+  manifestDigest?: string;
+  /** `local` for `POST /v1/schemas`; `imported` for `POST /v1/schemas/import`. */
+  trustClass?: 'local' | 'imported';
+  federatable?: boolean;
+  defaultShare?: boolean | null;
+  defaultGateMode?: GateMode | null;
+  coSignRequired?: boolean | null;
+  flipRecordStatusOnDispute?: boolean;
+  federateDisputes?: boolean;
+  rulesConfig?: SchemaRulesConfig;
+  quickStart?: {
+    criteria: Record<string, unknown>;
+    evidence: Record<string, unknown>;
+  } | null;
+  /** Present on `getVersion()` reads only. */
+  recordSchema?: Record<string, unknown>;
+  /** Present on `getVersion()` reads only. */
+  completionSchema?: Record<string, unknown>;
+  /** May appear on `getVersion()` reads. */
+  latestVersion?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  /** Suggested next API calls (present on write responses). */
+  nextSteps?: NextStep[];
 }
 
 /** Parameters for updating a schema version. */
@@ -439,13 +508,6 @@ export interface ExportSchemaOptions {
   versions?: string;
   orgId?: string;
 }
-
-/** Options for importing a schema. */
-export interface ImportSchemaOptions {
-  dryRun?: boolean;
-  orgId?: string;
-}
-
 
 /** Performer's response to a Record proposal. */
 export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED' | (string & {});
@@ -1274,6 +1336,8 @@ export interface Webhook {
   id: string;
   url: string;
   eventTypes: WebhookEventType[] | null;
+  /** Record-type filter for record-scoped events — see {@link CreateWebhookParams.recordTypes}. */
+  recordTypes?: string[];
   isActive: boolean;
   /** Whether deliveries are paused. */
   isPaused: boolean;
@@ -1317,6 +1381,13 @@ export interface CreateWebhookParams {
    * without `VAULT_SIGNING_KEY` returns 422.
    */
   signingAlg?: 'hmac' | 'ed25519';
+  /**
+   * Record-type filter for record-scoped events (API #825). `["*"]` means all
+   * record types (wildcard sentinel). Any other array means record events are
+   * delivered ONLY for the listed types (fail-closed). Omit for all types.
+   * 1-100 entries, each 1-100 chars.
+   */
+  recordTypes?: string[];
 }
 
 /**
@@ -1329,6 +1400,8 @@ export interface UpdateWebhookParams {
   eventTypes?: WebhookEventType[];
   /** Pause (true) or resume (false) deliveries; the subscription stays active. */
   isPaused?: boolean;
+  /** Replace the record-type filter — see {@link CreateWebhookParams.recordTypes}. */
+  recordTypes?: string[];
 }
 
 export interface WebhookDelivery {

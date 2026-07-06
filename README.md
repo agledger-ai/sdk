@@ -159,7 +159,7 @@ Every new org is auto-seeded (best-effort, idempotent) with four **editable** sa
 | `terminal-outcome-v1` | Auto-gate child of the two-record pattern (gate on `terminalState`) |
 | `delegated-workflow-v1` | Delegation-chain root; notarize-only, multi-agent via `parentRecordId` |
 
-The canonical set for your org is always `client.schemas.list()` (empty on a fresh install if the samples were deleted). Register and manage your own Types via the Schema Development Toolkit (`client.schemas.register()`, `preview()`, `import_()`, `export()`, `disable()`/`enable()`).
+The canonical set for your org is always `client.schemas.list()` (empty on a fresh install if the samples were deleted). Register and manage your own Types via the Schema Development Toolkit (`client.schemas.register()`, `preview()`, `import_()`, `exportSchema()`, `disable()`/`enable()`).
 
 ## Pagination
 

@@ -85,12 +85,19 @@ export class RecordsResource {
     return this.http.post<RecordRow>(`/v1/records/${id}/cancel`, reason ? { reason } : {}, options);
   }
 
-  /** Accept a PROPOSED Record (as performer). */
-  accept(id: string, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.post<RecordRow>(`/v1/records/${id}/accept`, {}, options);
+  /**
+   * Accept a PROPOSED Record (as performer). The optional `message` explains
+   * the acceptance (max 2000 chars; the API also accepts `reason`/`notes` as
+   * wire-level aliases of the same field, #780).
+   */
+  accept(id: string, message?: string, options?: RequestOptions): Promise<RecordRow> {
+    return this.http.post<RecordRow>(`/v1/records/${id}/accept`, message ? { message } : {}, options);
   }
 
-  /** Reject a PROPOSED Record (as performer). The API accepts only `message` here. */
+  /**
+   * Reject a PROPOSED Record (as performer). The optional `message` explains
+   * the rejection (max 2000 chars; `reason`/`notes` are wire-level aliases, #780).
+   */
   reject(id: string, message?: string, options?: RequestOptions): Promise<RecordRow> {
     return this.http.post<RecordRow>(`/v1/records/${id}/reject`, message ? { message } : {}, options);
   }
