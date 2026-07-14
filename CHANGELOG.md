@@ -4,6 +4,15 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.1] - 2026-07-13
+
+Patch: robustness and consistency follow-ups from a self-review of 1.3.0. No wire changes.
+
+### Changed
+
+- **`SignedStatement.signedAt` is now optional** (`signedAt?: string | null`). It is always present on a v1.3.2 server, but typing it optional matches `VerdictResult.recordStatus` and the Python SDK, and removes a type hole when a 1.3.x SDK is pointed at an older server that does not return the field.
+- Restored the literal trademark glyph in the package `description` (a 1.3.0 version-bump tooling artifact had ASCII-escaped it; JSON-equivalent, no behavior change).
+
 ## [1.3.0] - 2026-07-13
 
 Tracks AGLedger API **v1.3.2** (was v1.2.0). Route surface is unchanged (193 routes); the API delta is additive response fields, a new event type, and a new audit-export option. Live-validated end-to-end against a local API v1.3.2 (record create, principal-gate verdict, `?evidence=true` export, and an offline `verifyExport` pass on the real export).

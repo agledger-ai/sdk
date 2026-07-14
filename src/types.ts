@@ -611,7 +611,7 @@ export interface SignedStatement {
    * clocks); the Record's `createdAt` is a millisecond-precision DB clock that
    * only approximates it. Null if the envelope fails to decode.
    */
-  signedAt: string | null;
+  signedAt?: string | null;
   /** Most recent signed checkpoint covering this chain position, or null until the next 6h sweep. */
   signedCheckpointRef: string | null;
   /** Relative URL to the COSE_Sign1 attestation stream for this Record. */
