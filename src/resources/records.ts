@@ -157,10 +157,16 @@ export class RecordsResource {
    *
    * Vault entries carry an `_actor` envelope (key id, role, owner id) folded
    * into the canonical payload; the hash chain covers it.
+   *
+   * Pass `{ evidence: true }` to inline the completion evidence body at each
+   * COMPLETION_SUBMITTED entry's `evidence` field (API #870) — an UNSIGNED
+   * projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON
+   * only. `{ receipts: true }` adds a SCITT Receipt per entry when the engine
+   * has a `VAULT_SIGNING_KEY`.
    */
   getAuditExport(
     recordId: string,
-    params?: { format?: 'json' | 'csv' | 'ndjson'; receipts?: boolean },
+    params?: { format?: 'json' | 'csv' | 'ndjson'; receipts?: boolean; evidence?: boolean },
     options?: RequestOptions,
   ): Promise<RecordAuditExport> {
     return this.http.get<RecordAuditExport>(`/v1/records/${recordId}/audit-export`, params as Record<string, unknown>, options);

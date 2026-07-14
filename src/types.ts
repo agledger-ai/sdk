@@ -604,6 +604,14 @@ export interface SignedStatement {
   previousHash: string | null;
   /** ID of the vault signing key — resolves to a public key at GET /v1/verification-keys. */
   signingKeyId: string | null;
+  /**
+   * Signed instant of the head Signed Statement — the CWT `iat` claim (second
+   * precision) sealed in the COSE_Sign1 protected header (API #877). THE
+   * authoritative timestamp for time-anchored contracts (wait windows, notice
+   * clocks); the Record's `createdAt` is a millisecond-precision DB clock that
+   * only approximates it. Null if the envelope fails to decode.
+   */
+  signedAt: string | null;
   /** Most recent signed checkpoint covering this chain position, or null until the next 6h sweep. */
   signedCheckpointRef: string | null;
   /** Relative URL to the COSE_Sign1 attestation stream for this Record. */
@@ -1184,6 +1192,12 @@ export interface VerdictResult {
   verdict: Verdict;
   /** Settlement recommendation to downstream financial systems. */
   recommendation: SettlementSignal;
+  /**
+   * Record status after the verdict settled — FULFILLED (accept) or FAILED
+   * (reject), same vocabulary as the Record GET (API #876). Surfaced inline so
+   * the caller learns where the Record landed without a follow-up fetch.
+   */
+  recordStatus?: RecordStatus;
   reporterType: string;
   reportedAt: string;
   /** Suggested next API calls after submitting the verdict. */
@@ -1287,6 +1301,10 @@ export type WebhookEventType =
   | 'record.completion_submitted'
   | 'record.completion_invalid'
   | 'record.gate_complete'
+  // Principal-mode record held at PROCESSING awaiting the principal verdict;
+  // payload carries the `completionId` to verdict against plus the engine/rollup
+  // advisory result (API #913).
+  | 'record.gate_held'
   | 'record.fulfilled'
   | 'record.failed'
   | 'record.expired'
@@ -1659,6 +1677,15 @@ export interface AuditExportEntry {
   payload: Record<string, unknown>;
   /** Actor envelope surfaced from canonical payload's `_actor` key. */
   actor?: AuditActor;
+  /**
+   * Completion evidence body, present only when the export was fetched with
+   * `?evidence=true` AND this is a COMPLETION_SUBMITTED entry (API #870).
+   * UNSIGNED projection — the chain binds it by hash only: recompute SHA-256
+   * over the RFC 8785 (JCS) canonicalization of this object and compare against
+   * `payload.evidenceHash`. Encrypted-mode records inline the stored ciphertext
+   * envelope; their `evidenceHash` is client-supplied over the cleartext.
+   */
+  evidence?: Record<string, unknown>;
   integrity: {
     /** sha256 of the canonical COSE_Sign1 envelope bytes (chain linkage value). */
     payloadHash: string;
@@ -1712,6 +1739,15 @@ export type AuditChainIntegrityReason =
   | 'cert_expired'
   | 'cert_missing'
   | 'agent_signature_invalid'
+  // API #888/#893 (v1.3.2): the vault fails closed on per-entry signature
+  // verification. `signature_invalid` = a COSE_Sign1 signature did not verify
+  // against its resolved key; `signing_key_unknown` = the entry names a
+  // signing_key_id the key registry cannot resolve; `signing_key_drift` = the
+  // denormalized signing_key_id column names a different key than the
+  // signature-covered kid in the entry's protected header.
+  | 'signature_invalid'
+  | 'signing_key_unknown'
+  | 'signing_key_drift'
   | null;
 
 /** Specific failure mode inside `chainIntegrityDetail`. */
@@ -2396,6 +2432,12 @@ export interface ApiErrorResponse {
   allowedActors?: string[];
   /** Reason code for 409 conflicts. */
   reason?: string;
+  /**
+   * The Record deadline that had already passed when the request was refused,
+   * on the system TIME_OUT 422 (API v1.3.2). Pairs with `terminalReason` /
+   * `previousStatus` on the terminalize envelope.
+   */
+  deadline?: string;
   /** Schema/field hints for 400 record/completion creation errors. */
   hint?: string;
   requiredFields?: string[];

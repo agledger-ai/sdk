@@ -1,6 +1,6 @@
 {
   "generatedFrom": "components.schemas",
-  "apiVersion": "1.2.0",
+  "apiVersion": "1.3.2",
   "schemaCount": 11,
   "schemas": {
     "Completion": [
@@ -114,7 +114,8 @@
       "type",
       "validTransitions",
       "validationErrors",
-      "version"
+      "version",
+      "deadline"
     ],
     "NextStepAction": [
       "action",
@@ -181,7 +182,8 @@
       "type",
       "validTransitions",
       "validationErrors",
-      "version"
+      "version",
+      "deadline"
     ],
     "RecordRow": [
       "acceptanceRespondedAt",
