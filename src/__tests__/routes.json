@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-06T00:00:00.000Z",
+  "generatedAt": "2026-07-13T00:00:00.000Z",
   "sourceUrl": "local v1.2.0 openapi.json",
   "count": 193,
   "routes": [
@@ -357,6 +357,7 @@
         401,
         403,
         404,
+        422,
         429,
         500
       ]
@@ -525,6 +526,7 @@
         401,
         403,
         404,
+        422,
         429,
         500
       ]
@@ -568,6 +570,7 @@
         401,
         403,
         404,
+        422,
         429,
         500
       ]
@@ -3157,6 +3160,7 @@
       "requiredFields": [],
       "bodyFields": [],
       "queryFields": [
+        "evidence",
         "format",
         "receipts"
       ],
