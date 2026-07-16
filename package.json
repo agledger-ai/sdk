@@ -1,7 +1,7 @@
 {
   "name": "@agledger/sdk",
   "version": "1.3.1",
-  "description": "AGLedger™ SDK: accountability and audit infrastructure for agentic systems.",
+  "description": "AGLedger\u2122 SDK: change control for AI agents. Self-hosted, signed, hash-chained. Patent Pending.",
   "license": "SEE LICENSE IN LICENSE",
   "sideEffects": false,
   "type": "module",
