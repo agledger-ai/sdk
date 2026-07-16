@@ -1,13 +1,13 @@
 # @agledger/sdk
 
-The official TypeScript SDK for [AGLedger](https://agledger.ai) -- accountability infrastructure for AI agents. The Layer 3 accountability layer of the agent stack.
+The official TypeScript SDK for [AGLedger](https://agledger.ai): change control for AI agents. A self-hosted notary that records every change an agent makes, signed and hash-chained, and gates the ones that matter.
 
 Two runtime dependencies, each used only by an opt-in entry point: `cborg` (COSE_Sign1 decoding in `@agledger/sdk/verify`) and `http-message-signatures` (RFC 9421 ed25519 webhook verification in `@agledger/sdk/webhooks`). The core client has none beyond `fetch`. TypeScript strict. Requires Node.js 24+ (also runs on Deno and Bun).
 
 **Learn more**
 
-- [agledger.ai](https://agledger.ai): what AGLedger is and why Layer 3 accountability matters
-- [How it works](https://agledger.ai/how-it-works): the four-endpoint lifecycle (record, completion, verdict, fulfill)
+- [agledger.ai](https://agledger.ai): what AGLedger is and who needs it
+- [How it works](https://agledger.ai/how-it-works): the record, completion, and verdict lifecycle
 - [Glossary](https://agledger.ai/glossary): canonical definitions of Record, Completion, SCITT Receipt, Verdict, Settlement Signal
 - [Documentation](https://agledger.ai/docs): installation, integration guides, API reference
 
@@ -15,20 +15,20 @@ Two runtime dependencies, each used only by an opt-in entry point: `cborg` (COSE
 
 Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the result met expectations. AGLedger provides the accountability record -- what was agreed to, by whom, when, and the delegation of that agreement through other systems.
 
-- Record what was asked and who it was delegated to (Records)
+- Notarize what was asked and who it was delegated to (Records)
 - Capture what was reported to be done (Completions)
 - Capture the principal's accept/reject verdict on the result (the Gate)
 - Track agent reliability across your organization over time (reputation)
 
 ## Vocabulary
 
-A **Record** (formerly Mandate) is a registered commitment between a principal and a performer. A **Type** (formerly Contract Type) is the versioned JSON Schema defining a Record's shape. The rename happened in API v0.21 / SDK 0.7.0; the underlying state machine and audit chain are unchanged. A **Completion** is the performer's evidence submission (renamed from Receipt → Completion in 0.8.0 to align with SCITT vocabulary, where "Receipt" is reserved for the cryptographic Merkle inclusion proof).
+A **Record** is a registered commitment between a principal and a performer. A **Type** is the versioned JSON Schema defining a Record's shape. A **Completion** is the performer's evidence submission. A **SCITT Receipt** is the cryptographic Merkle inclusion proof that anchors a Signed Statement into a transparency log, which is a different object from a Completion.
 
 ## Get Started
 
 AGLedger is self-hosted. You deploy it on your own infrastructure.
 
-1. Deploy AGLedger ([install guide](https://agledger.ai/docs/guides/self-hosted/install))
+1. Deploy AGLedger ([install guide](https://agledger.ai/docs/install/))
 2. Get your API key from your instance
 3. Install the SDK: `npm install @agledger/sdk`
 4. Follow the Quick Start below
@@ -48,7 +48,7 @@ const client = new AgledgerClient({
 // principal via `principalAgentId` (or implicitly via `performerAgentId`
 // for a self-commitment).
 const record = await client.records.create({
-  type: 'notarize-generic-v1', // a contract type you registered (or an auto-seeded sample)
+  type: 'principal-gate-generic-v1', // a contract type you registered (or an auto-seeded sample)
   contractVersion: '1',
   platform: 'internal-etl',
   performerAgentId: 'agt-123',
@@ -123,7 +123,7 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 | Resource | Description |
 |----------|-------------|
 | `client.records` | Create, search, transition, delegate, fetch Records, and submit the principal verdict (`submitVerdict`) |
-| `client.completions` | Submit and manage performer evidence (formerly `receipts`) |
+| `client.completions` | Submit and manage performer evidence |
 | `client.gate` | Run the gate evaluation (`evaluate`) against a Record's criteria (advisory in `principal` mode, final in `auto`) |
 | `client.scitt` | SCITT/SCRAPI entries (`register`, `get`) and Transparency Service key set |
 | `client.predicates` | Predicate JSON Schema discovery (`list`, `get(kind)`) |
@@ -146,7 +146,7 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 | `client.references` | Cross-system reference lookups (Record + agent surfaces) |
 | `client.verificationKeys` | Public signing-key set for offline audit verification |
 
-## Types (formerly Contract Types)
+## Types
 
 There are **no built-in Types**. An org owns its entire type namespace (no reserved prefixes). A Type is a versioned JSON Schema you register that defines a Record's criteria/completion shape and gate rules; the API validates each Record server-side against it.
 
@@ -356,7 +356,7 @@ API documentation is available at your instance's `/docs` endpoint (Swagger UI).
 
 ## Licensing
 
-AGLedger is **free for single-node deployments** (Docker Compose with bundled database). A perpetual Enterprise License (per database instance) is required for external database connections, federation, and multi-node deployments. The license is perpetual -- production never stops due to licensing. See the pricing page below for current terms.
+The database is the license line. AGLedger is **free with its bundled PostgreSQL** (Docker Compose or Helm), in production, with every feature and every topology, federation included. Connecting to an external or managed database (Aurora, RDS, Cloud SQL, self-managed) requires a perpetual Enterprise license, priced per external database instance, plus an annual subscription for Enterprise-grade support. The license is perpetual: production never stops due to licensing.
 
 Full details: [agledger.ai/pricing](https://agledger.ai/pricing) | [License Agreement](https://agledger.ai/license)
 
