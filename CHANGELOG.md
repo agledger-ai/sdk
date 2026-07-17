@@ -4,6 +4,21 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.2] - 2026-07-16
+
+Docs and tooling. No wire, type, or runtime change.
+
+### Fixed
+
+- README Quick Start no longer fails at runtime (cross-repo #99). It created a `notarize-generic-v1` record, which terminalizes at RECORDED with no completion phase, then called transition, completion, and gate on it. The flagship example now uses `principal-gate-generic-v1`, which has the completion and verdict phases the walkthrough exercises.
+- Corrected the licensing description (#99): the database is the license line. Every feature and topology, federation and multi-node included, is free on the bundled database; only an external or managed database requires an Enterprise license. The prior text wrongly listed federation and multi-node as gated.
+
+### Changed
+
+- Removed dead vocabulary and naming history from the README and the npm package description (#99).
+- Refreshed the lockfile to in-range latest (`@agledger/verify-core` 1.0.2, plus dev tooling).
+- Upgraded the TypeScript devDependency to `^7.0.2`. Build, typecheck, tests, and publint/attw all pass under 7.0.2.
+
 ## [1.3.1] - 2026-07-13
 
 Patch: robustness and consistency follow-ups from a self-review of 1.3.0. No wire changes.
