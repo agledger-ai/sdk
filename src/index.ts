@@ -260,6 +260,8 @@ export type {
   VaultScanState,
   VaultScanResult,
   VaultScanBrokenRecord,
+  VaultScanBrokenChain,
+  VaultScanGlobalChains,
   VaultScanSummary,
   VaultScanList,
 

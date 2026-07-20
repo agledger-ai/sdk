@@ -2730,15 +2730,57 @@ export interface VaultScanBrokenRecord {
   expectedEntries?: number;
 }
 
-/** Scan findings — present once `state === 'completed'`, otherwise null. */
+/**
+ * A broken record-less chain from a full vault scan: either the single
+ * platform-ops chain (`admin`) or one org's schema-registration chain (`schema`).
+ */
+export interface VaultScanBrokenChain {
+  /** `admin` is the single platform-ops chain; `schema` is one org's schema chain. */
+  chain: 'admin' | 'schema';
+  /** The org whose schema chain broke; null for the platform-ops chain and platform-level schema events. */
+  orgId: string | null;
+  brokenAt: number;
+  /**
+   * Same failure taxonomy as `VaultScanBrokenRecord.reason` (plus the schema-chain-only
+   * `schema_chain_missing_for_subjects`). Left as `string` on purpose: the server may add
+   * codes and an open type keeps a new value from becoming a compile break.
+   */
+  reason: string;
+}
+
+/**
+ * The record-less chains a full scan walks (API #949): the platform-ops chain
+ * (admin key + account events) and each org's schema-registration chain. These
+ * have no `records` row, so the per-record scan cannot see them; a tamper here
+ * folds into `VaultScanResult.healthy`. Absent on a `recordIds`-scoped scan.
+ */
+export interface VaultScanGlobalChains {
+  /** Record-less chains walked (buckets with at least one entry). */
+  total: number;
+  verified: number;
+  broken: number;
+  /** Subset of `broken`, broken on per-entry signature verification. */
+  signatureErrors: number;
+  /** Capped at 100 entries; `brokenChainsTruncated === true` means more broke. */
+  brokenChains: VaultScanBrokenChain[];
+  brokenChainsTruncated: boolean;
+}
+
+/** Scan findings, present once `state === 'completed'`, otherwise null. */
 export interface VaultScanResult {
   recordsScanned: number;
   verified: number;
   broken: number;
   signatureErrors: number;
+  /**
+   * True iff `broken === 0` and `signatureErrors === 0` and `globalChains.broken === 0`.
+   * The single field to branch on; a full scan folds the record-less chains (#949) into it.
+   */
   healthy: boolean;
   brokenRecords: VaultScanBrokenRecord[];
   brokenRecordsTruncated: boolean;
+  /** Record-less chain findings. Present on a full scan; absent on a `recordIds`-scoped scan. */
+  globalChains?: VaultScanGlobalChains;
   scannedAt: string;
 }
 

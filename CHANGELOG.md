@@ -4,6 +4,14 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.3.3] - 2026-07-20
+
+Tracks API v1.3.3. Type-only; no wire or runtime change.
+
+### Added
+
+- **`VaultScanResult.globalChains`** (API #949/#952). A full vault scan now walks the record-less chains (the single platform-ops `admin` chain and each org's `schema`-registration chain) and reports them under `result.globalChains` (`total`, `verified`, `broken`, `signatureErrors`, `brokenChains`, `brokenChainsTruncated`). These chains have no `records` row, so the per-record scan cannot see them; a break there now folds into `result.healthy`. The field is optional: a `recordIds`-scoped scan and the list-view summaries omit it. New exported types `VaultScanGlobalChains` and `VaultScanBrokenChain`, whose `reason` stays an open `string` (matching `VaultScanBrokenRecord.reason`) so a server-added failure code is not a compile break.
+
 ## [1.3.2] - 2026-07-16
 
 Docs and tooling. No wire, type, or runtime change.
