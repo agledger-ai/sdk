@@ -219,6 +219,22 @@ export type SchemaVersionStatus = 'ACTIVE' | 'DEPRECATED' | 'DELETED' | (string 
 /** Known values: FULL, BACKWARD, FORWARD, NONE. Accepts any string for forward compatibility. */
 export type SchemaCompatibilityMode = 'FULL' | 'BACKWARD' | 'FORWARD' | 'NONE' | (string & {});
 
+/**
+ * Documentation for one helper function callable inside a gate-rule expression.
+ *
+ * `semantics` states the edge behavior (invalid-input result, rounding
+ * direction, coercion) and is worth reading before relying on a helper in a
+ * rule: `daysBetween`, for example, counts whole elapsed 24h periods between
+ * UTC instants (floored, order-independent) rather than calendar days, and
+ * returns 0 on an unparseable date.
+ */
+export interface ExpressionHelperDoc {
+  /** The call shape, e.g. `daysBetween(a, b)`. */
+  signature: string;
+  /** Edge behavior: what the helper does with invalid input, how it rounds. */
+  semantics: string;
+}
+
 /** Meta-schema describing constraints and limits for custom schema authoring. */
 export interface MetaSchema {
   constraints: {
@@ -242,7 +258,14 @@ export interface MetaSchema {
   };
   fieldMappingValueTypes: string[];
   builtinRuleIds: string[];
-  expressionHelpers?: string[];
+  /**
+   * Helper functions callable inside an expression, keyed by name.
+   *
+   * API v1.3.4 (#976) replaced the bare `string[]` of names with per-helper
+   * signature + semantics, so the edge behavior travels with the helper
+   * instead of living only in prose.
+   */
+  expressionHelpers?: Record<string, ExpressionHelperDoc>;
   expressionLimits?: {
     maxLength: number;
     maxAstNodes: number;
@@ -1532,7 +1555,30 @@ export interface ComplianceExport {
   downloadUrl?: string;
   createdAt?: string;
   expiresAt?: string;
+  /**
+   * Rows in the export. Capped at 10000, newest first. Read `truncated`
+   * before treating this as the size of the match set.
+   */
   recordCount?: number;
+  /**
+   * True when the filters matched more than the 10000-row export cap, so the
+   * export holds only the newest 10000 rows (API v1.3.4, #968/#991). Window
+   * with `filters.from` / `filters.to` to cover the rest. Exports created
+   * before this field existed report `false`.
+   *
+   * On a download, the same answer rides the `X-AGLedger-Export-Truncated`
+   * response header, which is the only carrier for a `csv` download: the body
+   * is raw rows, and a notice line would corrupt the parse.
+   */
+  truncated?: boolean;
+  /**
+   * Total rows the filters matched at creation time, before the cap. Equals
+   * `recordCount` unless `truncated`. Header twin on a download:
+   * `X-AGLedger-Export-Total-Records`.
+   */
+  totalRecords?: number;
+  /** Suggested next API calls. */
+  nextSteps?: NextStep[];
 }
 
 export interface ExportComplianceParams {
@@ -1837,10 +1883,30 @@ export interface RecordAuditExport {
   entries: AuditExportEntry[];
 }
 
-/** A row from `GET /v1/audit-vault/checkpoints` — signed Merkle anchors. */
+/**
+ * Which chain a checkpoint anchors (API v1.3.4, #995).
+ *
+ * All three are the same signed-checkpoint construction over a different
+ * chain. Only `record` is keyed by a real record id.
+ */
+export type VaultCheckpointChain = 'record' | 'schema' | 'admin';
+
+/** A row from `GET /v1/audit-vault/checkpoints`: signed Merkle anchors. */
 export interface VaultCheckpoint {
   id: string;
+  /**
+   * The uuid this checkpoint is keyed to. **Read `chain` before treating it
+   * as a record id.** Only `chain: 'record'` rows point at a real record; on
+   * `'schema'` and `'admin'` this is a derived key that resolves to no
+   * record, and fetching it returns 404 by design.
+   */
   recordId: string;
+  /**
+   * Which chain this row anchors. `record` is the per-record chain, `schema`
+   * is an org's schema-registration chain (record-less), `admin` is the
+   * platform-ops chain. Added in API v1.3.4 (#995); absent on older servers.
+   */
+  chain?: VaultCheckpointChain;
   chainPosition: number;
   /** sha256 of cose_sign1 envelope bytes. */
   payloadHash: string;
@@ -3140,27 +3206,6 @@ export interface PeerAgentsResponse {
     signedCheckpointRef: string | null;
   };
   nextSteps?: NextStep[];
-}
-
-
-/**
- * A vault checkpoint row used for offline integrity verification.
- * Each row corresponds to a hash-chained vault entry for a specific record.
- */
-export interface VaultCheckpoint {
-  id: string;
-  recordId: string;
-  chainPosition: number;
-  payloadHash: string;
-  signature: string | null;
-  signingKeyId: string | null;
-  signatureAlg: string | null;
-  createdAt: string;
-}
-
-/** Query parameters for listing vault checkpoints. */
-export interface ListVaultCheckpointsParams extends ListParams {
-  recordId?: string;
 }
 
 

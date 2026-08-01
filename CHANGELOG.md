@@ -4,6 +4,30 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] - 2026-08-01
+
+Tracks API v1.3.4. Type-only; no wire or runtime change. Minor rather than patch because two of the corrections can break a consumer's compile, both in cases where the old type did not describe what the server sends.
+
+### Added
+
+- `ComplianceExport.truncated` and `.totalRecords` (API #968/#991). The org-wide export is capped at 10000 rows, newest first. Before this the response carried only `recordCount`, so a truncated export was indistinguishable from a complete one and a compliance packet could silently omit most of the trail. Window with `filters.from` / `filters.to` to cover the rest. On a download the same answer rides the `X-AGLedger-Export-Truncated` and `X-AGLedger-Export-Total-Records` response headers, which are the only carriers for a `csv` download, since the body is raw rows and a notice line would corrupt the parse.
+- `ComplianceExport.nextSteps`, which the status re-read now returns alongside the create response.
+- `VaultCheckpoint.chain` plus the `VaultCheckpointChain` union (`'record' | 'schema' | 'admin'`, API #995). Three chains are checkpointed by the same signed construction, and **only `chain: 'record'` is keyed by a real record id**. On `'schema'` and `'admin'` the `recordId` is a derived key that resolves to no record, so fetching it 404s by design. Optional, so a pre-1.3.4 server's rows still parse.
+- `ExpressionHelperDoc`, exported from the package root along with `VaultCheckpointChain`.
+
+### Changed
+
+- **`MetaSchema.expressionHelpers` is now `Record<string, ExpressionHelperDoc>`, was `string[]`** (API #976). The server replaced the bare list of helper names with per-helper `signature` + `semantics`, so the edge behavior travels with the helper instead of living only in prose. Worth reading before relying on one in a gate rule: `daysBetween` counts whole elapsed 24h periods between UTC instants (floored, order-independent) rather than calendar days, and returns 0 on an unparseable date. Code that iterated the old array needs `Object.keys(...)`.
+
+### Fixed
+
+- **`VaultCheckpoint` was declared twice and the two declarations merged**, so the type demanded `signature` and `signatureAlg` on top of `coseSign1`. The endpoint has never returned those two fields, so a real checkpoint row did not typecheck without a cast. The stale declaration is gone. `ListVaultCheckpointsParams` had the same duplication, where the second declaration extended `ListParams` and advertised an `offset` the route does not implement; the surviving declaration is `recordId` / `cursor` / `limit`, which is what the endpoint accepts.
+
+### Notes
+
+- Route surface is unchanged: 193 routes, no additions, no removals, no request-field drift against the live v1.3.4 spec. All 11 `components.schemas` models are unchanged. Every delta above is in a response body or an inline schema, which is the surface neither parity snapshot pins, so `src/__tests__/v1_3_4-types.test.ts` was added to guard it.
+- Verified against a live API v1.3.4, not only mocks: the full suite including the live integration cases passes (492 tests, no skips), and the export fields were read off a real response (`truncated: false`, `totalRecords: 6`, all three `X-AGLedger-Export-*` headers present).
+
 ## [1.3.3] - 2026-07-20
 
 Tracks API v1.3.3. Type-only; no wire or runtime change.

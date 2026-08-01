@@ -29,6 +29,7 @@ export type {
   SchemaVersionStatus,
   SchemaCompatibilityMode,
   MetaSchema,
+  ExpressionHelperDoc,
   SchemaFieldMapping,
   SchemaFieldMappingValueType,
   SchemaTemplate,
@@ -142,6 +143,7 @@ export type {
   AuditStreamResult,
   AuditVaultExportParams,
   VaultCheckpoint,
+  VaultCheckpointChain,
   ListVaultCheckpointsParams,
 
   // Org-admin reads checkpoints (SCITT-style)
