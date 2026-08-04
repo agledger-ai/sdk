@@ -41,6 +41,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "deps:lag": "node scripts/dep-lag.mjs",
+    "deps:refresh": "npm update && node scripts/dep-lag.mjs",
     "test:watch": "vitest",
     "clean": "rm -rf dist *.tsbuildinfo",
     "lint": "tsc --noEmit",
