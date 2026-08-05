@@ -22,11 +22,15 @@ function makeKeypair(): Keypair {
 }
 
 function buildChainProtectedHeader(position: number, previousHash: string | null): Uint8Array {
-  // Protected header is a CBOR map; we only need the -65537 chain entry.
+  // Protected header is a CBOR map: the alg (label 1, EdDSA) plus the -65537
+  // chain entry. The alg is load-bearing since the verifier floor: the engine
+  // always writes it, and a missing or foreign alg is a tamper-class failure
+  // (dispatch binds to the trusted key; the header is only asserted equal).
   const chainMap = new Map<number, unknown>();
   chainMap.set(1, position);
   chainMap.set(2, previousHash === null ? null : Buffer.from(previousHash, 'hex'));
   const header = new Map<number, unknown>();
+  header.set(1, -8);
   header.set(-65537, chainMap);
   return cborEncode(header, rfc8949EncodeOptions);
 }

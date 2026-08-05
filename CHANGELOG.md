@@ -4,6 +4,13 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] - 2026-08-05
+
+### Changed
+
+- **`/verify` takes `@agledger/verify-core` `^1.1.0`, the verifier forward-compatibility floor.** Algorithm dispatch now binds to the trusted verification key rather than the (unverified) protected header; a tampered or missing header `alg` fails as `CHAIN_ALG_MISMATCH` (tamper class), a key algorithm beyond the build fails closed as `CHAIN_UNSUPPORTED_ALGORITHM`, the signature-covered kid is cross-checked against `signingKeyId` (`CHAIN_SIGNING_KEY_DRIFT`), untagged COSE_Sign1 is rejected, and an all-zero signature on a key-claiming entry fails under `requireKeyId` / `requireOutOfBandKeys`. Legitimate Ed25519 exports verify identically. `FailureCode` and the per-entry `signature` state are correspondingly wider; exhaustive switches over them need the new members.
+- Conformance vectors refreshed from engine 1.3.4.
+
 ## [1.4.0] - 2026-08-01
 
 Tracks API v1.3.4. Type-only; no wire or runtime change. Minor rather than patch because two of the corrections can break a consumer's compile, both in cases where the old type did not describe what the server sends.
