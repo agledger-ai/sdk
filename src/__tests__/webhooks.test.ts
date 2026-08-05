@@ -206,8 +206,22 @@ describe('RFC 9421 (ed25519) Webhook Verification', () => {
     expect(await verifyRfc9421(headers, body, verificationKeys)).toBe(false);
   });
 
+  it('accepts an aged-but-fresh delivery (network latency must not reject)', async () => {
+    // Pins the replay-window math: maxAge = tolerance would make the past
+    // window zero seconds and reject every delivery older than the same tick.
+    const created = Math.floor(Date.now() / 1000) - 250;
+    const headers = sign({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, created });
+    expect(await verifyRfc9421(headers, body, spkiBase64)).toBe(true);
+  });
+
   it('rejects a stale signature beyond the replay window', async () => {
     const created = Math.floor(Date.now() / 1000) - 600;
+    const headers = sign({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, created });
+    expect(await verifyRfc9421(headers, body, spkiBase64)).toBe(false);
+  });
+
+  it('rejects a far-future signature beyond clock skew', async () => {
+    const created = Math.floor(Date.now() / 1000) + 600;
     const headers = sign({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, created });
     expect(await verifyRfc9421(headers, body, spkiBase64)).toBe(false);
   });
@@ -228,5 +242,83 @@ describe('RFC 9421 (ed25519) Webhook Verification', () => {
     await expect(constructEventRfc9421({ ...headers, [IDEMPOTENCY]: 'x' }, body, verificationKeys)).rejects.toThrow(
       'RFC 9421 webhook signature verification failed',
     );
+  });
+});
+
+describe('RFC 9421 (ecdsa-p256-sha256) Webhook Verification', () => {
+  // Replicates the API's outbound ES256 path (signing-agility api R2): the
+  // signature base is unchanged, alg="ecdsa-p256-sha256", and the signature
+  // bytes are raw r||s (ieee-p1363) per RFC 9421, not DER.
+  const IDEMPOTENCY = 'x-agledger-idempotency-key';
+  const COVERED = ['content-digest', IDEMPOTENCY];
+  const contentDigest = (raw: string) => `sha-256=:${createHash('sha256').update(raw, 'utf8').digest('base64')}:`;
+  const sigParams = (created: number, kid: string, alg: string) =>
+    `(${COVERED.map((c) => `"${c}"`).join(' ')});created=${created};keyid="${kid}";alg="${alg}"`;
+
+  function signEs256(opts: {
+    rawBody: string;
+    idempotencyKey: string;
+    privateKey: KeyObject;
+    keyId: string;
+    alg?: string;
+    dsaEncoding?: 'ieee-p1363' | 'der';
+  }): Record<string, string> {
+    const created = Math.floor(Date.now() / 1000);
+    const cd = contentDigest(opts.rawBody);
+    const params = sigParams(created, opts.keyId, opts.alg ?? 'ecdsa-p256-sha256');
+    const base = [`"content-digest": ${cd}`, `"${IDEMPOTENCY}": ${opts.idempotencyKey}`, `"@signature-params": ${params}`].join('\n');
+    const signature = edSign('sha256', Buffer.from(base, 'utf8'), {
+      key: opts.privateKey,
+      dsaEncoding: opts.dsaEncoding ?? 'ieee-p1363',
+    });
+    return {
+      'content-digest': cd,
+      'signature-input': `sig1=${params}`,
+      signature: `sig1=:${signature.toString('base64')}:`,
+      [IDEMPOTENCY]: opts.idempotencyKey,
+    };
+  }
+
+  const kp = generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const keyId = 'f6e5d4c3b2a10897';
+  const spkiBase64 = kp.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
+  const verificationKeys: VerificationKey[] = [
+    { keyId, algorithm: 'ES256', coseAlgorithm: -7, publicKey: spkiBase64, status: 'active', activatedAt: '2026-08-01', retiredAt: null },
+  ];
+  const body = '{"type":"signal.emitted","data":{"recordId":"rec-2","signal":"SETTLE"},"timestamp":"2026-08-05T00:00:00Z","id":"evt-10"}';
+  const idk = '66666666-7777-8888-9999-aaaaaaaaaaaa';
+
+  it('verifies a valid ES256 delivery against a single SPKI key', async () => {
+    const headers = signEs256({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId });
+    expect(await verifyRfc9421(headers, body, spkiBase64)).toBe(true);
+  });
+
+  it('resolves the key by keyid from a verification-keys array (no publicKeyRaw on EC keys)', async () => {
+    const headers = signEs256({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId });
+    expect(await verifyRfc9421(headers, body, verificationKeys)).toBe(true);
+  });
+
+  it('rejects an alg parameter that contradicts the key type', async () => {
+    // The algs allowlist binds dispatch to the resolved key: a P-256 key with
+    // alg="ed25519" must fail, never fall into a different code path.
+    const headers = signEs256({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, alg: 'ed25519' });
+    expect(await verifyRfc9421(headers, body, spkiBase64)).toBe(false);
+  });
+
+  it('rejects a DER-encoded signature (the wire is raw r||s)', async () => {
+    const headers = signEs256({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, dsaEncoding: 'der' });
+    expect(await verifyRfc9421(headers, body, spkiBase64)).toBe(false);
+  });
+
+  it('rejects a tampered body', async () => {
+    const headers = signEs256({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId });
+    expect(await verifyRfc9421(headers, body + ' ', spkiBase64)).toBe(false);
+  });
+
+  it('fails closed on a key type with no supported algorithm', async () => {
+    const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 });
+    const rsaSpki = rsa.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
+    const headers = signEs256({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId });
+    expect(await verifyRfc9421(headers, body, rsaSpki)).toBe(false);
   });
 });

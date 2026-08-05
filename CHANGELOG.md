@@ -4,6 +4,24 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] - 2026-08-05
+
+Signing-agility wave 2: ES256 verification across the SDK's offline and webhook surfaces. Ed25519 paths are byte-identical to 1.5.0.
+
+### Added
+
+- **`/verify` subpath verifies ES256 chains** via `@agledger/verify-core` 1.2.0. Dispatch binds to the trusted key's SPKI; algorithms past this build still fail closed as `CHAIN_UNSUPPORTED_ALGORITHM`.
+- **`verifyRfc9421` / `constructEventRfc9421` accept `ecdsa-p256-sha256` deliveries** (RFC 9421 raw `r||s` signatures, SHA-256), emitted by Servers signing with a P-256 vault key. The verification algorithm is dispatched from the resolved key's type; the delivery's `alg` parameter is asserted against it, never trusted. An unsupported key type fails closed.
+- **`VerificationKey` carries the per-key discovery fields** from the api R1 reshape: `coseAlgorithm` and `minVerifierVersion`; `publicKeyRaw` is now optional (present only on Ed25519 keys, which are the only keys with a raw 32-byte form worth publishing).
+
+### Fixed
+
+- **`verifyRfc9421` rejected every delivery older than the same second.** The replay-window parameters passed to `http-message-signatures` (`maxAge` = `tolerance`) made the effective past window zero: the library rejects when `age > maxAge - tolerance`, so any genuine delivery with >1s of network or queue latency failed verification, while future-dated signatures up to 300s passed. The window is now the symmetric `[-t, +t]` the HMAC path enforces (default t = 300s). Present since the RFC 9421 path shipped in 0.8.14; fail-closed, so no forgery risk, but the asymmetric tier was unusable behind any real latency.
+
+### Changed
+
+- **Conformance corpus regenerated from engine 1.3.4 @ `ed3369ab`** (export slice, including the ES256 wave: `valid-es256`, `es256-signature-invalid`, `es256-header-alg-mismatch`).
+
 ## [1.5.0] - 2026-08-05
 
 ### Changed
