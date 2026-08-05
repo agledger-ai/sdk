@@ -2915,14 +2915,23 @@ export interface LicenseInfo {
 export interface VerificationKey {
   keyId: string;
   algorithm: string;
+  /**
+   * COSE algorithm label (RFC 9053) this key signs under, e.g. -8 (EdDSA) or
+   * -7 (ES256). Authoritative per key; the response-level `coseAlgorithm`
+   * describes the active key only.
+   */
+  coseAlgorithm?: number;
+  /** Minimum @agledger/verify version able to verify entries signed under this key. */
+  minVerifierVersion?: string;
   /** Base64-encoded SPKI DER public key. */
   publicKey: string;
   /**
-   * Base64 of the raw 32-byte Ed25519 public key — what raw-key verifiers
+   * Base64 of the raw 32-byte Ed25519 public key, what raw-key verifiers
    * (RFC 9421 / Standard-Webhooks-style) consume, vs the SPKI-DER `publicKey`.
-   * Same key, different encoding.
+   * Same key, different encoding. Present only on Ed25519 keys: a raw key
+   * carries no AlgorithmIdentifier, so other algorithms publish SPKI only.
    */
-  publicKeyRaw: string;
+  publicKeyRaw?: string;
   status: 'active' | 'retired' | (string & {});
   activatedAt: string;
   retiredAt: string | null;

@@ -167,27 +167,32 @@ export function verifySignature(
   return false;
 }
 
-// RFC 9421 (ed25519) webhook verification.
+// RFC 9421 webhook verification (ed25519 / ecdsa-p256-sha256).
 //
-// The asymmetric, opt-in signing tier (`signingAlg: 'ed25519'`). Deliveries are
-// signed with the Server vault key as RFC 9421 HTTP Message Signatures; the
-// receiver verifies against the published public key at GET /v1/verification-keys
-// (matched by the `keyid` parameter) and holds no secret — non-repudiation for
-// the Settlement Signal hop. This is distinct from the HMAC path above.
+// The asymmetric, opt-in signing tier (`signingAlg: 'ed25519'` or
+// `'ecdsa-p256-sha256'`; the wire `alg` parameter reflects the Server's ACTIVE
+// vault key). Deliveries are signed with the Server vault key as RFC 9421 HTTP
+// Message Signatures; the receiver verifies against the published public key at
+// GET /v1/verification-keys (matched by the `keyid` parameter) and holds no
+// secret: non-repudiation for the Settlement Signal hop. This is distinct from
+// the HMAC path above. The verification algorithm is dispatched from the
+// resolved key's type, never from the attacker-writable `alg` parameter; `alg`
+// is asserted against the key via the `algs` allowlist.
 //
 // Covered components are exactly `content-digest` (RFC 9530 body integrity) and
 // `x-agledger-idempotency-key` (the stable dedup identity). Derived components
 // (@method/@target-uri/@authority) are deliberately excluded — proxies rewrite
 // them, which would break verification of authentic deliveries.
 
-/** The covered components an ed25519 delivery signs, lowercased per RFC 9421. */
+/** The covered components a signed delivery signs, lowercased per RFC 9421. */
 const RFC9421_COVERED_COMPONENTS = ['content-digest', 'x-agledger-idempotency-key'] as const;
 
 /**
- * Public key(s) to verify an ed25519 delivery against. Either a single
- * base64-encoded key (raw 32-byte or SPKI DER — both accepted), or the `data`
- * array from `client.verificationKeys.list()`, in which case the key is
- * resolved by matching the delivery's `keyid` to `VerificationKey.keyId`.
+ * Public key(s) to verify a signed delivery against. Either a single
+ * base64-encoded key (raw 32-byte Ed25519 or SPKI DER, which also carries
+ * P-256), or the `data` array from `client.verificationKeys.list()`, in which
+ * case the key is resolved by matching the delivery's `keyid` to
+ * `VerificationKey.keyId`.
  */
 export type Rfc9421PublicKey = string | VerificationKey[];
 
@@ -211,8 +216,8 @@ function computeContentDigest(rawBody: string): string {
   return `sha-256=:${createHash('sha256').update(rawBody, 'utf8').digest('base64')}:`;
 }
 
-/** Build an Ed25519 public KeyObject from a base64 raw (32-byte) or SPKI DER key. */
-function ed25519PublicKeyObject(base64Key: string): KeyObject {
+/** Build a public KeyObject from a base64 raw (32-byte Ed25519) or SPKI DER key. */
+function publicKeyObject(base64Key: string): KeyObject {
   const buf = Buffer.from(base64Key, 'base64');
   if (buf.length === 32) {
     return createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: buf.toString('base64url') }, format: 'jwk' });
@@ -221,10 +226,37 @@ function ed25519PublicKeyObject(base64Key: string): KeyObject {
 }
 
 /**
- * Verify an RFC 9421 (ed25519) webhook delivery — the non-repudiable signing
- * tier for settlement events. Recomputes the Content-Digest over the raw body,
- * reconstructs the RFC 9421 signature base, resolves the public key by `keyid`,
- * verifies the Ed25519 signature, and enforces the `created` replay window.
+ * Build the http-message-signatures VerifyingKey for whatever algorithm the
+ * resolved key commits to. Ed25519 and ES256 (`ecdsa-p256-sha256`, raw r||s
+ * per RFC 9421) are supported; any other key type returns null so
+ * verification fails closed rather than falling into Node's
+ * key-type-dispatched `verify(null, ...)` fallback.
+ */
+function verifyingKeyFor(keyObj: KeyObject, id: string | undefined): VerifyingKey | null {
+  if (keyObj.asymmetricKeyType === 'ed25519') {
+    return {
+      id,
+      algs: ['ed25519'],
+      verify: async (data: Buffer, signature: Buffer) => cryptoVerify(null, data, keyObj, signature),
+    };
+  }
+  if (keyObj.asymmetricKeyType === 'ec' && keyObj.asymmetricKeyDetails?.namedCurve === 'prime256v1') {
+    return {
+      id,
+      algs: ['ecdsa-p256-sha256'],
+      verify: async (data: Buffer, signature: Buffer) =>
+        cryptoVerify('sha256', data, { key: keyObj, dsaEncoding: 'ieee-p1363' }, signature),
+    };
+  }
+  return null;
+}
+
+/**
+ * Verify an RFC 9421 webhook delivery (ed25519 or ecdsa-p256-sha256), the
+ * non-repudiable signing tier for settlement events. Recomputes the
+ * Content-Digest over the raw body, reconstructs the RFC 9421 signature base,
+ * resolves the public key by `keyid`, verifies the signature under the
+ * algorithm that key commits to, and enforces the `created` replay window.
  *
  * @param headers - The delivery's HTTP headers (must include `content-digest`,
  *   `signature-input`, `signature`, and `x-agledger-idempotency-key`). Casing
@@ -260,9 +292,9 @@ export async function verifyRfc9421(
     const tolerance = Math.min(options?.toleranceSeconds ?? MAX_TOLERANCE_SECONDS, MAX_TOLERANCE_SECONDS);
 
     const resolveKey = (keyid: string | undefined): KeyObject | null => {
-      if (typeof key === 'string') return ed25519PublicKeyObject(key);
+      if (typeof key === 'string') return publicKeyObject(key);
       const match = key.find((k) => k.keyId === keyid);
-      return match ? ed25519PublicKeyObject(match.publicKey) : null;
+      return match ? publicKeyObject(match.publicKey) : null;
     };
 
     const result = await httpbis.verifyMessage(
@@ -270,17 +302,17 @@ export async function verifyRfc9421(
         keyLookup: async (params: SignatureParameters): Promise<VerifyingKey | null> => {
           const keyObj = resolveKey(typeof params.keyid === 'string' ? params.keyid : undefined);
           if (!keyObj) return null;
-          return {
-            id: typeof params.keyid === 'string' ? params.keyid : undefined,
-            algs: ['ed25519'],
-            verify: async (data: Buffer, signature: Buffer) => cryptoVerify(null, data, keyObj, signature),
-          };
+          return verifyingKeyFor(keyObj, typeof params.keyid === 'string' ? params.keyid : undefined);
         },
-        // `created` is required for replay protection; the window is enforced
-        // via maxAge (how old) + tolerance (clock skew on either side).
+        // `created` is required for replay protection. The library's window
+        // math: a delivery is rejected when age > maxAge - tolerance (past)
+        // or when created - tolerance > now (future). maxAge = 2t with
+        // tolerance = t therefore accepts age in [-t, +t], the same symmetric
+        // window the HMAC path enforces. maxAge = tolerance = t would make
+        // the past window ZERO seconds and reject every real delivery.
         requiredParams: ['created', 'keyid'],
         requiredFields: [...RFC9421_COVERED_COMPONENTS],
-        maxAge: tolerance,
+        maxAge: tolerance * 2,
         tolerance,
       },
       { method: 'POST', url: 'https://webhook.agledger.local/', headers: h },
@@ -293,8 +325,8 @@ export async function verifyRfc9421(
 }
 
 /**
- * Verify an RFC 9421 (ed25519) webhook delivery and parse the payload in one
- * step. The ed25519 analogue of `constructEvent`.
+ * Verify an RFC 9421 webhook delivery and parse the payload in one step. The
+ * asymmetric-tier analogue of `constructEvent`.
  *
  * @throws SignatureVerificationError if verification fails.
  */

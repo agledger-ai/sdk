@@ -221,11 +221,12 @@ const isValid = verifySignature(
 );
 ```
 
-**Ed25519** (`signingAlg: 'ed25519'`) is RFC 9421 HTTP Message Signatures signed
-with the Server's vault key. The receiver holds no secret and verifies against
-the Server's published public key, giving non-repudiation for the Settlement
-Signal hop. Settlement-event subscriptions default to this when the Server has a
-vault signing key.
+**Asymmetric** (`signingAlg: 'ed25519'` or `'ecdsa-p256-sha256'`) is RFC 9421
+HTTP Message Signatures signed with the Server's vault key. The receiver holds
+no secret and verifies against the Server's published public key, giving
+non-repudiation for the Settlement Signal hop. Settlement-event subscriptions
+default to this when the Server has a vault signing key. The wire `alg`
+reflects the Server's active key; `verifyRfc9421` handles both.
 
 ```typescript
 import { verifyRfc9421 } from '@agledger/sdk/webhooks';
@@ -242,7 +243,8 @@ const isValid = await verifyRfc9421(
 ```
 
 `verifyRfc9421` recomputes the RFC 9530 Content-Digest over the body, reconstructs
-the RFC 9421 signature base, verifies the Ed25519 signature, and enforces the
+the RFC 9421 signature base, verifies the signature under the algorithm the
+resolved key commits to (Ed25519 or ES256), and enforces the
 `created` replay window (default/max 300s). `constructEventRfc9421` verifies and
 parses in one step. This path uses `http-message-signatures` for the canonical
 serialization.
@@ -265,8 +267,9 @@ if (!result.valid) {
 // { valid: true, verifiedEntries: 12, totalEntries: 12, entries: [...] }
 ```
 
-Decodes canonical COSE_Sign1 envelopes (RFC 9052, tag 18, EdDSA), walks the hash
-chain, and verifies the Ed25519 signature over each `Sig_structure`. Format 2.0
+Decodes canonical COSE_Sign1 envelopes (RFC 9052, tag 18), walks the hash
+chain, and verifies the signature over each `Sig_structure` under the algorithm
+the verification key commits to (Ed25519 or ES256). Format 2.0
 (was 1.0 JCS + detached Ed25519). `brokenAt.code` is a canonical SCREAMING_SNAKE
 `FailureCode` (e.g. `CHAIN_HASH_MISMATCH`, `CHAIN_SIGNATURE_INVALID`).
 
