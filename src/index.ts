@@ -310,6 +310,7 @@ export {
   TimeoutError,
   ConfigurationError,
   SignatureVerificationError,
+  SignatureAlgorithmUnavailableError,
 } from './errors.js';
 
 // Scopes

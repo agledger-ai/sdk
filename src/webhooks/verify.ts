@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual, createHash, createPublicKey, verify as cryptoVerify, type KeyObject } from 'node:crypto';
 import { httpbis, type VerifyingKey, type SignatureParameters } from 'http-message-signatures';
+import { resolveKeyAlgorithm, runtimeCanCompute } from '@agledger/verify-core';
 import type { WebhookEventType, RecordRow, Completion, Dispute, VerificationKey } from '../types.js';
-import { SignatureVerificationError } from '../errors.js';
+import { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
 
 const MAX_TOLERANCE_SECONDS = 300;
 
@@ -226,6 +227,37 @@ function publicKeyObject(base64Key: string): KeyObject {
 }
 
 /**
+ * Refuse to proceed when the host runtime cannot compute the key's algorithm.
+ *
+ * A verification failure and an inability to verify are different events with
+ * opposite responses, so this throws instead of joining the `false` path: a
+ * caller doing `if (!ok) return 401` would otherwise reject every legitimate
+ * delivery as forged. An unhandled throw surfacing as a 500 is the correct
+ * outcome, because the fault is in the receiver's configuration, not in the
+ * sender's signature.
+ *
+ * Capability is proven against a fixed known-answer signature (verify-core's
+ * `runtimeCanCompute`), never inferred from a failed verification of the
+ * delivery itself: nothing an attacker sends may decide whether a bad
+ * signature gets reported as unverifiable.
+ */
+function assertRuntimeCanCompute(keyObj: KeyObject): void {
+  const spki = (keyObj.export({ type: 'spki', format: 'der' }) as Buffer).toString('base64');
+  const keyAlg = resolveKeyAlgorithm(spki);
+  // Key types outside the table are rejected by verifyingKeyFor as before:
+  // that is a fail-closed key-shape decision, not a runtime gap.
+  if (typeof keyAlg !== 'object' || !keyAlg.verifiable) return;
+  if (runtimeCanCompute(keyAlg)) return;
+  throw new SignatureAlgorithmUnavailableError(
+    `This host cannot compute ${keyAlg.name}, so the webhook signature could not be checked. ` +
+      `The usual cause is an active OpenSSL FIPS provider, which carries no EdDSA. ` +
+      `This is NOT a failed signature: the delivery may be perfectly valid. ` +
+      `Terminate the signature on an unrestricted host, or configure the sender for ecdsa-p256-sha256.`,
+    keyAlg.name,
+  );
+}
+
+/**
  * Build the http-message-signatures VerifyingKey for whatever algorithm the
  * resolved key commits to. Ed25519 and ES256 (`ecdsa-p256-sha256`, raw r||s
  * per RFC 9421) are supported; any other key type returns null so
@@ -233,6 +265,7 @@ function publicKeyObject(base64Key: string): KeyObject {
  * key-type-dispatched `verify(null, ...)` fallback.
  */
 function verifyingKeyFor(keyObj: KeyObject, id: string | undefined): VerifyingKey | null {
+  assertRuntimeCanCompute(keyObj);
   if (keyObj.asymmetricKeyType === 'ed25519') {
     return {
       id,
@@ -319,7 +352,10 @@ export async function verifyRfc9421(
     );
 
     return result === true;
-  } catch {
+  } catch (err) {
+    // "Could not check" must not be flattened into "did not verify"; every
+    // other failure in here really is a rejected delivery.
+    if (err instanceof SignatureAlgorithmUnavailableError) throw err;
     return false;
   }
 }
