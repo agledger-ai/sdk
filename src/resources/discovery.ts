@@ -2,6 +2,7 @@ import type { HttpClient } from '../http.js';
 import type {
   ConformanceResponse,
   RequestOptions,
+  Page,
   ScopeProfileInfo,
   RecordLifecycleInfo,
 } from '../types.js';
@@ -14,8 +15,8 @@ export class DiscoveryResource {
   constructor(private readonly http: HttpClient) {}
 
   /** List all available scope profiles. Public discovery endpoint. */
-  getScopeProfiles(options?: RequestOptions): Promise<ScopeProfileInfo[]> {
-    return this.http.get<ScopeProfileInfo[]>('/v1/scope-profiles', undefined, options);
+  getScopeProfiles(options?: RequestOptions): Promise<Page<ScopeProfileInfo>> {
+    return this.http.getPage<ScopeProfileInfo>('/v1/scope-profiles', undefined, options);
   }
 
   /** Get the server's protocol conformance summary (features, Types, limits). */

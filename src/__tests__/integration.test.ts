@@ -17,6 +17,8 @@ import type { Page } from '../types.js';
 const API_URL = process.env['AGLEDGER_TEST_API_URL'] || 'http://localhost:3001';
 const API_KEY = process.env['AGLEDGER_TEST_API_KEY'] || '';
 const AGENT_KEY = process.env['AGLEDGER_TEST_AGENT_KEY'] || '';
+// Vault reads are platform-tier, above an org admin key.
+const PLATFORM_KEY = process.env['AGLEDGER_PLATFORM_KEY'] || '';
 
 async function isApiReachable(): Promise<boolean> {
   try {
@@ -36,6 +38,8 @@ describe('SDK integration: response shape validation', async () => {
 
   let client: AgledgerClient;
   let createdRecordId: string | undefined;
+  const platformClient = (): AgledgerClient =>
+    new AgledgerClient({ apiKey: PLATFORM_KEY, baseUrl: API_URL });
 
   beforeAll(() => {
     client = new AgledgerClient({ apiKey: API_KEY, baseUrl: API_URL });
@@ -196,5 +200,40 @@ describe('SDK integration: response shape validation', async () => {
     expect(typeof conf.version).toBe('string');
     expect(typeof conf.capabilities).toBe('object');
     expect(Array.isArray(conf.settlementSignals)).toBe(true);
+  });
+  // --- Declared shape vs wire shape -------------------------------------
+  //
+  // Four methods were typed as returning a BARE ARRAY while the API has
+  // always sent a Page envelope ({data, total, hasMore, nextCursor}). The
+  // type made the obvious consumer loop typecheck and then throw at runtime,
+  // and no mocked test could see it because the mocks were written from the
+  // same wrong assumption. These assert against the live wire.
+
+  it('discovery.getScopeProfiles() returns a Page, not a bare array', async () => {
+    const page = await client.discovery.getScopeProfiles();
+    expect(Array.isArray(page)).toBe(false);
+    assertPage(page, 'discovery.getScopeProfiles');
+    expect(page.data.length).toBeGreaterThan(0);
+  });
+
+  it('admin.vault.signingKeys.list() returns a Page, not a bare array', async () => {
+    if (!PLATFORM_KEY) return;
+    const page = await platformClient().admin.vault.signingKeys.list();
+    expect(Array.isArray(page)).toBe(false);
+    assertPage(page, 'admin.vault.signingKeys.list');
+  });
+
+  it('admin.vault.anchors.list() requires recordId and returns a Page', async () => {
+    if (!PLATFORM_KEY || !createdRecordId) return;
+    const page = await platformClient().admin.vault.anchors.list({ recordId: createdRecordId });
+    expect(Array.isArray(page)).toBe(false);
+    assertPage(page, 'admin.vault.anchors.list');
+  });
+
+  it('admin.listRateLimitExemptions() returns a Page, not a bare array', async () => {
+    if (!PLATFORM_KEY) return;
+    const page = await platformClient().admin.listRateLimitExemptions();
+    expect(Array.isArray(page)).toBe(false);
+    assertPage(page, 'admin.listRateLimitExemptions');
   });
 });
