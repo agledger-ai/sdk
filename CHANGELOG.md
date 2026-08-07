@@ -10,7 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 - **A FIPS-locked receiver no longer rejects every legitimate webhook as forged.** The FIPS provider carries no EdDSA, so verifying an ed25519 delivery throws inside `verifyRfc9421`. That throw was caught and returned as `false`, which every documented caller turns into a 401: a receiver rejecting every valid delivery it was sent, reporting each one as a bad signature, with nothing anywhere naming the cause (agents#113, the same defect class the verifier packages carried).
 
-  `verifyRfc9421` and `constructEventRfc9421` now throw `SignatureAlgorithmUnavailableError` when the host cannot compute the key's algorithm, proven against a fixed known-answer signature rather than inferred from a failed verification of the delivery itself. Deliveries that are actually bad still return `false` exactly as before.
+  `verifyRfc9421` and `constructEventRfc9421` now throw `SignatureAlgorithmUnavailableError` when the host cannot compute the key's algorithm, proven against a fixed known-answer signature rather than inferred from a failed verification of the delivery itself.
+
+  **On such a host, no ed25519 delivery can be classified at all**, valid or forged: the check necessarily precedes signature verification, so a genuine forgery throws too. That is the honest result, since nothing was computed and nothing is known, but do not read the exception as evidence a delivery was legitimate. On every host that can compute the algorithm, which is all of them absent a FIPS-style restriction, behavior is unchanged and bad deliveries still return `false`.
 
 ### Added
 
@@ -18,7 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed (behavior)
 
-- **`verifyRfc9421` can now throw**, where before it only ever returned a boolean. It throws only where the old code returned a wrong answer, so no correct caller changes behavior: a receiver that could verify ed25519 still verifies it, and a bad signature still returns `false`. On a host that cannot compute the algorithm, the standard `if (!ok) return 401` becomes an unhandled rejection and a 500, which is the right status for a server misconfiguration.
+- **`verifyRfc9421` can now throw**, where before it only ever returned a boolean. It throws only where the old code returned a wrong answer, so no correct caller changes behavior on a host that can compute the algorithm. On a host that cannot, the standard `if (!ok) return 401` becomes an unhandled rejection, which is the right outcome for a server misconfiguration but is worth catching explicitly: on Express 4 or plain `http`, an unhandled rejection terminates the process under Node's default `--unhandled-rejections=throw`. The README and JSDoc examples now show the `catch`. A receiver in that state cannot verify anything, so the choice is between failing loudly and rejecting all legitimate traffic silently.
 
 ## [1.7.0] - 2026-08-07
 
