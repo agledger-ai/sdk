@@ -13,6 +13,7 @@ Signing-agility wave 2: ES256 verification across the SDK's offline and webhook 
 - **`/verify` subpath verifies ES256 chains** via `@agledger/verify-core` 1.2.0. Dispatch binds to the trusted key's SPKI; algorithms past this build still fail closed as `CHAIN_UNSUPPORTED_ALGORITHM`.
 - **`verifyRfc9421` / `constructEventRfc9421` accept `ecdsa-p256-sha256` deliveries** (RFC 9421 raw `r||s` signatures, SHA-256), emitted by Servers signing with a P-256 vault key. The verification algorithm is dispatched from the resolved key's type; the delivery's `alg` parameter is asserted against it, never trusted. An unsupported key type fails closed.
 - **`VerificationKey` carries the per-key discovery fields** from the api R1 reshape: `coseAlgorithm` and `minVerifierVersion`; `publicKeyRaw` is now optional (present only on Ed25519 keys, which are the only keys with a raw 32-byte form worth publishing).
+- **`ConformanceResponse.capabilities.signingAlgorithms`** (api R1), the algorithms the Server can sign chain envelopes with, e.g. `['Ed25519']`. The capabilities index signature widens from `boolean | undefined` to `boolean | string[] | undefined` to admit it: this is the first non-boolean capability, and without the widening a consumer reading `capabilities.signingAlgorithms` got `boolean | undefined` and could not call an array method on it. Narrow the type when reading unknown capabilities through the index signature.
 
 ### Fixed
 

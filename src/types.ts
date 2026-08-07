@@ -2151,6 +2151,14 @@ export interface ConformanceResponse {
     auditVault?: boolean;
     hashChainIntegrity?: boolean;
     ed25519Signatures?: boolean;
+    /**
+     * Signature algorithms this build can sign chain envelopes with, e.g.
+     * `['Ed25519']`. The engine derives `ed25519Signatures` from this same
+     * registry, so the two cannot disagree. A non-default algorithm also
+     * requires the server's boot-time opt-in; per-key algorithm resolution
+     * for verification lives on `GET /v1/verification-keys`.
+     */
+    signingAlgorithms?: string[];
     delegationChains?: boolean;
     cascadingGate?: boolean;
     disputeResolution?: boolean;
@@ -2167,7 +2175,7 @@ export interface ConformanceResponse {
     ephemeralCerts?: boolean;
     trustedIssuers?: boolean;
     agentSignatureCoSign?: boolean;
-    [key: string]: boolean | undefined;
+    [key: string]: boolean | string[] | undefined;
   };
   /** Number of registered contract types in this org. */
   contractTypes?: number;
