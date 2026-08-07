@@ -1880,7 +1880,8 @@ export interface RecordAuditExport {
     /**
      * Map of keyId → activation/retirement window. Input for the offline
      * verifier's temporal key-validity check (`@agledger/sdk/verify`): an entry
-     * written outside its signing key's active window fails `CHAIN_KEY_EXPIRED`.
+     * written before its signing key's activation fails `CHAIN_KEY_NOT_YET_ACTIVE`,
+     * and one written after retirement fails `CHAIN_KEY_EXPIRED`.
      * Additive since engine v0.26.x — older exports omit it and that check
      * stays `skipped_no_input`.
      */

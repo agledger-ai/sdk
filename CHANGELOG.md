@@ -4,12 +4,16 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.7.0] - 2026-08-07
 
 ### Changed
 
 - **`baseUrl` is now required.** The client used to fall back to `https://agledger.example.com`, a placeholder that resolves nowhere, so `new AgledgerClient({ apiKey })` constructed fine and then failed every call with `ConnectionError: Network error: fetch failed` against a host the caller never named and could only discover by reading `dist/http.js`. Omitting it now throws `ConfigurationError` at construction, where the mistake actually is. Every AGLedger deployment is self-hosted, so there was never a sensible default. The option stays optional in the type (so the thrown message can explain itself rather than the compiler saying nothing), and no working integration can be affected: a client without a base URL could never reach a Server (agents#109).
 - **`ConnectionError` names the request and the underlying cause.** `fetch failed` is undici's generic text for DNS failure, connection refused, and TLS problems alike; the message now carries the method, the full URL, and the cause code (`ENOTFOUND`, `ECONNREFUSED`, …) or the cause message when there is no code (agents#109).
+
+### Changed (via `@agledger/verify-core` 1.3.0)
+
+- **`CHAIN_KEY_NOT_YET_ACTIVE`** is reported by the `/verify` subpath for an entry written BEFORE its signing key activation; `CHAIN_KEY_EXPIRED` now means the retirement side only. Both directions previously reported "expired", sending a consumer to investigate rotation when the real condition is a backdated entry or clock skew. `FailureCode` gains a member, so exhaustive switches need the new case. Verdicts are unchanged (agents#112).
 
 ### Added
 
