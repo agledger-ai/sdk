@@ -1,7 +1,7 @@
 {
   "name": "@agledger/sdk",
-  "version": "1.7.0",
-  "description": "AGLedger™ SDK: change control for AI agents. Self-hosted, signed, hash-chained. Patent Pending.",
+  "version": "1.8.0",
+  "description": "AGLedger\u2122 SDK: change control for AI agents. Self-hosted, signed, hash-chained. Patent Pending.",
   "license": "SEE LICENSE IN LICENSE",
   "sideEffects": false,
   "type": "module",

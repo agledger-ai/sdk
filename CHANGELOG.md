@@ -4,7 +4,23 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.8.0] - 2026-08-07
+
+### Fixed (wrong types, found against a live v1.3.4 Server)
+
+- **Four methods claimed to return a bare array and have always returned a `Page` envelope.** `discovery.getScopeProfiles()`, `admin.vault.anchors.list()`, `admin.vault.signingKeys.list()`, and `admin.listRateLimitExemptions()` were typed `T[]` while the API sends `{ data, total, hasMore, nextCursor }`, which its own OpenAPI has always declared. The obvious consumer code compiled and then threw:
+
+  ```ts
+  for (const p of await client.discovery.getScopeProfiles()) { … }  // TypeError: not iterable
+  ```
+
+  All four now return `Page<T>`, matching every other list method. No mocked test could catch this, because the mocks were written from the same wrong assumption; the integration suite now asserts each one against the live wire.
+
+- **`admin.vault.anchors.list()` typed a required parameter as optional.** `recordId` is `required: true` in the API's OpenAPI querystring, so `anchors.list()` typechecked and then failed with a 400. It is now `list(params: { recordId: string })`.
+
+### Documentation
+
+- **The resource table named a method that does not exist.** It listed `client.discovery` as offering `conformance()`; the method is `getConformance()`. A reader following the table got `TypeError: client.discovery.conformance is not a function`. The row now names all three real methods.
 
 ### Fixed
 

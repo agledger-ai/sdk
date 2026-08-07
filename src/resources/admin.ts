@@ -79,8 +79,11 @@ export class AdminRecordsResource {
 export class AdminVaultResource {
   constructor(private readonly http: HttpClient) {
     this.anchors = {
-      list: (params?: { recordId?: string }, options?: RequestOptions) =>
-        http.get<VaultAnchor[]>('/v1/admin/vault/anchors', params as Record<string, unknown>, options),
+      // recordId is REQUIRED by the API (declared required in its OpenAPI
+      // querystring), not optional. Typing it optional let `anchors.list()`
+      // typecheck and then 400 at runtime.
+      list: (params: { recordId: string }, options?: RequestOptions) =>
+        http.getPage<VaultAnchor>('/v1/admin/vault/anchors', params as unknown as Record<string, unknown>, options),
       verify: (params: VerifyVaultAnchorsParams, options?: RequestOptions) =>
         http.post<VaultAnchorVerifyResult>('/v1/admin/vault/anchors/verify', params, options),
     };
@@ -94,14 +97,14 @@ export class AdminVaultResource {
     };
     this.signingKeys = {
       list: (options?: RequestOptions) =>
-        http.get<VaultSigningKey[]>('/v1/admin/vault/signing-keys', undefined, options),
+        http.getPage<VaultSigningKey>('/v1/admin/vault/signing-keys', undefined, options),
       rotate: (options?: RequestOptions) =>
         http.post<VaultSigningKey>('/v1/admin/vault/signing-keys/rotate', {}, options),
     };
   }
 
   readonly anchors: {
-    list(params?: { recordId?: string }, options?: RequestOptions): Promise<VaultAnchor[]>;
+    list(params: { recordId: string }, options?: RequestOptions): Promise<Page<VaultAnchor>>;
     verify(params: VerifyVaultAnchorsParams, options?: RequestOptions): Promise<VaultAnchorVerifyResult>;
   };
 
@@ -112,7 +115,7 @@ export class AdminVaultResource {
   };
 
   readonly signingKeys: {
-    list(options?: RequestOptions): Promise<VaultSigningKey[]>;
+    list(options?: RequestOptions): Promise<Page<VaultSigningKey>>;
     rotate(options?: RequestOptions): Promise<VaultSigningKey>;
   };
 }
@@ -326,8 +329,8 @@ export class AdminResource {
   }
 
   /** List all owner-level rate limit exemptions. */
-  listRateLimitExemptions(options?: RequestOptions): Promise<RateLimitExemption[]> {
-    return this.http.get<RateLimitExemption[]>('/v1/admin/rate-limit-exemptions', undefined, options);
+  listRateLimitExemptions(options?: RequestOptions): Promise<Page<RateLimitExemption>> {
+    return this.http.getPage<RateLimitExemption>('/v1/admin/rate-limit-exemptions', undefined, options);
   }
 
   /** Get a specific owner's rate-limit exemption (404 if none). */

@@ -144,7 +144,7 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 | `client.compliance` | Compliance exports, EU AI Act assessments, SIEM stream |
 | `client.audit` | Org-admin reads checkpoints (SCITT-style signed tree heads) |
 | `client.auth` | `GET /v1/auth/me` + key rotation |
-| `client.discovery` | Unauthenticated metadata: scope profiles, protocol conformance (`conformance()`), Record lifecycle |
+| `client.discovery` | Unauthenticated metadata: `getScopeProfiles()`, protocol conformance (`getConformance()`), `getLifecycle()` |
 | `client.health` | Instance health and status |
 | `client.admin` | Admin operations (org + agent + API-key provisioning, vault, DLQ, system health, plus `admin.records.{list, import}` and `admin.vault.{anchors, scan, signingKeys}`) |
 | `client.a2a` | A2A Protocol support (AgentCard, JSON-RPC 2.0) |
