@@ -10,6 +10,7 @@ function createMockClient(responseOverride?: unknown) {
   });
   const client = new AgledgerClient({
     apiKey: 'test_key',
+    baseUrl: 'https://agledger.test',
     fetch: fetch as unknown as typeof globalThis.fetch,
     maxRetries: 0,
   });
@@ -242,6 +243,7 @@ describe('RecordsResource', () => {
     });
     const client = new AgledgerClient({
       apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
       maxRetries: 0,
     });
@@ -401,6 +403,7 @@ describe('WebhooksResource', () => {
     });
     const client = new AgledgerClient({
       apiKey: 'test',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
       maxRetries: 0,
     });
@@ -523,6 +526,7 @@ describe('ComplianceResource', () => {
     });
     const client = new AgledgerClient({
       apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
       maxRetries: 0,
     });
@@ -556,6 +560,7 @@ describe('ComplianceResource', () => {
     });
     const client = new AgledgerClient({
       apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
       maxRetries: 0,
     });
@@ -596,6 +601,7 @@ describe('ComplianceResource', () => {
     });
     const client = new AgledgerClient({
       apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
       maxRetries: 0,
     });

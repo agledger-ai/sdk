@@ -51,9 +51,15 @@ const record = await client.records.create({
   type: 'principal-gate-generic-v1', // a contract type you registered (or an auto-seeded sample)
   contractVersion: '1',
   platform: 'internal-etl',
-  performerAgentId: 'agt-123',
+  // Agent ids are uuids of agents you have provisioned, so there is no id you
+  // can invent here: mint one with `POST /v1/admin/api-keys` using a platform
+  // key, then read it from your config.
+  performerAgentId: process.env.AGLEDGER_PERFORMER_AGENT_ID!,
   criteria: {
-    description: 'Nightly warehouse export',
+    // `summary` is the one field the seeded contract requires. The schema is
+    // permissive (`additionalProperties: true`), so your own domain fields
+    // ride alongside it.
+    summary: 'Nightly warehouse export',
     output_format: 'parquet',
     row_count_min: 500_000,
   },
@@ -66,6 +72,8 @@ await client.records.transition(record.id, 'activate');
 // Submit a completion (what the agent reported back)
 const completion = await client.completions.submit(record.id, {
   evidence: {
+    // `summary` is required by the seeded completionSchema; the rest is yours.
+    summary: 'Exported 487,231 rows to the nightly parquet target',
     deliverable: '/data/exports/2026-03-10.parquet',
     deliverable_type: 'file_ref',
     row_count: 487_231,
@@ -88,7 +96,8 @@ const client = new AgledgerClient({
   // Required
   apiKey: 'your_api_key',
 
-  // Your AGLedger instance URL (required for self-hosted deployments)
+  // Your AGLedger instance URL. Required: every deployment is self-hosted, so
+  // there is no default. Omitting it throws ConfigurationError immediately.
   baseUrl: 'https://agledger.internal.example.com',
 
   // Retry configuration

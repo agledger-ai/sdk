@@ -23,6 +23,7 @@ describe('FederationResource (peer-facing)', () => {
     fetch = mockFetch();
     client = new AgledgerClient({
       apiKey: 'agl_adm_test',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
   });
@@ -168,6 +169,7 @@ describe('FederationAdminResource', () => {
     fetch = mockFetch();
     client = new AgledgerClient({
       apiKey: 'agl_adm_test',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
   });
@@ -184,6 +186,7 @@ describe('FederationAdminResource', () => {
     fetch = mockFetch({ data: [] });
     client = new AgledgerClient({
       apiKey: 'agl_adm_test',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
     await client.federationAdmin.listPeers({ status: 'active' });
@@ -210,6 +213,7 @@ describe('FederationAdminResource', () => {
     fetch = mockFetch({ data: [] });
     client = new AgledgerClient({
       apiKey: 'agl_adm_test',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
     await client.federationAdmin.listDlq({ limit: 50 });
@@ -233,7 +237,8 @@ describe('FederationAdminResource', () => {
 
 describe('createFederationClient', () => {
   it('creates a client with bearer token (federation peer convenience)', () => {
-    const fc = createFederationClient({ bearerToken: 'bt-123' });
+    // A federation peer's URL is never guessable, so it must be named.
+    const fc = createFederationClient({ bearerToken: 'bt-123', baseUrl: 'https://peer.test' });
     expect(fc).toBeDefined();
     expect(fc.federation).toBeDefined();
   });

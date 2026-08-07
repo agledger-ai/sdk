@@ -20,9 +20,9 @@ import {
   RateLimitError,
   ConnectionError,
   TimeoutError,
+  ConfigurationError,
 } from './errors.js';
 
-const DEFAULT_BASE_URL = 'https://agledger.example.com';
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
@@ -33,6 +33,19 @@ const MAX_BACKOFF = 30_000;
 // shipped package root package.json (always included in the npm tarball).
 const require = createRequire(import.meta.url);
 const { version: SDK_VERSION } = require('../package.json') as { version: string };
+
+/**
+ * Message for a failed connection. `fetch failed` is undici's generic text:
+ * DNS failure, connection refused, and TLS problems all print identically, so
+ * the caller's first debugging step was working out which host the SDK even
+ * called (agents#109). Name the request and the underlying cause code.
+ */
+function connectionErrorMessage(method: string, url: string, cause: Error): string {
+  const inner = (cause as { cause?: { code?: unknown; message?: unknown } }).cause;
+  const code = typeof inner?.code === 'string' ? inner.code : undefined;
+  const detail = code ?? (typeof inner?.message === 'string' ? inner.message : undefined);
+  return `Network error: ${cause.message} (${method} ${url}${detail ? `: ${detail}` : ''})`;
+}
 
 // Strip trailing slashes with a single linear scan. A regex like /\/+$/ is
 // O(n^2) on inputs of many slashes (CodeQL js/polynomial-redos); this is O(n).
@@ -64,7 +77,18 @@ export class HttpClient {
 
   constructor(options: AgledgerClientOptions) {
     this.apiKey = options.apiKey;
-    this.baseUrl = stripTrailingSlashes(options.baseUrl || DEFAULT_BASE_URL);
+    // No default base URL. Every AGLedger deployment is self-hosted, so there
+    // is no server we could sensibly point at; the old placeholder
+    // (agledger.example.com) resolved nowhere and turned a missing option into
+    // a DNS failure against a host the caller never named, discoverable only by
+    // reading dist/http.js (agents#109). Fail here, where the mistake is.
+    if (!options.baseUrl) {
+      throw new ConfigurationError(
+        'baseUrl is required. AGLedger is self-hosted, so the SDK cannot guess your Server: ' +
+          "pass the base URL of your instance, e.g. new AgledgerClient({ apiKey, baseUrl: 'https://agledger.internal' }).",
+      );
+    }
+    this.baseUrl = stripTrailingSlashes(options.baseUrl);
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);
@@ -203,7 +227,7 @@ export class HttpClient {
         if (cause.name === 'AbortError') {
           lastError = new TimeoutError(method, url, opts.timeout ?? this.timeout, cause);
         } else {
-          lastError = new ConnectionError(`Network error: ${cause.message}`, cause);
+          lastError = new ConnectionError(connectionErrorMessage(method, url, cause), cause);
         }
         continue;
       }
@@ -335,7 +359,7 @@ export class HttpClient {
         if (cause.name === 'AbortError') {
           lastError = new TimeoutError('GET', url, timeout, cause);
         } else {
-          lastError = new ConnectionError(`Network error: ${cause.message}`, cause);
+          lastError = new ConnectionError(connectionErrorMessage('GET', url, cause), cause);
         }
         continue;
       }
@@ -461,10 +485,7 @@ export class HttpClient {
         if (cause.name === 'AbortError') {
           lastError = new TimeoutError(method, url, timeout, cause);
         } else {
-          lastError = new ConnectionError(
-            `Network error: ${cause.message}`,
-            cause,
-          );
+          lastError = new ConnectionError(connectionErrorMessage(method, url, cause), cause);
         }
 
         // Retry network errors

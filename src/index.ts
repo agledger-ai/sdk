@@ -308,6 +308,7 @@ export {
   RateLimitError,
   ConnectionError,
   TimeoutError,
+  ConfigurationError,
   SignatureVerificationError,
 } from './errors.js';
 
