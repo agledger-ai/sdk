@@ -4,6 +4,22 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **A FIPS-locked receiver no longer rejects every legitimate webhook as forged.** The FIPS provider carries no EdDSA, so verifying an ed25519 delivery throws inside `verifyRfc9421`. That throw was caught and returned as `false`, which every documented caller turns into a 401: a receiver rejecting every valid delivery it was sent, reporting each one as a bad signature, with nothing anywhere naming the cause (agents#113, the same defect class the verifier packages carried).
+
+  `verifyRfc9421` and `constructEventRfc9421` now throw `SignatureAlgorithmUnavailableError` when the host cannot compute the key's algorithm, proven against a fixed known-answer signature rather than inferred from a failed verification of the delivery itself. Deliveries that are actually bad still return `false` exactly as before.
+
+### Added
+
+- **`SignatureAlgorithmUnavailableError`**, carrying the `algorithm` that could not be computed. Distinct from `SignatureVerificationError` because the two call for opposite responses: one is your server's configuration, the other is a rejected delivery.
+
+### Changed (behavior)
+
+- **`verifyRfc9421` can now throw**, where before it only ever returned a boolean. It throws only where the old code returned a wrong answer, so no correct caller changes behavior: a receiver that could verify ed25519 still verifies it, and a bad signature still returns `false`. On a host that cannot compute the algorithm, the standard `if (!ok) return 401` becomes an unhandled rejection and a 500, which is the right status for a server misconfiguration.
+
 ## [1.7.0] - 2026-08-07
 
 ### Changed

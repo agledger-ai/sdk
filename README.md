@@ -258,6 +258,15 @@ resolved key commits to (Ed25519 or ES256), and enforces the
 parses in one step. This path uses `http-message-signatures` for the canonical
 serialization.
 
+If the host runtime cannot compute the key's algorithm, both functions throw
+`SignatureAlgorithmUnavailableError` instead of returning `false`. The usual
+cause is an active OpenSSL FIPS provider, which carries no EdDSA. This is
+deliberately not a verification failure: returning `false` would make the
+standard `if (!ok) return 401` reject every legitimate delivery as forged, when
+the fault is in the receiver's configuration rather than the sender's
+signature. Terminate the signature on an unrestricted host, or configure the
+sender for `ecdsa-p256-sha256`, which FIPS does permit.
+
 ## Offline Audit Export Verification
 
 Verify a Record's hash-chained, Ed25519-signed audit export without calling the API:
