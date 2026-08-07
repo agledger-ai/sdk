@@ -4,6 +4,14 @@ import { algorithmByName, resolveKeyAlgorithm, runtimeCanCompute } from '@agledg
 import type { WebhookEventType, RecordRow, Completion, Dispute, VerificationKey } from '../types.js';
 import { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
 
+/**
+ * Re-exported so a receiver can import the functions and the errors they throw
+ * from one place. Handling both is not optional in a real handler, and making
+ * people reach into a second entrypoint for the catch is how documented
+ * examples end up not running.
+ */
+export { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
+
 const MAX_TOLERANCE_SECONDS = 300;
 
 /** A verified webhook event with typed payload. */
@@ -346,7 +354,7 @@ function verifyingKeyFor(keyObj: KeyObject, id: string | undefined): VerifyingKe
  *
  * @example
  * ```ts
- * import { verifyRfc9421, SignatureAlgorithmUnavailableError } from '@agledger/sdk';
+ * import { verifyRfc9421, SignatureAlgorithmUnavailableError } from '@agledger/sdk/webhooks';
  *
  * const { data: keys } = await client.verificationKeys.list();
  * try {

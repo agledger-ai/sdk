@@ -238,7 +238,7 @@ default to this when the Server has a vault signing key. The wire `alg`
 reflects the Server's active key; `verifyRfc9421` handles both.
 
 ```typescript
-import { verifyRfc9421, SignatureAlgorithmUnavailableError } from '@agledger/sdk';
+import { verifyRfc9421, SignatureAlgorithmUnavailableError } from '@agledger/sdk/webhooks';
 
 // Resolve the Server's published keys once (cache them); the delivery's
 // `keyid` is matched against them automatically.
