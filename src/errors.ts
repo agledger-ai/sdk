@@ -12,6 +12,18 @@ export class AgledgerError extends Error {
 }
 
 /**
+ * The client was constructed with unusable options, caught before any request
+ * is made. Distinct from `ValidationError`, which reports what the Server
+ * rejected: this never left the process.
+ */
+export class ConfigurationError extends AgledgerError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigurationError';
+  }
+}
+
+/**
  * API returned an error response. All HTTP errors extend this.
  *
  * Fields mirror the API error body verbatim — the SDK does not invent content.

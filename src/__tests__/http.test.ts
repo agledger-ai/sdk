@@ -9,6 +9,7 @@ import {
   RateLimitError,
   ConnectionError,
   TimeoutError,
+  ConfigurationError,
 } from '../errors.js';
 
 function mockFetch(response: {
@@ -27,9 +28,14 @@ function mockFetch(response: {
   });
 }
 
+/** Stands in for a self-hosted instance. baseUrl is required (agents#109), so
+ *  every client the suite builds has to name one. */
+const TEST_BASE_URL = 'https://agledger.test';
+
 function createClient(fetchFn: ReturnType<typeof mockFetch>, opts?: Record<string, unknown>) {
   return new HttpClient({
     apiKey: 'test_key',
+    baseUrl: TEST_BASE_URL,
     fetch: fetchFn as unknown as typeof globalThis.fetch,
     maxRetries: 0,
     ...opts,
@@ -344,6 +350,7 @@ describe('HttpClient', () => {
 
       const client = new HttpClient({
         apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
         fetch: fetch as unknown as typeof globalThis.fetch,
         maxRetries: 1,
       });
@@ -370,6 +377,7 @@ describe('HttpClient', () => {
 
       const client = new HttpClient({
         apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
         fetch: fetch as unknown as typeof globalThis.fetch,
         maxRetries: 1,
       });
@@ -386,6 +394,7 @@ describe('HttpClient', () => {
       });
       const client = new HttpClient({
         apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
         fetch: fetch as unknown as typeof globalThis.fetch,
         maxRetries: 3,
       });
@@ -455,6 +464,7 @@ describe('HttpClient', () => {
 
       const client = new HttpClient({
         apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
         fetch: fetch as unknown as typeof globalThis.fetch,
         maxRetries: 0,
       });
@@ -477,6 +487,7 @@ describe('HttpClient', () => {
 
       const client = new HttpClient({
         apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
         fetch: fetch as unknown as typeof globalThis.fetch,
         maxRetries: 0,
       });
@@ -499,6 +510,7 @@ describe('HttpClient', () => {
 
       const client = new HttpClient({
         apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
         fetch: fetch as unknown as typeof globalThis.fetch,
         maxRetries: 0,
       });
@@ -530,5 +542,69 @@ describe('HttpClient', () => {
         reset: 1709942400,
       });
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// agents#109: no placeholder host, and legible connection failures
+// ---------------------------------------------------------------------------
+describe('baseUrl is required', () => {
+  it('throws ConfigurationError when baseUrl is absent', () => {
+    expect(() => new HttpClient({ apiKey: 'k' })).toThrow(ConfigurationError);
+  });
+
+  it('throws when baseUrl is an empty string', () => {
+    expect(() => new HttpClient({ apiKey: 'k', baseUrl: '' })).toThrow(ConfigurationError);
+  });
+
+  it('the error explains what to pass, and never names a placeholder host', () => {
+    let message = '';
+    try {
+      new HttpClient({ apiKey: 'k' });
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toContain('baseUrl is required');
+    expect(message).toContain('self-hosted');
+    expect(message).not.toContain('agledger.example.com');
+  });
+
+  it('never falls back to a placeholder host on a real request', async () => {
+    const fetch = mockFetch({ json: {} });
+    const client = createClient(fetch);
+    await client.get('/test');
+    expect(String(fetch.mock.calls[0][0])).not.toContain('example.com');
+  });
+});
+
+describe('connection failures name the request and the cause', () => {
+  it('ConnectionError carries the method, URL, and cause code', async () => {
+    const cause = new TypeError('fetch failed');
+    (cause as { cause?: unknown }).cause = { code: 'ECONNREFUSED' };
+    const fetch = vi.fn().mockRejectedValue(cause);
+    const client = createClient(fetch as never);
+
+    await expect(client.get('/records')).rejects.toThrow(ConnectionError);
+    try {
+      await client.get('/records');
+    } catch (err) {
+      const message = (err as Error).message;
+      expect(message).toContain('GET');
+      expect(message).toContain(`${TEST_BASE_URL}/records`);
+      expect(message).toContain('ECONNREFUSED');
+    }
+  });
+
+  it('falls back to the cause message when there is no code', async () => {
+    const cause = new TypeError('fetch failed');
+    (cause as { cause?: unknown }).cause = { message: 'certificate has expired' };
+    const fetch = vi.fn().mockRejectedValue(cause);
+    const client = createClient(fetch as never);
+
+    try {
+      await client.get('/records');
+    } catch (err) {
+      expect((err as Error).message).toContain('certificate has expired');
+    }
   });
 });

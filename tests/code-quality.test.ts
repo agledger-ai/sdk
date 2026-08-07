@@ -108,6 +108,7 @@ describe('SDK version telemetry header matches package.json', () => {
 
     const client = new HttpClient({
       apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
       maxRetries: 0,
     });

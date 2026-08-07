@@ -33,7 +33,13 @@ export interface RateLimitInfo {
 export interface AgledgerClientOptions {
   /** API key (Bearer token) */
   apiKey: string;
-  /** Base URL of your AGLedger instance (default: https://agledger.example.com) */
+  /**
+   * Base URL of your AGLedger instance, e.g. `https://agledger.internal`.
+   * Required: every deployment is self-hosted, so there is no default to fall
+   * back to. Omitting it throws `ConfigurationError` at construction rather
+   * than failing later against a placeholder host (agents#109). Optional in
+   * the type only so the error can carry a useful message.
+   */
   baseUrl?: string;
   /** Max retries for 429/5xx/network errors (default: 3) */
   maxRetries?: number;

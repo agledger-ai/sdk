@@ -14,6 +14,7 @@ describe('AgledgerClient', () => {
   it('initializes all resources', () => {
     const client = new AgledgerClient({
       apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
       fetch: mockFetch() as unknown as typeof globalThis.fetch,
     });
 
@@ -47,6 +48,7 @@ describe('AgledgerClient', () => {
     const fetch = mockFetch();
     const client = new AgledgerClient({
       apiKey: 'agl_agt_test_abc123',
+      baseUrl: 'https://agledger.test',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
 
@@ -59,6 +61,7 @@ describe('AgledgerClient', () => {
     const fetch = mockFetch();
     const client = new AgledgerClient({
       apiKey: 'test',
+      baseUrl: 'https://agledger.test',
       baseUrl: 'https://agledger.staging.example.com',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
