@@ -92,12 +92,46 @@ describe('a receiver whose runtime cannot compute EdDSA', () => {
     );
   });
 
-  it('still returns false for deliveries that are actually bad', async () => {
-    // The escape hatch must stay narrow: a tampered body is a rejected
-    // delivery, not a runtime problem, and must not start throwing.
+  it('still returns false for deliveries rejected before any key is touched', async () => {
+    // These fail at the digest/header layer, upstream of key resolution, so
+    // the capability gate is never consulted and the old behavior stands.
     const headers = signDelivery();
     await expect(verifyRfc9421(headers, `${body} `, spkiBase64)).resolves.toBe(false);
     const { signature: _drop, ...noSignature } = headers;
     await expect(verifyRfc9421(noSignature, body, spkiBase64)).resolves.toBe(false);
+  });
+
+  it('throws for a FORGED signature too, because nothing was computed', async () => {
+    // The honest and easily-misread consequence: the gate necessarily runs
+    // before verification, so on this host a forgery is indistinguishable
+    // from a valid delivery. Pinned here so nobody "fixes" it into a false,
+    // which would claim a signature was checked when it never was, and so the
+    // README/CHANGELOG cannot drift back to promising bad deliveries return
+    // false on every host.
+    const headers = signDelivery();
+    const sig = Buffer.from(headers['signature']!.slice('sig1=:'.length, -1), 'base64');
+    sig[0] ^= 0xff;
+    headers['signature'] = `sig1=:${sig.toString('base64')}:`;
+    await expect(verifyRfc9421(headers, body, spkiBase64)).rejects.toBeInstanceOf(
+      SignatureAlgorithmUnavailableError,
+    );
+  });
+
+  it('refuses before loading the key, for both key encodings', async () => {
+    // The gate has to sit ahead of key loading, because the other FIPS build
+    // variant refuses THERE and would leave no key object to ask about the
+    // algorithm; the throw would be caught and become a `false` that reads as
+    // a forgery. Proven by the raw 32-byte form, which is Ed25519 by
+    // definition and is identified without loading anything.
+    const raw = Buffer.from(
+      kp.publicKey.export({ format: 'jwk' }).x as string,
+      'base64url',
+    ).toString('base64');
+    await expect(verifyRfc9421(signDelivery(), body, raw)).rejects.toBeInstanceOf(
+      SignatureAlgorithmUnavailableError,
+    );
+    await expect(verifyRfc9421(signDelivery(), body, spkiBase64)).rejects.toBeInstanceOf(
+      SignatureAlgorithmUnavailableError,
+    );
   });
 });

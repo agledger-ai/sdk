@@ -238,17 +238,25 @@ default to this when the Server has a vault signing key. The wire `alg`
 reflects the Server's active key; `verifyRfc9421` handles both.
 
 ```typescript
-import { verifyRfc9421 } from '@agledger/sdk/webhooks';
+import { verifyRfc9421, SignatureAlgorithmUnavailableError } from '@agledger/sdk';
 
 // Resolve the Server's published keys once (cache them); the delivery's
 // `keyid` is matched against them automatically.
 const { data: keys } = await client.verificationKeys.list();
 
-const isValid = await verifyRfc9421(
-  req.headers, // must include content-digest, signature-input, signature, x-agledger-idempotency-key
-  rawBody,     // raw request body string
-  keys,        // or a single base64 public key string
-);
+try {
+  const isValid = await verifyRfc9421(
+    req.headers, // must include content-digest, signature-input, signature, x-agledger-idempotency-key
+    rawBody,     // raw request body string
+    keys,        // or a single base64 public key string
+  );
+  if (!isValid) return res.status(401).end();
+} catch (err) {
+  // This host cannot compute the algorithm, so nothing was checked. Your
+  // configuration, not the sender's: 401 would blame the wrong party.
+  if (err instanceof SignatureAlgorithmUnavailableError) return res.status(500).end();
+  throw err;
+}
 ```
 
 `verifyRfc9421` recomputes the RFC 9530 Content-Digest over the body, reconstructs
@@ -266,6 +274,13 @@ standard `if (!ok) return 401` reject every legitimate delivery as forged, when
 the fault is in the receiver's configuration rather than the sender's
 signature. Terminate the signature on an unrestricted host, or configure the
 sender for `ecdsa-p256-sha256`, which FIPS does permit.
+
+Note that on such a host **no** delivery can be classified, valid or forged.
+The check has to run before signature verification, so a genuine forgery
+throws too. Treat the exception as "nothing is known about this delivery",
+never as evidence it was legitimate. Catch it explicitly: on Express 4 or plain
+`http`, an unhandled rejection terminates the process under Node's default
+`--unhandled-rejections=throw`.
 
 ## Offline Audit Export Verification
 

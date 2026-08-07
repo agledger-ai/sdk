@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual, createHash, createPublicKey, verify as cryptoVerify, type KeyObject } from 'node:crypto';
 import { httpbis, type VerifyingKey, type SignatureParameters } from 'http-message-signatures';
-import { resolveKeyAlgorithm, runtimeCanCompute } from '@agledger/verify-core';
+import { algorithmByName, resolveKeyAlgorithm, runtimeCanCompute } from '@agledger/verify-core';
 import type { WebhookEventType, RecordRow, Completion, Dispute, VerificationKey } from '../types.js';
 import { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
 
@@ -217,9 +217,26 @@ function computeContentDigest(rawBody: string): string {
   return `sha-256=:${createHash('sha256').update(rawBody, 'utf8').digest('base64')}:`;
 }
 
+/**
+ * SPKI DER prefix for an Ed25519 public key: SEQUENCE(44) { SEQUENCE(5) {
+ * OID 1.3.101.112 } BIT STRING(33) }. RFC 8410 fixes the whole structure.
+ */
+const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
+
+/** Whether these bytes DECLARE themselves an Ed25519 key, without loading them. */
+function looksLikeEd25519Key(buf: Buffer): boolean {
+  return buf.length === 44 && buf.subarray(0, ED25519_SPKI_PREFIX.length).equals(ED25519_SPKI_PREFIX);
+}
+
 /** Build a public KeyObject from a base64 raw (32-byte Ed25519) or SPKI DER key. */
 function publicKeyObject(base64Key: string): KeyObject {
   const buf = Buffer.from(base64Key, 'base64');
+  // Gate BEFORE loading. Node currently imports an Ed25519 key fine under a
+  // FIPS provider and only refuses at verify, but a runtime that refused here
+  // would throw inside the caller's try and become a `false` that reads as a
+  // forged delivery. Judged from the OID rather than from a loaded key,
+  // because on such a runtime there is no key object left to ask.
+  if (buf.length === 32 || looksLikeEd25519Key(buf)) assertRuntimeCanComputeNamed('Ed25519');
   if (buf.length === 32) {
     return createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: buf.toString('base64url') }, format: 'jwk' });
   }
@@ -238,8 +255,13 @@ function publicKeyObject(base64Key: string): KeyObject {
  *
  * Capability is proven against a fixed known-answer signature (verify-core's
  * `runtimeCanCompute`), never inferred from a failed verification of the
- * delivery itself: nothing an attacker sends may decide whether a bad
- * signature gets reported as unverifiable.
+ * delivery itself, so no attacker input can turn a bad signature into a pass.
+ *
+ * With a `VerificationKey[]`, the delivery's `keyid` does select WHICH trusted
+ * key is resolved, hence which algorithm gets probed, hence whether this
+ * throws or returns false on a partially-restricted host. That is a choice
+ * between two rejections, never a route to acceptance: the answer still comes
+ * from fixed key material and a fixed vector.
  */
 function assertRuntimeCanCompute(keyObj: KeyObject): void {
   const spki = (keyObj.export({ type: 'spki', format: 'der' }) as Buffer).toString('base64');
@@ -248,12 +270,28 @@ function assertRuntimeCanCompute(keyObj: KeyObject): void {
   // that is a fail-closed key-shape decision, not a runtime gap.
   if (typeof keyAlg !== 'object' || !keyAlg.verifiable) return;
   if (runtimeCanCompute(keyAlg)) return;
-  throw new SignatureAlgorithmUnavailableError(
-    `This host cannot compute ${keyAlg.name}, so the webhook signature could not be checked. ` +
+  throw unavailable(keyAlg.name);
+}
+
+/**
+ * The same refusal, asked by algorithm name rather than from a key object.
+ * Used before the key is loaded, where a load-refusing runtime would leave
+ * nothing to resolve an algorithm from.
+ */
+function assertRuntimeCanComputeNamed(name: 'Ed25519' | 'ES256'): void {
+  const keyAlg = algorithmByName(name);
+  if (keyAlg === null || runtimeCanCompute(keyAlg)) return;
+  throw unavailable(name);
+}
+
+function unavailable(algorithm: string): SignatureAlgorithmUnavailableError {
+  return new SignatureAlgorithmUnavailableError(
+    `This host cannot compute ${algorithm}, so the webhook signature could not be checked. ` +
       `The usual cause is an active OpenSSL FIPS provider, which carries no EdDSA. ` +
-      `This is NOT a failed signature: the delivery may be perfectly valid. ` +
+      `This is NOT a failed signature: the delivery may be valid, forged, or expired; ` +
+      `on this host none of those can be told apart. ` +
       `Terminate the signature on an unrestricted host, or configure the sender for ecdsa-p256-sha256.`,
-    keyAlg.name,
+    algorithm,
   );
 }
 
@@ -299,14 +337,26 @@ function verifyingKeyFor(keyObj: KeyObject, id: string | undefined): VerifyingKe
  *   `client.verificationKeys.list()` (resolved by `keyid`).
  * @param options - `toleranceSeconds` for the replay window (default/max: 300).
  * @returns true only if the signature, digest, and replay window all hold.
+ * @throws {SignatureAlgorithmUnavailableError} when this host cannot compute
+ *   the key's algorithm (typically an active OpenSSL FIPS provider, which
+ *   carries no EdDSA). Nothing was checked, so the delivery is neither
+ *   verified nor refuted: on such a host a forgery throws exactly as a valid
+ *   delivery does. Catch it, or an unhandled rejection will end the process
+ *   on Express 4 / plain `http`.
  *
  * @example
  * ```ts
- * import { verifyRfc9421 } from '@agledger/sdk/webhooks';
+ * import { verifyRfc9421, SignatureAlgorithmUnavailableError } from '@agledger/sdk';
  *
  * const { data: keys } = await client.verificationKeys.list();
- * const ok = await verifyRfc9421(req.headers, rawBody, keys);
- * if (!ok) return res.status(401).end();
+ * try {
+ *   const ok = await verifyRfc9421(req.headers, rawBody, keys);
+ *   if (!ok) return res.status(401).end();
+ * } catch (err) {
+ *   // Receiver misconfiguration, not a bad delivery: do not answer 401.
+ *   if (err instanceof SignatureAlgorithmUnavailableError) return res.status(500).end();
+ *   throw err;
+ * }
  * ```
  */
 export async function verifyRfc9421(
