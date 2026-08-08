@@ -66,7 +66,11 @@ export class AdminRecordsResource {
    * backdated timestamps and a `BACKFILL_IMPORT` vault entry tagged with the
    * given source label.
    *
-   * Requires admin role + `admin:backfill` scope.
+   * Platform-tier: this is a cross-org operator surface, so an org `admin` key
+   * is refused with 403 naming `BACKFILL_IMPORT`. Use a platform key.
+   *
+   * Pin `publisher` per item when two publishers offer the same type in the
+   * org, otherwise the batch is refused with 422 naming the offending index.
    */
   import(params: AdminImportRecordsParams, options?: RequestOptions): Promise<AdminImportRecordsResult> {
     return this.http.post<AdminImportRecordsResult>('/v1/admin/records/import', params, options);

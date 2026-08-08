@@ -12,7 +12,9 @@ Two publishers offering the same `record_type` in one org is a supported state. 
 
 - **`CreateRecordParams.publisher`** pins which registration of `type` a Record binds to. `BulkCreateRecordItem` inherits it, so each item of a bulk create can pin its own.
 
-- **`RecordRow.publisher`** reports the binding the engine actually used, present whether or not you pinned it. It is `string | null`, and the `null` is load-bearing: federation-received Records were judged by the originator against its own registration, and backfill-imported Records were admitted as historical fact, so neither was ever validated against a local one. Read `null` as "ask the originator", not as "the schema is missing here".
+- **`RecordRow.publisher`** reports the binding the engine actually used, present whether or not you pinned it. It is `string | null`, and the `null` is load-bearing: a federation-received Record was judged by the originator against its own registration, so it was never validated against a local one. Read `null` as "ask the originator", not as "the schema is missing here". Backfill-imported Records are not null; import binds the registration it validated against.
+
+- **`BackfillRecord.publisher`** pins the registration a backfilled item binds to, the import-side counterpart of `CreateRecordParams.publisher`. Without it a batch touching an ambiguous type was unsendable from the SDK: the field could not be expressed, and the engine refuses the batch with a 422 naming the offending index.
 
 - **`AgledgerApiError.publishers`** carries the candidate labels off that 422, and **`AgledgerApiError.type`** carries the RFC 9457 problem URI. Without these the error was unactionable in code: the SDK copied a fixed set of fields off the body and dropped everything else, so a caller could read the recovery prose but could not get the list it referred to. Branch on `type`, not on message text.
 
@@ -67,6 +69,20 @@ Pinning `publisher` against a Server older than this API release will be rejecte
   All four now return `Page<T>`, matching every other list method. No mocked test could catch this, because the mocks were written from the same wrong assumption; the integration suite now asserts each one against the live wire.
 
 - **`admin.vault.anchors.list()` typed a required parameter as optional.** `recordId` is `required: true` in the API's OpenAPI querystring, so `anchors.list()` typechecked and then failed with a 400. It is now `list(params: { recordId: string })`.
+
+- **`admin.records.import()` described a response the API has never sent.** It was typed `{ imported: number; recordIds: string[]; source }`. The engine answers `{ source, count, imported[] }`, where each `imported` entry is `{ index, recordId, chainPosition }` aligned 1:1 with the request. So `.recordIds` was `undefined` at runtime and `.imported` was an array typed as a number: reading a count off it gave `NaN`, and the record ids were unreachable except by casting. Now `AdminImportRecordsResult` matches the wire, with `BackfillImportedRecord` exported for the entries.
+
+  The unit test hid this for as long as the type existed, because it mocked `{ imported: 1, recordIds: ['rec-1'] }`, a body invented to match the SDK rather than copied from the API. It now mocks the real shape and the integration suite drives a live import.
+
+- **`AccountProfile.agentId` did not exist.** It was declared `string | null` with the note "Agent ID when `role === 'agent'`", and `GET /v1/auth/me` has never returned it, in v1.3.4 or any build since. The agent id is `ownerId` when `ownerType === 'agent'`. The field is removed rather than deprecated: every read of it returned `undefined`, so no working caller depends on it.
+
+  This one had teeth beyond the type. Three of the SDK's own integration tests gated themselves on `me.agentId` and so returned early every run, meaning the record-lifecycle and reputation checks had never actually executed against a live Server. They now resolve the id properly and run.
+
+- **`schemas.diff()` could not scope to a publisher**, so on a type two publishers offer it had no reachable result: `?publisher=` was the one way to answer and the SDK never sent it. It now takes the same `publisher` option as its ten sibling schema methods. Worth pinning even where it used to appear to work, since the engine previously resolved each side of the diff independently and could compare two unrelated publishers' schemas, reporting the difference as a breaking change.
+
+- **`schemas.delete()` returned `Promise<void>`** and discarded a body that names which registration went away. It now returns `SchemaDeleteResult` (`type`, `publisher`, `versionsDeleted`). On an ambiguous type this is the only confirmation of what was deleted: rows under the other publisher survive, so the type remaining in the catalog after a successful delete is expected rather than a failure.
+
+- **`admin.records.import()` documented the wrong role.** The JSDoc said "requires admin role + `admin:backfill` scope"; the route is platform-tier and answers an org admin key with `403 ... 'BACKFILL_IMPORT' requires platform role`. Anyone following the doc hit a 403 on a correctly-scoped key.
 
 ### Documentation
 

@@ -20,6 +20,7 @@ import type {
   SchemaCompatibilityResult,
   SchemaManifestExport,
   SchemaScopeOptions,
+  SchemaDeleteResult,
   ExportSchemaOptions,
 } from '../types.js';
 
@@ -50,10 +51,16 @@ export class SchemasResource {
     return this.http.getPage<SchemaListItem>('/v1/schemas', params as Record<string, unknown>, options);
   }
 
-  /** Delete a custom Type schema. */
-  delete(type: RecordType, options?: SchemaScopeOptions): Promise<void> {
+  /**
+   * Delete a custom Type schema, scoped to the publisher the call resolves to.
+   *
+   * Read `publisher` off the result rather than inferring from the type's
+   * absence: rows under any other publisher of the same type are untouched and
+   * still in the catalog, so the type surviving a delete is expected.
+   */
+  delete(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaDeleteResult> {
     const { request, params } = scope(options);
-    return this.http.delete(`/v1/schemas/${type}`, undefined, request, params);
+    return this.http.delete<SchemaDeleteResult>(`/v1/schemas/${type}`, undefined, request, params);
   }
 
   /** Get the full JSON Schema for a Type. */
@@ -117,9 +124,17 @@ export class SchemasResource {
     return this.http.get<SchemaVersionDetail>(`/v1/schemas/${type}/versions/${version}`, params, request);
   }
 
-  /** Diff two versions of a Type schema. */
-  diff(type: RecordType, from: number, to: number, options?: RequestOptions): Promise<SchemaDiffResult> {
-    return this.http.get<SchemaDiffResult>(`/v1/schemas/${type}/diff`, { from, to }, options);
+  /**
+   * Diff two versions of a Type schema.
+   *
+   * Pin `publisher` on a type two publishers offer. Unscoped, the call answers
+   * 422 rather than resolving each side independently, which could otherwise
+   * compare two unrelated publishers' schemas and report the difference as a
+   * breaking change.
+   */
+  diff(type: RecordType, from: number, to: number, options?: SchemaScopeOptions): Promise<SchemaDiffResult> {
+    const { request, params } = scope(options);
+    return this.http.get<SchemaDiffResult>(`/v1/schemas/${type}/diff`, { from, to, ...params }, request);
   }
 
   /** Preview a schema before registration. Returns validation results and compiled output. */

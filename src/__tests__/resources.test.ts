@@ -943,13 +943,21 @@ describe('AdminResource', () => {
     });
 
     it('imports a backfill batch', async () => {
-      const { client, fetch } = createMockClient({ imported: 1, recordIds: ['rec-1'], source: 'SAP' });
-      await client.admin.records.import({
+      // Mock the shape the API actually returns. An earlier version of this
+      // test invented `{ imported: 1, recordIds: [...] }` to match the SDK's
+      // own (wrong) type, so it asserted against the bug instead of the wire.
+      const { client, fetch } = createMockClient({
+        source: 'SAP',
+        count: 1,
+        imported: [{ index: 0, recordId: 'rec-1', chainPosition: 1 }],
+      });
+      const result = await client.admin.records.import({
         orgId: 'ent-1',
         source: 'SAP',
         records: [{
           principalAgentId: 'agt-1',
           type: 'ACH-PROC-v1',
+          publisher: 'acme-corp',
           platform: 'sap',
           criteria: { item_spec: 'thing' },
           terminalStatus: 'FULFILLED',
@@ -963,6 +971,9 @@ describe('AdminResource', () => {
       const body = JSON.parse(init.body);
       expect(body.source).toBe('SAP');
       expect(body.records).toHaveLength(1);
+      expect(body.records[0].publisher).toBe('acme-corp');
+      expect(result.count).toBe(1);
+      expect(result.imported[0]).toEqual({ index: 0, recordId: 'rec-1', chainPosition: 1 });
     });
   });
 
@@ -1117,6 +1128,23 @@ describe('SchemasResource', () => {
     expect(url).toContain('/v1/schemas/ACH-PROC-v1/diff');
     expect(url).toContain('from=1');
     expect(url).toContain('to=2');
+  });
+
+  it('scopes a diff to one publisher', async () => {
+    const { client, fetch } = createMockClient();
+    await client.schemas.diff('ACH-PROC-v1', 1, 2, { publisher: 'acme-corp' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('from=1');
+    expect(url).toContain('to=2');
+    expect(url).toContain('publisher=acme-corp');
+  });
+
+  it('deletes one publisher\'s registration and reports which', async () => {
+    const { client, fetch } = createMockClient({ type: 'ACH-PROC-v1', publisher: 'acme-corp', versionsDeleted: 2 });
+    const result = await client.schemas.delete('ACH-PROC-v1', { publisher: 'acme-corp' });
+    expect(fetch.mock.calls[0][0]).toContain('publisher=acme-corp');
+    expect(result.publisher).toBe('acme-corp');
+    expect(result.versionsDeleted).toBe(2);
   });
 
   it('previews a schema', async () => {

@@ -45,6 +45,19 @@ describe('SDK integration: response shape validation', async () => {
     client = new AgledgerClient({ apiKey: API_KEY, baseUrl: API_URL });
   });
 
+  /**
+   * Resolve an agent id from whichever key we were handed. `/v1/auth/me`
+   * reports the agent as `ownerId` + `ownerType: 'agent'`; an admin key owns an
+   * org, so fall back to the agent key when one is configured.
+   */
+  async function resolveAgentId(): Promise<string | undefined> {
+    const me = await client.auth.getMe();
+    if (me.ownerType === 'agent') return me.ownerId;
+    if (!AGENT_KEY) return undefined;
+    const agentMe = await new AgledgerClient({ apiKey: AGENT_KEY, baseUrl: API_URL }).auth.getMe();
+    return agentMe.ownerType === 'agent' ? agentMe.ownerId : undefined;
+  }
+
   // --- Helper: assert Page<T> shape ---
   function assertPage<T>(page: Page<T>, label: string): void {
     expect(page, `${label}: null response`).toBeDefined();
@@ -97,12 +110,11 @@ describe('SDK integration: response shape validation', async () => {
 
   it('record lifecycle: create → get → cancel', async () => {
     // Create (admin must name a principal)
-    const me = await client.auth.getMe();
-    const principalId = me.agentId;
-    if (!principalId) {
-      // Admin key with no agent — skip the create-flow test
-      return;
-    }
+    // The agent id is `ownerId` when `ownerType === 'agent'`. This used to read
+    // a phantom `me.agentId`, which is always undefined, so the whole test
+    // silently returned here instead of exercising the create flow.
+    const principalId = await resolveAgentId();
+    if (!principalId) return;
     const record = await client.records.create({
       principalAgentId: principalId,
       type: 'principal-gate-generic-v1',
@@ -171,8 +183,7 @@ describe('SDK integration: response shape validation', async () => {
   // --- Reputation ---
 
   it('reputation.getAgent() returns Page<ReputationScore>', async () => {
-    const me = await client.auth.getMe();
-    const agentId = me.agentId;
+    const agentId = await resolveAgentId();
     if (!agentId) return;
     const page = await client.reputation.getAgent(agentId);
     assertPage(page, 'reputation.getAgent');
@@ -235,5 +246,42 @@ describe('SDK integration: response shape validation', async () => {
     const page = await platformClient().admin.listRateLimitExemptions();
     expect(Array.isArray(page)).toBe(false);
     assertPage(page, 'admin.listRateLimitExemptions');
+  });
+
+  // The SDK typed this as `{ imported: number, recordIds: string[] }` through
+  // 1.7.0 while the API had always answered `{ source, count, imported[] }`.
+  // Only a live call catches that: the unit test mocked the invented shape.
+  it('admin.records.import() returns count + imported[], not a count and recordIds', async () => {
+    if (!PLATFORM_KEY) return;
+    const agentId = await resolveAgentId();
+    const orgId = (await client.auth.getMe()).orgId;
+    if (!agentId || !orgId) return;
+
+    const result = await platformClient().admin.records.import({
+      orgId,
+      source: 'sdk-integration',
+      records: [{
+        principalAgentId: agentId,
+        type: 'principal-gate-generic-v1',
+        platform: 'sdk-integration',
+        criteria: { summary: 'integration-test backfill' },
+        terminalStatus: 'FULFILLED',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        fulfilledAt: '2026-01-02T00:00:00.000Z',
+      }],
+    });
+    expect(typeof result.count).toBe('number');
+    expect(Array.isArray(result.imported)).toBe(true);
+    expect(result.imported[0]).toMatchObject({
+      index: expect.any(Number),
+      recordId: expect.any(String),
+      chainPosition: expect.any(Number),
+    });
+    expect(result).not.toHaveProperty('recordIds');
+
+    // An imported Record binds a publisher; `null` is federation-only now.
+    const row = await platformClient().records.get(result.imported[0]!.recordId);
+    expect(row.publisher).toBeTruthy();
+    expect(row.schemaUrl).toContain('publisher=');
   });
 });
