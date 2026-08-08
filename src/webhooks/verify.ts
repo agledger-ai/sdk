@@ -1,6 +1,11 @@
 import { createHmac, timingSafeEqual, createHash, createPublicKey, verify as cryptoVerify, type KeyObject } from 'node:crypto';
 import { httpbis, type VerifyingKey, type SignatureParameters } from 'http-message-signatures';
-import { algorithmByName, resolveKeyAlgorithm, runtimeCanCompute } from '@agledger/verify-core';
+import {
+  algorithmByName,
+  looksLikeEd25519Key,
+  resolveKeyAlgorithm,
+  runtimeCanCompute,
+} from '@agledger/verify-core';
 import type { WebhookEventType, RecordRow, Completion, Dispute, VerificationKey } from '../types.js';
 import { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
 
@@ -225,25 +230,15 @@ function computeContentDigest(rawBody: string): string {
   return `sha-256=:${createHash('sha256').update(rawBody, 'utf8').digest('base64')}:`;
 }
 
-/**
- * SPKI DER prefix for an Ed25519 public key: SEQUENCE(44) { SEQUENCE(5) {
- * OID 1.3.101.112 } BIT STRING(33) }. RFC 8410 fixes the whole structure.
- */
-const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
-
-/** Whether these bytes DECLARE themselves an Ed25519 key, without loading them. */
-function looksLikeEd25519Key(buf: Buffer): boolean {
-  return buf.length === 44 && buf.subarray(0, ED25519_SPKI_PREFIX.length).equals(ED25519_SPKI_PREFIX);
-}
-
 /** Build a public KeyObject from a base64 raw (32-byte Ed25519) or SPKI DER key. */
 function publicKeyObject(base64Key: string): KeyObject {
   const buf = Buffer.from(base64Key, 'base64');
-  // Gate BEFORE loading. Node currently imports an Ed25519 key fine under a
-  // FIPS provider and only refuses at verify, but a runtime that refused here
-  // would throw inside the caller's try and become a `false` that reads as a
-  // forged delivery. Judged from the OID rather than from a loaded key,
-  // because on such a runtime there is no key object left to ask.
+  // Gate BEFORE loading, because that is where a FIPS-locked host refuses:
+  // `createPublicKey` throws "Failed to read asymmetric key" for a perfectly
+  // good Ed25519 key, measured on a real provider (agents#113). That throw
+  // lands inside the caller's try and becomes a `false` that reads as a forged
+  // delivery. Judged from the OID rather than from a loaded key, because on
+  // such a runtime there is no key object left to ask.
   if (buf.length === 32 || looksLikeEd25519Key(buf)) assertRuntimeCanComputeNamed('Ed25519');
   if (buf.length === 32) {
     return createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x: buf.toString('base64url') }, format: 'jwk' });
