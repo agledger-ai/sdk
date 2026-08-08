@@ -170,6 +170,41 @@ Every new org is auto-seeded (best-effort, idempotent) with four **editable** sa
 
 The canonical set for your org is always `client.schemas.list()` (empty on a fresh install if the samples were deleted). Register and manage your own Types via the Schema Development Toolkit (`client.schemas.register()`, `preview()`, `import_()`, `exportSchema()`, `disable()`/`enable()`).
 
+### When two publishers offer the same Type
+
+Importing a peer's manifest (`import_()`) can leave your org with two registrations of one `type`: theirs and your local one. That is supported, and it means a bare `type` no longer names a schema. The API refuses to guess, because the guess would change the moment the other publisher shipped a higher version:
+
+```typescript
+import { UnprocessableError } from '@agledger/sdk';
+
+try {
+  await client.records.create({ type: 'acme-po-v1', criteria: { poNumber: 'PO-1' } });
+} catch (err) {
+  if (err instanceof UnprocessableError && err.type === '/problems/ambiguous-publisher') {
+    // err.publishers is the candidate list, e.g. ['acme-corp', 'local'].
+    await client.records.create({
+      type: 'acme-po-v1',
+      publisher: 'acme-corp',
+      criteria: { poNumber: 'PO-1' },
+    });
+  }
+}
+```
+
+Branch on `err.type`, not on the message. Schema reads take the same pin (`client.schemas.get('acme-po-v1', { publisher: 'acme-corp' })`), and `client.schemas.list()` returns one row per (publisher, type) so you can choose before reading.
+
+Every Record reports the binding the engine used, whether or not you pinned it:
+
+```typescript
+const record = await client.records.get(id);
+record.publisher;  // 'acme-corp', or null (see below)
+record.schemaUrl;  // '/v1/schemas/acme-po-v1?publisher=acme-corp'. Follow it verbatim.
+```
+
+`publisher` is `null` on Records the engine never validated against a local registration: federation-received ones (the originator ran the gate against its own registration) and ones backfilled through admin import. Read that as "ask the originator", not as "the schema is missing here".
+
+Single-publisher orgs, which is nearly every install, never pass `publisher` and read their one label (usually `local`) back.
+
 ## Pagination
 
 All list methods return `Page<T>`:

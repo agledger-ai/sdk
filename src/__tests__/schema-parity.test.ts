@@ -88,6 +88,11 @@ const ALIASES: Record<string, string> = {
   ReputationScore: 'ReputationScore',
   EntityReference: 'EntityReference',
   NextStepAction: 'NextStep',
+  // The error body is a contract like any other, and was the one mapped
+  // component nobody checked: `publishers` sat in this snapshot unmodelled by
+  // the SDK for a full release cycle, so a caller who hit an ambiguous-publisher
+  // 422 could read the prose but not the candidate list. Mapped now.
+  ErrorResponse: 'ApiErrorResponse',
 };
 
 /**
@@ -98,6 +103,10 @@ const ALIASES: Record<string, string> = {
 const ALLOWED_SDK_ONLY: Record<string, Set<string>> = {
   // recentHistory is hydrated from the separate reputation-history endpoint.
   ReputationScore: new Set(['recentHistory']),
+  // `code` is the SDK's normalized alias for the body's `code` OR `error`.
+  // `docUrl` is dead: no route emits it (the engine schema has no such
+  // property, so Fastify strips it). Kept, deprecated, so callers compile.
+  ApiErrorResponse: new Set(['code', 'docUrl']),
 };
 
 describe('schema-field parity', () => {

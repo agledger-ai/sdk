@@ -6,6 +6,8 @@ import type {
   OrgReadsInclusionProof,
   VaultCheckpoint,
   ListVaultCheckpointsParams,
+  VaultCheckpointPage,
+  VaultCheckpointingSchedule,
   Page,
 } from '../types.js';
 
@@ -65,13 +67,25 @@ export class OrgReadsCheckpointsResource {
 export class VaultCheckpointsResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** List vault checkpoints (optionally filtered to one record). */
-  list(params?: ListVaultCheckpointsParams, options?: RequestOptions): Promise<Page<VaultCheckpoint>> {
-    return this.http.getPage<VaultCheckpoint>(
+  /**
+   * List vault checkpoints (optionally filtered to one record).
+   *
+   * The result carries `checkpointing`, the sweep schedule. An empty `data`
+   * with `lastCheckpointAt: null` means the first sweep has not fired yet,
+   * which is the normal state of a fresh install and not a missing anchor.
+   */
+  async list(
+    params?: ListVaultCheckpointsParams,
+    options?: RequestOptions,
+  ): Promise<VaultCheckpointPage> {
+    const { page, envelope } = await this.http.getPageWithEnvelope<VaultCheckpoint>(
       '/v1/audit-vault/checkpoints',
       params as Record<string, unknown>,
       options,
     );
+    return envelope.checkpointing
+      ? { ...page, checkpointing: envelope.checkpointing as VaultCheckpointingSchedule }
+      : page;
   }
 }
 

@@ -127,13 +127,19 @@ export class HttpClient {
     path: string,
     body?: unknown,
     options?: RequestOptions,
+    params?: Record<string, unknown>,
   ): Promise<T> {
-    const url = this.buildUrl(path);
+    const url = this.buildUrl(path, params);
     return this.request<T>('PATCH', url, body, options);
   }
 
-  delete<T>(path: string, body?: unknown, options?: RequestOptions): Promise<T> {
-    const url = this.buildUrl(path);
+  delete<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions,
+    params?: Record<string, unknown>,
+  ): Promise<T> {
+    const url = this.buildUrl(path, params);
     return this.request<T>('DELETE', url, body, options);
   }
 
@@ -248,6 +254,25 @@ export class HttpClient {
   ): Promise<Page<T>> {
     const raw = await this.get<unknown>(path, params, options);
     return this.normalizePage<T>(raw);
+  }
+
+  /**
+   * `getPage`, plus the sibling fields the list envelope carried alongside
+   * `data`. `normalizePage` builds a fresh Page and drops everything it does
+   * not know about, which silently loses diagnostics an endpoint returns next
+   * to its rows (the checkpoint sweep schedule, for one). Resources that need
+   * one of those call this and merge it onto the page.
+   */
+  async getPageWithEnvelope<T>(
+    path: string,
+    params?: Record<string, unknown>,
+    options?: RequestOptions,
+  ): Promise<{ page: Page<T>; envelope: Record<string, unknown> }> {
+    const raw = await this.get<unknown>(path, params, options);
+    const envelope = raw && !Array.isArray(raw) && typeof raw === 'object'
+      ? (raw as Record<string, unknown>)
+      : {};
+    return { page: this.normalizePage<T>(raw), envelope };
   }
 
   /**
