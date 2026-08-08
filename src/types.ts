@@ -70,6 +70,22 @@ export interface RequestOptions {
 }
 
 
+/**
+ * Request options for a `/v1/schemas/{type}` read or write, plus the publisher
+ * scope.
+ *
+ * A bare `type` names a schema only while one publisher offers it. Once two do
+ * (an imported peer manifest alongside a local registration), the engine
+ * refuses with 422 `/problems/ambiguous-publisher` and lists the candidates on
+ * `AgledgerApiError.publishers` rather than picking. Pass `publisher` to pin
+ * one. Single-publisher orgs never need it.
+ */
+export interface SchemaScopeOptions extends RequestOptions {
+  /** Publisher label to scope this call to, e.g. `local` or `acme-corp`. */
+  publisher?: string;
+}
+
+
 /** Parameters accepted by all list endpoints. */
 export interface ListParams {
   limit?: number;
@@ -118,6 +134,18 @@ export interface BulkCreateResult {
     status: 'created' | 'replayed' | 'error';
     data?: RecordRow;
     error?: string;
+    /**
+     * RFC 9457 problem URI when the failure carries a narrower one than its
+     * class, e.g. `/problems/ambiguous-publisher`. Branch on this rather than
+     * on the `error` prose.
+     */
+    problemType?: string;
+    /**
+     * Structured extras from the failure, matching the singleton error body.
+     * For `/problems/ambiguous-publisher` this carries `publishers` (the
+     * candidate labels) and `recordType`.
+     */
+    context?: Record<string, unknown>;
   }>;
   summary: {
     total: number;
@@ -341,6 +369,24 @@ export interface SchemaPreviewResult {
   valid: boolean;
   compiled?: Record<string, unknown>;
   errors?: SchemaPreviewError[];
+  warnings?: SchemaKeywordWarning[];
+}
+
+/**
+ * A keyword in a submitted schema that the validator does not enforce and
+ * therefore ignores.
+ *
+ * Usually a misspelling (`maxLenght` for `maxLength`), and worth acting on:
+ * the constraint the author intended is not applied, so every value passes.
+ * Absent when there are none. Prefix a deliberate annotation with `x-` to keep
+ * it out of this list.
+ */
+export interface SchemaKeywordWarning {
+  /** Location of the keyword within the submitted schema. */
+  path?: string;
+  /** The unrecognized keyword. */
+  keyword?: string;
+  message?: string;
 }
 
 /** Individual error from schema preview/validation. */
@@ -400,6 +446,20 @@ export interface SchemaExportVersion {
  * federation peers can verify schema equality by digest, not name. The API
  * rejects unknown manifest keys (`additionalProperties: false`).
  */
+/**
+ * Response of `schemas.getManifest()`: this Server's registration of a type,
+ * shaped exactly as `schemas.import_()` accepts it.
+ *
+ * The bytes are JCS-canonicalized before hashing, so `manifestDigest` matches
+ * what a peer computes on import. Mirror a schema by handing both to the peer.
+ */
+export interface SchemaManifestExport {
+  manifest: SchemaManifest;
+  /** `sha256:<hex>` digest of the JCS-canonicalized manifest. */
+  manifestDigest: string;
+  nextSteps?: NextStep[];
+}
+
 export interface SchemaManifest {
   /** Envelope version (currently `"1.0"`). */
   manifestVersion: string;
@@ -516,6 +576,11 @@ export interface SchemaVersionDetail {
   latestVersion?: number;
   createdAt?: string;
   updatedAt?: string;
+  /**
+   * Keywords in the submitted schemas the validator ignores. Present on
+   * register and version-update responses; absent when there are none.
+   */
+  warnings?: SchemaKeywordWarning[];
   /** Suggested next API calls (present on write responses). */
   nextSteps?: NextStep[];
 }
@@ -772,11 +837,33 @@ export interface RecordRow {
   nextActions?: string[];
   /** Valid target statuses from current state. */
   validTransitions?: string[];
-  /** Hint for completion evidence fields, or null if no completion expected. Use schemaUrl for the full JSON Schema. */
+  /**
+   * Hint for completion evidence fields, or null if no completion expected.
+   * Use `schemaUrl` for the full JSON Schema; it is publisher-scoped the same
+   * way the Record-level `schemaUrl` is.
+   */
   completionHint?: { requiredFields: string[]; optionalFields?: string[]; schemaUrl?: string } | null;
   /** Advisory enforcement warnings from the most recent transition. */
   advisoryWarnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
-  /** URL to the Type schema definition. */
+  /**
+   * Publisher label of the registration this Record binds to. With `type` and
+   * `contractVersion` it names exactly which schema the Record was judged
+   * against, which `type` alone cannot once two publishers offer the same type.
+   * Present whether or not `publisher` was pinned on create, so a
+   * single-publisher org reads its one label (usually `local`).
+   *
+   * `null` means the engine never validated this Record against a local
+   * registration: federation-received Records (the originator ran the gate
+   * against its own registration) and Records backfilled through the admin
+   * import route. Read `null` as "ask the originator", not as "the schema is
+   * missing here".
+   */
+  publisher?: string | null;
+  /**
+   * URL to the Type schema definition. Carries `?publisher=` whenever
+   * `publisher` is known, so the link resolves even for a type two publishers
+   * offer. Follow it verbatim; do not rebuild it from `type`.
+   */
   schemaUrl?: string;
   /** Detailed per-rule gate-evaluation results with tolerance bands, or null if the gate has not run. */
   verdictChecks?: Record<string, unknown> | null;
@@ -946,6 +1033,15 @@ export interface CreateRecordParams {
   orgId?: string;
   /** Record Type, e.g. 'ACH-PROC-v1'. Determines criteria schema. */
   type: RecordType;
+  /**
+   * Publisher label pinning WHICH registration of `type` this Record binds to.
+   * Only needed when two publishers offer the same type in the org (an imported
+   * peer manifest alongside a local registration); that case is refused with
+   * 422 `/problems/ambiguous-publisher` and the candidate labels on
+   * `AgledgerApiError.publishers` rather than the engine picking one. Re-send
+   * with one of those labels. `schemas.list()` carries `publisher` on every row.
+   */
+  publisher?: string;
   /** Type schema version. */
   contractVersion?: string;
   /** Platform identifier. */
@@ -1379,6 +1475,19 @@ export type WebhookEventType =
   | 'agent.reference_added'
   | (string & {});
 
+/**
+ * Webhook delivery signing scheme.
+ *
+ * `hmac` is the shared-secret default. `ed25519` and `ecdsa-p256-sha256` are
+ * the asymmetric tier: both are RFC 9421 HTTP Message Signatures over the
+ * Server vault key, verifiable against `/v1/verification-keys` with no shared
+ * secret, and both verify through the same `verifyRfc9421` call. Which of the
+ * two a Server offers depends on its signing key, so read
+ * `capabilities.signingAlgorithms` from `GET /v1/conformance` rather than
+ * assuming `ed25519`.
+ */
+export type WebhookSigningAlg = 'hmac' | 'ed25519' | 'ecdsa-p256-sha256';
+
 export interface Webhook {
   id: string;
   url: string;
@@ -1395,8 +1504,11 @@ export interface Webhook {
    * verifiable against /v1/verification-keys — non-repudiation, no shared
    * secret). Verify ed25519 deliveries with `verifyRfc9421` from
    * `@agledger/sdk/webhooks`.
+   *
+   * `ecdsa-p256-sha256` is the FIPS-mode counterpart of `ed25519`: same RFC
+   * 9421 scheme and same verification call, signed under ES256 instead.
    */
-  signingAlg: 'hmac' | 'ed25519';
+  signingAlg: WebhookSigningAlg;
   /** Only present on creation/rotation of an `hmac` subscription (one-time). Absent for `ed25519`. */
   secret?: string;
   /** Whether a secret grace period is active after rotation. */
@@ -1425,9 +1537,11 @@ export interface CreateWebhookParams {
    * subscription that lists a settlement event (`signal.emitted`/
    * `signal.received`/`federation.settlement.signal`) defaults to `ed25519`
    * when the Server has a vault signing key. Requesting `ed25519` on a Server
-   * without `VAULT_SIGNING_KEY` returns 422.
+   * without `VAULT_SIGNING_KEY` returns 422. A FIPS-mode Server signs under
+   * `ecdsa-p256-sha256` instead; request whichever the Server advertises in
+   * `capabilities.signingAlgorithms` on `GET /v1/conformance`.
    */
-  signingAlg?: 'hmac' | 'ed25519';
+  signingAlg?: WebhookSigningAlg;
   /**
    * Record-type filter for record-scoped events (API #825). `["*"]` means all
    * record types (wildcard sentinel). Any other array means record events are
@@ -1800,6 +1914,12 @@ export type AuditChainIntegrityReason =
   | 'signature_invalid'
   | 'signing_key_unknown'
   | 'signing_key_drift'
+  /**
+   * The entry is signed under a COSE algorithm this engine build cannot verify.
+   * Not a tamper signal: the chain may be intact and simply need a newer
+   * verifier. Check `minVerifierVersion` on the key in `/v1/verification-keys`.
+   */
+  | 'unsupported_algorithm'
   | null;
 
 /** Specific failure mode inside `chainIntegrityDetail`. */
@@ -1814,6 +1934,16 @@ export type AuditChainFailure =
   | 'cert_expired'
   | 'cert_missing'
   | 'agent_signature_invalid'
+  /**
+   * Per-entry signature failures. These reached `chainIntegrityDetail.failure`
+   * with the v1.3.2 fail-closed verification work but were never mirrored here,
+   * so the SDK narrowed the union tighter than the wire. Same meanings as on
+   * {@link AuditChainIntegrityReason}.
+   */
+  | 'signature_invalid'
+  | 'signing_key_unknown'
+  | 'signing_key_drift'
+  | 'unsupported_algorithm'
   | null;
 
 export interface AuditChainIntegrityDetail {
@@ -1928,6 +2058,16 @@ export interface ListVaultCheckpointsParams {
   recordId?: string;
   cursor?: string;
   limit?: number;
+}
+
+/**
+ * A page of vault checkpoints plus the sweep schedule the engine returns
+ * alongside it. The schedule is what distinguishes "this install has not
+ * checkpointed yet" from "checkpoints are missing", so it travels with the
+ * page rather than requiring a second call.
+ */
+export interface VaultCheckpointPage extends Page<VaultCheckpoint> {
+  checkpointing?: VaultCheckpointingSchedule;
 }
 
 
@@ -2383,6 +2523,15 @@ export interface ProvisioningStatus {
   sourcePath?: string | null;
   lastLoadedAt?: string | null;
   entries?: Record<string, number>;
+  /**
+   * Files in the provisioning directory that cannot be loaded right now, one
+   * entry per failure, empty when the directory is clean. A file that fails to
+   * parse is skipped whole and its resources are silently absent while the
+   * rest of the reconcile succeeds and the Server boots healthy, so a
+   * non-empty list here is the only signal that config-as-code is partially
+   * applied. Re-read from disk on each call.
+   */
+  loadErrors?: string[];
 }
 
 /** Diagnostic support-bundle payload (JSON envelope). */
@@ -2485,8 +2634,21 @@ export interface ApiErrorResponse {
   errors?: Record<string, unknown>[] | null;
   /** Suggested correction when a typo is detected. */
   suggestion?: string;
-  /** Documentation link. */
+  /**
+   * Documentation link.
+   *
+   * @deprecated No route emits this. The engine's ErrorResponse schema has no
+   * `docUrl` property, so Fastify strips it from every serialized body and the
+   * field is always `undefined`. Read `docs` instead. Kept only so existing
+   * callers still compile.
+   */
   docUrl?: string;
+  /**
+   * Pointer to the discovery-document section describing the failed scheme,
+   * e.g. `"/llms.txt (Federation Signing Scheme section)"`. Paired with
+   * `signInputTemplate` and `hint` on the federation 401.
+   */
+  docs?: string;
   /** Machine-readable recovery guidance pointing to relevant endpoints. */
   recoveryHint?: string;
   /** Concrete GET URL the agent should re-fetch (set on 422 INVALID_ACTION when the path includes a Record id). */
@@ -2530,6 +2692,57 @@ export interface ApiErrorResponse {
   validationErrors?: Record<string, unknown>[];
   constraintViolations?: Record<string, unknown>[];
   constraint?: string;
+  /** Expected JSON type or value, paired with `received` on validation errors. */
+  expected?: string;
+
+  /**
+   * Candidate publisher labels on a 422 `/problems/ambiguous-publisher`.
+   * Emitted by `/v1/schemas/{type}` reads and writes (pin with the `publisher`
+   * option) and by Record creation (pin with `publisher` in the body).
+   */
+  publishers?: string[];
+  /** Publisher label on the conflicting schema row. */
+  publisher?: string;
+  /** Manifest version string on the conflicting schema row. */
+  version?: string;
+  /** `sha256:<hex>` digest of the manifest already registered at this (publisher, type, version). */
+  existingDigest?: string;
+  /** `sha256:<hex>` digest of the manifest the caller just submitted. */
+  incomingDigest?: string;
+  /** `sha256:<hex>` digest the receiver holds for the same (publisher, type, version, org). */
+  localDigest?: string;
+  /** `sha256:<hex>` digest the federation peer claimed in `schemaRef.manifestDigest`. */
+  peerDigest?: string;
+
+  /** Display status of the Record when the request was refused. */
+  currentStatus?: string;
+  /** Display statuses from which a dispute is accepted. Poll until the Record reaches one, then retry. */
+  disputeableWhen?: string[];
+  /** Disputes already filed against this Record (open + terminal), when the cap is hit. */
+  disputeCount?: number;
+  /** Maximum disputes allowed on this Record. Pairs with `disputeCount`. */
+  maxDisputes?: number;
+  /** The currently-open dispute, or null once all prior disputes terminalized. */
+  openDisputeId?: string | null;
+  /** Revisions consumed when OVERFLOW_REJECT fired. */
+  revisionCount?: number;
+  /** Configured `maxRevisions` cap on the Record. */
+  maxRevisions?: number;
+  /** Machine-readable label naming the system action that terminalized the Record (e.g. OVERFLOW_REJECT, TIME_OUT). */
+  terminalReason?: string;
+  /** Display status immediately before the terminal transition. */
+  previousStatus?: string;
+  /** State the caller asked the resource to move to, on a federation terminal-conflict 422. */
+  attemptedState?: string;
+  /** The parent Record that rejected a delegation attempt. */
+  parentRecordId?: string;
+
+  /** The background job this request was refused in favour of. Present on 409 VAULT_SCAN_IN_FLIGHT. */
+  jobId?: string;
+  /** Byte template the proof-of-possession signature must cover. Present on the federation 401. */
+  signInputTemplate?: string;
+  /** Replacement path for an endpoint retired in a migration. Present on some 404s. */
+  migratedTo?: string;
 }
 
 export interface ValidationErrorDetail {
@@ -2800,8 +3013,45 @@ export interface VaultAnchorVerifyResult {
   errors: string[];
 }
 
-/** pg-boss job state for an asynchronous vault integrity scan. */
-export type VaultScanState = 'created' | 'active' | 'completed' | 'failed' | 'expired';
+/**
+ * pg-boss job state for an asynchronous vault integrity scan.
+ *
+ * Open-ended on purpose: the queue owns this vocabulary and has already
+ * changed it once (`expired` is no longer emitted; `cancelled` and `retry`
+ * arrived with the pg-boss exclusive-policy work). Branch on `completed` and
+ * `failed`, and treat anything else as still running.
+ */
+export type VaultScanState =
+  | 'created'
+  | 'active'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
+  | 'retry'
+  | (string & {});
+
+/**
+ * When the checkpoint sweep runs, and when it last did.
+ *
+ * Checkpoints are written on a schedule, not per Record, so a fresh install
+ * legitimately returns an empty checkpoint list until the first sweep fires
+ * no matter how many Records it holds, and a scan reports `healthy: true`
+ * throughout that window. Read this before concluding checkpoints are missing.
+ */
+export interface VaultCheckpointingSchedule {
+  /** Cron expression the sweep runs on, in UTC. */
+  cron: string;
+  /** Cadence in minutes derived from `cron`. Null when the schedule is not a fixed interval. */
+  intervalMinutes: number | null;
+  /** ISO 8601 timestamp of the next scheduled sweep, or null. */
+  nextRunAt: string | null;
+  /** ISO 8601 timestamp of the most recent checkpoint, or null before the first sweep. */
+  lastCheckpointAt: string | null;
+  /** Where the schedule was read from: the running `worker`, or static `config`. */
+  source: 'worker' | 'config' | (string & {});
+  /** Whether checkpoint anchoring is enabled at all. */
+  anchoringEnabled: boolean;
+}
 
 /** A broken-record finding from a vault scan. */
 export interface VaultScanBrokenRecord {
@@ -2862,6 +3112,16 @@ export interface VaultScanResult {
   brokenRecordsTruncated: boolean;
   /** Record-less chain findings. Present on a full scan; absent on a `recordIds`-scoped scan. */
   globalChains?: VaultScanGlobalChains;
+  /**
+   * Checkpoint sweep schedule at the time of the scan. Read it before treating
+   * an absent checkpoint as a finding: `lastCheckpointAt` is null on any
+   * install whose first sweep has not fired yet.
+   *
+   * Omits `lastCheckpointAt`, which only the checkpoint list carries. Every
+   * member is optional here: the engine marks none of them required on the
+   * scan envelope, unlike the checkpoint list where all six are.
+   */
+  checkpointing?: Partial<Omit<VaultCheckpointingSchedule, 'lastCheckpointAt'>>;
   scannedAt: string;
 }
 
@@ -2962,7 +3222,16 @@ export interface VerificationKeysResponse {
    * Track-with-Python parity fix for F-706.
    */
   hashAlgorithm?: string;
-  signatureAlgorithm?: string;
+  /**
+   * Algorithm of the ACTIVE signing key, not of the response. Null on a Server
+   * with no active vault signing key. Per-key values live on
+   * {@link VerificationKey.algorithm}, and a rotation across algorithms leaves
+   * retired keys here under a different one, so verify each entry against the
+   * key it names rather than against this.
+   */
+  signatureAlgorithm?: string | null;
+  /** COSE algorithm label of the active signing key, e.g. -8 (EdDSA) or -7 (ES256). Null when there is none. */
+  coseAlgorithm?: number | null;
   /** Template for the canonical signature-input string (v0.25.x). */
   signatureInputTemplate?: string;
 }

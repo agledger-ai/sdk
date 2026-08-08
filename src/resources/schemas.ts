@@ -18,35 +18,69 @@ import type {
   SchemaVersionDetail,
   UpdateSchemaVersionParams,
   SchemaCompatibilityResult,
+  SchemaManifestExport,
+  SchemaScopeOptions,
   ExportSchemaOptions,
 } from '../types.js';
+
+/**
+ * Split the publisher scope out of the options bag. It travels as a query
+ * param on every `/v1/schemas/{type}` call; everything else is request-level.
+ */
+function scope(options?: SchemaScopeOptions): {
+  request: RequestOptions | undefined;
+  params: Record<string, unknown> | undefined;
+} {
+  if (!options) return { request: undefined, params: undefined };
+  const { publisher, ...request } = options;
+  return { request, params: publisher === undefined ? undefined : { publisher } };
+}
 
 export class SchemasResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** List available Type schemas, one catalog row per (publisher, type). */
+  /**
+   * List available Type schemas, one catalog row per (publisher, type).
+   *
+   * Two rows sharing a `type` under different `publisher` labels is the state
+   * that makes every other call on this resource ambiguous. Read `publisher`
+   * off the row you want and pass it back as the `publisher` option.
+   */
   list(params?: { orgId?: string }, options?: RequestOptions): Promise<Page<SchemaListItem>> {
     return this.http.getPage<SchemaListItem>('/v1/schemas', params as Record<string, unknown>, options);
   }
 
   /** Delete a custom Type schema. */
-  delete(type: RecordType, options?: RequestOptions): Promise<void> {
-    return this.http.delete(`/v1/schemas/${type}`, undefined, options);
+  delete(type: RecordType, options?: SchemaScopeOptions): Promise<void> {
+    const { request, params } = scope(options);
+    return this.http.delete(`/v1/schemas/${type}`, undefined, request, params);
   }
 
   /** Get the full JSON Schema for a Type. */
-  get(type: RecordType, options?: RequestOptions): Promise<TypeSchema> {
-    return this.http.get<TypeSchema>(`/v1/schemas/${type}`, undefined, options);
+  get(type: RecordType, options?: SchemaScopeOptions): Promise<TypeSchema> {
+    const { request, params } = scope(options);
+    return this.http.get<TypeSchema>(`/v1/schemas/${type}`, params, request);
   }
 
   /** Get the verification rules for a Type. */
-  getRules(type: RecordType, options?: RequestOptions): Promise<{ type: RecordType; syncRuleIds: string[]; asyncRuleIds: string[] }> {
-    return this.http.get(`/v1/schemas/${type}/rules`, undefined, options);
+  getRules(type: RecordType, options?: SchemaScopeOptions): Promise<{ type: RecordType; syncRuleIds: string[]; asyncRuleIds: string[] }> {
+    const { request, params } = scope(options);
+    return this.http.get(`/v1/schemas/${type}/rules`, params, request);
   }
 
   /** Dry-run completion validation against a Type's schema. */
-  validateCompletion(type: RecordType, evidence: Record<string, unknown>, options?: RequestOptions): Promise<SchemaValidationResult> {
-    return this.http.post<SchemaValidationResult>(`/v1/schemas/${type}/validate`, { evidence }, options);
+  validateCompletion(type: RecordType, evidence: Record<string, unknown>, options?: SchemaScopeOptions): Promise<SchemaValidationResult> {
+    const { request, params } = scope(options);
+    return this.http.post<SchemaValidationResult>(`/v1/schemas/${type}/validate`, { evidence }, request, params);
+  }
+
+  /**
+   * Get the publisher's signed manifest for a Type: the exact bytes a peer
+   * imports, with the `manifestDigest` federation compares schemas by.
+   */
+  getManifest(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaManifestExport> {
+    const { request, params } = scope(options);
+    return this.http.get<SchemaManifestExport>(`/v1/schemas/${type}/manifest`, params, request);
   }
 
   /** Get the meta-schema describing constraints and limits for custom schema authoring. */
@@ -55,8 +89,9 @@ export class SchemasResource {
   }
 
   /** Get a template for creating a new schema based on an existing Type. */
-  getTemplate(type: RecordType, options?: RequestOptions): Promise<SchemaTemplate> {
-    return this.http.get<SchemaTemplate>(`/v1/schemas/${type}/template`, undefined, options);
+  getTemplate(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaTemplate> {
+    const { request, params } = scope(options);
+    return this.http.get<SchemaTemplate>(`/v1/schemas/${type}/template`, params, request);
   }
 
   /** Get a blank template for creating a custom Type from scratch. */
@@ -65,13 +100,21 @@ export class SchemasResource {
   }
 
   /** List all versions of a Type schema. */
-  getVersions(type: RecordType, options?: RequestOptions): Promise<Page<SchemaVersionDetail>> {
-    return this.http.getPage<SchemaVersionDetail>(`/v1/schemas/${type}/versions`, undefined, options);
+  getVersions(type: RecordType, options?: SchemaScopeOptions): Promise<Page<SchemaVersionDetail>> {
+    const { request, params } = scope(options);
+    return this.http.getPage<SchemaVersionDetail>(`/v1/schemas/${type}/versions`, params, request);
   }
 
-  /** Get a specific version of a Type schema. */
-  getVersion(type: RecordType, version: number, options?: RequestOptions): Promise<SchemaVersionDetail> {
-    return this.http.get<SchemaVersionDetail>(`/v1/schemas/${type}/versions/${version}`, undefined, options);
+  /**
+   * Get a specific version of a Type schema.
+   *
+   * The version counter is per (publisher, type) and shared across publishers,
+   * so a second publisher's v2 reflects registration order rather than a newer
+   * schema. Pin `publisher` before comparing versions across the two.
+   */
+  getVersion(type: RecordType, version: number, options?: SchemaScopeOptions): Promise<SchemaVersionDetail> {
+    const { request, params } = scope(options);
+    return this.http.get<SchemaVersionDetail>(`/v1/schemas/${type}/versions/${version}`, params, request);
   }
 
   /** Diff two versions of a Type schema. */
@@ -95,18 +138,21 @@ export class SchemasResource {
   }
 
   /** Update a schema version (e.g., deprecate or change compatibility mode). */
-  updateVersion(type: RecordType, version: number, params: UpdateSchemaVersionParams, options?: RequestOptions): Promise<SchemaVersionDetail> {
-    return this.http.patch<SchemaVersionDetail>(`/v1/schemas/${type}/versions/${version}`, params, options);
+  updateVersion(type: RecordType, version: number, body: UpdateSchemaVersionParams, options?: SchemaScopeOptions): Promise<SchemaVersionDetail> {
+    const { request, params } = scope(options);
+    return this.http.patch<SchemaVersionDetail>(`/v1/schemas/${type}/versions/${version}`, body, request, params);
   }
 
-  /** Disable a Type — Records of this Type can no longer be created. Existing Records are unaffected. */
-  disable(type: RecordType, options?: RequestOptions): Promise<{ type: RecordType; status: 'DISABLED' }> {
-    return this.http.patch(`/v1/schemas/${type}/disable`, {}, options);
+  /** Disable a Type. Records of this Type can no longer be created; existing Records are unaffected. */
+  disable(type: RecordType, options?: SchemaScopeOptions): Promise<{ type: RecordType; status: 'DISABLED' }> {
+    const { request, params } = scope(options);
+    return this.http.patch(`/v1/schemas/${type}/disable`, {}, request, params);
   }
 
   /** Re-enable a previously disabled Type. */
-  enable(type: RecordType, options?: RequestOptions): Promise<{ type: RecordType; status: 'ACTIVE' }> {
-    return this.http.patch(`/v1/schemas/${type}/enable`, {}, options);
+  enable(type: RecordType, options?: SchemaScopeOptions): Promise<{ type: RecordType; status: 'ACTIVE' }> {
+    const { request, params } = scope(options);
+    return this.http.patch(`/v1/schemas/${type}/enable`, {}, request, params);
   }
 
   /** Export a Type schema bundle for transfer between environments. */

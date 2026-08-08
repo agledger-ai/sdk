@@ -33,6 +33,9 @@ export class ConfigurationError extends AgledgerError {
  * `docUrl`, `suggestion`, `recoveryHint`, `missingScopes`, `nextSteps`, …).
  *
  * Key properties for consumers:
+ * - `type`: RFC 9457 problem URI (e.g. `/problems/ambiguous-publisher`). Branch on this, not on prose.
+ * - `publishers`: candidate publisher labels on an ambiguous-publisher 422
+ * - `docs`: discovery-document pointer. `docUrl` is dead and always undefined.
  * - `status` — HTTP status code
  * - `code` — stable machine-readable error code (from API body `code` or `error`)
  * - `retryable` — API's `retryable` flag, falling back to status-based classification (429/5xx)
@@ -49,8 +52,34 @@ export class AgledgerApiError extends AgledgerError {
   readonly requestId?: string;
   readonly details?: ValidationErrorDetail[] | Record<string, unknown> | unknown[];
 
-  /** Documentation link for this error, forwarded from the API body when present. */
+  /**
+   * RFC 9457 problem URI, forwarded from the body's `type` when the failure
+   * carries a narrower one than its status class, e.g.
+   * `/problems/ambiguous-publisher`. Branch on this rather than on `message`
+   * prose. The bulk-create envelope calls the same value `problemType`.
+   */
+  readonly type?: string;
+
+  /**
+   * Documentation link.
+   *
+   * @deprecated Always `undefined`: no route emits `docUrl`. Read `docs`.
+   */
   readonly docUrl?: string;
+
+  /**
+   * Pointer to the discovery-document section describing the failed scheme.
+   * Set on the federation 401 alongside `signInputTemplate`.
+   */
+  readonly docs?: string;
+
+  /**
+   * Candidate publisher labels on a 422 `/problems/ambiguous-publisher`: the
+   * type is offered by more than one publisher, so the engine refuses to pick.
+   * Re-send the request pinned to one of these (`publisher` in the Record
+   * create body, or the `publisher` option on a schema read).
+   */
+  readonly publishers?: string[];
 
   /** Recovery hint forwarded from the API body when present (typo-correction tier). */
   readonly suggestion?: string;
@@ -92,10 +121,13 @@ export class AgledgerApiError extends AgledgerError {
     this.requestId = body.requestId;
     this.details = body.details ?? undefined;
     this.retryable = body.retryable ?? (status === 429 || status >= 500);
+    this.type = body.type;
     this.docUrl = body.docUrl;
+    this.docs = body.docs;
     this.suggestion = body.suggestion;
     this.recoveryHint = body.recoveryHint;
     this.refreshUrl = body.refreshUrl;
+    this.publishers = body.publishers;
   }
 
   /** Whether this error is retryable (429, 5xx, network errors). Delegates to the `retryable` property. */
