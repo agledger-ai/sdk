@@ -38,6 +38,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 - **`verifyRfc9421` can now throw**, where before it only ever returned a boolean. It throws only where the old code returned a wrong answer, so no correct caller changes behavior on a host that can compute the algorithm. On a host that cannot, the standard `if (!ok) return 401` becomes an unhandled rejection, which is the right outcome for a server misconfiguration but is worth catching explicitly: on Express 4 or plain `http`, an unhandled rejection terminates the process under Node's default `--unhandled-rejections=throw`. The README and JSDoc examples now show the `catch`. A receiver in that state cannot verify anything, so the choice is between failing loudly and rejecting all legitimate traffic silently.
 
+### Packaging
+
+- **The build no longer emits source maps.** `files` has excluded `dist/**/*.map` since 0.8.14, but the build kept writing them, so every `.js` published since then carried a `//# sourceMappingURL=` comment pointing at a map the tarball does not contain. The maps were dead in the tarball either way: `sources` pointed at `../src/*.ts` with no `sourcesContent`, and `src/` does not ship. A test now fails if the emit is turned back on while `files` still excludes the output (agents#114).
+
 ## [1.7.0] - 2026-08-07
 
 ### Changed
