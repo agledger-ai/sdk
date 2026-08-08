@@ -406,6 +406,21 @@ export interface SchemaDiffResult {
   overallCompatibility: { backward: boolean; forward: boolean };
 }
 
+/** Result of deleting a Type schema registration. */
+export interface SchemaDeleteResult {
+  type: RecordType;
+  /**
+   * Publisher label this delete targeted, always the one the call resolved to.
+   * Rows under any OTHER publisher of the same type are untouched and still in
+   * the catalog: this field, not the absence of the type, is what says which
+   * registration went away.
+   */
+  publisher: string;
+  versionsDeleted: number;
+  /** Suggested next API calls (e.g. list remaining types). */
+  nextSteps?: NextStep[];
+}
+
 /** Individual change in a schema diff. */
 export interface SchemaDiffChange {
   path: string;
@@ -853,10 +868,13 @@ export interface RecordRow {
    * single-publisher org reads its one label (usually `local`).
    *
    * `null` means the engine never validated this Record against a local
-   * registration: federation-received Records (the originator ran the gate
-   * against its own registration) and Records backfilled through the admin
-   * import route. Read `null` as "ask the originator", not as "the schema is
-   * missing here".
+   * registration, which leaves exactly one case: federation-received Records,
+   * where the originator ran the gate against its own registration. Read
+   * `null` as "ask the originator", not as "the schema is missing here".
+   *
+   * Records backfilled through the admin import route are NOT null. Import
+   * binds the registration it validated against, so a backfilled Record reads
+   * its publisher label and a `schemaUrl` scoped to it.
    */
   publisher?: string | null;
   /**
@@ -2184,6 +2202,15 @@ export interface BackfillRecord {
   principalAgentId: string;
   performerAgentId?: string | null;
   type: string;
+  /**
+   * Publisher label pinning which registration of `type` this item binds to.
+   * Only needed when two publishers offer the same type in the org; that case
+   * returns 422 `/problems/ambiguous-publisher` with the candidate list rather
+   * than picking one, exactly as `POST /v1/records` does. The imported Record
+   * binds to the registration named here, so it reads back with that
+   * `publisher` and a `schemaUrl` scoped to it.
+   */
+  publisher?: string;
   contractVersion?: string;
   platform: string;
   platformRef?: string | null;
@@ -2214,11 +2241,22 @@ export interface AdminImportRecordsParams {
   records: BackfillRecord[];
 }
 
+/** One imported row, aligned 1:1 with the request `records[]`. */
+export interface BackfillImportedRecord {
+  /** Position in the request `records[]` array. */
+  index: number;
+  recordId: string;
+  /** Vault chain position of the `BACKFILL_IMPORT` entry. */
+  chainPosition: number;
+}
+
 export interface AdminImportRecordsResult {
-  imported: number;
-  recordIds: string[];
   /** Source label that was recorded in vault entries. */
   source: string;
+  /** Number of Records imported. */
+  count: number;
+  /** One entry per imported Record, in request order. */
+  imported: BackfillImportedRecord[];
   /** Suggested next API calls (e.g. spot-check audit export of the first imported Record). */
   nextSteps?: NextStep[];
 }
@@ -2242,11 +2280,15 @@ import type { ApiKeyRole } from './scopes.js';
 export interface AccountProfile {
   apiKeyId: string;
   role: ApiKeyRole;
+  /**
+   * Owner of the key. When `ownerType === 'agent'` this IS the agent id; when
+   * it is `'org'` this is the org id. There is no separate `agentId` field:
+   * one was declared here through 1.7.0 and `/v1/auth/me` has never returned
+   * it, so reading it always yielded `undefined`.
+   */
   ownerId: string;
   ownerType: string;
   scopes: string[] | null;
-  /** Agent ID when `role === 'agent'`, otherwise null. */
-  agentId?: string | null;
   /** Org ID the key is scoped to, if any. */
   orgId?: string | null;
   name?: string | null;
