@@ -41,8 +41,13 @@ export type {
   SchemaExportResult,
   SchemaExportVersion,
   SchemaManifest,
+  SchemaManifestExport,
   SchemaImportParams,
   SchemaRulesConfig,
+  SchemaRulesResult,
+  SchemaScopeOptions,
+  SchemaDeleteResult,
+  SchemaLifecycleResult,
   RegisterSchemaParams,
   SchemaVersionDetail,
   UpdateSchemaVersionParams,
@@ -144,6 +149,8 @@ export type {
   AuditVaultExportParams,
   VaultCheckpoint,
   VaultCheckpointChain,
+  VaultCheckpointPage,
+  VaultCheckpointingSchedule,
   ListVaultCheckpointsParams,
 
   // Org-admin reads checkpoints (SCITT-style)

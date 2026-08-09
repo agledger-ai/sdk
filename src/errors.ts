@@ -35,6 +35,7 @@ export class ConfigurationError extends AgledgerError {
  * Key properties for consumers:
  * - `type`: RFC 9457 problem URI (e.g. `/problems/ambiguous-publisher`). Branch on this, not on prose.
  * - `publishers`: candidate publisher labels on an ambiguous-publisher 422
+ * - `pinnedRecords` / `unattributableRecords`: why a schema delete was refused
  * - `docs`: discovery-document pointer. `docUrl` is dead and always undefined.
  * - `status` — HTTP status code
  * - `code` — stable machine-readable error code (from API body `code` or `error`)
@@ -80,6 +81,25 @@ export class AgledgerApiError extends AgledgerError {
    * create body, or the `publisher` option on a schema read).
    */
   readonly publishers?: string[];
+
+  /**
+   * Why a `schemas.delete()` was refused: Records written against the exact
+   * registration the delete would have removed.
+   *
+   * Paired with `unattributableRecords`, and the pair is the whole diagnosis.
+   * A non-zero `pinnedRecords` is fixable by deleting the other publisher's
+   * registration instead; a non-zero `unattributableRecords` is not, because
+   * those Records name no registration and so block the delete under every
+   * label.
+   */
+  readonly pinnedRecords?: number;
+
+  /**
+   * Records of this type carrying no registration pin. They block a delete
+   * under any publisher label, so this can be non-zero while `pinnedRecords`
+   * is 0 and the delete still fails.
+   */
+  readonly unattributableRecords?: number;
 
   /** Recovery hint forwarded from the API body when present (typo-correction tier). */
   readonly suggestion?: string;
@@ -128,6 +148,8 @@ export class AgledgerApiError extends AgledgerError {
     this.recoveryHint = body.recoveryHint;
     this.refreshUrl = body.refreshUrl;
     this.publishers = body.publishers;
+    this.pinnedRecords = body.pinnedRecords;
+    this.unattributableRecords = body.unattributableRecords;
   }
 
   /** Whether this error is retryable (429, 5xx, network errors). Delegates to the `retryable` property. */

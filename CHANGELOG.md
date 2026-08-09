@@ -84,6 +84,22 @@ Pinning `publisher` against a Server older than this API release will be rejecte
 
 - **`admin.records.import()` documented the wrong role.** The JSDoc said "requires admin role + `admin:backfill` scope"; the route is platform-tier and answers an org admin key with `403 ... 'BACKFILL_IMPORT' requires platform role`. Anyone following the doc hit a 403 on a correctly-scoped key.
 
+### Fixed (declared shapes that did not match the engine)
+
+- **`RecordRow.schemaUrl` is now `string | null`.** A federation-received Record whose schema this Server does not hold has no link that resolves here: a receiver-scoped path 404s where the type is absent, and where the receiver happens to hold the same type name it answers with its own unrelated registration, whose requirements can differ. The engine returns `null` rather than a link that lies, matching `publisher`, whose `null` already means "ask the originator". Non-federated Records are unaffected and still carry a publisher-scoped URL. (`completionHint` is suppressed whole on the same Records and was already nullable.)
+
+- **`TypeSchema` declared twelve fields and the engine sends twenty.** `publisher` is the one that mattered: `SchemaListItem` declared it, so a caller could see the publisher while triaging the catalog and lost it on `schemas.get()`, the more detailed read. That is also the read that takes a publisher pin and refuses an ambiguous type with a 422, so confirming which registration answered was exactly the thing a caller could not type. Added `publisher`, `manifestDigest`, `trustClass`, `federatable`, `defaultShare`, `coSignRequired`, `flipRecordStatusOnDispute` and `federateDisputes`; `displayName`, `description`, `category` and `defaultGateMode` are nullable as the engine declares them; and `quickStart` is nullable with its real `evidence: null` (notarize-only Types have no completion phase), `tolerance` and `gateMode`.
+
+- **`schemas.getRules()`, `disable()` and `enable()` dropped the publisher they acted on.** All three returned inline types naming two or three fields. On a type two publishers offer the rules differ per publisher, so rules read without knowing whose they are are not actionable. `SchemaRulesResult` and `SchemaLifecycleResult` now carry `publisher` plus the `fieldMappings`, `commissionSourceField`, `versionsDisabled`/`versionsEnabled` and `nextSteps` the engine has always sent.
+
+- **`schemas.exportSchema()` could not pin a publisher**, so on an ambiguous type the artifact carried both registrations, with `versions` entries that can collide on the same number. It takes `publisher` now and `SchemaExportResult.publisher` reports what was exported; `displayName`, `description` and `category` are nullable as the engine sends them.
+
+- **`AgledgerApiError` now carries `pinnedRecords` and `unattributableRecords`**, the two counts that say why a schema delete was refused. Same trap as `publishers`: the constructor copies a fixed set of keys off the body, so a field it does not name is unreachable rather than merely untyped. The pair is the diagnosis. A non-zero `pinnedRecords` is fixable by deleting the other publisher's registration instead; `unattributableRecords` counts Records naming no registration at all, which block the delete under every label.
+
+- **`AccountProfile` gained `expiresAt` and `allowedIps`**, both sent by `/v1/auth/me` and neither declared.
+
+- **Seven public types were unreachable from the package entry point.** `types.ts` is not re-exported wholesale, so `SchemaDeleteResult`, `SchemaScopeOptions`, `SchemaManifestExport`, `VaultCheckpointPage` and `VaultCheckpointingSchedule` (all added this release) could be returned by a method but not named by the caller. The SDK's own code imports from `../types.js` directly, so this typechecked internally and broke only for consumers. A test now fails if a resource method references a type the entry point does not export.
+
 ### Documentation
 
 - **The resource table named a method that does not exist.** It listed `client.discovery` as offering `conformance()`; the method is `getConformance()`. A reader following the table got `TypeError: client.discovery.conformance is not a function`. The row now names all three real methods.
