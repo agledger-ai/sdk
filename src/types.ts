@@ -213,12 +213,35 @@ export interface SchemaListItem {
 
 export interface TypeSchema {
   type: RecordType;
-  displayName?: string;
-  description?: string;
-  category?: string;
+  displayName?: string | null;
+  description?: string | null;
+  category?: string | null;
   version?: number;
   latestVersion?: number;
   status?: SchemaVersionStatus;
+  /**
+   * Publisher label of the registration that answered this read. `local` for
+   * engine-authored types, anything else for file-imported ones.
+   *
+   * This is how a publisher-pinned read confirms which registration replied.
+   * Pin with the `publisher` option; an unpinned read of a type two publishers
+   * offer is refused with a 422 `/problems/ambiguous-publisher` rather than
+   * resolved arbitrarily, so on a 200 this field names the schema you got.
+   */
+  publisher?: string;
+  /** `sha256:<hex>` of the JCS-canonicalized manifest. Federation peers compare schemas by this value. */
+  manifestDigest?: string;
+  /** How this row was authored. Federation digest-echo treats both identically. */
+  trustClass?: 'local' | 'imported' | (string & {});
+  /** Whether this engine exposes the schema to federated peer hubs. Row-only metadata, not in the canonical manifest. */
+  federatable?: boolean;
+  /**
+   * V1 sharing default for Records of this type. `null` inherits the global
+   * `AGLEDGER_DEFAULT_SHARE`; `true` or `false` is an explicit per-type
+   * decision. A per-record `share` overrides it. Row-only metadata, not in the
+   * canonical manifest.
+   */
+  defaultShare?: boolean | null;
   /**
    * Default gate mode for records of this type when the create payload omits
    * `gateMode`. `auto` (engine default) auto-settles against the principal's
@@ -226,14 +249,39 @@ export interface TypeSchema {
    * explicit per-record `gateMode` always wins. Row-only metadata, not
    * canonicalized into the manifest digest.
    */
-  defaultGateMode?: GateMode;
+  defaultGateMode?: GateMode | null;
+  /**
+   * Bilateral co-signed Settlement Signal opt-in. `null` or `false` fires
+   * signals single-signature (the firing Server only); `true` requests a
+   * counter-signature from the counterparty before firing.
+   */
+  coSignRequired?: boolean | null;
+  /**
+   * When `true` (the default), opening a dispute against a Record of this type
+   * flips `record.status` to DISPUTED while the dispute is in flight, restored
+   * to the pre-dispute status on resolve or withdraw. When `false` the Record
+   * holds its status throughout.
+   */
+  flipRecordStatusOnDispute?: boolean;
+  /**
+   * When `true` (the default), disputes on federated Records of this type
+   * propagate to peers: the originator's dispute lifecycle emits federation
+   * outbound jobs that update the counterparty.
+   */
+  federateDisputes?: boolean;
   recordSchema: Record<string, unknown>;
   completionSchema: Record<string, unknown>;
   rulesConfig?: SchemaRulesConfig;
   quickStart?: {
+    /** Minimal valid criteria example, synthesized from the record schema. Copy and modify. */
     criteria: Record<string, unknown>;
-    evidence: Record<string, unknown>;
-  };
+    /** Minimal valid completion evidence. `null` on notarize-only Types: no completion phase, so there is no `/completions` call to make. */
+    evidence: Record<string, unknown> | null;
+    /** One entry per registered fieldMapping, keyed by its `toleranceField`. `null` when the type registers none. */
+    tolerance?: Record<string, unknown> | null;
+    /** Present only when the type declares a `defaultGateMode`. Include it in the `POST /v1/records` payload. */
+    gateMode?: GateMode;
+  } | null;
 }
 
 export interface SchemaValidationResult {
@@ -434,9 +482,16 @@ export interface SchemaExportResult {
   exportVersion: number;
   exportedAt: string;
   type: RecordType;
-  displayName: string;
-  description: string;
-  category: string;
+  /**
+   * Publisher label of the registration this artifact was exported from. Pin
+   * the export with the `publisher` option on a type two publishers offer;
+   * without it the engine emits both registrations, and their `versions`
+   * entries can collide on the same number.
+   */
+  publisher?: string;
+  displayName: string | null;
+  description: string | null;
+  category: string | null;
   compatibilityMode: SchemaCompatibilityMode;
   versions: SchemaExportVersion[];
   sharedSchemas: Record<string, unknown>;
@@ -546,6 +601,37 @@ export interface SchemaRulesConfig {
 }
 
 /**
+ * Result of `schemas.getRules()`. The registered rules config plus the label
+ * of the registration it came from.
+ */
+export interface SchemaRulesResult extends SchemaRulesConfig {
+  /**
+   * Publisher label of the registration these rules came from, echoing the
+   * resolved value. On a type two publishers offer, the rules differ per
+   * publisher, so this is what says which set you are reading.
+   */
+  publisher?: string;
+}
+
+/** Result of `schemas.disable()` and `schemas.enable()`. */
+export interface SchemaLifecycleResult {
+  type: RecordType;
+  /**
+   * Publisher label this call targeted, always the one it resolved to. Rows
+   * under any other publisher of the same type are untouched.
+   */
+  publisher?: string;
+  /** Post-state of the type after this call. */
+  status: 'ACTIVE' | 'DISABLED' | (string & {});
+  /** Versions moved to DISABLED. Present on `disable()`. */
+  versionsDisabled?: number;
+  /** Versions moved to ACTIVE. Present on `enable()`. */
+  versionsEnabled?: number;
+  /** Suggested next API calls. */
+  nextSteps?: NextStep[];
+}
+
+/**
  * A schema-version subject row, returned by `schemas.register()`,
  * `schemas.import_()`, `schemas.updateVersion()`, `schemas.getVersions()`
  * and `schemas.getVersion()`.
@@ -616,6 +702,8 @@ export interface SchemaCompatibilityResult {
 export interface ExportSchemaOptions {
   versions?: string;
   orgId?: string;
+  /** Publisher label to export from. Required in practice on a type two publishers offer, or the artifact carries both. */
+  publisher?: string;
 }
 
 /** Performer's response to a Record proposal. */
@@ -881,8 +969,15 @@ export interface RecordRow {
    * URL to the Type schema definition. Carries `?publisher=` whenever
    * `publisher` is known, so the link resolves even for a type two publishers
    * offer. Follow it verbatim; do not rebuild it from `type`.
+   *
+   * `null` on a federation-received Record whose schema this Server does not
+   * hold, matching `publisher`. The engine returns null rather than a link
+   * that lies: a receiver-scoped path would 404 where the type is absent, and
+   * where the receiver happens to hold the same type name it would answer with
+   * its own unrelated registration, whose requirements can differ. Read `null`
+   * as "ask the originator".
    */
-  schemaUrl?: string;
+  schemaUrl?: string | null;
   /** Detailed per-rule gate-evaluation results with tolerance bands, or null if the gate has not run. */
   verdictChecks?: Record<string, unknown> | null;
   /** Phase 2 gate verdict: accept, reject, or null until the gate evaluation completes. */
@@ -2293,6 +2388,10 @@ export interface AccountProfile {
   orgId?: string | null;
   name?: string | null;
   createdAt?: string | null;
+  /** Expiry of this credential, or `null` when it does not expire. */
+  expiresAt?: string | null;
+  /** IP allowlist enforced on this key, or `null` when the key is unrestricted. */
+  allowedIps?: string[] | null;
   /**
    * Credential class for this session. `ephemeral_cert` = OIDC-bound
    * short-lived signing cert (Mode 2); `oidc` = direct OIDC bearer (admin
@@ -2743,6 +2842,18 @@ export interface ApiErrorResponse {
    * option) and by Record creation (pin with `publisher` in the body).
    */
   publishers?: string[];
+  /**
+   * Records written against the exact registration a refused
+   * `schemas.delete()` would have removed. Paired with
+   * `unattributableRecords` on the delete precondition.
+   */
+  pinnedRecords?: number;
+  /**
+   * Records of this type carrying no registration pin, so they block a delete
+   * under any publisher label. A non-zero count here blocks the delete even
+   * when `pinnedRecords` is 0.
+   */
+  unattributableRecords?: number;
   /** Publisher label on the conflicting schema row. */
   publisher?: string;
   /** Manifest version string on the conflicting schema row. */

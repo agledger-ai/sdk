@@ -21,6 +21,8 @@ import type {
   SchemaManifestExport,
   SchemaScopeOptions,
   SchemaDeleteResult,
+  SchemaRulesResult,
+  SchemaLifecycleResult,
   ExportSchemaOptions,
 } from '../types.js';
 
@@ -70,9 +72,9 @@ export class SchemasResource {
   }
 
   /** Get the verification rules for a Type. */
-  getRules(type: RecordType, options?: SchemaScopeOptions): Promise<{ type: RecordType; syncRuleIds: string[]; asyncRuleIds: string[] }> {
+  getRules(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaRulesResult> {
     const { request, params } = scope(options);
-    return this.http.get(`/v1/schemas/${type}/rules`, params, request);
+    return this.http.get<SchemaRulesResult>(`/v1/schemas/${type}/rules`, params, request);
   }
 
   /** Dry-run completion validation against a Type's schema. */
@@ -159,15 +161,15 @@ export class SchemasResource {
   }
 
   /** Disable a Type. Records of this Type can no longer be created; existing Records are unaffected. */
-  disable(type: RecordType, options?: SchemaScopeOptions): Promise<{ type: RecordType; status: 'DISABLED' }> {
+  disable(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaLifecycleResult> {
     const { request, params } = scope(options);
-    return this.http.patch(`/v1/schemas/${type}/disable`, {}, request, params);
+    return this.http.patch<SchemaLifecycleResult>(`/v1/schemas/${type}/disable`, {}, request, params);
   }
 
   /** Re-enable a previously disabled Type. */
-  enable(type: RecordType, options?: SchemaScopeOptions): Promise<{ type: RecordType; status: 'ACTIVE' }> {
+  enable(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaLifecycleResult> {
     const { request, params } = scope(options);
-    return this.http.patch(`/v1/schemas/${type}/enable`, {}, request, params);
+    return this.http.patch<SchemaLifecycleResult>(`/v1/schemas/${type}/enable`, {}, request, params);
   }
 
   /** Export a Type schema bundle for transfer between environments. */
@@ -175,6 +177,7 @@ export class SchemasResource {
     const params: Record<string, unknown> = {};
     if (opts?.versions) params.versions = opts.versions;
     if (opts?.orgId) params.orgId = opts.orgId;
+    if (opts?.publisher) params.publisher = opts.publisher;
     return this.http.post<SchemaExportResult>(`/v1/schemas/${type}/export`, undefined, options, params);
   }
 
