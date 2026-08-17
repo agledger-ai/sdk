@@ -9,6 +9,7 @@ import type {
   AutoPaginateOptions,
   ListPeerAgentsParams,
   PeerAgentsResponse,
+  CursorListParams,
 } from '../types.js';
 
 export class AgentsResource {
@@ -19,13 +20,13 @@ export class AgentsResource {
    * Returns the lightweight directory shape — for full agent identity use
    * {@link AgentsResource.get}.
    */
-  list(params?: ListParams, options?: RequestOptions): Promise<Page<AgentDirectoryEntry>> {
+  list(params?: CursorListParams, options?: RequestOptions): Promise<Page<AgentDirectoryEntry>> {
     return this.http.getPage<AgentDirectoryEntry>('/v1/agents', params as Record<string, unknown>, options);
   }
 
   /** Auto-paginating iterator over the org agent directory. */
   listAll(
-    params?: ListParams,
+    params?: CursorListParams,
     options?: RequestOptions & AutoPaginateOptions,
   ): AsyncGenerator<AgentDirectoryEntry> {
     return this.http.paginate<AgentDirectoryEntry>('/v1/agents', params as Record<string, unknown>, options);

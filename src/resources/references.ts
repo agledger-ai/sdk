@@ -1,5 +1,5 @@
 import type { HttpClient } from '../http.js';
-import type { ReferenceLookupResult, RequestOptions } from '../types.js';
+import type { EntityReferenceInput, ReferenceLookupResult, RequestOptions } from '../types.js';
 
 export class ReferencesResource {
   constructor(private readonly http: HttpClient) {}
@@ -10,7 +10,7 @@ export class ReferencesResource {
   }
 
   /** Add external references to a Record. */
-  addRecordReferences(recordId: string, references: Record<string, unknown>[], options?: RequestOptions): Promise<Record<string, unknown>> {
+  addRecordReferences(recordId: string, references: EntityReferenceInput[], options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.post(`/v1/records/${recordId}/references`, { references }, options);
   }
 
@@ -20,7 +20,7 @@ export class ReferencesResource {
   }
 
   /** Add external references to an agent. */
-  addAgentReferences(agentId: string, references: Record<string, unknown>[], options?: RequestOptions): Promise<Record<string, unknown>> {
+  addAgentReferences(agentId: string, references: EntityReferenceInput[], options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.post(`/v1/agents/${agentId}/references`, { references }, options);
   }
 

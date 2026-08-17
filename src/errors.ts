@@ -83,6 +83,14 @@ export class AgledgerApiError extends AgledgerError {
   readonly publishers?: string[];
 
   /**
+   * Registry version slot a schema conflict is on: the integer MAJOR component
+   * of `manifest.version`. Minor and patch bumps stay in the same slot, so
+   * escaping a `CONFLICTING_VERSION` 409 needs a major bump (or disabling and
+   * deleting the existing registration to free the slot).
+   */
+  readonly registryVersion?: number;
+
+  /**
    * Why a `schemas.delete()` was refused: Records written against the exact
    * registration the delete would have removed.
    *
@@ -148,6 +156,7 @@ export class AgledgerApiError extends AgledgerError {
     this.recoveryHint = body.recoveryHint;
     this.refreshUrl = body.refreshUrl;
     this.publishers = body.publishers;
+    this.registryVersion = body.registryVersion;
     this.pinnedRecords = body.pinnedRecords;
     this.unattributableRecords = body.unattributableRecords;
   }

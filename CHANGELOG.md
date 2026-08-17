@@ -4,6 +4,42 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed (query parameters that could never have worked)
+
+Every item here was reachable from a typed, documented method and returned `400` on every call. They were invisible to the test suite because mocks assert on what the SDK sends, and to the parity snapshots because those are built from the SDK's own idea of the shape. All four were found by driving the SDK against a live Server.
+
+- **Object query params are expanded into the API's bracket notation.** `buildUrl` ran every value through `String(value)`, so `search({ metadata: { state: 'blocked' } })` went out as `metadata=[object Object]` and came back `400 querystring/metadata must be object`. Metadata-filtered search has never worked from this SDK. The same defect would have swallowed the new `criteria` filter.
+
+- **A `Date` passed to a date-time query param** (`from`, `to`, `updatedAfter`, `updatedBefore`) serialized to the JS locale form, which the Server rejects. It now serializes as ISO-8601.
+
+- **`SearchRecordsParams.principalAgentId` is removed.** No record endpoint accepts a `principalAgentId` query param, and the search querystring rejects unknown properties, so offering it guaranteed a `400`. Filter by `role: 'principal'` instead.
+
+- **`AuditVaultExportParams.since` / `.until` are removed**, replaced by the `from` / `to` the route actually takes. The type also gains `recordId` and `agentId`, and `format` drops `'csv'`, which the route does not serve.
+
+- **Pagination params now match each route.** `ListParams` offered `limit`, `offset` and `cursor` uniformly while 14 endpoints accept only some of them. Methods now take `LimitParams`, `CursorListParams`, or `OffsetListParams` as appropriate: `agents.list`/`listAll` (cursor), `admin.listApiKeys` (limit only), `admin.getWebhookHealth`, `compliance.listRecords`, `reputation.getHistory` (offset).
+
+Removing a parameter is a type-level break, but no working call can depend on one: each produced a `400` in every case.
+
+### Added (API drift this release tracks)
+
+- **`RecordRow.supersedesRecordId` and `RecordRow.supersededByCount`.** Supersession answers "which record is current" on an append-only ledger. `supersedesRecordId` is create-only, immutable, and inside the create-time signature, so an offline verifier reconstructs the same lineage the API reports. `supersededByCount` above 1 is a fork, not an error: two writers superseded the same Record independently.
+
+- **`CreateRecordParams.supersedesRecordId`**, and with it `BulkCreateRecordItem`. A checkpoint-style pattern pairs this with `parentRecordId`: every checkpoint is a child of the same root and supersedes the previous head.
+
+- **`SearchRecordsParams` gains `superseded`, `supersedesRecordId` and `criteria`**, plus ten filters the API already accepted and the SDK never offered: `role`, `category`, `projectRef`, `hasDispute`, `disputeStatus`, `imported`, `source`, and `ref.system` / `ref.type` / `ref.id`. `criteria` filters on signed bytes; `metadata` filters on an unsigned annotation an offline verifier cannot see.
+
+- **`CreateRecordParams.references` and `.share`**, both long accepted by `POST /v1/records` and both unexpressible from the SDK. References are typed by the new **`EntityReferenceInput`**, which `references.addRecordReferences` and `addAgentReferences` now take in place of `Record<string, unknown>[]`.
+
+- **`ConformanceResponse.limits`**: the numeric caps this install enforces. Several are org-configurable, so read them rather than hardcoding.
+
+- **`recoveryHint` on bulk per-item results**, and **`AgledgerApiError.registryVersion`** for the `CONFLICTING_VERSION` 409, which names the registry slot a schema conflict is on.
+
+### Changed
+
+- **`npm run parity:refresh` regenerates the parity snapshots** from an OpenAPI spec (`--url` or `--spec`), and `parity:check` reports drift without writing. Both snapshots were previously hand-maintained with no generator, which meant the parity tests could not detect API drift at all: they compare the SDK against files that only change when someone edits them. Refreshing against the current spec also recovered a `publisher` query param on `GET /v1/schemas/{type}/diff` and `POST /v1/schemas/{type}/export` that the hand-built snapshot had been missing since v1.4.0.
+
 ## [1.8.0] - 2026-08-08
 
 ### Added (multi-publisher schemas)

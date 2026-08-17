@@ -46,6 +46,8 @@ import type {
   RevokeEphemeralCertResult,
   OpsSummary,
   NextStep,
+  LimitParams,
+  OffsetListParams,
 } from '../types.js';
 
 /**
@@ -258,7 +260,7 @@ export class AdminResource {
   }
 
   /** List all API keys on the platform. */
-  listApiKeys(params?: ListParams, options?: RequestOptions): Promise<Page<AdminApiKey>> {
+  listApiKeys(params?: LimitParams, options?: RequestOptions): Promise<Page<AdminApiKey>> {
     return this.http.getPage<AdminApiKey>('/v1/admin/api-keys', params as Record<string, unknown>, options);
   }
 
@@ -353,7 +355,7 @@ export class AdminResource {
   }
 
   /** Get health status of all webhooks (delivery stats, circuit breaker states). */
-  getWebhookHealth(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+  getWebhookHealth(params?: OffsetListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
     return this.http.getPage('/v1/admin/webhooks/health', params as Record<string, unknown>, options);
   }
 

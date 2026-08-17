@@ -87,8 +87,29 @@ export interface SchemaScopeOptions extends RequestOptions {
 
 
 /** Parameters accepted by all list endpoints. */
-export interface ListParams {
+/**
+ * Pagination is not uniform across the API: some list endpoints page by cursor,
+ * some by offset, and a few accept neither. The querystring rejects unknown
+ * properties, so offering a parameter an endpoint does not take is a 400 rather
+ * than a no-op. These three narrower shapes exist so each list method advertises
+ * only what its own route accepts.
+ */
+export interface LimitParams {
   limit?: number;
+}
+
+/** A list endpoint that pages by opaque cursor. */
+export interface CursorListParams extends LimitParams {
+  cursor?: string;
+}
+
+/** A list endpoint that pages by numeric offset. */
+export interface OffsetListParams extends LimitParams {
+  offset?: number;
+}
+
+/** A list endpoint that accepts both paging styles. */
+export interface ListParams extends LimitParams {
   offset?: number;
   cursor?: string;
 }
@@ -146,6 +167,14 @@ export interface BulkCreateResult {
      * candidate labels) and `recordType`.
      */
     context?: Record<string, unknown>;
+    /**
+     * What to do next about this item, when the failure carries a pointer.
+     * Mirrors the `recoveryHint` a singleton caller gets in the RFC 9457 body.
+     * For `/problems/idempotency-key-reuse` the fix is a fresh
+     * `idempotencyKey`: resending the same item unchanged fails identically
+     * until the key expires.
+     */
+    recoveryHint?: string;
   }>;
   summary: {
     total: number;
@@ -900,8 +929,28 @@ export interface RecordRow {
   rootRecordId?: string | null;
   /** Depth in the delegation chain (0 = root). */
   chainDepth?: number;
-  /** IDs of child Records in the delegation chain (present on single-Record fetch only). */
+  /**
+   * IDs of child Records in the delegation chain, OLDEST first by creation time
+   * (present on single-Record fetch only). Do not read `[0]` as the latest child:
+   * for the newest child of a type, use
+   * `records.search({ parentRecordId, type })`, which returns newest first.
+   */
   childRecordIds?: string[];
+  /**
+   * The earlier Record this one replaces, asserted by the writer at create and
+   * immutable thereafter. Orthogonal to delegation: `parentRecordId` says what
+   * this Record is part of, `supersedesRecordId` says which earlier Record it
+   * makes stale. It sits inside the create-time signature, so an offline
+   * verifier reconstructs the same lineage the API reports.
+   */
+  supersedesRecordId?: string | null;
+  /**
+   * How many later Records name this one as their `supersedesRecordId`. 0 means
+   * this Record is current. Greater than 1 is a FORK: two writers superseded the
+   * same Record independently, so there are that many current heads and no single
+   * answer; list them with `records.search({ supersedesRecordId: id })`.
+   */
+  supersededByCount?: number;
   /** Delegation-shell indicator: true when parent's principal org equals this child's performer org. NULL on root and on children without a performer. Informational only. */
   parentPrincipalOrgMatchesPerformer?: boolean | null;
   /** Reason provided for the last state transition. */
@@ -1183,6 +1232,27 @@ export interface CreateRecordParams {
   humanOversight?: Record<string, unknown>;
   /** Parent Record ID for delegation. */
   parentRecordId?: string;
+  /**
+   * Declare that this Record replaces an earlier one, making that earlier
+   * Record stale. The target must be visible to you and in the same org; it
+   * does NOT have to share this Record's parent or type. Create-only and
+   * immutable thereafter, and inside the create-time signature. A
+   * checkpoint-style pattern uses this together with `parentRecordId`: every
+   * checkpoint is a child of the same root and supersedes the previous head.
+   */
+  supersedesRecordId?: string;
+  /**
+   * External references to attach at creation. Append-only, and capped per
+   * request and per Record (both org-configurable).
+   */
+  references?: EntityReferenceInput[];
+  /**
+   * V1 sharing override for federated counterparties. `true` ships a signed
+   * copy of terminal-state transitions and Settlement Signals to the peer;
+   * `false` keeps the Record private to this Server. Omit to inherit the
+   * contract type's `defaultShare`. The chain itself is local either way.
+   */
+  share?: boolean;
   /** External task ID from caller's system. */
   externalTaskId?: string;
   /** Project grouping reference. */
@@ -1259,11 +1329,18 @@ export interface SearchRecordsParams extends ListParams {
   orgId?: string;
   status?: RecordStatus;
   type?: RecordType;
-  principalAgentId?: string;
+  /**
+   * Filter by the caller's role relative to the Record. There is deliberately
+   * no `principalAgentId` here: no record endpoint accepts one, and the search
+   * querystring rejects unknown properties, so offering it produced a 400.
+   */
+  role?: 'performer' | 'principal' | (string & {});
   performerAgentId?: string;
+  category?: string;
+  projectRef?: string;
   from?: string;
   to?: string;
-  sort?: string;
+  sort?: 'createdAt' | 'updatedAt' | (string & {});
   order?: 'asc' | 'desc';
   externalTaskId?: string;
   parentRecordId?: string;
@@ -1272,7 +1349,40 @@ export interface SearchRecordsParams extends ListParams {
   updatedBefore?: string;
   gateMode?: GateMode;
   operatingMode?: OperatingMode;
+  /** Filter to Records with (true) or without (false) an open dispute. */
+  hasDispute?: boolean;
+  disputeStatus?: DisputeStatus;
+  /** Filter to imported (true) or native (false) Records. */
+  imported?: boolean;
+  /** Filter by originating system identifier. */
+  source?: string;
+  /**
+   * Restrict to Records that have been superseded (true) or are still current
+   * (false). On an append-only ledger every past state keeps matching a filter
+   * forever, so `superseded: false` is what makes "what is the state of my work
+   * right now" answerable in one query.
+   */
+  superseded?: boolean;
+  /** Filter to the successors of a Record: those declaring this id as superseded. */
+  supersedesRecordId?: string;
+  /**
+   * Filter on signed criteria values. Unlike {@link SearchRecordsParams.metadata},
+   * criteria sits inside the record signature, so this selects on the same bytes
+   * an auditor verifies offline. Top-level keys only, max 5.
+   */
+  criteria?: Record<string, unknown>;
+  /**
+   * Filter on unsigned metadata annotations. Top-level keys only, max 5.
+   * Use {@link SearchRecordsParams.criteria} for anything that has to be both
+   * findable and provable.
+   */
   metadata?: Record<string, unknown>;
+  /** External entity reference filter: the referencing system, e.g. `jira`. */
+  'ref.system'?: string;
+  /** External entity reference filter: the entity type, e.g. `issue`. */
+  'ref.type'?: string;
+  /** External entity reference filter: the entity id within the system. */
+  'ref.id'?: string;
 }
 
 /**
@@ -2471,6 +2581,30 @@ export interface ConformanceResponse {
   schemasUrl?: string;
   /** Supported settlement signal types (e.g. SETTLE, HOLD, RELEASE). */
   settlementSignals?: string[];
+  /**
+   * The numeric caps this install enforces. Read these rather than hardcoding:
+   * several are org-configurable, so the value here is what THIS Server will
+   * actually accept.
+   */
+  limits?: {
+    /** Serialized UTF-8 criteria byte cap, org default. */
+    criteriaMaxBytesDefault?: number;
+    /** Max `references` entries in one attach call. */
+    referencesMaxPerRequest?: number;
+    /** Cumulative per-Record references cap, org default. */
+    referencesMaxPerRecordDefault?: number;
+    /** Max keys on a single reference's `attributes` object. */
+    referenceAttributesMaxKeys?: number;
+    /** Max top-level keys on Record `metadata`. */
+    metadataMaxProperties?: number;
+    /** Transport cap on the whole `POST /v1/records` body. */
+    recordBodyMaxBytes?: number;
+    /** Delegation chain depth cap, org default. */
+    delegationMaxDepthDefault?: number;
+    /** Absolute delegation depth ceiling; the per-org cap cannot exceed it. */
+    delegationMaxDepthCeiling?: number;
+    [key: string]: number | undefined;
+  };
   /** AGLedger API version. */
   version?: string;
 }
@@ -2705,9 +2839,16 @@ export interface RecordLifecycleInfo {
 
 /** Query parameters for the platform-wide audit vault export. */
 export interface AuditVaultExportParams {
-  since?: string;
-  until?: string;
-  format?: 'json' | 'csv' | 'ndjson';
+  /** Include entries created at or after this ISO 8601 timestamp. */
+  from?: string;
+  /** Include entries created before this ISO 8601 timestamp. */
+  to?: string;
+  /** Filter to one Record's entries. */
+  recordId?: string;
+  /** Filter to entries whose Record names this agent as performer or principal. */
+  agentId?: string;
+  format?: 'json' | 'ndjson';
+  /** Opaque pagination cursor from the previous response. */
   cursor?: string;
   limit?: number;
 }
@@ -2842,6 +2983,11 @@ export interface ApiErrorResponse {
    * option) and by Record creation (pin with `publisher` in the body).
    */
   publishers?: string[];
+  /**
+   * Registry version slot a schema conflict is on: the integer MAJOR component
+   * of `manifest.version`. Emitted on a `CONFLICTING_VERSION` 409.
+   */
+  registryVersion?: number;
   /**
    * Records written against the exact registration a refused
    * `schemas.delete()` would have removed. Paired with
@@ -3130,6 +3276,26 @@ export interface EntityReference {
   attributes?: Record<string, unknown>;
   createdAt: string;
   createdBy: string;
+}
+
+/**
+ * An external reference as supplied by the caller, on record create or on the
+ * append-only attach endpoints. Distinct from {@link EntityReference}, which is
+ * what the API returns: `id`, `createdAt` and `createdBy` are server-assigned.
+ */
+export interface EntityReferenceInput {
+  /** External system identifier: lowercase alphanumeric plus dots, hyphens, underscores. */
+  system: string;
+  /** Reference type within the system, e.g. `sales-order`, `ticket`. */
+  refType: string;
+  /** External identifier within the system. */
+  refId: string;
+  /** Human-readable label, snapshotted at attachment time and not refreshed. */
+  displayName?: string;
+  /** URL back to the source system. https only. */
+  uri?: string;
+  /** Flat key-value metadata: max 10 keys, max 4KB total. */
+  attributes?: Record<string, unknown>;
 }
 
 /** Result of a reverse-lookup by external reference. */

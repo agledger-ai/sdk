@@ -14,6 +14,7 @@ import type {
   Page,
   ListParams,
   RequestOptions,
+  OffsetListParams,
 } from '../types.js';
 
 /**
@@ -79,7 +80,7 @@ export class ComplianceResource {
   }
 
   /** List compliance records for a Record. */
-  listRecords(recordId: string, params?: ListParams, options?: RequestOptions): Promise<Page<ComplianceRecord>> {
+  listRecords(recordId: string, params?: OffsetListParams, options?: RequestOptions): Promise<Page<ComplianceRecord>> {
     return this.http.getPage<ComplianceRecord>(`/v1/records/${recordId}/compliance-records`, params as Record<string, unknown>, options);
   }
 
