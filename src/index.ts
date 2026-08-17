@@ -12,6 +12,9 @@ export type {
 
   // Pagination
   ListParams,
+  LimitParams,
+  CursorListParams,
+  OffsetListParams,
   Page,
   AutoPaginateOptions,
 
@@ -259,6 +262,7 @@ export type {
 
   // References
   EntityReference,
+  EntityReferenceInput,
   ReferenceLookupResult,
 
   // Admin — Vault

@@ -64,6 +64,53 @@ describe('HttpClient', () => {
     expect(url).not.toContain('skip');
   });
 
+  it('expands object params into the API bracket notation', async () => {
+    // `String({...})` produced the literal `[object Object]`, so every
+    // metadata- or criteria-filtered search 400'd with "must be object".
+    const fetch = mockFetch({ json: {} });
+    const client = createClient(fetch);
+    await client.get('/v1/records/search', {
+      metadata: { state: 'blocked', retries: 3 },
+      criteria: { amount: '750' },
+    });
+
+    const url = decodeURIComponent(fetch.mock.calls[0][0]);
+    expect(url).toContain('metadata[state]=blocked');
+    expect(url).toContain('metadata[retries]=3');
+    expect(url).toContain('criteria[amount]=750');
+    expect(url).not.toContain('[object Object]');
+  });
+
+  it('drops null and undefined members of an object param', async () => {
+    const fetch = mockFetch({ json: {} });
+    const client = createClient(fetch);
+    await client.get('/v1/records/search', { metadata: { keep: 'yes', drop: undefined, gone: null } });
+
+    const url = decodeURIComponent(fetch.mock.calls[0][0]);
+    expect(url).toContain('metadata[keep]=yes');
+    expect(url).not.toContain('drop');
+    expect(url).not.toContain('gone');
+  });
+
+  it('serializes a Date as ISO-8601, not the JS locale form', async () => {
+    const fetch = mockFetch({ json: {} });
+    const client = createClient(fetch);
+    await client.get('/v1/records/search', { from: new Date(Date.UTC(2026, 0, 2, 3, 4, 5)) });
+
+    const url = decodeURIComponent(fetch.mock.calls[0][0]);
+    expect(url).toContain('from=2026-01-02T03:04:05.000Z');
+  });
+
+  it('repeats the key for an array param rather than comma-joining', async () => {
+    const fetch = mockFetch({ json: {} });
+    const client = createClient(fetch);
+    await client.get('/test', { tag: ['a', 'b'] });
+
+    const url = decodeURIComponent(fetch.mock.calls[0][0]);
+    expect(url).toContain('tag=a');
+    expect(url).toContain('tag=b');
+  });
+
   it('sends JSON body on POST', async () => {
     const fetch = mockFetch({ json: { id: '123' } });
     const client = createClient(fetch);

@@ -55,6 +55,44 @@ function stripTrailingSlashes(s: string): string {
   return s.slice(0, end);
 }
 
+/**
+ * Serialize one query parameter onto a URLSearchParams.
+ *
+ * A plain object becomes the API's bracket notation (`metadata[key]=value`),
+ * which is what `criteria` and `metadata` on GET /v1/records/search expect.
+ * Before this existed the value went through `String(value)` and arrived as the
+ * literal `[object Object]`, so every metadata-filtered search 400'd.
+ *
+ * A Date becomes an ISO-8601 string rather than the JS locale form, which the
+ * date-time query params (`from`, `to`, `updatedAfter`, …) reject.
+ */
+function appendQueryParam(search: URLSearchParams, key: string, value: unknown): void {
+  if (value instanceof Date) {
+    search.set(key, value.toISOString());
+    return;
+  }
+  if (Array.isArray(value)) {
+    // Repeat the key rather than comma-joining. No query parameter in the API
+    // is array-typed today, so this only has to be unsurprising, not clever.
+    for (const item of value) {
+      if (item === undefined || item === null) continue;
+      search.append(key, item instanceof Date ? item.toISOString() : String(item));
+    }
+    return;
+  }
+  if (typeof value === 'object') {
+    for (const [sub, subValue] of Object.entries(value as Record<string, unknown>)) {
+      if (subValue === undefined || subValue === null) continue;
+      search.set(
+        `${key}[${sub}]`,
+        subValue instanceof Date ? subValue.toISOString() : String(subValue),
+      );
+    }
+    return;
+  }
+  search.set(key, String(value));
+}
+
 export class HttpClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -406,9 +444,8 @@ export class HttpClient {
     const url = new URL(raw);
     if (params) {
       for (const [key, value] of Object.entries(params)) {
-        if (value !== undefined && value !== null) {
-          url.searchParams.set(key, String(value));
-        }
+        if (value === undefined || value === null) continue;
+        appendQueryParam(url.searchParams, key, value);
       }
     }
     return url.toString();
