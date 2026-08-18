@@ -762,7 +762,9 @@ describe('AdminResource', () => {
     await client.admin.createApiKey({
       role: 'admin',
       ownerId: 'ent-1',
-      ownerType: 'admin',
+      // An admin key is owned by an org. `ownerType: 'admin'` stood here until
+      // 1.9.0 and typechecked, because both fields were typed `ApiKeyRole`.
+      ownerType: 'org',
       scopes: ['records:read', 'records:write'],
     });
     const body = JSON.parse(fetch.mock.calls[0][1].body);
@@ -780,6 +782,67 @@ describe('AdminResource', () => {
     });
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.scopeProfile).toBe('agent-performer-only');
+  });
+
+  it('sends every api-key filter the route accepts', async () => {
+    const { client, fetch } = createPageMockClient([]);
+    await client.admin.listApiKeys({
+      ownerId: 'org-1',
+      orgId: 'org-1',
+      ownerType: 'agent',
+      role: 'agent',
+      isActive: false,
+      createdBefore: '2026-01-01T00:00:00Z',
+      limit: 50,
+      offset: 100,
+      cursor: 'b2Zmc2V0OjE1MA==',
+    });
+    const url = new URL(fetch.mock.calls[0][0]);
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      ownerId: 'org-1',
+      orgId: 'org-1',
+      ownerType: 'agent',
+      role: 'agent',
+      isActive: 'false',
+      createdBefore: '2026-01-01T00:00:00Z',
+      limit: '50',
+      offset: '100',
+      cursor: 'b2Zmc2V0OjE1MA==',
+    });
+  });
+
+  /**
+   * A cursor minted under `ownerId` carries that owner, and the API rejects a
+   * replay that drops it rather than serving the install-wide listing at the
+   * same offset. So the iterator has to resend the filters, not just the cursor.
+   */
+  it('replays ownerId alongside the cursor when auto-paginating api keys', async () => {
+    const pages = [
+      { data: [{ id: 'key-1' }], hasMore: true, nextCursor: 'b2Zmc2V0OjE=' },
+      { data: [{ id: 'key-2' }], hasMore: false, nextCursor: null },
+    ];
+    const fetch = vi.fn().mockImplementation(() => Promise.resolve({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue(pages.shift()),
+      headers: new Headers(),
+    }));
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const seen: string[] = [];
+    for await (const key of client.admin.listAllApiKeys({ ownerId: 'org-1' })) {
+      seen.push((key as { id: string }).id);
+    }
+
+    expect(seen).toEqual(['key-1', 'key-2']);
+    const second = new URL(fetch.mock.calls[1][0]);
+    expect(second.searchParams.get('ownerId')).toBe('org-1');
+    expect(second.searchParams.get('cursor')).toBe('b2Zmc2V0OjE=');
   });
 
   it('creates an org (flat response)', async () => {

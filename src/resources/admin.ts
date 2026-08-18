@@ -48,6 +48,8 @@ import type {
   NextStep,
   LimitParams,
   OffsetListParams,
+  ListApiKeysParams,
+  AutoPaginateOptions,
 } from '../types.js';
 
 /**
@@ -259,9 +261,29 @@ export class AdminResource {
     return this.http.patch<OrgConfig>(`/v1/admin/orgs/${orgId}/config`, params, options);
   }
 
-  /** List all API keys on the platform. */
-  listApiKeys(params?: LimitParams, options?: RequestOptions): Promise<Page<AdminApiKey>> {
+  /**
+   * List API keys: one owner's when `ownerId` is set, otherwise every key on
+   * the install (platform keys only).
+   *
+   * Both modes cap at `limit` (default 200) and report truncation through
+   * `hasMore`. Read it, or call {@link AdminResource.listAllApiKeys} to walk
+   * the whole listing, because a key audit that stops at the first page
+   * silently under-reports.
+   */
+  listApiKeys(params?: ListApiKeysParams, options?: RequestOptions): Promise<Page<AdminApiKey>> {
     return this.http.getPage<AdminApiKey>('/v1/admin/api-keys', params as Record<string, unknown>, options);
+  }
+
+  /**
+   * Auto-paginating iterator over API keys. Yields individual keys across all
+   * pages, replaying each `nextCursor` alongside the filters that produced it,
+   * which is what the single-owner cursor requires.
+   */
+  listAllApiKeys(
+    params?: ListApiKeysParams,
+    options?: RequestOptions & AutoPaginateOptions,
+  ): AsyncGenerator<AdminApiKey> {
+    return this.http.paginate<AdminApiKey>('/v1/admin/api-keys', params as Record<string, unknown>, options);
   }
 
   /** Create a new API key with required role, owner, and optional scopes or scope profile. */

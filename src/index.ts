@@ -25,6 +25,7 @@ export type {
   // Record Types
   RecordType,
   SchemaListItem,
+  ListSchemasParams,
   TypeSchema,
   SchemaValidationResult,
 
@@ -170,6 +171,7 @@ export type {
 
   // Auth & identity
   ApiKeyRole,
+  KeyOwnerType,
   AccountProfile,
 
   // Health & Conformance & Discovery
@@ -201,6 +203,7 @@ export type {
   SupportBundle,
   LicenseInstanceInfo,
   ListWebhooksParams,
+  ListApiKeysParams,
   AdminImportRecordsParams,
   AdminImportRecordsResult,
   BackfillRecord,
@@ -290,6 +293,7 @@ export type {
 
   // Federation — Peers
   FederationPeer,
+  ListPeersParams,
   PeeringToken,
 
   // Federation — Reputation

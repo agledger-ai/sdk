@@ -582,6 +582,14 @@ export interface SchemaManifest {
   tolerances?: Record<string, unknown>;
 }
 
+/** Parameters for listing the Type schema catalog (`GET /v1/schemas`). */
+export interface ListSchemasParams extends ListParams {
+  /** Include this org's custom types (requires auth). */
+  orgId?: string;
+  /** Include DISABLED types. Default false, meaning ACTIVE only. */
+  includeDisabled?: boolean;
+}
+
 /**
  * Row-only metadata options accepted alongside the manifest on
  * `POST /v1/schemas/import`. None of these are canonicalized into the
@@ -2466,8 +2474,8 @@ export interface QueryAdminRecordsParams extends ListParams {
 }
 
 
-export type { ApiKeyRole } from './scopes.js';
-import type { ApiKeyRole } from './scopes.js';
+export type { ApiKeyRole, KeyOwnerType } from './scopes.js';
+import type { ApiKeyRole, KeyOwnerType } from './scopes.js';
 
 export interface AccountProfile {
   apiKeyId: string;
@@ -2479,7 +2487,7 @@ export interface AccountProfile {
    * it, so reading it always yielded `undefined`.
    */
   ownerId: string;
-  ownerType: string;
+  ownerType: KeyOwnerType | (string & {});
   scopes: string[] | null;
   /** Org ID the key is scoped to, if any. */
   orgId?: string | null;
@@ -2671,12 +2679,41 @@ export interface ListWebhooksParams extends ListParams {
   url?: string;
 }
 
+/**
+ * Parameters for `GET /v1/admin/api-keys`, which serves two listings.
+ *
+ * Passing `ownerId` selects single-owner mode; omitting it lists every key on
+ * the install (platform keys only). The remaining filters apply to cross-owner
+ * mode. Both modes page, and both cap at `limit` (default 200), so a caller
+ * that reads `data` and stops on a large install is reading a partial listing:
+ * check `hasMore`, or use {@link AdminResource.listAllApiKeys}.
+ *
+ * A `cursor` minted under `ownerId` carries that owner, and replaying it
+ * without the same `ownerId` is a `400` naming the owner to put back rather
+ * than a silent slide into the install-wide listing at the same offset. Send
+ * the cursor back alongside the same filters that produced it.
+ */
+export interface ListApiKeysParams extends ListParams {
+  /** List one owner's keys. Omit for cross-owner mode (platform keys only). */
+  ownerId?: string;
+  /** Cross-owner filter: only keys whose owning org matches. */
+  orgId?: string;
+  /** Cross-owner filter. */
+  ownerType?: KeyOwnerType;
+  /** Cross-owner filter. */
+  role?: ApiKeyRole;
+  /** Cross-owner filter: true = active, false = revoked or disabled. */
+  isActive?: boolean;
+  /** Cross-owner filter: keys created strictly before this ISO-8601 timestamp. */
+  createdBefore?: string;
+}
+
 export interface AdminApiKey {
   id: string;
   /** API key role: admin, agent, or platform. */
   role?: ApiKeyRole | (string & {});
   ownerId: string;
-  ownerType: ApiKeyRole;
+  ownerType: KeyOwnerType;
   /** Whether the key is active. */
   isActive: boolean;
   /** Human-readable label. */
@@ -2704,7 +2741,8 @@ export interface CreateApiKeyParams {
   /** Role for the key: admin, agent, or platform. */
   role: ApiKeyRole;
   ownerId: string;
-  ownerType: ApiKeyRole;
+  /** Owner class. An admin key is owned by an org: `role: 'admin'` + `ownerType: 'org'`. */
+  ownerType: KeyOwnerType;
   /** Human-readable label. */
   label?: string;
   /** Explicit scopes to set on the key. */
@@ -2774,7 +2812,7 @@ export interface SetCapabilitiesParams {
 /** Snapshot of an owner's rate-limit exemption. */
 export interface RateLimitExemption {
   ownerId: string;
-  ownerType?: ApiKeyRole | (string & {});
+  ownerType?: KeyOwnerType | (string & {});
   reason?: string | null;
   createdAt?: string;
 }
@@ -3552,6 +3590,12 @@ export interface FederationPeer {
   publicKey: string;
   lastSyncAt: string | null;
   registeredAt: string;
+}
+
+/** Parameters for listing known peer servers (`GET /federation/v1/admin/peers`). */
+export interface ListPeersParams extends ListParams {
+  /** Filter by peering status. */
+  status?: FederationPeer['status'];
 }
 
 /** A single-use peering token for hub-to-hub federation setup. */
