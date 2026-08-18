@@ -9,6 +9,16 @@
 /** Role a key is bound to. Admin = org-wide governance, agent = operational. */
 export type ApiKeyRole = 'admin' | 'agent' | 'platform';
 
+/**
+ * What a key is owned BY, which is not the same set as what it can DO.
+ * An admin key is owned by an org, so `role: 'admin'` pairs with
+ * `ownerType: 'org'`; there is no `'admin'` owner and no `'org'` role.
+ * Both fields were typed `ApiKeyRole` through 1.8.0, which made the ordinary
+ * admin-key create (`ownerType: 'org'`) a compile error and let the
+ * `ownerType: 'admin'` the API rejects typecheck clean.
+ */
+export type KeyOwnerType = 'org' | 'agent' | 'platform';
+
 export const Scopes = {
   // Record lifecycle
   RECORDS_READ: 'records:read',

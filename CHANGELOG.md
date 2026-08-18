@@ -18,7 +18,9 @@ Every item here was reachable from a typed, documented method and returned `400`
 
 - **`AuditVaultExportParams.since` / `.until` are removed**, replaced by the `from` / `to` the route actually takes. The type also gains `recordId` and `agentId`, and `format` drops `'csv'`, which the route does not serve.
 
-- **Pagination params now match each route.** `ListParams` offered `limit`, `offset` and `cursor` uniformly while 14 endpoints accept only some of them. Methods now take `LimitParams`, `CursorListParams`, or `OffsetListParams` as appropriate: `agents.list`/`listAll` (cursor), `admin.listApiKeys` (limit only), `admin.getWebhookHealth`, `compliance.listRecords`, `reputation.getHistory` (offset).
+- **Pagination params now match each route.** `ListParams` offered `limit`, `offset` and `cursor` uniformly while 14 endpoints accept only some of them. Methods now take `LimitParams`, `CursorListParams`, or `OffsetListParams` as appropriate: `agents.list`/`listAll` (cursor), `admin.getWebhookHealth`, `reputation.getHistory` (offset).
+
+- **`CreateApiKeyParams.ownerType` and `AdminApiKey.ownerType` are `KeyOwnerType`, not `ApiKeyRole`.** What a key is owned by is not the set of what it can do: owners are `org | agent | platform`, roles are `admin | agent | platform`. Typing both as `ApiKeyRole` made the ordinary admin-key create a compile error, because an admin key is owned by an org and `'org'` was not in the type, while the `ownerType: 'admin'` the API rejects typechecked clean. The SDK's own test suite had the rejected value written into it. `RateLimitExemption.ownerType` moves too, and `AccountProfile.ownerType` narrows from bare `string`.
 
 Removing a parameter is a type-level break, but no working call can depend on one: each produced a `400` in every case.
 
@@ -36,6 +38,10 @@ Removing a parameter is a type-level break, but no working call can depend on on
 
 - **`recoveryHint` on bulk per-item results**, and **`AgledgerApiError.registryVersion`** for the `CONFLICTING_VERSION` 409, which names the registry slot a schema conflict is on.
 
+- **`ListApiKeysParams`, and `admin.listAllApiKeys`.** `admin.listApiKeys` took `limit` and nothing else, so the six filters the route has always accepted (`ownerId`, `orgId`, `ownerType`, `role`, `isActive`, `createdBefore`) were unreachable from the typed method, single-owner mode included. It now pages as well: the API used to slice cross-owner mode in SQL and then report `hasMore: false` with `total` set to the count it had just sliced, so an install with more than 200 keys reported exactly 200 and called itself complete. That envelope is honest as of api#1251, which means a caller reading `data` and stopping now sees the `hasMore: true` it was owed. `listAllApiKeys` walks the whole listing and resends the filters with each cursor, which the single-owner cursor requires: it carries the owner it was minted under, and replaying it without the matching `ownerId` is a 400 rather than a silent slide into the install-wide listing.
+
+- **`ListSchemasParams` and `ListPeersParams`.** `schemas.list` accepted only `orgId`, so neither the page size nor `includeDisabled` could be set; `federationAdmin.listPeers` took an unnamed inline shape a consumer could not import. Both are named types now, and both gain the `cursor` their route began declaring in api#1251, alongside `compliance.listRecords`.
+
 ### Removed
 
 - **`EuAiActReport`.** No API route produces that shape, in this release or any earlier one. The two SDKs had even invented different shapes for it (this one had `records[]` and `summary`, the Python SDK had `recordsAssessed` and `generatedAt`), which is the clearest evidence it was never real.
@@ -43,6 +49,8 @@ Removing a parameter is a type-level break, but no working call can depend on on
 ### Changed
 
 - **`npm run parity:refresh` regenerates the parity snapshots** from an OpenAPI spec (`--url` or `--spec`), and `parity:check` reports drift without writing. Both snapshots were previously hand-maintained with no generator, which meant the parity tests could not detect API drift at all: they compare the SDK against files that only change when someone edits them. Refreshing against the current spec also recovered a `publisher` query param on `GET /v1/schemas/{type}/diff` and `POST /v1/schemas/{type}/export` that the hand-built snapshot had been missing since v1.4.0.
+
+- **The parity snapshots track agledger-api main at `4d52450b`**, which is past v1.4.0 and untagged. The API reports `1.4.0` from `/health` either way, so `apiVersion` alone cannot tell the two apart; `routes.json` names the commit. Route count is unchanged at 193 and the field surface is identical across all 11 components. The only drift over those six commits is the four `cursor` params above.
 
 ## [1.8.0] - 2026-08-08
 

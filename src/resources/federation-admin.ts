@@ -3,6 +3,7 @@ import type {
   RequestOptions,
   Page,
   FederationPeer,
+  ListPeersParams,
   PeeringToken,
   FederationDlqEntry,
 } from '../types.js';
@@ -24,7 +25,7 @@ export class FederationAdminResource {
 
   /** List all peer servers known to this instance. */
   listPeers(
-    params?: { status?: string; limit?: number; offset?: number },
+    params?: ListPeersParams,
     options?: RequestOptions,
   ): Promise<Page<FederationPeer>> {
     return this.http.getPage<FederationPeer>('/federation/v1/admin/peers', params as Record<string, unknown>, options);

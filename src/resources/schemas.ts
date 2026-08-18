@@ -24,6 +24,7 @@ import type {
   SchemaRulesResult,
   SchemaLifecycleResult,
   ExportSchemaOptions,
+  ListSchemasParams,
 } from '../types.js';
 
 /**
@@ -49,7 +50,7 @@ export class SchemasResource {
    * that makes every other call on this resource ambiguous. Read `publisher`
    * off the row you want and pass it back as the `publisher` option.
    */
-  list(params?: { orgId?: string }, options?: RequestOptions): Promise<Page<SchemaListItem>> {
+  list(params?: ListSchemasParams, options?: RequestOptions): Promise<Page<SchemaListItem>> {
     return this.http.getPage<SchemaListItem>('/v1/schemas', params as Record<string, unknown>, options);
   }
 
