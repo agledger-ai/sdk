@@ -1,7 +1,7 @@
 // Client
 export { AgledgerClient, createFederationClient } from './client.js';
 
-// Types — everything exported for downstream consumers
+// Types: everything exported for downstream consumers
 export type {
   // Next Steps (HATEOAS)
   NextStep,
@@ -209,7 +209,7 @@ export type {
   BackfillRecord,
   QueryAdminRecordsParams,
 
-  // Admin — Trusted OIDC issuers & ephemeral certs
+  // Admin: Trusted OIDC issuers & ephemeral certs
   TrustedIssuer,
   TrustedIssuerAppliesTo,
   CreateTrustedIssuerParams,
@@ -222,7 +222,7 @@ export type {
   IssueEphemeralCertResult,
   RevokeEphemeralCertResult,
 
-  // Admin — Operations summary
+  // Admin: Operations summary
   OpsSummary,
 
   // A2A Protocol
@@ -230,12 +230,12 @@ export type {
   JsonRpcRequest,
   JsonRpcResponse,
 
-  // Federation — Enums
+  // Federation: Enums
   RevocationReason,
   FederationVerdict,
   FederationSettlementSignal,
 
-  // Federation — Peer Operations
+  // Federation: Peer Operations
   PeerHandshakeParams,
   PeerHandshakeResult,
   SubmitStateTransitionParams,
@@ -247,10 +247,10 @@ export type {
   SubmitDisputeProtocolParams,
   DisputeProtocolResult,
 
-  // Federation — Admin
+  // Federation: Admin
   FederationDlqEntry,
 
-  // Admin — Circuit breaker / search
+  // Admin: Circuit breaker / search
   UpdateCircuitBreakerParams,
   CircuitBreakerResult,
 
@@ -267,7 +267,7 @@ export type {
   EntityReferenceInput,
   ReferenceLookupResult,
 
-  // Admin — Vault
+  // Admin: Vault
   VaultSigningKey,
   VaultAnchor,
   VaultAnchorVerifyResult,
@@ -280,10 +280,10 @@ export type {
   VaultScanSummary,
   VaultScanList,
 
-  // Admin — Auth Cache
+  // Admin: Auth Cache
   AuthCacheStats,
 
-  // Admin — License
+  // Admin: License
   LicenseTier,
   LicenseInfo,
 
@@ -291,16 +291,16 @@ export type {
   VerificationKey,
   VerificationKeysResponse,
 
-  // Federation — Peers
+  // Federation: Peers
   FederationPeer,
   ListPeersParams,
   PeeringToken,
 
-  // Federation — Reputation
+  // Federation: Reputation
   ContributeReputationParams,
   FederationAgentReputation,
 
-  // Federation — Peer Sync
+  // Federation: Peer Sync
   AgentDirectorySyncParams,
 
   // Errors

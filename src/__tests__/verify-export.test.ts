@@ -53,7 +53,7 @@ function buildCoseSign1(
   const signature = sign(null, toBeSigned, kp.privateKey);
   // Wrap as tagged COSE_Sign1: #6.18([protected, {}, payload, signature])
   const envelopeArray = [protectedBstr, new Map(), payloadBstr, new Uint8Array(signature)];
-  // cborg encodes BigInt as a tag by default — easier to just prepend the tag byte.
+  // cborg encodes BigInt as a tag by default: easier to just prepend the tag byte.
   const inner = cborEncode(envelopeArray, rfc8949EncodeOptions);
   const tagged = new Uint8Array(inner.length + 1);
   tagged[0] = 0xd2; // major type 6, value 18
@@ -83,7 +83,7 @@ function buildEntry(
   const envelope = buildCoseSign1(kp, position, previousHash, { predicate });
   const payloadHash = sha256Hex(envelope);
   return {
-    // Current exports are chainPosition-only — no legacy `position` (F-682).
+    // Current exports are chainPosition-only: no legacy `position` (F-682).
     chainPosition: position,
     timestamp: '2026-04-17T00:00:00Z',
     createdAt: '2026-04-17T00:00:00Z',
@@ -121,7 +121,7 @@ function makeExport(kp: Keypair, keyId = 'vault-key-1', recordId = 'REC-test-001
   };
 }
 
-describe('verifyExport — COSE_Sign1 (format 2.0)', () => {
+describe('verifyExport: COSE_Sign1 (format 2.0)', () => {
   it('verifies a valid export', () => {
     const kp = makeKeypair();
     const result = verifyExport(makeExport(kp));
@@ -245,7 +245,7 @@ describe('verifyExport — COSE_Sign1 (format 2.0)', () => {
 
   it('detects denormalised-payload tampering with the envelope intact (F-731, binding)', () => {
     // The attacker rewrites the human-readable row payload but leaves coseSign1
-    // (the signed truth) untouched — the offline verifier must catch the drift
+    // (the signed truth) untouched: the offline verifier must catch the drift
     // between the decoded predicate and the row projection (verificationGuide §4).
     const kp = makeKeypair();
     const exp = makeExport(kp);
@@ -284,7 +284,7 @@ describe('verifyExport — COSE_Sign1 (format 2.0)', () => {
     const exp = makeExport(kp);
     const result = verifyExport(exp, { requireKeyId: 'a-different-key' });
     expect(result.valid).toBe(false);
-    // requireKeyId is a caller trust policy — its violation is alertable apart
+    // requireKeyId is a caller trust policy: its violation is alertable apart
     // from a benign missing key.
     expect(result.brokenAt?.code).toBe('CHAIN_KEY_POLICY_VIOLATION');
   });
@@ -302,7 +302,7 @@ describe('verifyExport — COSE_Sign1 (format 2.0)', () => {
     // Build entry 2's envelope claiming previousHash = "bb…b" inside the
     // protected header, but set the row's previousHash to entry 1's real
     // payloadHash. The hash chain links, sha256(envelope) matches the stamped
-    // payloadHash, signature verifies — but the protected-header chain claim
+    // payloadHash, signature verifies: but the protected-header chain claim
     // diverges from the row columns.
     const kp = makeKeypair();
     const exp = makeExport(kp);

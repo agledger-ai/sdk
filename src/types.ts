@@ -1,4 +1,4 @@
-/** A suggested next API call — guides agents through the lifecycle without prior state-machine knowledge. */
+/** A suggested next API call: guides agents through the lifecycle without prior state-machine knowledge. */
 export interface NextStep {
   /** What to do next. */
   action: string;
@@ -116,7 +116,7 @@ export interface ListParams extends LimitParams {
 
 /**
  * Unified page type for all list endpoints.
- * Every list method returns `Page<T>` — no exceptions.
+ * Every list method returns `Page<T>`: no exceptions.
  */
 export interface Page<T> {
   data: T[];
@@ -187,7 +187,7 @@ export interface BulkCreateResult {
 /**
  * Record Type identifier.
  *
- * The API ships NO built-in contract types — your org owns its entire type
+ * The API ships NO built-in contract types: your org owns its entire type
  * namespace and you register your own via the Schema Development Toolkit
  * (`POST /v1/schemas`). Every new org is auto-seeded with four example
  * contracts you can use as-is, edit, rename, or delete:
@@ -433,7 +433,7 @@ export interface SchemaPreviewInput {
   displayName: string;
   description?: string;
   category?: string;
-  /** Default gate mode for records of this type — see {@link RegisterSchemaParams.defaultGateMode}. */
+  /** Default gate mode for records of this type; see {@link RegisterSchemaParams.defaultGateMode}. */
   defaultGateMode?: GateMode;
   recordSchema: Record<string, unknown>;
   completionSchema?: Record<string, unknown>;
@@ -675,7 +675,7 @@ export interface SchemaLifecycleResult {
  *
  * `getVersion()` projects the row differently: it includes `recordSchema` and
  * `completionSchema` (and may include `latestVersion`) but omits `id`,
- * `orgId`, `compatibilityMode`, `createdAt` and `updatedAt` — hence those
+ * `orgId`, `compatibilityMode`, `createdAt` and `updatedAt`, so those
  * fields are optional here. Absent fields are omitted from the wire entirely,
  * not sent as null.
  */
@@ -768,7 +768,7 @@ export type RecordStatus =
  * Record transition action accepted by `POST /v1/records/{id}/transition`.
  *
  * Known values: register, propose, activate, cancel. Read `nextActions` on the
- * Record response for the exact set valid right now — display state `CREATED`
+ * Record response for the exact set valid right now: display state `CREATED`
  * covers two internal states (DRAFT, REGISTERED) which accept different actions.
  */
 export type RecordTransitionAction =
@@ -796,7 +796,7 @@ export type EuAiActRiskTier = 'unacceptable' | 'high' | 'limited' | 'minimal';
 
 /**
  * Record-column risk classification: the canonical {@link EuAiActRiskTier} set
- * plus the notary sentinel `unclassified` (nothing asserted yet — the
+ * plus the notary sentinel `unclassified` (nothing asserted yet, the
  * create-time default).
  */
 export type RiskClassification = EuAiActRiskTier | 'unclassified';
@@ -836,10 +836,10 @@ export interface SignedStatement {
   leafHash: string;
   /** leafHash of the prior entry (null only on chainPosition === 1). */
   previousHash: string | null;
-  /** ID of the vault signing key — resolves to a public key at GET /v1/verification-keys. */
+  /** ID of the vault signing key: resolves to a public key at GET /v1/verification-keys. */
   signingKeyId: string | null;
   /**
-   * Signed instant of the head Signed Statement — the CWT `iat` claim (second
+   * Signed instant of the head Signed Statement: the CWT `iat` claim (second
    * precision) sealed in the COSE_Sign1 protected header (API #877). THE
    * authoritative timestamp for time-anchored contracts (wait windows, notice
    * clocks); the Record's `createdAt` is a millisecond-precision DB clock that
@@ -854,7 +854,7 @@ export interface SignedStatement {
 
 /**
  * SCITT-style inclusion-proof completion. Present only on org-admin
- * cross-party reads — proves the read was logged.
+ * cross-party reads: proves the read was logged.
  */
 export interface RecordReadCompletion {
   /** Per-org monotonic leaf index in the org_admin_reads chain. */
@@ -866,7 +866,7 @@ export interface RecordReadCompletion {
 }
 
 /**
- * A Record — a registered commitment between a principal and a performer.
+ * A Record: a registered commitment between a principal and a performer.
  * Records what was asked, by whom, and when. The contract is the product.
  *
  * Named `RecordRow` (matching the API's openapi schema name) to avoid
@@ -905,7 +905,7 @@ export interface RecordRow {
   platformRef?: string | null;
   /** Current lifecycle status. Use `getValidTransitions()` to see allowed next states. */
   status: RecordStatus;
-  /** Acceptance criteria — what the performer must deliver. Typed per Type. */
+  /** Acceptance criteria: what the performer must deliver. Typed per Type. */
   criteria: Record<string, unknown>;
   /** Tolerance bands for numeric criteria (e.g., quantityPct: 5 allows 5% variance). */
   tolerance?: Record<string, unknown>;
@@ -993,7 +993,7 @@ export interface RecordRow {
   activatedAt?: string | null;
   /** ISO 8601 timestamp when the Record was fulfilled. */
   fulfilledAt?: string | null;
-  /** Valid next actions from current state — exact action names accepted by /transition right now. */
+  /** Valid next actions from current state: exact action names accepted by /transition right now. */
   nextActions?: string[];
   /** Valid target statuses from current state. */
   validTransitions?: string[];
@@ -1051,7 +1051,7 @@ export interface RecordRow {
   enforcementOverrides?: Record<string, unknown> | null;
   /** Arbitrary metadata attached to the Record. */
   metadata?: Record<string, unknown> | null;
-  /** Free-form taxonomy of what kind of artifact this Record represents — denormalized from the Type at create. Immutable. */
+  /** Free-form taxonomy of what kind of artifact this Record represents: denormalized from the Type at create. Immutable. */
   category?: string | null;
   /** Optional free-form outcome supplied at create. Stored on metadata.outcome and surfaced here regardless of Type. */
   outcome?: 'success' | 'failure' | 'denied' | 'partial' | (string & {}) | null;
@@ -1113,7 +1113,7 @@ export interface RecordRow {
    * `?integrity=true` ({@link GetRecordParams.integrity}). Re-verifies the full
    * audit chain AND cross-checks that the fields in this response match what the
    * chain asserts. `verified: false` means this body may not match the signed
-   * evidence — treat the audit-export as authoritative.
+   * evidence; treat the audit-export as authoritative.
    */
   integrity?: RecordIntegrity;
 }
@@ -1126,7 +1126,7 @@ export interface RecordIntegrity {
    * what the chain asserts. False ⇒ read the audit-export as the source of truth.
    */
   verified: boolean;
-  /** Strength of the chain verification — whether every entry was signed or only hash-linked. */
+  /** Strength of the chain verification: whether every entry was signed or only hash-linked. */
   integrityLevel: 'hash_chain_only' | 'hash_chain_partial_signatures' | 'hash_chain_and_signatures' | 'invalid';
   /**
    * Failure class when `verified` is false; null when verified. `record_projection_drift`
@@ -1142,7 +1142,7 @@ export interface RecordIntegrity {
 }
 
 /**
- * Settlement Signal projected onto a Record — the SETTLE/HOLD/RELEASE
+ * Settlement Signal projected onto a Record: the SETTLE/HOLD/RELEASE
  * recommendation bound to the terminal verdict, plus federation delivery state.
  * One payload class on the Notify channel; the Record holds the recommendation,
  * the principal renders the decision.
@@ -1150,7 +1150,7 @@ export interface RecordIntegrity {
 export interface SettlementSignalSummary {
   /** The settlement recommendation bound to the terminal verdict. */
   recommendation: 'SETTLE' | 'HOLD' | 'RELEASE';
-  /** Verdict the recommendation binds to — `accept` (typically SETTLE) or `reject` (HOLD), or null. */
+  /** Verdict the recommendation binds to: `accept` (typically SETTLE) or `reject` (HOLD), or null. */
   outcome: 'accept' | 'reject' | null;
   /** Optional machine-readable reason code, or null. */
   reasonCode?: string | null;
@@ -1197,7 +1197,7 @@ export interface CreateRecordParams {
   /** Performer agent ID. Omit for self-commitment on agent keys. */
   performerAgentId?: string;
   /**
-   * Org scope. Optional — admin keys typically leave this to the server
+   * Org scope. Optional: admin keys typically leave this to the server
    * to infer from the key's org context.
    */
   orgId?: string;
@@ -1271,7 +1271,7 @@ export interface CreateRecordParams {
   metadata?: Record<string, unknown>;
   /** Optional outcome (success/failure/denied/partial); stored on metadata.outcome and surfaced on the response. */
   outcome?: 'success' | 'failure' | 'denied' | 'partial' | (string & {});
-  /** Optional grouping ID — multiple Records sharing a correlationId can be queried together. */
+  /** Optional grouping ID: multiple Records sharing a correlationId can be queried together. */
   correlationId?: string;
   /** Free-form identifier of the human or upstream system that asked for the work. */
   requestedBy?: string;
@@ -1317,7 +1317,7 @@ export interface ListRecordsParams extends ListParams {
   /**
    * Agent-recovery query (API #731): return every Record whose next action awaits
    * the caller's structural side, across all statuses (open proposals, ACTIVE work,
-   * revision requests, counter-proposals/verdicts). Agent keys only — admin/platform
+   * revision requests, counter-proposals/verdicts). Agent keys only: admin/platform
    * keys 400 (use the per-row `awaitingActor` field instead).
    */
   actionable?: boolean;
@@ -1432,7 +1432,7 @@ export interface BulkCreateRecordItem extends CreateRecordParams {
 export type StructuralValidation = 'ACCEPTED' | 'INVALID' | 'WARNING' | (string & {});
 
 /**
- * A completion — structured evidence submitted by a performer claiming completion of a Record.
+ * A completion: structured evidence submitted by a performer claiming completion of a Record.
  * The principal reviews the completion and renders a verdict (accept/reject).
  */
 export interface Completion {
@@ -1526,7 +1526,7 @@ export interface GateStatus {
 export interface SubmitVerdictParams {
   completionId: string;
   /**
-   * The principal verdict — accept settles to FULFILLED, reject to FAILED.
+   * The principal verdict: accept settles to FULFILLED, reject to FAILED.
    * Uses the exported `Verdict` union (open for forward compatibility) so
    * code generic over `Verdict`-typed variables composes here without an
    * extra narrowing step. New verdict literals may appear in future API
@@ -1537,19 +1537,19 @@ export interface SubmitVerdictParams {
   checks?: Record<string, unknown>;
   /** Optional free-text notes explaining the verdict (recorded in the audit trail). */
   notes?: string;
-  /** Reason for the verdict (alias for notes — either is accepted, notes takes precedence). */
+  /** Reason for the verdict (alias for notes; either is accepted, notes takes precedence). */
   reason?: string;
 }
 
 export interface VerdictResult {
   recordId: string;
   completionId: string;
-  /** The principal verdict — same open `Verdict` union as the write side. */
+  /** The principal verdict: same open `Verdict` union as the write side. */
   verdict: Verdict;
   /** Settlement recommendation to downstream financial systems. */
   recommendation: SettlementSignal;
   /**
-   * Record status after the verdict settled — FULFILLED (accept) or FAILED
+   * Record status after the verdict settled: FULFILLED (accept) or FAILED
    * (reject), same vocabulary as the Record GET (API #876). Surfaced inline so
    * the caller learns where the Record landed without a follow-up fetch.
    */
@@ -1627,7 +1627,7 @@ export interface DisputeEvidence {
   createdAt: string;
 }
 
-/** Response envelope from GET /dispute — includes both dispute and evidence. */
+/** Response envelope from GET /dispute: includes both dispute and evidence. */
 export interface DisputeResponse {
   dispute: Dispute;
   evidence: DisputeEvidence[];
@@ -1647,7 +1647,7 @@ export interface ListDisputesParams extends ListParams {
 
 /** Known webhook event types matching the AGLedger API (39 types). Accepts any string for forward compatibility. */
 export type WebhookEventType =
-  // Wildcard — subscribe to every event type
+  // Wildcard: subscribe to every event type
   | '*'
   // Record lifecycle
   | 'record.created'
@@ -1723,7 +1723,7 @@ export interface Webhook {
   id: string;
   url: string;
   eventTypes: WebhookEventType[] | null;
-  /** Record-type filter for record-scoped events — see {@link CreateWebhookParams.recordTypes}. */
+  /** Record-type filter for record-scoped events; see {@link CreateWebhookParams.recordTypes}. */
   recordTypes?: string[];
   isActive: boolean;
   /** Whether deliveries are paused. */
@@ -1732,7 +1732,7 @@ export interface Webhook {
   /**
    * Delivery signing scheme. `hmac` (shared secret, default) or `ed25519`
    * (RFC 9421 HTTP Message Signatures signed with the Server vault key,
-   * verifiable against /v1/verification-keys — non-repudiation, no shared
+   * verifiable against /v1/verification-keys: non-repudiation, no shared
    * secret). Verify ed25519 deliveries with `verifyRfc9421` from
    * `@agledger/sdk/webhooks`.
    *
@@ -1784,7 +1784,7 @@ export interface CreateWebhookParams {
 
 /**
  * Mutable fields on an existing webhook subscription. The signing scheme and
- * payload format are fixed at create time — the API rejects any other field
+ * payload format are fixed at create time; the API rejects any other field
  * (`additionalProperties: false`).
  */
 export interface UpdateWebhookParams {
@@ -1792,7 +1792,7 @@ export interface UpdateWebhookParams {
   eventTypes?: WebhookEventType[];
   /** Pause (true) or resume (false) deliveries; the subscription stays active. */
   isPaused?: boolean;
-  /** Replace the record-type filter — see {@link CreateWebhookParams.recordTypes}. */
+  /** Replace the record-type filter; see {@link CreateWebhookParams.recordTypes}. */
   recordTypes?: string[];
 }
 
@@ -1804,9 +1804,9 @@ export interface WebhookDelivery {
   attemptNumber: number;
   responseStatus: number | null;
   responseBody: string | null;
-  /** Signature sent with the delivery — the `X-AGLedger-Signature` value for hmac subs, or the RFC 9421 `Signature` header value for ed25519 subs. */
+  /** Signature sent with the delivery: the `X-AGLedger-Signature` value for hmac subs, or the RFC 9421 `Signature` header value for ed25519 subs. */
   signature: string | null;
-  /** Raw JSON body sent — the exact bytes covered by the signature (HMAC input for hmac, Content-Digest for ed25519). */
+  /** Raw JSON body sent: the exact bytes covered by the signature (HMAC input for hmac, Content-Digest for ed25519). */
   requestBody: string | null;
   nextRetryAt: string | null;
   createdAt: string;
@@ -1833,7 +1833,7 @@ export interface ReputationScore {
   accuracyScore: number | null;
   efficiencyScore: number | null;
   compositeScore: number | null;
-  /** Statistical confidence (0-1) — a number, not a label. Null until the agent has history. */
+  /** Statistical confidence (0-1): a number, not a label. Null until the agent has history. */
   confidenceLevel: number | null;
   /** Scoring formula version (an integer, for reproducibility). */
   formulaVersion: number;
@@ -1965,7 +1965,7 @@ export interface ExportComplianceParams {
 export interface AiImpactAssessment {
   id: string;
   recordId: string;
-  /** The formally-assessed tier — always one of the four tiers (never `unclassified`). */
+  /** The formally-assessed tier; always one of the four tiers (never `unclassified`). */
   riskLevel: EuAiActRiskTier;
   domain: EuAiActDomain;
   overseerName?: string;
@@ -2028,9 +2028,9 @@ export interface AuditExportEntry {
   /** API-key id of the credential that performed this state-change. */
   actorId?: string | null;
   actorRole?: 'admin' | 'agent' | 'platform' | null;
-  /** F-705: owner id of the API key — org id (admin), agent id (agent), or platform sentinel. */
+  /** F-705: owner id of the API key, one of org id (admin), agent id (agent), or platform sentinel. */
   actorOwnerId?: string;
-  /** F-705: human-readable label for the actor owner. Display PROJECTION — NOT signature-covered. */
+  /** F-705: human-readable label for the actor owner. Display PROJECTION, NOT signature-covered. */
   actorDisplayName?: string | null;
   /** F-705: owner table discriminator; pairs with `actorOwnerId`. */
   actorOwnerType?: 'agent' | 'org' | 'platform' | null;
@@ -2053,7 +2053,7 @@ export interface AuditExportEntry {
   entryType: string;
   /**
    * F-711: auditor-readable label for `entryType` (e.g. RECORD_STATE_CHANGE →
-   * "Record state transitioned"). Display PROJECTION — NOT signature-covered;
+   * "Record state transitioned"). Display PROJECTION, NOT signature-covered;
    * the canonical machine-readable name stays in `entryType`. Replaced the
    * pre-launch `description` placeholder (engine v0.26.x+).
    */
@@ -2064,7 +2064,7 @@ export interface AuditExportEntry {
   /**
    * Completion evidence body, present only when the export was fetched with
    * `?evidence=true` AND this is a COMPLETION_SUBMITTED entry (API #870).
-   * UNSIGNED projection — the chain binds it by hash only: recompute SHA-256
+   * UNSIGNED projection, bound to the chain by hash only: recompute SHA-256
    * over the RFC 8785 (JCS) canonicalization of this object and compare against
    * `payload.evidenceHash`. Encrypted-mode records inline the stored ciphertext
    * envelope; their `evidenceHash` is client-supplied over the cleartext.
@@ -2097,7 +2097,7 @@ export interface AuditExportEntry {
 /**
  * Per-entry signature coverage discriminator surfaced on the export envelope.
  * A green `chainIntegrity: true` does NOT imply every entry was cryptographically
- * signed — read this to tell hash-chain-only from hash-chain-and-signatures apart.
+ * signed; read this to tell hash-chain-only from hash-chain-and-signatures apart.
  */
 export interface AuditSignatureCoverage {
   /** Entries written by an engine with VAULT_SIGNING_KEY. */
@@ -2189,12 +2189,12 @@ export interface RecordAuditExport {
    * `hash_chain_partial_signatures` = chain valid + subset signed (rotation or
    * mixed booting). `hash_chain_and_signatures` = chain valid AND every entry
    * signed. `invalid` = chainIntegrity is false. Auditors should NOT conclude
-   * "Ed25519-verified" from chainIntegrity alone — read this.
+   * "Ed25519-verified" from chainIntegrity alone; read this.
    */
   integrityLevel?: 'hash_chain_only' | 'hash_chain_partial_signatures' | 'hash_chain_and_signatures' | 'invalid';
   /** `2.0` since the COSE_Sign1 cutover (#482). */
   exportFormatVersion?: string;
-  /** `RFC8949-CDE` since 2.0 — deterministic CBOR per RFC 8949 §4.2.1. */
+  /** `RFC8949-CDE` since 2.0: deterministic CBOR per RFC 8949 §4.2.1. */
   canonicalization?: string;
   signingPublicKey?: string | null;
   signingPublicKeys?: Record<string, string>;
@@ -2215,7 +2215,7 @@ export interface RecordAuditExport {
     integrityLevel?: 'hash_chain_only' | 'hash_chain_partial_signatures' | 'hash_chain_and_signatures' | 'invalid';
     /** `2.0` since the COSE_Sign1 cutover (#482). */
     exportFormatVersion: string;
-    /** `RFC8949-CDE` since 2.0 — deterministic CBOR per RFC 8949 §4.2.1. */
+    /** `RFC8949-CDE` since 2.0: deterministic CBOR per RFC 8949 §4.2.1. */
     canonicalization: string;
     /** Active signing key at export time (SPKI DER base64). */
     signingPublicKey: string | null;
@@ -2230,7 +2230,7 @@ export interface RecordAuditExport {
      * verifier's temporal key-validity check (`@agledger/sdk/verify`): an entry
      * written before its signing key's activation fails `CHAIN_KEY_NOT_YET_ACTIVE`,
      * and one written after retirement fails `CHAIN_KEY_EXPIRED`.
-     * Additive since engine v0.26.x — older exports omit it and that check
+     * Additive since engine v0.26.x; older exports omit it and that check
      * stays `skipped_no_input`.
      */
     signingKeyWindows?: Record<string, { activatedAt: string; retiredAt: string | null }>;
@@ -2290,7 +2290,7 @@ export interface VaultCheckpointPage extends Page<VaultCheckpoint> {
 
 
 export interface AuditStreamParams {
-  /** ISO timestamp — only events after this point (required). */
+  /** ISO timestamp: only events after this point (required). */
   since: string;
   /** Max events to return per page (default: 100, max: 1000). */
   limit?: number;
@@ -2353,7 +2353,7 @@ export interface OrgReadsInclusionProof {
 /**
  * SCITT Transparency Service configuration document
  * (`GET /.well-known/scitt-configuration`, unauthenticated). Mirrors the
- * SCRAPI discovery shape — endpoints and supported algorithms/policies.
+ * SCRAPI discovery shape: endpoints and supported algorithms/policies.
  */
 export interface ScittConfiguration {
   issuer?: string;
@@ -2503,9 +2503,9 @@ export interface AccountProfile {
    * Mode 1); `api_key` = long-lived `agl_` key.
    */
   authType?: 'api_key' | 'ephemeral_cert' | 'oidc';
-  /** Present (non-null) only for `ephemeral_cert` sessions — the bound short-lived signing cert. */
+  /** Present (non-null) only for `ephemeral_cert` sessions: the bound short-lived signing cert. */
   cert?: { id: string; thumbprint: string; expiresAt: string } | null;
-  /** Present (non-null) for OIDC-bound sessions — the upstream IdP identity that minted the credential. */
+  /** Present (non-null) for OIDC-bound sessions: the upstream IdP identity that minted the credential. */
   oidc?: { iss: string; sub: string } | null;
 }
 
@@ -2534,7 +2534,7 @@ export interface StatusResponse {
 
 export interface ConformanceResponse {
   /**
-   * Feature capability flags — which features are wired on this install.
+   * Feature capability flags: which features are wired on this install.
    * The set grows as the engine gains capabilities; read flags defensively
    * via the open-ended index signature rather than assuming a fixed shape.
    */
@@ -2747,7 +2747,7 @@ export interface CreateApiKeyParams {
   label?: string;
   /** Explicit scopes to set on the key. */
   scopes?: string[];
-  /** Convenience profile name — expands to a predefined scope array. Takes precedence over `scopes`. */
+  /** Convenience profile name: expands to a predefined scope array. Takes precedence over `scopes`. */
   scopeProfile?: string;
   /** Optional expiration date (ISO 8601). */
   expiresAt?: string;
@@ -2760,7 +2760,7 @@ export interface CreateApiKeyParams {
 /**
  * Parameters for PATCH /v1/admin/api-keys/{keyId}. Only status and scopes are
  * mutable; `label`, `expiresAt`, and `allowedIps` are settable only at create
- * time (the API rejects them here — `additionalProperties: false`).
+ * time (the API rejects them here: `additionalProperties: false`).
  */
 export interface UpdateApiKeyParams {
   isActive?: boolean;
@@ -2772,7 +2772,7 @@ export interface UpdateApiKeyParams {
 
 /** Result of creating an API key via the admin endpoint. */
 export interface CreateApiKeyResult {
-  /** The raw key string — show once, then discard. Prefix matches role (agl_adm_, agl_agt_, agl_plt_). */
+  /** The raw key string: show once, then discard. Prefix matches role (agl_adm_, agl_agt_, agl_plt_). */
   apiKey: string;
   keyId: string;
   scopes: string[] | null;
@@ -2931,7 +2931,7 @@ export interface ApiErrorResponse {
   message?: string;
   /** Unique request identifier for support correlation. */
   requestId?: string;
-  /** Stable code alias — some endpoints set `code`, others set `error`; SDK normalizes. */
+  /** Stable code alias: some endpoints set `code`, others set `error`; SDK normalizes. */
   code?: string;
   /** Whether the client should retry this request. */
   retryable?: boolean;
@@ -3490,7 +3490,7 @@ export interface VaultScanSummary {
   result?: VaultScanResult | null;
 }
 
-/** Response of `GET /v1/admin/vault/scan` — current and recent scan jobs. */
+/** Response of `GET /v1/admin/vault/scan`: current and recent scan jobs. */
 export interface VaultScanList {
   active: VaultScanSummary | null;
   lastCompleted: VaultScanSummary | null;
@@ -3561,7 +3561,7 @@ export interface VerificationKeysResponse {
   data: VerificationKey[];
   canonicalization: string;
   /**
-   * Hash basis advertised by the engine. Optional — not every server build
+   * Hash basis advertised by the engine. Optional: not every server build
    * emits it; absent means the implicit COSE/Ed25519 default (`SHA-256`).
    * Track-with-Python parity fix for F-706.
    */
@@ -3732,7 +3732,7 @@ export interface EphemeralCert {
   revokedAt: string | null;
 }
 
-/** Parameters for `POST /v1/auth/oidc/cert` — exchange an OIDC token for a cert. */
+/** Parameters for `POST /v1/auth/oidc/cert`: exchange an OIDC token for a cert. */
 /** Options for {@link AuthResource.rotateKey}. */
 export interface RotateKeyParams {
   /**
@@ -3752,7 +3752,7 @@ export interface IssueEphemeralCertParams {
   agentId?: string;
 }
 
-/** Result of issuing an ephemeral cert — the cert plus its detached JWS. */
+/** Result of issuing an ephemeral cert: the cert plus its detached JWS. */
 export interface IssueEphemeralCertResult {
   cert: EphemeralCert;
   /** The cert as a detached JWS, for offline verification. */

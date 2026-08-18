@@ -184,7 +184,7 @@ export class SchemasResource {
 
   /**
    * Import a third-party schema manifest (DESIGN-SCHEMA-CATALOG.md §4).
-   * Idempotent on full-tuple match (publisher, type, version, org, digest) —
+   * Idempotent on full-tuple match (publisher, type, version, org, digest):
    * re-posting the same manifest returns the existing row (HTTP 200 instead
    * of 201). Posting the same publisher/type/version with different bytes is
    * a 409. Requires the `schemas:admin` scope.

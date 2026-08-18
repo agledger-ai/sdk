@@ -1,7 +1,7 @@
 /**
  * Offline verification of an AGLedger record audit export.
  *
- * Thin adapter over `@agledger/verify-core` — the single shared verification
+ * Thin adapter over `@agledger/verify-core`: the single shared verification
  * core (COSE_Sign1 / RFC 9052 hash-chain walk + Ed25519) that the CLI, MCP
  * server, and `@agledger/verify` also build on. This module maps the SDK's
  * `RecordAuditExport` response type onto the core's structural input and
@@ -31,10 +31,10 @@ export type {
  * (`options.publicKeys`, from `GET /v1/verification-keys` or
  * `/.well-known/scitt-keys`) rather than trusting the export's embedded keys.
  * `result.keyProvenance` reports how many signatures were checked against
- * out-of-band vs export-embedded keys — `outOfBand > 0` is the only state that
+ * out-of-band vs export-embedded keys: `outOfBand > 0` is the only state that
  * proves the chain was checked against keys you trust.
  *
- * `options.publicKeys` accepts either form — pass the `.data` array from
+ * `options.publicKeys` accepts either form: pass the `.data` array from
  * `client.verificationKeys.list()` directly, or a compact `Record<keyId, b64SPKI>`
  * map. The wrong shape throws `TypeError` rather than silently falling back to
  * embedded keys.
@@ -51,7 +51,7 @@ export type {
  *   console.error(`Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.code}`);
  * }
  * if (result.keyProvenance.outOfBand === 0) {
- *   throw new Error('verdict trusts only export-embedded keys — not an independent audit');
+ *   throw new Error('verdict trusts only export-embedded keys: not an independent audit');
  * }
  * ```
  */

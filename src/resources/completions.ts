@@ -13,7 +13,7 @@ export class CompletionsResource {
 
   /**
    * Submit a completion. `evidence` is validated server-side against the
-   * completion JSON Schema you registered for the Record's Type — the SDK does
+   * completion JSON Schema you registered for the Record's Type; the SDK does
    * not impose a per-type evidence shape.
    *
    * @example

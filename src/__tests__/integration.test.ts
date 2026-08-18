@@ -176,7 +176,7 @@ describe('SDK integration: response shape validation', async () => {
 
     try {
       await agentClient.records.cancel(record.id, 'integration test cleanup');
-    } catch { /* OK — record may be in non-cancellable state */ }
+    } catch { /* OK: record may be in non-cancellable state */ }
     createdRecordId = undefined;
   });
 

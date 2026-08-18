@@ -3,7 +3,7 @@
  *
  * The field-level analogue of parity.test.ts. routes.json pins the route
  * surface; schema-fields.json pins the per-model FIELD surface. Together they
- * catch the two ways the API drifts from the SDK — endpoints AND field shapes.
+ * catch the two ways the API drifts from the SDK: endpoints AND field shapes.
  *
  * This guard exists because route-only parity silently missed a full minor's
  * worth of field renames/additions (0.26.x: vaultCompletion→signedStatement,
@@ -13,7 +13,7 @@
  *
  * schema-fields.json is regenerated MANUALLY from the production OpenAPI spec
  * (`GET /openapi.json`) on an API version bump, then committed. There is no
- * automated regeneration workflow or generator script in this repo — refresh
+ * automated regeneration workflow or generator script in this repo: refresh
  * the snapshot by hand when the API's model field shapes change, and re-run
  * this test to confirm parity.
  */

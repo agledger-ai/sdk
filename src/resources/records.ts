@@ -27,7 +27,7 @@ export class RecordsResource {
 
   /**
    * Create a Record. `criteria` is validated server-side against the JSON
-   * Schema you registered for `type` (`POST /v1/schemas`) — the SDK does not
+   * Schema you registered for `type` (`POST /v1/schemas`); the SDK does not
    * impose a per-type criteria shape.
    *
    * Admin keys pass `principalAgentId`; agent keys default it to the
@@ -159,7 +159,7 @@ export class RecordsResource {
    * into the canonical payload; the hash chain covers it.
    *
    * Pass `{ evidence: true }` to inline the completion evidence body at each
-   * COMPLETION_SUBMITTED entry's `evidence` field (API #870) — an UNSIGNED
+   * COMPLETION_SUBMITTED entry's `evidence` field (API #870): an UNSIGNED
    * projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON
    * only. `{ receipts: true }` adds a SCITT Receipt per entry when the engine
    * has a `VAULT_SIGNING_KEY`.
@@ -175,7 +175,7 @@ export class RecordsResource {
   /**
    * Fetch the canonical COSE_Sign1 envelope stream for a Record's chain.
    *
-   * Returns the chain as `application/cose-sequence` — a concatenation of
+   * Returns the chain as `application/cose-sequence`: a concatenation of
    * tagged COSE_Sign1 messages (each begins with `0xd2 0x84 …`). Pair with
    * `@agledger/sdk/verify` for cryptographic verification.
    */
@@ -187,7 +187,7 @@ export class RecordsResource {
   }
 
   /**
-   * Fetch the sigstore-bundle v0.3.2 projection of a Record's chain — one
+   * Fetch the sigstore-bundle v0.3.2 projection of a Record's chain: one
    * bundle per chain entry. For Rekor / in-toto / sigstore-policy-controller
    * ingest. NOT cryptographically verifiable end-to-end (the inner DSSE
    * signature is byte-incompatible with the canonical COSE_Sign1 signature);
@@ -214,7 +214,7 @@ export class RecordsResource {
     return this.http.post<RecordRow>(`/v1/records/${id}/revision`, reason ? { reason } : {}, options);
   }
 
-  /** Create a Record and immediately activate it. Three API calls (create → register → activate) — if a step fails, the Record ID is in the error. */
+  /** Create a Record and immediately activate it. Three API calls (create → register → activate): if a step fails, the Record ID is in the error. */
   async createAndActivate(params: CreateRecordParams, options?: RequestOptions): Promise<RecordRow> {
     const record = await this.create(params, options);
     await this.transition(record.id, 'register', undefined, options);
@@ -232,7 +232,7 @@ export class RecordsResource {
   }
 
   /**
-   * Verdict statistics for the authenticated agent — per (principal, performer)
+   * Verdict statistics for the authenticated agent: per (principal, performer)
    * pair counters of accept / reject / cancel-after-completion, decomposed into
    * `asPrincipal` and `asPerformer`. Agent role only; admin/platform get 403
    * with a hint.

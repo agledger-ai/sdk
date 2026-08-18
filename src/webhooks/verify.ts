@@ -23,7 +23,7 @@ const MAX_TOLERANCE_SECONDS = 300;
 export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
   /** Event type (e.g., 'record.created', 'record.completion_submitted'). */
   type: T;
-  /** Event payload — the resource that triggered the event. */
+  /** Event payload: the resource that triggered the event. */
   data: T extends `record.completion_${string}` ? Completion
     : T extends `record.${string}` ? RecordRow
     : T extends `dispute.${string}` ? Dispute
@@ -195,7 +195,7 @@ export function verifySignature(
 //
 // Covered components are exactly `content-digest` (RFC 9530 body integrity) and
 // `x-agledger-idempotency-key` (the stable dedup identity). Derived components
-// (@method/@target-uri/@authority) are deliberately excluded — proxies rewrite
+// (@method/@target-uri/@authority) are deliberately excluded; proxies rewrite
 // them, which would break verification of authentic deliveries.
 
 /** The covered components a signed delivery signs, lowercased per RFC 9421. */
@@ -371,7 +371,7 @@ export async function verifyRfc9421(
   try {
     const h = normalizeHeaders(headers);
 
-    // RFC 9530 body integrity — the http-message-signatures library does not
+    // RFC 9530 body integrity: the http-message-signatures library does not
     // check Content-Digest, so the body↔digest binding is enforced here.
     if (!h['content-digest'] || h['content-digest'] !== computeContentDigest(rawBody)) return false;
 

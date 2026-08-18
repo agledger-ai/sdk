@@ -17,7 +17,7 @@ export class AgentsResource {
 
   /**
    * List agents in the caller's org (peer directory).
-   * Returns the lightweight directory shape — for full agent identity use
+   * Returns the lightweight directory shape: for full agent identity use
    * {@link AgentsResource.get}.
    */
   list(params?: CursorListParams, options?: RequestOptions): Promise<Page<AgentDirectoryEntry>> {
@@ -54,7 +54,7 @@ export class AgentsResource {
 
   /**
    * List federated agents synced into the local directory from peers. This is
-   * an audited read — the response carries a `recordRead` checkpoint reference
+   * an audited read: the response carries a `recordRead` checkpoint reference
    * alongside the agent page.
    */
   listPeers(params?: ListPeerAgentsParams, options?: RequestOptions): Promise<PeerAgentsResponse> {

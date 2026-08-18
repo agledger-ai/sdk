@@ -63,7 +63,7 @@ export class AgledgerClient {
    * Forwards `method` + `path` + `body` to the API exactly as given.
    *
    * Use this to reach new or unmodeled endpoints without waiting for a
-   * typed method. The return type is unknown — callers narrow it themselves.
+   * typed method. The return type is unknown; callers narrow it themselves.
    *
    * @example
    * ```ts

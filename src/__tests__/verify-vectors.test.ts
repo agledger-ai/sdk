@@ -10,7 +10,7 @@ import type { RecordAuditExport } from '../types.js';
  * SDK-side conformance replay: drive the shared EXPORT-kind corpus
  * (testdata/conformance/manifest-export.json) through the SDK's public
  * `verifyExport` entrypoint. This proves the SDK adapter forwards options and
- * surfaces the canonical FailureCode taxonomy unchanged from verify-core — if
+ * surfaces the canonical FailureCode taxonomy unchanged from verify-core: if
  * the SDK ever re-wraps the result and drops `brokenAt.code`, these vectors
  * fail loudly. The verify-core package runs the same corpus directly; this is
  * the through-the-SDK mirror.
@@ -41,7 +41,7 @@ function loadJson<T>(relPath: string): T {
 const manifest = loadJson<Manifest>('manifest-export.json');
 const exportVectors = manifest.vectors.filter((v) => v.kind === 'export');
 
-describe('verifyExport — shared conformance corpus', () => {
+describe('verifyExport: shared conformance corpus', () => {
   it('corpus is present', () => {
     expect(exportVectors.length).toBeGreaterThan(0);
   });

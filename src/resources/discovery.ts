@@ -8,7 +8,7 @@ import type {
 } from '../types.js';
 
 /**
- * Discovery resource — unauthenticated (or lightly authenticated) public
+ * Discovery resource: unauthenticated (or lightly authenticated) public
  * metadata endpoints. Useful for agent onboarding and capability probing.
  */
 export class DiscoveryResource {

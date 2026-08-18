@@ -13,7 +13,7 @@ import type { RequestOptions, ScittConfiguration, ScittCheckpoint } from '../typ
  *
  * Wire types are `application/cose` for entries and `application/cose-key-set`
  * for keys. 4xx / 5xx return `application/concise-problem-details+cbor`
- * (RFC 9290) — NOT JSON. The error body is captured on
+ * (RFC 9290): NOT JSON. The error body is captured on
  * `AgledgerApiError.rawBody` for the caller to decode.
  */
 export class ScittResource {
@@ -27,7 +27,7 @@ export class ScittResource {
 
   /**
    * Fetch the SCRAPI discovery document (`/.well-known/scitt-configuration`,
-   * unauthenticated) — registration/resolution/checkpoint endpoints plus
+   * unauthenticated): registration/resolution/checkpoint endpoints plus
    * supported signature algorithms and registration policies. Returns JSON.
    */
   getConfiguration(options?: RequestOptions): Promise<ScittConfiguration> {
@@ -82,7 +82,7 @@ export class ScittKeysResource {
   /**
    * Fetch the Transparency Service's COSE_KeySet (unauthenticated).
    *
-   * Returned as CBOR bytes — an array of COSE_Key maps. Each carries `kid`
+   * Returned as CBOR bytes: an array of COSE_Key maps. Each carries `kid`
    * (label 2), `kty` (label 1), and `crv`/`x` for EdDSA (Ed25519). Use the
    * resolved key to verify Receipts offline.
    */
