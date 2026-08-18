@@ -2,7 +2,7 @@ import { describe, it, expectTypeOf } from 'vitest';
 import type { Verdict, SubmitVerdictParams, VerdictResult, RecordResponse } from '../types.js';
 
 /**
- * F-702 regression: the exported `Verdict` union is open
+ * Regression: the exported `Verdict` union is open
  * (`'accept' | 'reject' | (string & {})`) for forward compatibility, and
  * `SubmitVerdictParams.verdict` / `VerdictResult.verdict` / `RecordResponse.verdict`
  * all use that same `Verdict` so generic verdict-routing code composes without
@@ -10,7 +10,7 @@ import type { Verdict, SubmitVerdictParams, VerdictResult, RecordResponse } from
  *
  * Type-only checks. No runtime behavior.
  */
-describe('F-702: Verdict union write/read symmetry', () => {
+describe('Verdict union write/read symmetry', () => {
   it('Verdict accepts both known literals and any string (forward compat)', () => {
     expectTypeOf<'accept'>().toMatchTypeOf<Verdict>();
     expectTypeOf<'reject'>().toMatchTypeOf<Verdict>();

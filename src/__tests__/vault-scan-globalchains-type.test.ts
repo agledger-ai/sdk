@@ -6,7 +6,7 @@ import type {
 } from '../types.js';
 
 /**
- * API v1.3.3 (#949/#952): a full vault scan now folds the record-less chains
+ * API v1.3.3: a full vault scan now folds the record-less chains
  * (the platform-ops `admin` chain and each org's `schema` chain) into
  * `result.globalChains`, and `healthy` accounts for a break there. The field is
  * optional because a `recordIds`-scoped scan (and the list-view summaries) omit it.

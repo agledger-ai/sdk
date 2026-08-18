@@ -50,7 +50,7 @@ export class AgledgerClient {
   readonly audit: AuditResource;
   /** SCITT Transparency Service surface (draft-ietf-scitt-scrapi-09). */
   readonly scitt: ScittResource;
-  /** Predicate schema discovery for chain-payload validation (#482 task #4). */
+  /** Predicate schema discovery for chain-payload validation. */
   readonly predicates: PredicatesResource;
 
   /** Rate limit info from the most recent API response. Null if headers not present. */

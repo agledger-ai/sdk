@@ -324,7 +324,7 @@ export class SignatureVerificationError extends Error {
  * checked this and it failed" call for opposite responses: the first is your
  * server's configuration, the second is a rejected delivery. Returning false
  * for both made a FIPS-locked receiver 401 every legitimate ed25519 delivery
- * as though it were forged, with nothing anywhere saying why (agents#113).
+ * as though it were forged, with nothing anywhere saying why.
  *
  * The usual cause is an active OpenSSL FIPS provider, which carries no EdDSA.
  * Either terminate the ed25519 webhook signature somewhere unrestricted, or

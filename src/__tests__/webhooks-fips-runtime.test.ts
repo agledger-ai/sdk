@@ -2,8 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createHash, generateKeyPairSync, sign as edSign } from 'node:crypto';
 
 /**
- * A FIPS-locked receiver must not reject legitimate deliveries as forged
- * (agents#113).
+ * A FIPS-locked receiver must not reject legitimate deliveries as forged.
  *
  * The FIPS provider carries no EdDSA, so verifying an ed25519 webhook throws
  * inside `verifyRfc9421`. That throw was caught and returned as `false`, which

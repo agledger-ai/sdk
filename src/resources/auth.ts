@@ -23,7 +23,7 @@ export class AuthResource {
 
   /**
    * Rotate the current API key. The old key is revoked immediately unless
-   * `{ gracePeriodSeconds }` is passed (API #793), which keeps it valid for an
+   * `{ gracePeriodSeconds }` is passed, which keeps it valid for an
    * overlap window so in-flight callers can swap without a hard cutover.
    */
   rotateKey(

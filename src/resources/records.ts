@@ -88,7 +88,7 @@ export class RecordsResource {
   /**
    * Accept a PROPOSED Record (as performer). The optional `message` explains
    * the acceptance (max 2000 chars; the API also accepts `reason`/`notes` as
-   * wire-level aliases of the same field, #780).
+   * wire-level aliases of the same field).
    */
   accept(id: string, message?: string, options?: RequestOptions): Promise<RecordRow> {
     return this.http.post<RecordRow>(`/v1/records/${id}/accept`, message ? { message } : {}, options);
@@ -96,7 +96,7 @@ export class RecordsResource {
 
   /**
    * Reject a PROPOSED Record (as performer). The optional `message` explains
-   * the rejection (max 2000 chars; `reason`/`notes` are wire-level aliases, #780).
+   * the rejection (max 2000 chars; `reason`/`notes` are wire-level aliases).
    */
   reject(id: string, message?: string, options?: RequestOptions): Promise<RecordRow> {
     return this.http.post<RecordRow>(`/v1/records/${id}/reject`, message ? { message } : {}, options);
@@ -159,7 +159,7 @@ export class RecordsResource {
    * into the canonical payload; the hash chain covers it.
    *
    * Pass `{ evidence: true }` to inline the completion evidence body at each
-   * COMPLETION_SUBMITTED entry's `evidence` field (API #870): an UNSIGNED
+   * COMPLETION_SUBMITTED entry's `evidence` field: an UNSIGNED
    * projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON
    * only. `{ receipts: true }` adds a SCITT Receipt per entry when the engine
    * has a `VAULT_SIGNING_KEY`.

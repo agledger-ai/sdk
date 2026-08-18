@@ -28,7 +28,7 @@ function mockFetch(response: {
   });
 }
 
-/** Stands in for a self-hosted instance. baseUrl is required (agents#109), so
+/** Stands in for a self-hosted instance. baseUrl is required, so
  *  every client the suite builds has to name one. */
 const TEST_BASE_URL = 'https://agledger.test';
 
@@ -593,7 +593,7 @@ describe('HttpClient', () => {
 });
 
 // ---------------------------------------------------------------------------
-// agents#109: no placeholder host, and legible connection failures
+// no placeholder host, and legible connection failures
 // ---------------------------------------------------------------------------
 describe('baseUrl is required', () => {
   it('throws ConfigurationError when baseUrl is absent', () => {
