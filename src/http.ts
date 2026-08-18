@@ -566,7 +566,7 @@ export class HttpClient {
     // Forward the full body so error classes can surface every documented
     // field (recoveryHint, refreshUrl, missingScopes, nextSteps, RFC 9457
     // detail/title, validationErrors, …). A whitelist here silently drops
-    // fields the error classes read straight off the body — caught by live
+    // fields the error classes read straight off the body: caught by live
     // integration testing, not the mocked unit tests. Only requestId needs
     // normalizing, since it can fall back to the response header.
     const errorBody = {

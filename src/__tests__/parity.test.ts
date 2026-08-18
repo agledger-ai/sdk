@@ -7,11 +7,11 @@
  *
  * routes.json is regenerated MANUALLY from the production OpenAPI spec
  * (`GET /openapi.json`) on an API version bump, then committed. There is no
- * automated regeneration workflow in this repo — bump the snapshot by hand
+ * automated regeneration workflow in this repo: bump the snapshot by hand
  * when the API surface changes, and re-run this test to confirm parity.
  *
  * The test is deliberately a focused invariant check, not an exhaustive
- * method enumeration — a per-method table drifts constantly and obscures
+ * method enumeration: a per-method table drifts constantly and obscures
  * real regressions.
  */
 
@@ -107,7 +107,7 @@ describe('critical routes exist in the current API spec', () => {
     ['GET', '/v1/audit/org-reads/checkpoints/{id}/proof'],
 
     // Admin
-    // NB: POST /v1/admin/orgs (create-org) is intentionally NOT here — it was
+    // NB: POST /v1/admin/orgs (create-org) is intentionally NOT here; it was
     // dropped from the canonical OpenAPI spec in API v1.0.1 (dev/test-only, never
     // registered in production). The SDK's admin.createOrg() still reaches it for
     // local bootstrap; GET (list) remains canonical.
@@ -132,7 +132,7 @@ describe('critical routes exist in the current API spec', () => {
     ['GET', '/v1/audit-vault/checkpoints'],
     ['POST', '/v1/records/{recordId}/dispute/withdraw'],
 
-    // Added in v0.25 — OIDC ephemeral-cert auth + trusted issuers + ops surfaces
+    // Added in v0.25: OIDC ephemeral-cert auth + trusted issuers + ops surfaces
     ['POST', '/v1/auth/oidc/cert'],
     ['GET', '/v1/admin/trusted-issuers'],
     ['POST', '/v1/admin/trusted-issuers'],
@@ -152,7 +152,7 @@ describe('critical routes exist in the current API spec', () => {
     it(`${method} ${path}`, () => {
       expect(
         routeMap.get(`${method} ${path}`),
-        `Missing route ${method} ${path} — API may have renamed or removed it`,
+        `Missing route ${method} ${path}: API may have renamed or removed it`,
       ).toBeDefined();
     });
   }
@@ -160,7 +160,7 @@ describe('critical routes exist in the current API spec', () => {
 
 describe('retired routes are gone from the spec', () => {
   const RETIRED: Array<[string, string]> = [
-    // Mandate routes — every one renamed to /v1/records/* in v0.21
+    // Mandate routes: every one renamed to /v1/records/* in v0.21
     ['POST', '/v1/mandates'],
     ['GET', '/v1/mandates'],
     ['GET', '/v1/mandates/{id}'],
@@ -172,7 +172,7 @@ describe('retired routes are gone from the spec', () => {
     ['GET', '/v1/mandates/summary'],
     ['POST', '/v1/mandates/bulk'],
 
-    // Dashboard / proxy / projects / notarize / report-analyze — retired earlier in v0.20
+    // Dashboard / proxy / projects / notarize / report-analyze: retired earlier in v0.20
     ['GET', '/v1/dashboard/summary'],
     ['GET', '/v1/dashboard/metrics'],
     ['GET', '/v1/dashboard/audit-trail'],
@@ -187,7 +187,7 @@ describe('retired routes are gone from the spec', () => {
     ['GET', '/v1/audit/enterprise-report'],
     ['PATCH', '/v1/admin/accounts/{id}/trust-level'],
 
-    // String overrides / drift — removed in the v0.25 dead-code audit
+    // String overrides / drift: removed in the v0.25 dead-code audit
     ['GET', '/v1/admin/strings/keys'],
     ['GET', '/v1/admin/strings/overrides'],
     ['GET', '/v1/admin/strings/overrides/{key}'],
@@ -273,7 +273,7 @@ describe('SDK resource files reach only v0.21-shaped routes', () => {
       // Match actual route strings (inside backticks or single/double quotes)
       // to avoid false positives on surrounding prose.
       const retiredPatterns = [
-        // Renamed paths — every /v1/mandates/* moved to /v1/records/*
+        // Renamed paths: every /v1/mandates/* moved to /v1/records/*
         /[`'"]\/v1\/mandates\b/,
         /[`'"]\/federation\/v1\/mandates\b/,
         /[`'"]\/federation\/v1\/admin\/mandates\b/,

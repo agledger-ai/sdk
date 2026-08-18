@@ -2,7 +2,7 @@ import type { ApiErrorResponse, ValidationErrorDetail } from './types.js';
 
 /**
  * Base error for all SDK errors (network, timeout, etc.).
- * Not an API error — no status code.
+ * Not an API error: no status code.
  */
 export class AgledgerError extends Error {
   constructor(message: string) {
@@ -26,7 +26,7 @@ export class ConfigurationError extends AgledgerError {
 /**
  * API returned an error response. All HTTP errors extend this.
  *
- * Fields mirror the API error body verbatim — the SDK does not invent content.
+ * Fields mirror the API error body verbatim; the SDK does not invent content.
  * The API responds with RFC 9457 `application/problem+json`. Standard fields
  * (`type`, `title`, `status`, `detail`, `instance`) are surfaced alongside
  * AGLedger extension fields (`error`, `code`, `requestId`, `retryable`,
@@ -37,15 +37,15 @@ export class ConfigurationError extends AgledgerError {
  * - `publishers`: candidate publisher labels on an ambiguous-publisher 422
  * - `pinnedRecords` / `unattributableRecords`: why a schema delete was refused
  * - `docs`: discovery-document pointer. `docUrl` is dead and always undefined.
- * - `status` — HTTP status code
- * - `code` — stable machine-readable error code (from API body `code` or `error`)
- * - `retryable` — API's `retryable` flag, falling back to status-based classification (429/5xx)
- * - `requestId` — correlation ID (from API body or `X-Request-Id` header)
- * - `docUrl` — documentation link, only if the API returned one
- * - `suggestion` — typo-correction hint, only if the API returned one
- * - `recoveryHint` — machine-readable recovery guidance (e.g. on 422 INVALID_ACTION)
- * - `refreshUrl` — concrete GET URL to re-fetch state (e.g. on 422 INVALID_ACTION)
- * - `validationErrors` — field-level validation details (for 400/422)
+ * - `status`: HTTP status code
+ * - `code`: stable machine-readable error code (from API body `code` or `error`)
+ * - `retryable`: API's `retryable` flag, falling back to status-based classification (429/5xx)
+ * - `requestId`: correlation ID (from API body or `X-Request-Id` header)
+ * - `docUrl`: documentation link, only if the API returned one
+ * - `suggestion`: typo-correction hint, only if the API returned one
+ * - `recoveryHint`: machine-readable recovery guidance (e.g. on 422 INVALID_ACTION)
+ * - `refreshUrl`: concrete GET URL to re-fetch state (e.g. on 422 INVALID_ACTION)
+ * - `validationErrors`: field-level validation details (for 400/422)
  */
 export class AgledgerApiError extends AgledgerError {
   readonly status: number;
@@ -136,7 +136,7 @@ export class AgledgerApiError extends AgledgerError {
   /**
    * Raw response body bytes for binary endpoints (`application/cose`,
    * `application/concise-problem-details+cbor`). Set by `HttpClient.requestBinary`
-   * when the API returns a 4xx/5xx on a SCITT or attestation endpoint —
+   * when the API returns a 4xx/5xx on a SCITT or attestation endpoint;
    * customers decode it with `cborg` for SCITT problem-details (RFC 9290).
    */
   rawBody?: Uint8Array;
@@ -166,17 +166,17 @@ export class AgledgerApiError extends AgledgerError {
     return this.retryable;
   }
 
-  /** Whether this is an input error (400) — the request itself is malformed; fix it and retry. */
+  /** Whether this is an input error (400): the request itself is malformed; fix it and retry. */
   isInputError(): boolean {
     return this.status === 400;
   }
 
-  /** Whether this is a state error (422) — the resource is in the wrong state; do not retry the same request. */
+  /** Whether this is a state error (422): the resource is in the wrong state; do not retry the same request. */
   isStateError(): boolean {
     return this.status === 422;
   }
 
-  /** Whether this is an auth error (401/403) — check credentials or scopes. */
+  /** Whether this is an auth error (401/403): check credentials or scopes. */
   isAuthError(): boolean {
     return this.status === 401 || this.status === 403;
   }
@@ -241,7 +241,7 @@ export class ConflictError extends AgledgerApiError {
 }
 
 /**
- * Idempotency key conflict — the same key was used with different parameters.
+ * Idempotency key conflict: the same key was used with different parameters.
  * Subclass of AgledgerApiError (typically 409 with a specific error code).
  */
 export class IdempotencyError extends AgledgerApiError {
@@ -259,11 +259,11 @@ export class ValidationError extends AgledgerApiError {
 }
 
 /**
- * 422 Unprocessable — the request was valid but the resource state won't
+ * 422 Unprocessable: the request was valid but the resource state won't
  * accept it (e.g. INVALID_ACTION on `POST /v1/records/{id}/transition`).
  *
  * On INVALID_ACTION the API attaches `recoveryHint` and `refreshUrl` (and
- * `currentState` / `allowedActions` via `details`) — surfaced on the base
+ * `currentState` / `allowedActions` via `details`); surfaced on the base
  * `AgledgerApiError` properties.
  */
 export class UnprocessableError extends AgledgerApiError {
@@ -302,7 +302,7 @@ export class TimeoutError extends ConnectionError {
 
 /**
  * Webhook signature verification failed.
- * NOT an API error — thrown locally by `constructEvent()` / `verifySignature()`.
+ * NOT an API error: thrown locally by `constructEvent()` / `verifySignature()`.
  */
 export class SignatureVerificationError extends Error {
   /** The raw payload that failed verification. */

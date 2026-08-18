@@ -72,7 +72,7 @@ export interface ScopeProfile {
 }
 
 /**
- * Pre-defined scope profiles — one-to-one with agledger-api's SCOPE_PROFILES.
+ * Pre-defined scope profiles: one-to-one with agledger-api's SCOPE_PROFILES.
  *
  * Admin profiles require role='admin'; agent profiles require role='agent'.
  * Platform keys bypass scope profiles entirely.
@@ -80,7 +80,7 @@ export interface ScopeProfile {
 export const ScopeProfiles: Record<string, ScopeProfile> = {
   'admin-observer': {
     name: 'admin-observer',
-    description: 'Read-only admin — audit, compliance, events, disputes, reputation, schemas, webhooks, records, completions',
+    description: 'Read-only admin: audit, compliance, events, disputes, reputation, schemas, webhooks, records, completions',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.AUDIT_READ,
@@ -96,7 +96,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'admin-standard': {
     name: 'admin-standard',
-    description: 'Default admin — full org governance plus Record/completion action rights (admin actions signed as admin in vault)',
+    description: 'Default admin: full org governance plus Record/completion action rights (admin actions signed as admin in vault)',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.AUDIT_READ,
@@ -124,7 +124,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'admin-iac': {
     name: 'admin-iac',
-    description: 'Infrastructure provisioning — agents, webhooks, keys, schemas',
+    description: 'Infrastructure provisioning; agents, webhooks, keys, schemas',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.ADMIN_KEYS,
@@ -135,7 +135,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'admin-schema': {
     name: 'admin-schema',
-    description: 'Schema registry management — create, version, disable/enable custom Types',
+    description: 'Schema registry management: create, version, disable/enable custom Types',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.SCHEMAS_READ,
@@ -145,7 +145,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'agent-full': {
     name: 'agent-full',
-    description: 'Full agent — Record lifecycle, completions, disputes, events, and schemas',
+    description: 'Full agent: Record lifecycle, completions, disputes, events, and schemas',
     allowedRoles: ['agent'],
     scopes: [
       Scopes.RECORDS_READ,
@@ -160,7 +160,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'agent-readonly': {
     name: 'agent-readonly',
-    description: 'Read-only agent — view Record history',
+    description: 'Read-only agent: view Record history',
     allowedRoles: ['agent'],
     scopes: [
       Scopes.RECORDS_READ,
@@ -169,7 +169,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'agent-performer-only': {
     name: 'agent-performer-only',
-    description: 'Performer agent — can deliver completions and read Records, but cannot be principal of new Records',
+    description: 'Performer agent: can deliver completions and read Records, but cannot be principal of new Records',
     allowedRoles: ['agent'],
     scopes: [
       Scopes.RECORDS_READ,

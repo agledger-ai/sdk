@@ -53,7 +53,7 @@ import type {
 } from '../types.js';
 
 /**
- * Admin sub-resource for Records — org-wide listing and historical backfill.
+ * Admin sub-resource for Records: org-wide listing and historical backfill.
  */
 export class AdminRecordsResource {
   constructor(private readonly http: HttpClient) {}
@@ -129,7 +129,7 @@ export class AdminVaultResource {
 }
 
 /**
- * Admin sub-resource for trusted OIDC issuers — register the IdPs whose tokens
+ * Admin sub-resource for trusted OIDC issuers: register the IdPs whose tokens
  * may be exchanged for ephemeral signing certs via `POST /v1/auth/oidc/cert`.
  */
 export class AdminTrustedIssuersResource {
@@ -156,7 +156,7 @@ export class AdminTrustedIssuersResource {
   }
 
   /**
-   * Delete a trusted issuer. Returns 409 if live certs still reference it —
+   * Delete a trusted issuer. Returns 409 if live certs still reference it;
    * disable it (`update(id, { enabled: false })`) and revoke its certs first.
    */
   delete(id: string, options?: RequestOptions): Promise<{ deleted: true; id: string; nextSteps?: NextStep[] }> {
@@ -170,7 +170,7 @@ export class AdminTrustedIssuersResource {
 }
 
 /**
- * Admin resource — org governance, key management, org provisioning,
+ * Admin resource: org governance, key management, org provisioning,
  * vault inspection, and platform operations. Requires an `admin`-role key.
  */
 export class AdminResource {
@@ -202,7 +202,7 @@ export class AdminResource {
   /**
    * Create a new org. Returns the org resource (flat object).
    *
-   * Dev/test only — `POST /v1/admin/orgs` is not registered in a production
+   * Dev/test only: `POST /v1/admin/orgs` is not registered in a production
    * deployment (dropped from the canonical OpenAPI spec in API v1.0.1) and 404s
    * there. Provision production orgs via the operator `provisioning/` YAML.
    */
@@ -238,7 +238,7 @@ export class AdminResource {
     return this.http.post(`/v1/admin/agents/${agentId}/deactivate`, params, options);
   }
 
-  /** Set an agent's Type capabilities (PUT — replaces all). */
+  /** Set an agent's Type capabilities (PUT: replaces all). */
   setCapabilities(agentId: string, params: SetCapabilitiesParams, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.put(`/v1/admin/agents/${agentId}/capabilities`, params, options);
   }

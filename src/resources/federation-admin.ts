@@ -9,7 +9,7 @@ import type {
 } from '../types.js';
 
 /**
- * Federation admin surface — operator-side management of peer servers
+ * Federation admin surface: operator-side management of peer servers
  * and the federation outbound DLQ. Requires the `admin` role.
  */
 export class FederationAdminResource {

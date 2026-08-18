@@ -12,7 +12,7 @@ import type {
 } from '../types.js';
 
 /**
- * Org-admin reads checkpoint surface — SCITT-style signed tree heads
+ * Org-admin reads checkpoint surface: SCITT-style signed tree heads
  * (`/v1/audit/org-reads/checkpoints/*`). Each cross-party admin read is
  * logged into a per-org Merkle log and periodically anchored.
  */
@@ -39,7 +39,7 @@ export class OrgReadsCheckpointsResource {
 
   /**
    * Attach a witness cosignature to a checkpoint. The witness's signature
-   * format/algorithm is the customer's choice — the API stores the bytes verbatim.
+   * format/algorithm is the customer's choice; the API stores the bytes verbatim.
    */
   cosign(id: string, params: CosignCheckpointParams, options?: RequestOptions): Promise<OrgReadsCheckpoint> {
     return this.http.post<OrgReadsCheckpoint>(
@@ -60,7 +60,7 @@ export class OrgReadsCheckpointsResource {
 }
 
 /**
- * Vault checkpoint surface — per-record 6h signed Merkle anchors that survive
+ * Vault checkpoint surface: per-record 6h signed Merkle anchors that survive
  * audit_vault TRUNCATE/DELETE. Pair with `records.getAuditExport()` to
  * cross-check the live chain against checkpoint anchors offline.
  */
@@ -90,11 +90,11 @@ export class VaultCheckpointsResource {
 }
 
 /**
- * Audit resource — verifiable read-trail + vault-checkpoint surface.
+ * Audit resource: verifiable read-trail + vault-checkpoint surface.
  *
- * - `orgReadsCheckpoints` — SCITT-style cross-party read proofs (one per
+ * - `orgReadsCheckpoints`: SCITT-style cross-party read proofs (one per
  *   org-admin cross-party read).
- * - `vaultCheckpoints` — per-record 6h signed Merkle anchors used to detect
+ * - `vaultCheckpoints`: per-record 6h signed Merkle anchors used to detect
  *   audit_vault truncation / out-of-band tampering offline.
  */
 export class AuditResource {

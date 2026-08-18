@@ -18,7 +18,7 @@ import type {
 
 /**
  * Federation peer-facing surface. These endpoints are reached by peer
- * AGLedger instances over the federation protocol — typical SDK users
+ * AGLedger instances over the federation protocol: typical SDK users
  * don't call them directly; they're used by federation infrastructure code.
  */
 export class FederationResource {

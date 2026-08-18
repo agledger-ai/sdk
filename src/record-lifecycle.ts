@@ -2,7 +2,7 @@ import type { RecordStatus } from './types.js';
 
 /**
  * Valid state transitions for Records using customer-facing display statuses.
- * The API maps internal states to these display statuses — this table reflects
+ * The API maps internal states to these display statuses; this table reflects
  * what SDK consumers actually observe.
  *
  * Unknown statuses return empty arrays for forward compatibility.
