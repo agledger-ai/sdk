@@ -2598,6 +2598,17 @@ export interface ConformanceResponse {
     delegationMaxDepthDefault?: number;
     /** Absolute delegation depth ceiling; the per-org cap cannot exceed it. */
     delegationMaxDepthCeiling?: number;
+    /** Shortest `cursor` every paginated route accepts. Tokens are opaque:
+     *  round-trip `nextCursor` verbatim with the same query parameters. */
+    cursorMaxLength?: number;
+    /** A `?limit=` up to this value is accepted on every paginated listing.
+     *  Some admin and compliance listings accept more; each route's own
+     *  OpenAPI `maximum` is authoritative. */
+    paginationLimitMax?: number;
+    /** Cursor cap for `GET /v1/records/search`, wider than the shared one
+     *  because that route binds its full filter set into the token. Size
+     *  cursor storage to this value; no route mints a longer token. */
+    searchCursorMaxLength?: number;
     [key: string]: number | undefined;
   };
   /** AGLedger API version. */
