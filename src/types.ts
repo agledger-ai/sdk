@@ -1973,19 +1973,6 @@ export interface CreateAiImpactAssessmentParams {
   testingResults?: Record<string, unknown>;
 }
 
-export interface EuAiActReport {
-  records: Array<{
-    id: string;
-    riskClassification: RiskClassification;
-    domain: EuAiActDomain;
-    humanOversightDesignated: boolean;
-    assessmentDate?: string;
-  }>;
-  summary: {
-    highRiskCount: number;
-    auditedCount: number;
-  };
-}
 
 
 export type ComplianceRecordType = 'workplace_notification' | 'affected_persons' | 'input_data_quality' | 'fundamental_rights_impact_assessment' | (string & {});

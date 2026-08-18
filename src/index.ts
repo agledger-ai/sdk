@@ -134,7 +134,6 @@ export type {
   ExportComplianceParams,
   AiImpactAssessment,
   CreateAiImpactAssessmentParams,
-  EuAiActReport,
 
   // Compliance Records (per-Record)
   ComplianceRecordType,
