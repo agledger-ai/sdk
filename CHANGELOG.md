@@ -36,6 +36,10 @@ Removing a parameter is a type-level break, but no working call can depend on on
 
 - **`recoveryHint` on bulk per-item results**, and **`AgledgerApiError.registryVersion`** for the `CONFLICTING_VERSION` 409, which names the registry slot a schema conflict is on.
 
+### Removed
+
+- **`EuAiActReport`.** No API route produces that shape, in this release or any earlier one. The two SDKs had even invented different shapes for it (this one had `records[]` and `summary`, the Python SDK had `recordsAssessed` and `generatedAt`), which is the clearest evidence it was never real.
+
 ### Changed
 
 - **`npm run parity:refresh` regenerates the parity snapshots** from an OpenAPI spec (`--url` or `--spec`), and `parity:check` reports drift without writing. Both snapshots were previously hand-maintained with no generator, which meant the parity tests could not detect API drift at all: they compare the SDK against files that only change when someone edits them. Refreshing against the current spec also recovered a `publisher` query param on `GET /v1/schemas/{type}/diff` and `POST /v1/schemas/{type}/export` that the hand-built snapshot had been missing since v1.4.0.
