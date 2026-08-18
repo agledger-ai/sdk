@@ -37,7 +37,7 @@ export interface AgledgerClientOptions {
    * Base URL of your AGLedger instance, e.g. `https://agledger.internal`.
    * Required: every deployment is self-hosted, so there is no default to fall
    * back to. Omitting it throws `ConfigurationError` at construction rather
-   * than failing later against a placeholder host (agents#109). Optional in
+   * than failing later against a placeholder host. Optional in
    * the type only so the error can carry a useful message.
    */
   baseUrl?: string;
@@ -232,7 +232,7 @@ export interface SchemaListItem {
   /** Owning org id, or null for platform-bundled types. Present only on platform-key reads without `orgId`. */
   orgId?: string | null;
   /**
-   * Lifecycle discriminator (API #817): `auto` or `principal` for a gated type,
+   * Lifecycle discriminator: `auto` or `principal` for a gated type,
    * `null` for notarize-only / no-default-gate. Mirrors `defaultGateMode` on
    * `schemas.get(type)` so a row alone distinguishes a gated type from a
    * notarize-only one without a per-type GET.
@@ -372,7 +372,7 @@ export interface MetaSchema {
   /**
    * Helper functions callable inside an expression, keyed by name.
    *
-   * API v1.3.4 (#976) replaced the bare `string[]` of names with per-helper
+   * API v1.3.4 replaced the bare `string[]` of names with per-helper
    * signature + semantics, so the edge behavior travels with the helper
    * instead of living only in prose.
    */
@@ -404,8 +404,8 @@ export interface SchemaFieldMapping {
   /** Safe expression string. Required when valueType is 'expression'. */
   expression?: string;
   /**
-   * Cap on the per-record tolerance a caller may pass for this rule (API
-   * #824). `0` forbids any tolerance (the rule is an undodgeable threshold
+   * Cap on the per-record tolerance a caller may pass for this rule.
+   * `0` forbids any tolerance (the rule is an undodgeable threshold
    * gate); a positive value pins the widest band a record may declare.
    * Omitted = uncapped. The cap applies in whatever unit the tolerance key
    * uses (percent for `*Pct`/`*_pct` keys, absolute otherwise). Enforced
@@ -840,7 +840,7 @@ export interface SignedStatement {
   signingKeyId: string | null;
   /**
    * Signed instant of the head Signed Statement: the CWT `iat` claim (second
-   * precision) sealed in the COSE_Sign1 protected header (API #877). THE
+   * precision) sealed in the COSE_Sign1 protected header. THE
    * authoritative timestamp for time-anchored contracts (wait windows, notice
    * clocks); the Record's `createdAt` is a millisecond-precision DB clock that
    * only approximates it. Null if the envelope fails to decode.
@@ -1118,7 +1118,7 @@ export interface RecordRow {
   integrity?: RecordIntegrity;
 }
 
-/** Tamper-evidence result attached to a Record read with `?integrity=true` (API #732). */
+/** Tamper-evidence result attached to a Record read with `?integrity=true`. */
 export interface RecordIntegrity {
   /**
    * True iff the full audit chain re-verifies (hash re-derive, linkage,
@@ -1315,7 +1315,7 @@ export interface ListRecordsParams extends ListParams {
   /** Filter by originating system identifier. */
   source?: string;
   /**
-   * Agent-recovery query (API #731): return every Record whose next action awaits
+   * Agent-recovery query: return every Record whose next action awaits
    * the caller's structural side, across all statuses (open proposals, ACTIVE work,
    * revision requests, counter-proposals/verdicts). Agent keys only: admin/platform
    * keys 400 (use the per-row `awaitingActor` field instead).
@@ -1327,7 +1327,7 @@ export interface ListRecordsParams extends ListParams {
 export interface GetRecordParams {
   /**
    * Re-verify the Record's audit chain and cross-check the served row against it,
-   * returning the result on {@link RecordRow.integrity} (API #732). Costs a chain
+   * returning the result on {@link RecordRow.integrity}. Costs a chain
    * walk; omit for plain reads.
    */
   integrity?: boolean;
@@ -1455,8 +1455,8 @@ export interface Completion {
   lastVerdictReason?: string | null;
   /**
    * The auto-gate's settlement decision, surfaced inline so the caller learns
-   * settle-vs-hold-vs-reject at completion time without a follow-up GET (API
-   * #816). `structuralValidation: 'ACCEPTED'` means only the body parsed; this
+   * settle-vs-hold-vs-reject at completion time without a follow-up GET.
+   * `structuralValidation: 'ACCEPTED'` means only the body parsed; this
    * field carries the gate's decision. Null when the gate did not render inline
    * (encrypted Records, principal-mode held at PENDING_VERDICT, or the inline run
    * was skipped); read `recordStatus` and `records.get(id)` in that case.
@@ -1470,7 +1470,7 @@ export interface Completion {
 }
 
 /**
- * The auto-gate's inline settlement decision on a {@link Completion} (API #816).
+ * The auto-gate's inline settlement decision on a {@link Completion}.
  * A leaner projection than {@link SettlementSignalSummary} (no federation delivery
  * state), carrying just the gate outcome the caller needs at completion time.
  */
@@ -1481,7 +1481,7 @@ export interface CompletionSettlementSignal {
   outcome: 'accept' | 'reject';
   /**
    * Discriminator code (same as the settlement webhook), e.g. `AUTO_SETTLE`, or
-   * `AUTO_SETTLE_WITHIN_TOLERANCE` (API #824) when the gate cleared only via a
+   * `AUTO_SETTLE_WITHIN_TOLERANCE` when the gate cleared only via a
    * non-zero tolerance band rather than the base criteria threshold. Null when
    * not classifiable.
    */
@@ -1550,7 +1550,7 @@ export interface VerdictResult {
   recommendation: SettlementSignal;
   /**
    * Record status after the verdict settled: FULFILLED (accept) or FAILED
-   * (reject), same vocabulary as the Record GET (API #876). Surfaced inline so
+   * (reject), same vocabulary as the Record GET. Surfaced inline so
    * the caller learns where the Record landed without a follow-up fetch.
    */
   recordStatus?: RecordStatus;
@@ -1659,7 +1659,7 @@ export type WebhookEventType =
   | 'record.gate_complete'
   // Principal-mode record held at PROCESSING awaiting the principal verdict;
   // payload carries the `completionId` to verdict against plus the engine/rollup
-  // advisory result (API #913).
+  // advisory result.
   | 'record.gate_held'
   | 'record.fulfilled'
   | 'record.failed'
@@ -1774,7 +1774,7 @@ export interface CreateWebhookParams {
    */
   signingAlg?: WebhookSigningAlg;
   /**
-   * Record-type filter for record-scoped events (API #825). `["*"]` means all
+   * Record-type filter for record-scoped events. `["*"]` means all
    * record types (wildcard sentinel). Any other array means record events are
    * delivered ONLY for the listed types (fail-closed). Omit for all types.
    * 1-100 entries, each 1-100 chars.
@@ -1913,7 +1913,7 @@ export interface ComplianceExport {
   recordCount?: number;
   /**
    * True when the filters matched more than the 10000-row export cap, so the
-   * export holds only the newest 10000 rows (API v1.3.4, #968/#991). Window
+   * export holds only the newest 10000 rows (API v1.3.4). Window
    * with `filters.from` / `filters.to` to cover the rest. Exports created
    * before this field existed report `false`.
    *
@@ -1955,7 +1955,7 @@ export interface ExportComplianceParams {
   fields?: string[];
   /**
    * Inline cryptographic evidence into the packet so a regulator can verify each
-   * claim offline without calling back to the API (API #771). Currently the only
+   * claim offline without calling back to the API. Currently the only
    * value is `signed-statements` (embeds each record's full COSE_Sign1 chain plus a
    * `verification` block); omit for a reference-only export.
    */
@@ -2028,15 +2028,15 @@ export interface AuditExportEntry {
   /** API-key id of the credential that performed this state-change. */
   actorId?: string | null;
   actorRole?: 'admin' | 'agent' | 'platform' | null;
-  /** F-705: owner id of the API key, one of org id (admin), agent id (agent), or platform sentinel. */
+  /** Owner id of the API key, one of org id (admin), agent id (agent), or platform sentinel. */
   actorOwnerId?: string;
-  /** F-705: human-readable label for the actor owner. Display PROJECTION, NOT signature-covered. */
+  /** Human-readable label for the actor owner. Display PROJECTION, NOT signature-covered. */
   actorDisplayName?: string | null;
-  /** F-705: owner table discriminator; pairs with `actorOwnerId`. */
+  /** Owner table discriminator; pairs with `actorOwnerId`. */
   actorOwnerType?: 'agent' | 'org' | 'platform' | null;
   /**
-   * OIDC issuer URI when the request authenticated via an admin OIDC bearer
-   * (#550). NULL on API-key paths. Paired with `actorOidcSub`. The same
+   * OIDC issuer URI when the request authenticated via an admin OIDC bearer.
+   * NULL on API-key paths. Paired with `actorOidcSub`. The same
    * identity is signature-covered inside `predicate.on_behalf_of.oidc`; an
    * offline verifier cross-checks them via `@agledger/sdk/verify`.
    */
@@ -2052,7 +2052,7 @@ export interface AuditExportEntry {
   actorOidcSynthesized?: boolean;
   entryType: string;
   /**
-   * F-711: auditor-readable label for `entryType` (e.g. RECORD_STATE_CHANGE →
+   * Auditor-readable label for `entryType` (e.g. RECORD_STATE_CHANGE →
    * "Record state transitioned"). Display PROJECTION, NOT signature-covered;
    * the canonical machine-readable name stays in `entryType`. Replaced the
    * pre-launch `description` placeholder (engine v0.26.x+).
@@ -2063,7 +2063,7 @@ export interface AuditExportEntry {
   actor?: AuditActor;
   /**
    * Completion evidence body, present only when the export was fetched with
-   * `?evidence=true` AND this is a COMPLETION_SUBMITTED entry (API #870).
+   * `?evidence=true` AND this is a COMPLETION_SUBMITTED entry.
    * UNSIGNED projection, bound to the chain by hash only: recompute SHA-256
    * over the RFC 8785 (JCS) canonicalization of this object and compare against
    * `payload.evidenceHash`. Encrypted-mode records inline the stored ciphertext
@@ -2123,7 +2123,7 @@ export type AuditChainIntegrityReason =
   | 'cert_expired'
   | 'cert_missing'
   | 'agent_signature_invalid'
-  // API #888/#893 (v1.3.2): the vault fails closed on per-entry signature
+  // API v1.3.2: the vault fails closed on per-entry signature
   // verification. `signature_invalid` = a COSE_Sign1 signature did not verify
   // against its resolved key; `signing_key_unknown` = the entry names a
   // signing_key_id the key registry cannot resolve; `signing_key_drift` = the
@@ -2192,7 +2192,7 @@ export interface RecordAuditExport {
    * "Ed25519-verified" from chainIntegrity alone; read this.
    */
   integrityLevel?: 'hash_chain_only' | 'hash_chain_partial_signatures' | 'hash_chain_and_signatures' | 'invalid';
-  /** `2.0` since the COSE_Sign1 cutover (#482). */
+  /** `2.0` since the COSE_Sign1 cutover. */
   exportFormatVersion?: string;
   /** `RFC8949-CDE` since 2.0: deterministic CBOR per RFC 8949 §4.2.1. */
   canonicalization?: string;
@@ -2213,7 +2213,7 @@ export interface RecordAuditExport {
     chainIntegrityDetail?: AuditChainIntegrityDetail | null;
     signatureCoverage?: AuditSignatureCoverage;
     integrityLevel?: 'hash_chain_only' | 'hash_chain_partial_signatures' | 'hash_chain_and_signatures' | 'invalid';
-    /** `2.0` since the COSE_Sign1 cutover (#482). */
+    /** `2.0` since the COSE_Sign1 cutover. */
     exportFormatVersion: string;
     /** `RFC8949-CDE` since 2.0: deterministic CBOR per RFC 8949 §4.2.1. */
     canonicalization: string;
@@ -2239,7 +2239,7 @@ export interface RecordAuditExport {
 }
 
 /**
- * Which chain a checkpoint anchors (API v1.3.4, #995).
+ * Which chain a checkpoint anchors (API v1.3.4).
  *
  * All three are the same signed-checkpoint construction over a different
  * chain. Only `record` is keyed by a real record id.
@@ -2259,7 +2259,7 @@ export interface VaultCheckpoint {
   /**
    * Which chain this row anchors. `record` is the per-record chain, `schema`
    * is an org's schema-registration chain (record-less), `admin` is the
-   * platform-ops chain. Added in API v1.3.4 (#995); absent on older servers.
+   * platform-ops chain. Added in API v1.3.4; absent on older servers.
    */
   chain?: VaultCheckpointChain;
   chainPosition: number;
@@ -3117,11 +3117,11 @@ export interface SubmitStateTransitionParams {
   projectRef?: string;
   externalTaskId?: string;
   operatingMode?: string;
-  /** F-677: parent record id on the firing Server (the peer projects the delegation edge). */
+  /** Parent record id on the firing Server (the peer projects the delegation edge). */
   parentRecordId?: string;
-  /** F-677: root record id of the delegation tree on the firing Server. */
+  /** Root record id of the delegation tree on the firing Server. */
   rootRecordId?: string;
-  /** F-677: delegation depth (0 = root). Omitted for non-delegated transitions. */
+  /** Delegation depth (0 = root). Omitted for non-delegated transitions. */
   chainDepth?: number;
 }
 
@@ -3146,17 +3146,17 @@ export interface RelaySignalParams {
   counterSignature?: string;
   schemaRef?: FederationSchemaRef;
   /**
-   * F-722 / CR-11: machine-readable cause for the signal
+   * Machine-readable cause for the signal
    * (`AUTO_SETTLE` / `AUTO_SETTLE_WITHIN_TOLERANCE` / `AUTO_FAIL` /
    * `PRINCIPAL_ACCEPT` / `PRINCIPAL_REJECT` / `DISPUTE_OVERTURNED` / `TIMED_OUT` /
    * `REMEDIATED` / `CANCEL_PRE_WORK` / `CANCEL_IN_PROGRESS` / `OVERFLOW_REJECT` /
-   * `ARBITRATION_*` …). `AUTO_SETTLE_WITHIN_TOLERANCE` (API #824) marks an
+   * `ARBITRATION_*` …). `AUTO_SETTLE_WITHIN_TOLERANCE` marks an
    * auto-settle that cleared only via a non-zero tolerance band. Null on older peers.
    */
   reasonCode?: string | null;
-  /** F-722 / CR-11: ruleIds that failed when a gate evaluation produced this HOLD. Null for non-rule terminals or older peers. */
+  /** ruleIds that failed when a gate evaluation produced this HOLD. Null for non-rule terminals or older peers. */
   failingRuleIds?: string[] | null;
-  /** F-722 / CR-11: free-text hint (engine summary or principal verdict notes). Null on older peers. */
+  /** Free-text hint (engine summary or principal verdict notes). Null on older peers. */
   reason?: string | null;
 }
 
@@ -3424,7 +3424,7 @@ export interface VaultScanBrokenChain {
 }
 
 /**
- * The record-less chains a full scan walks (API #949): the platform-ops chain
+ * The record-less chains a full scan walks: the platform-ops chain
  * (admin key + account events) and each org's schema-registration chain. These
  * have no `records` row, so the per-record scan cannot see them; a tamper here
  * folds into `VaultScanResult.healthy`. Absent on a `recordIds`-scoped scan.
@@ -3449,7 +3449,7 @@ export interface VaultScanResult {
   signatureErrors: number;
   /**
    * True iff `broken === 0` and `signatureErrors === 0` and `globalChains.broken === 0`.
-   * The single field to branch on; a full scan folds the record-less chains (#949) into it.
+   * The single field to branch on; a full scan folds the record-less chains into it.
    */
   healthy: boolean;
   brokenRecords: VaultScanBrokenRecord[];
@@ -3563,7 +3563,7 @@ export interface VerificationKeysResponse {
   /**
    * Hash basis advertised by the engine. Optional: not every server build
    * emits it; absent means the implicit COSE/Ed25519 default (`SHA-256`).
-   * Track-with-Python parity fix for F-706.
+   * Kept in step with the Python SDK.
    */
   hashAlgorithm?: string;
   /**
@@ -3736,7 +3736,7 @@ export interface EphemeralCert {
 /** Options for {@link AuthResource.rotateKey}. */
 export interface RotateKeyParams {
   /**
-   * Overlap window (seconds) the OLD key stays valid after rotation (API #793).
+   * Overlap window (seconds) the OLD key stays valid after rotation.
    * Omit to revoke the old key immediately.
    */
   gracePeriodSeconds?: number;

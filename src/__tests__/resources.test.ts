@@ -174,7 +174,7 @@ describe('RecordsResource', () => {
 
   it('gets delegation chain, unwrapping the paginated envelope to the row array', async () => {
     // The endpoint returns `{ data, total, hasMore }`, not a bare array: getChain
-    // must return `data`, not the envelope object (F-730).
+    // must return `data`, not the envelope object.
     const { client, fetch } = createMockClient({
       data: [{ id: 'rec-123' }, { id: 'rec-456' }],
       total: 2,

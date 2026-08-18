@@ -76,14 +76,14 @@ function buildEntry(
 ): AuditExportEntry {
   // Sign a faithful in-toto v1 Statement: the engine signs `{ predicate: ... }`
   // where the predicate is the canonical row projection (record_id, entry_type,
-  // payload). The binding check (F-731) re-derives exactly this from the row's
+  // payload). The binding check re-derives exactly this from the row's
   // recordId/entryType/payload, so the synthetic envelope must carry it too.
   const recordId = typeof payload.recordId === 'string' ? payload.recordId : 'REC-test-001';
   const predicate = { record_id: recordId, entry_type: ENTRY_TYPE, payload };
   const envelope = buildCoseSign1(kp, position, previousHash, { predicate });
   const payloadHash = sha256Hex(envelope);
   return {
-    // Current exports are chainPosition-only: no legacy `position` (F-682).
+    // Current exports are chainPosition-only: no legacy `position`.
     chainPosition: position,
     timestamp: '2026-04-17T00:00:00Z',
     createdAt: '2026-04-17T00:00:00Z',
@@ -173,7 +173,7 @@ describe('verifyExport: COSE_Sign1 (format 2.0)', () => {
     expect(result.brokenAt?.code).toBe('CHAIN_POSITION_GAP');
   });
 
-  it('verifies a legacy export that uses `position` instead of `chainPosition` (F-682 back-compat)', () => {
+  it('verifies a legacy export that uses `position` instead of `chainPosition` (back-compat)', () => {
     const kp = makeKeypair();
     const exp = makeExport(kp);
     // Simulate a pre-v0.25 export: only the legacy `position` field is present.
@@ -243,7 +243,7 @@ describe('verifyExport: COSE_Sign1 (format 2.0)', () => {
     expect(result.brokenAt?.code).toBe('CHAIN_SIGNATURE_INVALID');
   });
 
-  it('detects denormalised-payload tampering with the envelope intact (F-731, binding)', () => {
+  it('detects denormalised-payload tampering with the envelope intact (binding)', () => {
     // The attacker rewrites the human-readable row payload but leaves coseSign1
     // (the signed truth) untouched: the offline verifier must catch the drift
     // between the decoded predicate and the row projection (verificationGuide §4).

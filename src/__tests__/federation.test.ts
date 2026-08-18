@@ -84,7 +84,7 @@ describe('FederationResource (peer-facing)', () => {
     expect(url).toContain('/federation/v1/signals');
   });
 
-  it('submitStateTransition() relays the F-677 delegation-chain fields + object schemaRef', async () => {
+  it('submitStateTransition() relays the delegation-chain fields + object schemaRef', async () => {
     await client.federation.submitStateTransition({
       recordId: 'rec-1',
       state: 'FULFILLED',
@@ -109,7 +109,7 @@ describe('FederationResource (peer-facing)', () => {
     });
   });
 
-  it('relaySignal() relays the F-722 reason fields', async () => {
+  it('relaySignal() relays the reason fields', async () => {
     await client.federation.relaySignal({
       recordId: 'rec-1',
       recommendation: 'HOLD',

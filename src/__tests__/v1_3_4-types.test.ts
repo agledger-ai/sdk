@@ -32,7 +32,7 @@ describe('v1.3.4: compliance export row cap', () => {
   });
 });
 
-describe('v1.3.4: expression helper docs (#976)', () => {
+describe('v1.3.4: expression helper docs', () => {
   it('is a keyed map of signature + semantics, not a list of names', () => {
     type H = NonNullable<MetaSchema['expressionHelpers']>;
     expectTypeOf<H>().toEqualTypeOf<Record<string, ExpressionHelperDoc>>();
@@ -43,7 +43,7 @@ describe('v1.3.4: expression helper docs (#976)', () => {
   });
 });
 
-describe('v1.3.4: vault checkpoint chain discriminator (#995)', () => {
+describe('v1.3.4: vault checkpoint chain discriminator', () => {
   it('names the three chains', () => {
     expectTypeOf<VaultCheckpointChain>().toEqualTypeOf<'record' | 'schema' | 'admin'>();
     expectTypeOf<'schema'>().toMatchTypeOf<NonNullable<VaultCheckpoint['chain']>>();

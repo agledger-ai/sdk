@@ -235,7 +235,7 @@ function publicKeyObject(base64Key: string): KeyObject {
   const buf = Buffer.from(base64Key, 'base64');
   // Gate BEFORE loading, because that is where a FIPS-locked host refuses:
   // `createPublicKey` throws "Failed to read asymmetric key" for a perfectly
-  // good Ed25519 key, measured on a real provider (agents#113). That throw
+  // good Ed25519 key, measured on a real provider. That throw
   // lands inside the caller's try and becomes a `false` that reads as a forged
   // delivery. Judged from the OID rather than from a loaded key, because on
   // such a runtime there is no key object left to ask.

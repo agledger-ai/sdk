@@ -38,7 +38,7 @@ const { version: SDK_VERSION } = require('../package.json') as { version: string
  * Message for a failed connection. `fetch failed` is undici's generic text:
  * DNS failure, connection refused, and TLS problems all print identically, so
  * the caller's first debugging step was working out which host the SDK even
- * called (agents#109). Name the request and the underlying cause code.
+ * called. Name the request and the underlying cause code.
  */
 function connectionErrorMessage(method: string, url: string, cause: Error): string {
   const inner = (cause as { cause?: { code?: unknown; message?: unknown } }).cause;
@@ -119,7 +119,7 @@ export class HttpClient {
     // is no server we could sensibly point at; the old placeholder
     // (agledger.example.com) resolved nowhere and turned a missing option into
     // a DNS failure against a host the caller never named, discoverable only by
-    // reading dist/http.js (agents#109). Fail here, where the mistake is.
+    // reading dist/http.js. Fail here, where the mistake is.
     if (!options.baseUrl) {
       throw new ConfigurationError(
         'baseUrl is required. AGLedger is self-hosted, so the SDK cannot guess your Server: ' +
