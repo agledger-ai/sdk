@@ -107,7 +107,12 @@ function buildRoutes(spec, source) {
   routes.sort((a, b) => `${a.method} ${a.path}`.localeCompare(`${b.method} ${b.path}`));
   return {
     generatedAt: new Date().toISOString(),
-    sourceUrl: `${source} (AGLedger API v${spec.info?.version ?? '?'})`,
+    // Derived, never free text. This file ships in the Python sdist and both
+    // repos are public, so a hand-typed note here has published internal build
+    // state before now. Record what the spec says about itself plus whether it
+    // came off the wire or a file, and keep the rest in the release notes.
+    sourceKind: /^https?:/i.test(source) ? 'remote' : 'local',
+    apiVersion: spec.info?.version ?? null,
     count: routes.length,
     routes,
   };
@@ -128,7 +133,7 @@ function buildFields(spec) {
 
 /** Compare ignoring the fields that change on every run. */
 function meaningful(obj) {
-  const { generatedAt: _a, sourceUrl: _b, ...rest } = obj;
+  const { generatedAt: _a, sourceKind: _b, ...rest } = obj;
   return JSON.stringify(rest);
 }
 

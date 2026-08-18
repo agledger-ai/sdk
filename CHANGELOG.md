@@ -50,7 +50,7 @@ Removing a parameter is a type-level break, but no working call can depend on on
 
 - **`npm run parity:refresh` regenerates the parity snapshots** from an OpenAPI spec (`--url` or `--spec`), and `parity:check` reports drift without writing. Both snapshots were previously hand-maintained with no generator, which meant the parity tests could not detect API drift at all: they compare the SDK against files that only change when someone edits them. Refreshing against the current spec also recovered a `publisher` query param on `GET /v1/schemas/{type}/diff` and `POST /v1/schemas/{type}/export` that the hand-built snapshot had been missing since v1.4.0.
 
-- **The parity snapshots track agledger-api main at `ea04d2e1`**, which is past v1.4.0 and untagged. The API reports `1.4.0` from `/health` either way, so `apiVersion` alone cannot tell the two apart; `routes.json` names the commit. Route count is unchanged at 193 and the field surface is identical across all 11 components. The only client-visible drift since v1.4.0 is the four `cursor` params above.
+- **The parity snapshots track API 1.4.0 plus the post-release pagination changes above.** Route count is unchanged at 193 and the field surface is identical across all 11 components; the four `cursor` params are the only client-visible drift.
 
 ## [1.8.0] - 2026-08-08
 

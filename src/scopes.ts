@@ -1,7 +1,7 @@
 /**
  * API key scope constants and scope profiles.
  *
- * Mirrors the authoritative definitions in agledger-api/src/shared/scope-constants.ts.
+ * Mirrors the scope definitions the AGLedger API declares.
  * Keep this file in lockstep with the API; the SDK enum must be a strict
  * subset (or equal set) of the API's scope list.
  */
