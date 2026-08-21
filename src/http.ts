@@ -651,6 +651,11 @@ export class HttpClient {
       return { data: raw as T[], hasMore: false };
     }
 
+    // A null or non-object body: an empty page, not a TypeError on `.data`.
+    if (raw === null || typeof raw !== 'object') {
+      return { data: [], hasMore: false };
+    }
+
     const obj = raw as Record<string, unknown>;
     const data = (Array.isArray(obj.data) ? obj.data : []) as T[];
     const nextCursor = (obj.nextCursor || obj.next_cursor || null) as string | null;
