@@ -6,7 +6,6 @@ import type {
   ListParams,
   RequestOptions,
   Verdict,
-  OffsetListParams,
 } from '../types.js';
 
 export class ReputationResource {
@@ -25,7 +24,7 @@ export class ReputationResource {
   /** Get transaction history for an agent over a time range. */
   getHistory(
     agentId: string,
-    params?: OffsetListParams & { from?: string; to?: string; type?: string; outcome?: Verdict },
+    params?: ListParams & { from?: string; to?: string; type?: string; outcome?: Verdict },
     options?: RequestOptions,
   ): Promise<Page<ReputationHistoryEntry>> {
     return this.http.getPage<ReputationHistoryEntry>(

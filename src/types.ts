@@ -103,7 +103,13 @@ export interface CursorListParams extends LimitParams {
   cursor?: string;
 }
 
-/** A list endpoint that pages by numeric offset. */
+/**
+ * A list endpoint that pages by numeric offset.
+ *
+ * @deprecated Every paginated listing the Server publishes now also accepts
+ * `cursor`, and offset paging skips or repeats rows on a listing that is being
+ * written to while you walk it. Use {@link ListParams} and page by cursor.
+ */
 export interface OffsetListParams extends LimitParams {
   offset?: number;
 }
@@ -123,6 +129,10 @@ export interface Page<T> {
   hasMore: boolean;
   nextCursor?: string | null;
   total?: number;
+  /** Suggested next actions, on the listings that carry guidance. */
+  nextSteps?: NextStep[];
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
 }
 
 /** Options for auto-pagination. */
@@ -2521,7 +2531,17 @@ export interface AccountProfile {
 export interface HealthResponse {
   status: string;
   version?: string;
+  /**
+   * @deprecated `GET /health` declares only `status`, `version` and
+   * `timestamp`, and the Server strips anything its response schema does not
+   * declare, so this never arrives. Kept so callers compile. Process uptime is
+   * on {@link SystemHealth.uptime} (`GET /v1/admin/system-health`).
+   */
   uptime?: number;
+  /**
+   * @deprecated Never served: see {@link HealthResponse.uptime}. Database state
+   * is {@link SystemHealth.database}, and it is an object, not a string.
+   */
   database?: string;
   timestamp: string;
 }
@@ -3002,6 +3022,9 @@ export interface ApiErrorResponse {
   code?: string;
   /** Whether the client should retry this request. */
   retryable?: boolean;
+  /** Seconds to wait before retrying. Present on 429 bodies; the SDK also
+   *  reads it into {@link RateLimitError.retryAfter} when the header is absent. */
+  retryAfterSeconds?: number;
   /** Validation error details (present on 400/422). */
   details?: ValidationErrorDetail[] | Record<string, unknown> | unknown[] | null;
   /** Structured validation errors (RFC 9457 extension, present on 400). */
@@ -3771,6 +3794,9 @@ export interface ListTrustedIssuersParams {
   managedBy?: 'provisioning';
   limit?: number;
   offset?: number;
+  /** Opaque page token from the previous page's `nextCursor`. Replay it with
+   * the same filters that produced it. */
+  cursor?: string;
 }
 
 /** Result of revoking all live certs issued under a trusted issuer. */

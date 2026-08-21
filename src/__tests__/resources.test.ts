@@ -185,10 +185,46 @@ describe('RecordsResource', () => {
     expect(chain.map((r) => r.id)).toEqual(['rec-123', 'rec-456']);
   });
 
+  it('getChain walks every page instead of returning the first', async () => {
+    // A page caps at 1000 rows. Returning `data` off page one dropped the rest
+    // of a longer chain with nothing on the result saying it was partial.
+    const pages = [
+      { data: [{ id: 'rec-1' }], total: 2, hasMore: true, nextCursor: 'cur-2' },
+      { data: [{ id: 'rec-2' }], total: 2, hasMore: false, nextCursor: null },
+    ];
+    let call = 0;
+    const fetch = vi.fn().mockImplementation(() => Promise.resolve({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue(pages[call++]),
+      headers: new Headers(),
+    }));
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const chain = await client.records.getChain('rec-123');
+    expect(chain.map((r) => r.id)).toEqual(['rec-1', 'rec-2']);
+    expect(fetch.mock.calls).toHaveLength(2);
+    expect(fetch.mock.calls[1][0]).toContain('cursor=cur-2');
+  });
+
   it('gets sub-records', async () => {
     const { client, fetch } = createPageMockClient();
     await client.records.getSubRecords('rec-123');
     expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/sub-records');
+  });
+
+  it('sub-records and proposals spend the cursor the page hands back', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.records.getSubRecords('rec-123', { cursor: 'cur-9', limit: 25 });
+    await client.records.listProposals({ cursor: 'cur-7' });
+    expect(fetch.mock.calls[0][0]).toContain('cursor=cur-9');
+    expect(fetch.mock.calls[0][0]).toContain('limit=25');
+    expect(fetch.mock.calls[1][0]).toContain('cursor=cur-7');
   });
 
   it('delegates a record via unified POST /v1/records with parentRecordId', async () => {
