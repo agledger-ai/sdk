@@ -508,6 +508,31 @@ describe('HttpClient', () => {
       expect(page.total).toBe(100);
     });
 
+    it('normalizes a null body to an empty page', async () => {
+      // `.data` on a null body threw a TypeError naming an internal, which told
+      // a caller nothing about the response that caused it.
+      const fetch = mockFetch({ json: null });
+      const client = createClient(fetch);
+      const page = await client.getPage('/test');
+      expect(page.data).toEqual([]);
+      expect(page.hasMore).toBe(false);
+    });
+
+    it('carries nextSteps and recordRead off the envelope', async () => {
+      const fetch = mockFetch({
+        json: {
+          data: [{ id: '1' }],
+          hasMore: false,
+          nextSteps: [{ action: 'read', description: 'Read it', href: '/v1/x', method: 'GET' }],
+          recordRead: { leafIndex: 4, leafHash: 'abc', signedCheckpointRef: null },
+        },
+      });
+      const client = createClient(fetch);
+      const page = await client.getPage('/test');
+      expect(page.nextSteps).toHaveLength(1);
+      expect(page.recordRead?.leafIndex).toBe(4);
+    });
+
     it('normalizes snake_case next_cursor', async () => {
       const fetch = mockFetch({
         json: { data: [{ id: '1' }], next_cursor: 'xyz' },
