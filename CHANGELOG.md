@@ -4,7 +4,11 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.9.0] - 2026-08-18
+## [1.9.0] - 2026-08-21
+
+### Changed
+
+- **An auto-paginating walk that hits the page ceiling now throws `PaginationLimitError` instead of returning a prefix.** `paginate` stopped at 100 pages and returned, so nothing distinguished "walked the whole listing" from "hit the ceiling": `listAllSubRecords(parent, { limit: 7 })` over 1000 sub-Records yielded 700 rows and reported success. The ceiling is a runaway guard, not a result, and this release makes it say so. A bound you set yourself is an intentional stop and still ends the walk quietly, so `maxPages` and `maxItems` behave exactly as before. To walk a large listing, raise `limit` so the rows arrive in fewer pages, or pass a `maxPages` that fits it. `compliance.streamAll` had the same shape and gets the same treatment, where the stakes are higher: a SIEM feed that stops early and says nothing reads as a quiet window with no events in it. Reported by agledger-testbed against the 1.9.0 candidate (agents#120).
 
 ### Added
 

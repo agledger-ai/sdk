@@ -340,3 +340,39 @@ export class SignatureAlgorithmUnavailableError extends AgledgerError {
     this.algorithm = algorithm;
   }
 }
+
+/**
+ * An auto-paginating walk stopped at the default page ceiling with pages still
+ * available, so the rows it yielded are a prefix of the listing rather than all
+ * of it.
+ *
+ * The ceiling is a runaway guard, not a result. Raising is what separates it
+ * from the intentional stop: set `maxPages` or `maxItems` explicitly and the
+ * walk ends quietly at your bound, because you asked for one.
+ *
+ * Recover by raising `limit` so the same rows arrive in fewer pages, by setting
+ * `maxPages` high enough for the listing, or by narrowing the filters.
+ */
+export class PaginationLimitError extends AgledgerError {
+  /** Path being walked. */
+  readonly path: string;
+  /** Pages fetched before stopping: equal to the ceiling that stopped it. */
+  readonly pagesRead: number;
+  /** Items yielded before stopping. All are valid; they are just not all of them. */
+  readonly itemsYielded: number;
+  /** Ceiling that was hit. */
+  readonly maxPages: number;
+
+  constructor(path: string, pagesRead: number, itemsYielded: number, maxPages: number) {
+    super(
+      `Pagination of ${path} stopped at the ${maxPages}-page ceiling after ${itemsYielded} item(s), ` +
+        `and the listing has more. Raise 'limit' to fit the walk in fewer pages, pass ` +
+        `'maxPages' to lift the ceiling, or pass 'maxItems' to take a prefix on purpose.`,
+    );
+    this.name = 'PaginationLimitError';
+    this.path = path;
+    this.pagesRead = pagesRead;
+    this.itemsYielded = itemsYielded;
+    this.maxPages = maxPages;
+  }
+}

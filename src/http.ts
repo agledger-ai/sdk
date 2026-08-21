@@ -23,11 +23,18 @@ import {
   ConnectionError,
   TimeoutError,
   ConfigurationError,
+  PaginationLimitError,
 } from './errors.js';
 
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
+
+/**
+ * Runaway guard on an unbounded auto-paginating walk. Hitting it is an error,
+ * not a stopping point: see {@link HttpClient.paginate}.
+ */
+const DEFAULT_MAX_PAGES = 100;
 
 // Derive the SDK version from package.json at runtime so the version headers
 // (User-Agent / X-SDK-Version) can never drift from the published version.
@@ -316,15 +323,21 @@ export class HttpClient {
   }
 
   /**
-   * Async iterator for auto-paginating through all pages.
-   * Yields individual items. Stops after maxPages (default: 100) as a safety ceiling.
+   * Async iterator for auto-paginating through all pages. Yields individual items.
+   *
+   * A walk with no explicit bound runs to the end of the listing. `DEFAULT_MAX_PAGES`
+   * is a runaway guard behind it, and hitting it throws {@link PaginationLimitError}
+   * rather than returning a prefix that looks like the whole listing. Set `maxPages`
+   * or `maxItems` to stop early on purpose: those bounds are yours, so they end the
+   * walk quietly.
    */
   async *paginate<T>(
     path: string,
     params?: Record<string, unknown>,
     options?: RequestOptions & AutoPaginateOptions,
   ): AsyncGenerator<T, void, undefined> {
-    const maxPages = options?.maxPages ?? 100;
+    const ceilingIsDefault = options?.maxPages === undefined;
+    const maxPages = options?.maxPages ?? DEFAULT_MAX_PAGES;
     const maxItems = options?.maxItems;
     let cursor: string | undefined;
     let pagesRead = 0;
@@ -343,6 +356,11 @@ export class HttpClient {
 
       if (!page.hasMore || !page.nextCursor) return;
       cursor = page.nextCursor;
+    }
+
+    // Fell out of the loop, which only happens with a cursor still in hand.
+    if (ceilingIsDefault) {
+      throw new PaginationLimitError(path, pagesRead, itemsYielded, maxPages);
     }
   }
 

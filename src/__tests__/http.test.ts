@@ -10,6 +10,7 @@ import {
   ConnectionError,
   TimeoutError,
   ConfigurationError,
+  PaginationLimitError,
 } from '../errors.js';
 
 function mockFetch(response: {
@@ -618,6 +619,86 @@ describe('HttpClient', () => {
         items.push(item);
       }
       expect(items).toHaveLength(2);
+    });
+
+    it('throws rather than returning a prefix when the default ceiling truncates', async () => {
+      const fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ data: [{ id: '1' }], hasMore: true, nextCursor: 'next' }),
+        headers: new Headers(),
+      });
+
+      const client = new HttpClient({
+        apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
+        fetch: fetch as unknown as typeof globalThis.fetch,
+        maxRetries: 0,
+      });
+
+      const items: Array<{ id: string }> = [];
+      const walk = async () => {
+        for await (const item of client.paginate<{ id: string }>('/test')) {
+          items.push(item);
+        }
+      };
+
+      await expect(walk()).rejects.toBeInstanceOf(PaginationLimitError);
+      // The rows it did yield are valid: the error says they are not all of them.
+      expect(items).toHaveLength(100);
+      expect(fetch).toHaveBeenCalledTimes(100);
+    });
+
+    it('carries the walk state on the ceiling error', async () => {
+      const fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ data: [{ id: '1' }, { id: '2' }], hasMore: true, nextCursor: 'next' }),
+        headers: new Headers(),
+      });
+
+      const client = new HttpClient({
+        apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
+        fetch: fetch as unknown as typeof globalThis.fetch,
+        maxRetries: 0,
+      });
+
+      try {
+        for await (const _item of client.paginate<{ id: string }>('/test')) {
+          // drain
+        }
+        expect.unreachable('the ceiling should have thrown');
+      } catch (err) {
+        expect(err).toBeInstanceOf(PaginationLimitError);
+        const limit = err as PaginationLimitError;
+        expect(limit.path).toBe('/test');
+        expect(limit.pagesRead).toBe(100);
+        expect(limit.itemsYielded).toBe(200);
+        expect(limit.maxPages).toBe(100);
+      }
+    });
+
+    it('stops quietly at an explicit ceiling even with pages left', async () => {
+      const fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ data: [{ id: '1' }], hasMore: true, nextCursor: 'next' }),
+        headers: new Headers(),
+      });
+
+      const client = new HttpClient({
+        apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
+        fetch: fetch as unknown as typeof globalThis.fetch,
+        maxRetries: 0,
+      });
+
+      const items: Array<{ id: string }> = [];
+      for await (const item of client.paginate<{ id: string }>('/test', undefined, { maxPages: 3 })) {
+        items.push(item);
+      }
+      expect(items).toHaveLength(3);
     });
   });
 

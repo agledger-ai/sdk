@@ -334,6 +334,7 @@ export {
   ConfigurationError,
   SignatureVerificationError,
   SignatureAlgorithmUnavailableError,
+  PaginationLimitError,
 } from './errors.js';
 
 // Scopes
