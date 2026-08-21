@@ -16,6 +16,13 @@ import { fileURLToPath } from 'node:url';
  * That is how `SchemaDeleteResult`, `SchemaScopeOptions`, `SchemaManifestExport`,
  * `VaultCheckpointPage` and `VaultCheckpointingSchedule` all reached a release
  * candidate unexported.
+ *
+ * Reachability is transitive. A resource module importing `SystemHealth` gives a
+ * consumer no way to name `QueueCounts` if `SystemHealth.queues` is typed with
+ * it and `index.ts` never forwards it, and the module's own import list does not
+ * mention it. `QueueCounts` reached a release candidate that way, so the closure
+ * below follows type references out of `types.ts` declarations rather than
+ * stopping at what the resources name directly.
  */
 
 function read(rel: string): string {
@@ -64,6 +71,43 @@ function usedByResources(): Set<string> {
   return names;
 }
 
+/**
+ * Split `types.ts` into `name -> declaration body`, so a declaration can be
+ * scanned for the other declared names it references.
+ */
+function declarationBodies(): Map<string, string> {
+  const src = read('../types.ts');
+  const bodies = new Map<string, string>();
+  const starts = [...src.matchAll(/^export (?:interface|type) ([A-Za-z0-9_]+)/gm)];
+  for (let i = 0; i < starts.length; i++) {
+    const from = starts[i].index ?? 0;
+    const to = i + 1 < starts.length ? (starts[i + 1].index ?? src.length) : src.length;
+    bodies.set(starts[i][1], src.slice(from, to));
+  }
+  return bodies;
+}
+
+/**
+ * Everything a consumer can reach by starting at a type the resources name and
+ * following references through `types.ts`.
+ */
+function reachableFromResources(): Set<string> {
+  const bodies = declarationBodies();
+  const seen = new Set<string>();
+  const queue = [...usedByResources()].filter((n) => bodies.has(n));
+  while (queue.length > 0) {
+    const name = queue.pop() as string;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const body = bodies.get(name) as string;
+    for (const m of body.matchAll(/[A-Za-z_][A-Za-z0-9_]*/g)) {
+      const ref = m[0];
+      if (ref !== name && bodies.has(ref) && !seen.has(ref)) queue.push(ref);
+    }
+  }
+  return seen;
+}
+
 describe('public type exports', () => {
   it('re-exports every types.ts name a resource method references', () => {
     const declared = declaredInTypes();
@@ -75,6 +119,17 @@ describe('public type exports', () => {
     const unreachable = [...used]
       .filter((name) => declared.has(name) && !exported.has(name))
       .sort();
+
+    expect(unreachable).toEqual([]);
+  });
+
+  it('re-exports every types.ts name reachable from one a resource references', () => {
+    const exported = exportedFromIndex();
+    const reachable = reachableFromResources();
+
+    expect(reachable.size).toBeGreaterThan(usedByResources().size);
+
+    const unreachable = [...reachable].filter((name) => !exported.has(name)).sort();
 
     expect(unreachable).toEqual([]);
   });
