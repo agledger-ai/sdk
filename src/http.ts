@@ -7,6 +7,8 @@ import type {
   ListParams,
   AutoPaginateOptions,
   ApiErrorResponse,
+  NextStep,
+  RecordReadCompletion,
 } from './types.js';
 import {
   AgledgerApiError,
@@ -594,10 +596,17 @@ export class HttpClient {
       case 422:
         return new UnprocessableError(errorBody);
       case 429: {
+        // The header is the primary source, but a 429 body also carries
+        // `retryAfterSeconds`, and a proxy that strips headers used to leave
+        // `retryAfter` null with the answer sitting in the body unread.
         const retryAfterHeader = headers.get('Retry-After');
-        const retryAfter = retryAfterHeader
-          ? parseInt(retryAfterHeader, 10) * 1000
-          : null;
+        const headerMs = retryAfterHeader ? parseInt(retryAfterHeader, 10) * 1000 : NaN;
+        const bodySeconds = errorBody.retryAfterSeconds;
+        const retryAfter = Number.isFinite(headerMs)
+          ? headerMs
+          : typeof bodySeconds === 'number'
+            ? bodySeconds * 1000
+            : null;
         return new RateLimitError(errorBody, retryAfter);
       }
       default:
@@ -645,10 +654,17 @@ export class HttpClient {
     const obj = raw as Record<string, unknown>;
     const data = (Array.isArray(obj.data) ? obj.data : []) as T[];
     const nextCursor = (obj.nextCursor || obj.next_cursor || null) as string | null;
+    // The two siblings the list envelope names. Everything else it may carry is
+    // still dropped here; `getPageWithEnvelope` is the way to read those.
+    const extras: Partial<Page<T>> = {};
+    if (Array.isArray(obj.nextSteps)) extras.nextSteps = obj.nextSteps as NextStep[];
+    if (obj.recordRead && typeof obj.recordRead === 'object') {
+      extras.recordRead = obj.recordRead as RecordReadCompletion;
+    }
 
     // Explicit hasMore from API
     if (typeof obj.hasMore === 'boolean') {
-      return { data, hasMore: obj.hasMore, nextCursor, total: obj.total as number | undefined };
+      return { data, hasMore: obj.hasMore, nextCursor, total: obj.total as number | undefined, ...extras };
     }
 
     // Offset-based: infer hasMore from total/limit/offset
@@ -658,11 +674,12 @@ export class HttpClient {
         hasMore: obj.offset + obj.limit < obj.total,
         nextCursor,
         total: obj.total as number,
+        ...extras,
       };
     }
 
     // Cursor-based: hasMore if cursor present
-    return { data, hasMore: !!nextCursor, nextCursor, total: obj.total as number | undefined };
+    return { data, hasMore: !!nextCursor, nextCursor, total: obj.total as number | undefined, ...extras };
   }
 
   private sleep(ms: number): Promise<void> {

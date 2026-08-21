@@ -40,7 +40,9 @@ const typesSrc = readFileSync(resolve(__dirname, '../types.ts'), 'utf8');
  *  sub-objects don't leak their keys into the parent. */
 function parseInterfaces(text: string): Record<string, Set<string>> {
   const out: Record<string, Set<string>> = {};
-  const re = /export interface (\w+)\s*(?:extends [^{]+)?\{/g;
+  // The type-parameter list matters: without it every generic interface
+  // (`Page<T>`, for one) was invisible to this guard.
+  const re = /export interface (\w+)\s*(?:<[^>]*>)?\s*(?:extends [^{]+)?\{/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     const name = m[1];
@@ -93,6 +95,12 @@ const ALIASES: Record<string, string> = {
   // the SDK for a full release cycle, so a caller who hit an ambiguous-publisher
   // 422 could read the prose but not the candidate list. Mapped now.
   ErrorResponse: 'ApiErrorResponse',
+  // v1.5.0 promoted four more shapes to named components. They were carried
+  // inline before, so the snapshot never held them and nothing checked them.
+  RateLimitError: 'ApiErrorResponse',
+  PaginatedResponse: 'Page',
+  FieldMappingRule: 'SchemaFieldMapping',
+  RecordReadCompletion: 'RecordReadCompletion',
 };
 
 /**
@@ -107,7 +115,20 @@ const ALLOWED_SDK_ONLY: Record<string, Set<string>> = {
   // `docUrl` is dead: no route emits it (the engine schema has no such
   // property, so Fastify strips it). Kept, deprecated, so callers compile.
   ApiErrorResponse: new Set(['code', 'docUrl']),
+  // `data` is the SDK's own field: the API declares the envelope without it and
+  // each route intersects its own `data` array on top.
+  Page: new Set(['data']),
 };
+
+/** Every API field mapped onto one SDK interface, across all of its aliases. */
+function unionOfMappedApiFields(sdkName: string): Set<string> {
+  const out = new Set<string>();
+  for (const [apiName, mapped] of Object.entries(ALIASES)) {
+    if (mapped !== sdkName) continue;
+    for (const f of snapshot.schemas[apiName] ?? []) out.add(f);
+  }
+  return out;
+}
 
 describe('schema-field parity', () => {
   it('snapshot is loaded', () => {
@@ -134,11 +155,13 @@ describe('schema-field parity', () => {
       const sdk = ifaces[sdkName];
       if (!sdk || !apiFields) return;
       const allowed = ALLOWED_SDK_ONLY[sdkName] ?? new Set<string>();
-      const apiSet = new Set(apiFields);
+      // Union across every API component mapped to this interface: a 429 body
+      // is ErrorResponse plus `retryAfterSeconds`, and one SDK type models both.
+      const apiSet = unionOfMappedApiFields(sdkName);
       const stale = [...sdk].filter((f) => !apiSet.has(f) && !allowed.has(f));
       expect(
         stale,
-        `SDK ${sdkName} has fields absent from the API ${apiName} schema (stale or needs allowlisting): ${stale.join(', ')}`,
+        `SDK ${sdkName} has fields absent from every mapped API schema (stale or needs allowlisting): ${stale.join(', ')}`,
       ).toEqual([]);
     });
   }

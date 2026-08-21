@@ -344,6 +344,32 @@ describe('HttpClient', () => {
       expect(err.retryAfter).toBe(5000);
     });
 
+    it('falls back to retryAfterSeconds in the 429 body when the header is absent', async () => {
+      // A proxy that strips Retry-After used to leave retryAfter null with the
+      // answer sitting in the body unread.
+      const fetch = mockFetch({
+        ok: false,
+        status: 429,
+        json: { error: 'rate_limit', message: 'Too many requests', retryAfterSeconds: 7 },
+      });
+      const client = createClient(fetch);
+      const err = await client.get('/test').catch((e) => e);
+      expect(err).toBeInstanceOf(RateLimitError);
+      expect(err.retryAfter).toBe(7000);
+    });
+
+    it('prefers the Retry-After header over the body', async () => {
+      const fetch = mockFetch({
+        ok: false,
+        status: 429,
+        json: { error: 'rate_limit', message: 'Too many requests', retryAfterSeconds: 7 },
+        headers: { 'Retry-After': '3' },
+      });
+      const client = createClient(fetch);
+      const err = await client.get('/test').catch((e) => e);
+      expect(err.retryAfter).toBe(3000);
+    });
+
     it('exposes retryable flag from API response', async () => {
       const fetch = mockFetch({
         ok: false,

@@ -4,6 +4,7 @@ import type {
   CreateRecordParams,
   UpdateRecordParams,
   ListRecordsParams,
+  ListParams,
   GetRecordParams,
   SearchRecordsParams,
   DelegateRecordParams,
@@ -112,17 +113,32 @@ export class RecordsResource {
     return this.http.post<RecordRow>(`/v1/records/${id}/accept-counter`, {}, options);
   }
 
-  /** Get the full delegation chain for a Record. */
-  async getChain(id: string, options?: RequestOptions): Promise<RecordRow[]> {
-    // The endpoint returns a paginated envelope (`{ data, total, hasMore, ... }`).
-    // Unwrap to the row array; normalizePage also tolerates a bare-array shape.
-    const page = await this.http.getPage<RecordRow>(`/v1/records/${id}/chain`, undefined, options);
-    return page.data;
+  /**
+   * Get the full delegation chain for a Record. Walks every page rather than
+   * returning the first: the endpoint caps a page at 1000 rows, so a longer
+   * chain came back truncated with nothing on the result saying so. Pass
+   * `maxPages` to cap the walk.
+   */
+  async getChain(id: string, options?: RequestOptions & AutoPaginateOptions): Promise<RecordRow[]> {
+    const rows: RecordRow[] = [];
+    for await (const row of this.http.paginate<RecordRow>(`/v1/records/${id}/chain`, undefined, options)) {
+      rows.push(row);
+    }
+    return rows;
   }
 
-  /** Get direct sub-Records of a Record. */
-  getSubRecords(id: string, options?: RequestOptions): Promise<Page<RecordRow>> {
-    return this.http.getPage<RecordRow>(`/v1/records/${id}/sub-records`, undefined, options);
+  /** Get direct sub-Records of a Record. Page with `cursor`. */
+  getSubRecords(id: string, params?: ListParams, options?: RequestOptions): Promise<Page<RecordRow>> {
+    return this.http.getPage<RecordRow>(`/v1/records/${id}/sub-records`, params as Record<string, unknown>, options);
+  }
+
+  /** Auto-paginating iterator over the direct sub-Records of a Record. */
+  listAllSubRecords(
+    id: string,
+    params?: ListParams,
+    options?: RequestOptions & AutoPaginateOptions,
+  ): AsyncGenerator<RecordRow> {
+    return this.http.paginate<RecordRow>(`/v1/records/${id}/sub-records`, params as Record<string, unknown>, options);
   }
 
   /**
@@ -205,8 +221,8 @@ export class RecordsResource {
   }
 
   /** List Records proposed to the authenticated agent (pending acceptance). */
-  listProposals(options?: RequestOptions): Promise<Page<RecordRow>> {
-    return this.http.getPage<RecordRow>('/v1/records/agent/proposals', undefined, options);
+  listProposals(params?: ListParams, options?: RequestOptions): Promise<Page<RecordRow>> {
+    return this.http.getPage<RecordRow>('/v1/records/agent/proposals', params as Record<string, unknown>, options);
   }
 
   /** Request revision after principal rejection (rework loop). Principal only. */

@@ -22,11 +22,25 @@ Every item here was reachable from a typed, documented method and returned `400`
 
 - **`AuditVaultExportParams.since` / `.until` are removed**, replaced by the `from` / `to` the route actually takes. The type also gains `recordId` and `agentId`, and `format` drops `'csv'`, which the route does not serve.
 
-- **Pagination params now match each route.** `ListParams` offered `limit`, `offset` and `cursor` uniformly while 14 endpoints accept only some of them. Methods now take `LimitParams`, `CursorListParams`, or `OffsetListParams` as appropriate: `agents.list`/`listAll` (cursor), `admin.getWebhookHealth`, `reputation.getHistory` (offset).
+- **Pagination params now match each route.** `ListParams` offered `limit`, `offset` and `cursor` uniformly while 14 endpoints accept only some of them. Methods now take `LimitParams`, `CursorListParams`, or `ListParams` as appropriate, starting with `agents.list`/`listAll` (cursor only).
 
 - **`CreateApiKeyParams.ownerType` and `AdminApiKey.ownerType` are `KeyOwnerType`, not `ApiKeyRole`.** What a key is owned by is not the set of what it can do: owners are `org | agent | platform`, roles are `admin | agent | platform`. Typing both as `ApiKeyRole` made the ordinary admin-key create a compile error, because an admin key is owned by an org and `'org'` was not in the type, while the `ownerType: 'admin'` the API rejects typechecked clean. The SDK's own test suite had the rejected value written into it. `RateLimitExemption.ownerType` moves too, and `AccountProfile.ownerType` narrows from bare `string`.
 
 Removing a parameter is a type-level break, but no working call can depend on one: each produced a `400` in every case.
+
+### Fixed (paging, reconciled against API v1.5.0)
+
+- **`records.getChain` walks every page.** It returned the first page's rows under a doc comment calling it the full delegation chain. A page caps at 1000 rows, so a longer chain came back truncated with nothing on the result saying so. `maxPages` caps the walk.
+
+- **`records.getSubRecords` and `records.listProposals` take paging params.** Both passed `undefined`, so the `nextCursor` on the page they returned could not be spent through the typed method. `records.listAllSubRecords` walks the listing.
+
+- **`cursor` on every listing that accepts it.** `admin.getWebhookHealth`, `reputation.getHistory` and `ListTrustedIssuersParams` offered `limit` and `offset` only. The Server pages these by position now, and offset paging skips or repeats rows on a listing being written to while you walk it. `OffsetListParams` is deprecated: no route the Server publishes takes `offset` without also taking `cursor`.
+
+- **`RateLimitError.retryAfter` reads the 429 body.** It came from the `Retry-After` header alone, so a proxy that strips headers left it `null` with `retryAfterSeconds` sitting in the body unread. The header still wins where both are present, and `ApiErrorResponse` now carries `retryAfterSeconds`.
+
+- **`Page` carries `nextSteps` and `recordRead`.** The list envelope names both, and normalizing a response dropped them; `recordRead` is the org-admin cross-party read receipt, so on those listings the chain entry the read appended went unreported.
+
+- **`HealthResponse.uptime` and `.database` are deprecated.** `GET /health` declares `status`, `version` and `timestamp`, and the Server strips what its response schema does not declare, so neither has ever arrived. Kept so callers compile. Process uptime and database state are on `SystemHealth`, where `database` is an object.
 
 ### Added (API drift this release tracks)
 
