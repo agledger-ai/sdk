@@ -1300,8 +1300,12 @@ export interface ListRecordsParams extends ListParams {
   type?: RecordType;
   /** Filter by performer agent ID. */
   performerAgentId?: string;
-  /** Filter by the caller's role relative to the Record. */
-  role?: string;
+  /**
+   * Narrow the calling agent's auto-scope to one side of the Record.
+   * Agent keys only: admin/platform keys 400. On an admin or platform key the
+   * equivalent narrowing is {@link ListRecordsParams.performerAgentId}.
+   */
+  role?: 'performer' | 'principal' | (string & {});
   /** ISO 8601 lower bound on createdAt. */
   from?: string;
   /** ISO 8601 upper bound on createdAt. */
@@ -1338,9 +1342,13 @@ export interface SearchRecordsParams extends ListParams {
   status?: RecordStatus;
   type?: RecordType;
   /**
-   * Filter by the caller's role relative to the Record. There is deliberately
-   * no `principalAgentId` here: no record endpoint accepts one, and the search
-   * querystring rejects unknown properties, so offering it produced a 400.
+   * Narrow the calling agent's auto-scope to one side of the Record.
+   * Agent keys only: admin/platform keys 400.
+   *
+   * There is deliberately no `principalAgentId` here: no record endpoint accepts
+   * one, and the search querystring rejects unknown properties, so offering it
+   * produced a 400. On an admin or platform key the replacement for it is
+   * {@link SearchRecordsParams.performerAgentId}, not this field.
    */
   role?: 'performer' | 'principal' | (string & {});
   performerAgentId?: string;
@@ -2800,12 +2808,60 @@ export interface WebhookDlqEntry {
   createdAt: string;
 }
 
+/** Per-queue pg-boss job counts, as reported by the admin ops surfaces. */
+export interface QueueCounts {
+  waiting: number;
+  active: number;
+  delayed: number;
+  failed: number;
+}
+
+/** Response of `GET /v1/admin/system-health`. */
 export interface SystemHealth {
-  database: string;
-  queue: string;
-  cache: string;
+  /**
+   * `degraded` when the database cannot serve, or when anything is dead-lettered
+   * (a pg-boss `*-dlq` queue holding work, or rows in the webhook dead-letter
+   * table). Failure counts on live queues deliberately do not move it: those are
+   * retries still in flight. Read {@link SystemHealth.degradedReasons} for what
+   * moved it rather than fanning out across the drill-down endpoints.
+   */
+  status: 'healthy' | 'degraded' | (string & {});
+  /** One entry per condition making `status` degraded; empty when healthy. */
+  degradedReasons: string[];
+  /** Process uptime in seconds. */
   uptime: number;
-  activeConnections: number;
+  database: {
+    status: 'healthy' | 'degraded' | (string & {});
+    /** `SELECT 1` round-trip latency in ms. */
+    latencyMs: number | null;
+    pool: {
+      /** Total connections in the pool. */
+      total: number;
+      /** Idle connections available. */
+      idle: number;
+      /** Queued connection requests. */
+      waiting: number;
+    };
+  };
+  /** Job counts for every queue the product runs, keyed by queue name. */
+  queues: Record<string, QueueCounts>;
+  /**
+   * Deliveries parked in the webhook dead-letter table. Not an entry in
+   * {@link SystemHealth.queues} because it is not a queue: a permanently failed
+   * delivery (SSRF refusal, 410, 4xx, an undecryptable secret) never reaches the
+   * pg-boss dead-letter queue, so that queue reads ~0 whatever is parked.
+   * Non-zero degrades `status`; recover from `GET /v1/admin/webhook-dlq`.
+   */
+  webhookDeadLetters: number;
+  process: {
+    /** Resident set size in MB. */
+    rssMb: number;
+    /** V8 heap used in MB. */
+    heapUsedMb: number;
+    /** V8 heap total in MB. */
+    heapTotalMb: number;
+  };
+  timestamp: string;
 }
 
 export interface DeactivateOrgParams {
@@ -3786,16 +3842,66 @@ export interface OpsSummary {
     licensedThrough: string | null;
   };
   system: {
-    status: string;
+    /**
+     * The same field `GET /v1/admin/system-health` reports: `degraded` when the
+     * database cannot serve or anything is dead-lettered.
+     */
+    status: 'healthy' | 'degraded' | (string & {});
+    /** One entry per condition making `status` degraded; empty when healthy. */
+    degradedReasons: string[];
     uptimeSeconds: number;
     databaseLatencyMs: number | null;
   };
-  queues: Record<string, unknown>;
+  /** Job counts per queue, keyed by queue name. */
+  queues: Record<string, QueueCounts>;
   federation: {
-    peers: { active: number; suspended: number; revoked: number };
+    peers: {
+      /**
+       * Registration state: peers allowed to receive. A peer counts here from
+       * the moment it is registered, whether or not it has ever taken a
+       * delivery. Read it with the three delivery counts below, which partition
+       * it.
+       */
+      active: number;
+      suspended: number;
+      revoked: number;
+      /** Active peers whose last delivery attempt succeeded. */
+      delivering: number;
+      /**
+       * Active peers with consecutive failed delivery attempts. Per-peer detail,
+       * including the error and the failure count, at
+       * `GET /federation/v1/admin/peers`.
+       */
+      failing: number;
+      /**
+       * Active peers with no delivery attempt recorded at all. A peer that has
+       * only ever failed counts under `failing`, not here. Expected for a peer
+       * registered but not yet shared to; an incident for one that has been.
+       */
+      neverDelivered: number;
+    };
   };
   vault: {
     signingKeys: { active: number; retired: number };
+    /**
+     * External vault-anchoring posture. `enabled: false` means signed
+     * checkpoints exist only in the application database.
+     *
+     * `enabled`, `bucket`, and `intervalMinutes` reflect the API process's own
+     * config; `workerEnabled` is the observed posture of the worker that runs
+     * the sweep. When `reconciled` is false the two disagree (env drift between
+     * the API and worker services) and the worker is authoritative for whether
+     * anchoring really happens. Null `workerEnabled`/`reconciled` means the
+     * worker posture could not be determined.
+     */
+    anchoring: {
+      enabled: boolean;
+      /** Tamper-exposure window between checkpoint and anchor sweeps. */
+      intervalMinutes: number;
+      bucket: string | null;
+      workerEnabled: boolean | null;
+      reconciled: boolean | null;
+    };
   };
   webhooks: {
     circuitBreakers: { closed: number; half_open: number; open: number };

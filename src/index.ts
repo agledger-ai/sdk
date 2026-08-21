@@ -28,6 +28,7 @@ export type {
   ListSchemasParams,
   TypeSchema,
   SchemaValidationResult,
+  SchemaKeywordWarning,
 
   // Schema Development Toolkit
   SchemaVersionStatus,
@@ -143,6 +144,12 @@ export type {
 
   // Audit Export (per-Record)
   AuditExportEntry,
+  AuditChainFailure,
+  AuditChainIntegrityDetail,
+  AuditChainIntegrityReason,
+  AuditSignatureCoverage,
+  BackfillImportedRecord,
+  FederationSchemaRef,
   AuditActor,
   RecordAuditExport,
 
@@ -195,6 +202,8 @@ export type {
   CreateApiKeyResult,
   WebhookDlqEntry,
   SystemHealth,
+  QueueCounts,
+  WebhookSigningAlg,
   SetCapabilitiesParams,
   DeactivateOrgParams,
   DeactivateAgentParams,

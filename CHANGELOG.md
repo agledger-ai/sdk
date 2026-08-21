@@ -18,7 +18,7 @@ Every item here was reachable from a typed, documented method and returned `400`
 
 - **A `Date` passed to a date-time query param** (`from`, `to`, `updatedAfter`, `updatedBefore`) serialized to the JS locale form, which the Server rejects. It now serializes as ISO-8601.
 
-- **`SearchRecordsParams.principalAgentId` is removed.** No record endpoint accepts a `principalAgentId` query param, and the search querystring rejects unknown properties, so offering it guaranteed a `400`. Filter by `role: 'principal'` instead.
+- **`SearchRecordsParams.principalAgentId` is removed.** No record endpoint accepts a `principalAgentId` query param, and the search querystring rejects unknown properties, so offering it guaranteed a `400`. What replaces it depends on the key: on an **agent key**, `role: 'principal'` narrows the caller's own auto-scope to the Records it is principal on. On an **admin or platform key** `role` is itself a `400` (it narrows an agent's auto-scope and those keys have none), so narrow with `performerAgentId` instead.
 
 - **`AuditVaultExportParams.since` / `.until` are removed**, replaced by the `from` / `to` the route actually takes. The type also gains `recordId` and `agentId`, and `format` drops `'csv'`, which the route does not serve.
 
@@ -46,11 +46,21 @@ Removing a parameter is a type-level break, but no working call can depend on on
 
 - **`ListSchemasParams` and `ListPeersParams`.** `schemas.list` accepted only `orgId`, so neither the page size nor `includeDisabled` could be set; `federationAdmin.listPeers` took an unnamed inline shape a consumer could not import. Both are named types now, and both gain the `cursor` their route began declaring in api#1251, alongside `compliance.listRecords`.
 
+### Fixed (admin types that did not describe the response)
+
+- **`SystemHealth` did not resemble the payload at all.** It declared `database: string`, `queue: string`, `cache: string` and `activeConnections: number`. `GET /v1/admin/system-health` returns `database` as an object (`status`, `latencyMs`, `pool`), serves no `cache` and no `activeConnections`, and carries five fields the type never had: `status`, `degradedReasons`, `queues`, `webhookDeadLetters` and `process`. Every property on the old type was wrong, so no reader of this endpoint could have been compiling against it and getting real data. `status` reads `degraded` when the database cannot serve or anything is dead-lettered; failure counts on live queues do not move it, because those are retries in flight.
+
+- **`OpsSummary` was missing three blocks the route returns.** `system.degradedReasons` says why `status` is degraded. `federation.peers` gains `delivering`, `failing` and `neverDelivered`, which partition the existing `active` count: `active` is registration state and reads identically for a peer taking every delivery and one that has never taken any. `vault.anchoring` is required in the response and was absent entirely; it carries the external-anchoring posture, including the `reconciled` flag that says whether the API and worker processes agree that anchoring is happening. `queues` was `Record<string, unknown>` and is now `Record<string, QueueCounts>`.
+
+- **Nine types a caller can reach are now exported.** `QueueCounts` (from `SystemHealth.queues` and `OpsSummary.queues`), `AuditChainFailure`, `AuditChainIntegrityDetail`, `AuditChainIntegrityReason`, `AuditSignatureCoverage`, `BackfillImportedRecord`, `FederationSchemaRef`, `SchemaKeywordWarning` and `WebhookSigningAlg`. Each types a field on a type the resource methods already return, so a consumer could hold the value and not name it. The export gate only checked the type names the resource modules import by name, which is one hop; it now walks the whole reference closure out of those types.
+
 ### Removed
 
 - **`EuAiActReport`.** No API route produces that shape, in this release or any earlier one. The two SDKs had even invented different shapes for it (this one had `records[]` and `summary`, the Python SDK had `recordsAssessed` and `generatedAt`), which is the clearest evidence it was never real.
 
 ### Changed
+
+- **`ListRecordsParams.role` and `SearchRecordsParams.role` say that `role` is agent-key only**, and narrow from bare `string` to `'performer' | 'principal'` on the list params. The parameter narrows the calling agent's auto-scope, so an admin or platform key passing it gets a `400`. This mattered most on exactly the migration this release creates: a caller dropping `principalAgentId` and reaching for `role` on an admin key trades one `400` for another.
 
 - **`npm run parity:refresh` regenerates the parity snapshots** from an OpenAPI spec (`--url` or `--spec`), and `parity:check` reports drift without writing. Both snapshots were previously hand-maintained with no generator, which meant the parity tests could not detect API drift at all: they compare the SDK against files that only change when someone edits them. Refreshing against the current spec also recovered a `publisher` query param on `GET /v1/schemas/{type}/diff` and `POST /v1/schemas/{type}/export` that the hand-built snapshot had been missing since v1.4.0.
 
