@@ -155,7 +155,7 @@ export class SchemasResource {
     return this.http.post<SchemaVersionDetail>('/v1/schemas', input, options);
   }
 
-  /** Update a schema version (e.g., deprecate or change compatibility mode). */
+  /** Change a schema version's compatibility mode, which is all this route updates. */
   updateVersion(type: RecordType, version: number, body: UpdateSchemaVersionParams, options?: SchemaScopeOptions): Promise<SchemaVersionDetail> {
     const { request, params } = scope(options);
     return this.http.patch<SchemaVersionDetail>(`/v1/schemas/${type}/versions/${version}`, body, request, params);

@@ -340,10 +340,27 @@ export interface SchemaValidationResult {
 
 
 /** Known values: ACTIVE, DEPRECATED, DELETED. Accepts any string for forward compatibility. */
-export type SchemaVersionStatus = 'ACTIVE' | 'DEPRECATED' | 'DELETED' | (string & {});
+/**
+ * Lifecycle status of a registered schema version. Known values: ACTIVE,
+ * DISABLED. Accepts any string for forward compatibility.
+ *
+ * `DEPRECATED` and `DELETED` were named here and appear nowhere in the API,
+ * while `DISABLED`, the value the listing and detail routes actually serve, was
+ * missing. Disabling a Type is `schemas.disable()`, not a status write.
+ */
+export type SchemaVersionStatus = 'ACTIVE' | 'DISABLED' | (string & {});
 
-/** Known values: FULL, BACKWARD, FORWARD, NONE. Accepts any string for forward compatibility. */
-export type SchemaCompatibilityMode = 'FULL' | 'BACKWARD' | 'FORWARD' | 'NONE' | (string & {});
+/**
+ * Schema compatibility mode. Known values: none, backward, forward, full.
+ * Accepts any string for forward compatibility.
+ *
+ * Lowercase, which is what every request site declares: `POST /v1/schemas`,
+ * `POST /v1/schemas/preview`, the import manifest's `compatibility`, and the
+ * version PATCH all carry `enum: [none, backward, forward, full]`. This type
+ * named the uppercase forms, so all four documented values were a 400. Response
+ * sites declare a bare string, so nothing constrains them either way.
+ */
+export type SchemaCompatibilityMode = 'none' | 'backward' | 'forward' | 'full' | (string & {});
 
 /**
  * Documentation for one helper function callable inside a gate-rule expression.
@@ -589,7 +606,7 @@ export interface SchemaManifest {
   displayName?: string;
   description?: string;
   category?: string;
-  compatibility?: 'none' | 'backward' | 'forward' | 'full';
+  compatibility?: SchemaCompatibilityMode;
   deprecation?: { since?: string; replacedBy?: string } | null;
   /** Advisory documentation only; the engine never reads this field. */
   previousVersion?: string | null;
@@ -738,10 +755,16 @@ export interface SchemaVersionDetail {
   nextSteps?: NextStep[];
 }
 
-/** Parameters for updating a schema version. */
+/**
+ * Parameters for updating a schema version.
+ *
+ * `compatibilityMode` is the only field the route accepts and it is required:
+ * the body declares `additionalProperties: false`, so the `status` this
+ * interface used to offer was rejected outright rather than deprecating
+ * anything.
+ */
 export interface UpdateSchemaVersionParams {
-  status?: SchemaVersionStatus;
-  compatibilityMode?: SchemaCompatibilityMode;
+  compatibilityMode: SchemaCompatibilityMode;
 }
 
 /** Result of a compatibility check against an existing schema. */
@@ -1101,14 +1124,7 @@ export interface RecordRow {
   /** ID of the open/most-recent dispute, or null. */
   disputeId?: string | null;
   /** Lifecycle status of the dispute, or null when none. */
-  disputeStatus?:
-    | 'EVIDENCE_WINDOW'
-    | 'TIER_2_REVIEW'
-    | 'ESCALATED'
-    | 'TIER_3_ARBITRATION'
-    | 'RESOLVED'
-    | 'WITHDRAWN'
-    | null;
+  disputeStatus?: DisputeStatus | null;
   /** Whether a co-signature is required before settlement, or null when not configured. */
   coSignRequired?: boolean | null;
   /** Co-signature state, or null when co-sign is not configured. */
@@ -1328,7 +1344,7 @@ export interface ListRecordsParams extends ListParams {
   /** Filter to Records with (true) or without (false) an open dispute. */
   hasDispute?: boolean;
   /** Filter by dispute lifecycle status. */
-  disputeStatus?: string;
+  disputeStatus?: DisputeStatus;
   /** Filter to imported (true) or native (false) Records. */
   imported?: boolean;
   /** Filter by originating system identifier. */
@@ -1590,10 +1606,18 @@ export interface RecordStatusSummary {
 }
 
 
-/** Known values: OPENED, TIER_1_REVIEW, EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION, RESOLVED, WITHDRAWN. Accepts any string for forward compatibility. */
+/**
+ * Lifecycle status of a dispute.
+ *
+ * Known values: EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION,
+ * RESOLVED, WITHDRAWN. Accepts any string for forward compatibility.
+ *
+ * This is the full set the Server serves, and the set every dispute-status
+ * filter validates against. `OPENED` and `TIER_1_REVIEW` were listed here and
+ * exist nowhere in the API: the three query params that take this type declare
+ * a strict enum, so either value is a guaranteed 400.
+ */
 export type DisputeStatus =
-  | 'OPENED'
-  | 'TIER_1_REVIEW'
   | 'EVIDENCE_WINDOW'
   | 'TIER_2_REVIEW'
   | 'ESCALATED'
@@ -3284,13 +3308,25 @@ export interface CoSignRequestResult {
 }
 
 
+/**
+ * Dispute-protocol action, lowercase. The route declares a strict enum, so a
+ * value outside this set is a 400. Note these are past tense and do not match
+ * the `DisputeGrounds` or `DisputeStatus` casing.
+ */
+export type DisputeProtocolAction = 'opened' | 'resolved' | 'withdrawn' | 'escalated';
+
 /** Parameters for submitting a federation dispute-protocol message. */
 export interface SubmitDisputeProtocolParams {
   recordId: string;
-  /** Dispute-protocol action (e.g. `open`, `escalate`, `resolve`, `withdraw`). */
-  action: string;
+  /** Dispute-protocol action. Strict enum on the route. */
+  action: DisputeProtocolAction;
   disputeId: string;
-  disputeStatus: string;
+  /**
+   * Post-action dispute status (`EVIDENCE_WINDOW` on opened, `RESOLVED` on
+   * resolved, `WITHDRAWN` on withdrawn). Declared free-form by the route, so
+   * this stays open, but the named values are the ones it means.
+   */
+  disputeStatus: DisputeStatus;
   idempotencyKey: string;
   tier?: number;
   grounds?: string;

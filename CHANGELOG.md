@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [1.9.0] - 2026-08-21
 
+### Fixed (enum members that could never have worked)
+
+Each of these was reachable from a typed, documented parameter and named values the API has never had. The route declares a strict enum, so sending one is a 400. Reported by agledger-testbed against the 1.9.0 candidate (F-981), which found the first; the rest came out of auditing every union in the file against the served spec.
+
+- **`DisputeStatus` dropped `OPENED` and `TIER_1_REVIEW`.** Neither exists anywhere in the API. The type reaches three strict-enum query params (`GET /v1/records`, `GET /v1/records/search`, `GET /v1/disputes`), and `SearchRecordsParams.disputeStatus` is new in this release, so it would have shipped a filter that 400s on two of its own documented values. The full set is `EVIDENCE_WINDOW`, `TIER_2_REVIEW`, `ESCALATED`, `TIER_3_ARBITRATION`, `RESOLVED`, `WITHDRAWN`.
+
+- **`SchemaCompatibilityMode` is lowercase.** It named `FULL`/`BACKWARD`/`FORWARD`/`NONE` while every request site (`POST /v1/schemas`, `POST /v1/schemas/preview`, the import manifest's `compatibility`, and the version PATCH) declares `none`/`backward`/`forward`/`full`. All four documented values were a 400. The same file already spelled them correctly inline on `SchemaManifest`, which now uses the named type instead of its own copy.
+
+- **`SchemaVersionStatus` is `ACTIVE | DISABLED`.** It named `DEPRECATED` and `DELETED`, neither of which appears in the API, and omitted `DISABLED`, which the listing and detail routes serve.
+
+- **`UpdateSchemaVersionParams` takes only `compatibilityMode`, and requires it.** The PATCH body declares `additionalProperties: false` with `compatibilityMode` required, so the optional `status` this interface offered was rejected outright rather than deprecating anything. `schemas.updateVersion`'s doc comment said "e.g., deprecate", which was never true of this route; disabling a Type is `schemas.disable()`.
+
+- **`SubmitDisputeProtocolParams` types its two enumerated fields.** `action` was `string` against a strict `opened | resolved | withdrawn | escalated` (now `DisputeProtocolAction`, exported), and `disputeStatus` was `string` where the route means a dispute status.
+
+- **One declaration per enum.** `disputeStatus` was declared four different ways across the file (a named union, a bare `string`, and two inline copies of the member list), which is how two of them drifted while the others stayed right. Each now points at the named type.
+
+### Added
+
+- **An enum-member parity guard** (`src/__tests__/enum-parity.test.ts`, with the `enums` block in `schema-fields.json`). `routes.json` pinned the route surface and `schema-fields.json` pinned field NAMES; nothing had ever looked inside a union, which is why every defect above survived. 26 of the SDK's 29 string-literal unions are now pinned to the API enum they mirror, and the other three are listed with the reason each has no enum to pin against. A union the parser cannot see fails the guard rather than passing quietly.
+
 ### Changed
 
 - **An auto-paginating walk that hits the page ceiling now throws `PaginationLimitError` instead of returning a prefix.** `paginate` stopped at 100 pages and returned, so nothing distinguished "walked the whole listing" from "hit the ceiling": `listAllSubRecords(parent, { limit: 7 })` over 1000 sub-Records yielded 700 rows and reported success. The ceiling is a runaway guard, not a result, and this release makes it say so. A bound you set yourself is an intentional stop and still ends the walk quietly, so `maxPages` and `maxItems` behave exactly as before. To walk a large listing, raise `limit` so the rows arrive in fewer pages, or pass a `maxPages` that fits it. `compliance.streamAll` had the same shape and gets the same treatment, where the stakes are higher: a SIEM feed that stops early and says nothing reads as a quiet window with no events in it. Reported by agledger-testbed against the 1.9.0 candidate (agents#120).
