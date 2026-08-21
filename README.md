@@ -222,6 +222,18 @@ for await (const record of client.records.listAll({ status: 'ACTIVE' })) {
 }
 ```
 
+An unbounded walk runs to the end of the listing. Behind it is a 100-page
+runaway guard, and hitting that guard throws `PaginationLimitError` rather than
+returning a prefix that looks like the whole listing. Raise `limit` so the rows
+arrive in fewer pages, or bound the walk yourself:
+
+```typescript
+// An explicit bound is an intentional stop, so it ends the walk quietly.
+for await (const record of client.records.listAll({ limit: 500 }, { maxPages: 20 })) {
+  console.log(record.id);
+}
+```
+
 ## Error Handling
 
 ```typescript

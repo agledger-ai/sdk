@@ -137,7 +137,12 @@ export interface Page<T> {
 
 /** Options for auto-pagination. */
 export interface AutoPaginateOptions {
-  /** Maximum number of pages to fetch (default: 100). Safety ceiling. */
+  /**
+   * Cap the walk at this many pages. Unset, the walk runs to the end of the
+   * listing behind a 100-page runaway guard, and hitting that guard throws
+   * `PaginationLimitError` rather than returning a prefix silently. Set this
+   * and the cap is yours, so the walk stops at it quietly.
+   */
   maxPages?: number;
   /** Maximum total items to yield before stopping (default: unlimited). */
   maxItems?: number;

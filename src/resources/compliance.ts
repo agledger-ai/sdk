@@ -15,6 +15,7 @@ import type {
   ListParams,
   RequestOptions,
 } from '../types.js';
+import { PaginationLimitError } from '../errors.js';
 
 /**
  * Compliance, audit, and EU AI Act reporting surface. The `stream` method is
@@ -135,25 +136,38 @@ export class ComplianceResource {
   }
 
   /**
-   * Auto-paginating async iterator for SIEM streaming.
-   * Follows the cursor automatically until no more events are available.
+   * Auto-paginating async iterator for SIEM streaming. Follows the cursor
+   * until the stream is exhausted.
+   *
+   * Unbounded, it runs behind a 100-page runaway guard, and hitting that guard
+   * throws {@link PaginationLimitError}: a SIEM feed that stops early and says
+   * nothing reads as a quiet window with no events in it. Pass `maxPages` to
+   * take a bounded slice on purpose.
    */
   async *streamAll(
     params: AuditStreamParams,
     options?: RequestOptions & { maxPages?: number },
   ): AsyncGenerator<Record<string, unknown>, void, undefined> {
+    const ceilingIsDefault = options?.maxPages === undefined;
     const maxPages = options?.maxPages ?? 100;
     let since = params.since;
+    let yielded = 0;
+    let page = 0;
 
-    for (let page = 0; page < maxPages; page++) {
+    for (; page < maxPages; page++) {
       const result = await this.stream({ ...params, since }, options);
       for (const event of result.events) {
         yield event;
+        yielded++;
       }
       if (!result.hasMore || !result.cursor) return;
       // Extract timestamp from composite cursor (timestamp_id format)
       const underscoreIdx = result.cursor.lastIndexOf('_');
       since = underscoreIdx > 0 ? result.cursor.substring(0, underscoreIdx) : result.cursor;
+    }
+
+    if (ceilingIsDefault) {
+      throw new PaginationLimitError('/v1/siem/stream', page, yielded, maxPages);
     }
   }
 }
