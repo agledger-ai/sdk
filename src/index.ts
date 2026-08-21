@@ -105,6 +105,7 @@ export type {
 
   // Disputes
   DisputeStatus,
+  DisputeProtocolAction,
   DisputeGrounds,
   Dispute,
   DisputeResponse,
