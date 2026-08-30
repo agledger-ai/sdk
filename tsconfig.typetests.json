@@ -1,0 +1,22 @@
+{
+  // The type-only tests, typechecked.
+  //
+  // `expectTypeOf` is erased at runtime, so a file full of it is checked by
+  // nothing unless a compiler reads it. The main tsconfig excludes
+  // `src/__tests__` and vitest is not configured for `--typecheck`, which left
+  // `api-1_6_0-types.test.ts` asserting nothing: a deliberately wrong
+  // assertion passed the whole gate.
+  //
+  // `files` names the type-test sources one by one rather than pulling in the
+  // directory, because the older test files carry pre-existing type errors
+  // that are a separate cleanup. Add a file here when its assertions are meant
+  // to be enforced.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false
+  },
+  "files": ["src/__tests__/api-1_6_0-types.test.ts"],
+  "include": ["src"],
+  "exclude": ["src/__tests__", "dist", "node_modules"]
+}

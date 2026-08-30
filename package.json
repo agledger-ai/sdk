@@ -39,7 +39,8 @@
   "scripts": {
     "prebuild": "rm -rf dist *.tsbuildinfo",
     "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.typetests.json",
+    "typecheck:types": "tsc -p tsconfig.typetests.json",
     "test": "vitest run",
     "deps:lag": "node scripts/dep-lag.mjs",
     "deps:refresh": "npm update && node scripts/dep-lag.mjs",
