@@ -2424,8 +2424,9 @@ export interface VaultCheckpointPage extends Page<VaultCheckpoint> {
 
 /**
  * Where a SIEM stream poll starts. Pass `since` to open a walk or `cursor` to
- * continue one, never both: they are mutually exclusive and sending both is
- * rejected before the request leaves the process.
+ * continue one: exactly one of them, never both and never neither. The SDK
+ * rejects either mistake before the request leaves the process, because the
+ * endpoint 400s on both.
  */
 export interface AuditStreamParams {
   /**

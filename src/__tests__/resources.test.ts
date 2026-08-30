@@ -629,11 +629,45 @@ describe('ComplianceResource', () => {
     expect(result.hasMore).toBe(false);
   });
 
+  it('reports a fractional holdback header as null, not as a fraction', async () => {
+    // The header is whole seconds. `Number('3.5')` took it and reported a
+    // precision the contract does not carry, which the Python client never did.
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(''),
+      headers: new Headers({ 'X-AGLedger-Stream-Holdback-Seconds': '3.5' }),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const result = await client.compliance.stream({ since: '2026-01-01T00:00:00Z' });
+    expect(result.holdbackSeconds).toBeNull();
+  });
+
   it('refuses since and cursor together rather than dropping one', async () => {
     const { client, fetch } = createMockClient();
     await expect(
       client.compliance.stream({ since: '2026-01-01T00:00:00Z', cursor: '2026-01-01T00:00:00.000001Z_evt-1' }),
     ).rejects.toThrow(ConfigurationError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('refuses neither since nor cursor, which the endpoint rejects', async () => {
+    // Making `since` optional opened this: the spec requires it unless
+    // `cursor` is sent, so an empty params object is a guaranteed 400.
+    const { client, fetch } = createMockClient();
+    await expect(client.compliance.stream({ limit: 100 })).rejects.toThrow(ConfigurationError);
+    const walk = async () => {
+      for await (const _event of client.compliance.streamAll({})) {
+        // unreachable: the guard fires before the first request
+      }
+    };
+    await expect(walk()).rejects.toThrow(ConfigurationError);
     expect(fetch).not.toHaveBeenCalled();
   });
 

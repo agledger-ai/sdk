@@ -12,8 +12,10 @@ export class AgledgerError extends Error {
 }
 
 /**
- * The client was constructed with unusable options, caught before any request
- * is made. Distinct from `ValidationError`, which reports what the Server
+ * Arguments the SDK will not send, caught before any request is made: options
+ * the client cannot be constructed with, and per-call parameter combinations
+ * the endpoint rejects (`compliance.stream` takes `since` or `cursor`, exactly
+ * one). Distinct from `ValidationError`, which reports what the Server
  * rejected: this never left the process.
  */
 export class ConfigurationError extends AgledgerError {

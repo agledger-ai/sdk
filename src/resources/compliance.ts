@@ -118,11 +118,18 @@ export class ComplianceResource {
    * in one transaction share a `created_at`, so a time-only boundary skips
    * every row sharing the newest instant.
    *
+   * Forward every page before you test whether the walk can continue. A page
+   * with rows and no cursor cannot be resumed past, and dropping it loses
+   * exactly the rows the cursor walk exists to keep. `streamAll` raises
+   * {@link PaginationLimitError} on that page rather than returning quietly.
+   *
    * @example
    * ```ts
    * let page = await client.compliance.stream({ since: '2026-01-01T00:00:00Z', limit: 500 });
-   * while (page.hasMore && page.cursor) {
+   * for (;;) {
    *   for (const event of page.events) await sendToSiem(event);
+   *   if (!page.hasMore) break;
+   *   if (!page.cursor) throw new Error('SIEM stream gave rows with no resume cursor');
    *   page = await client.compliance.stream({ cursor: page.cursor, limit: 500 });
    * }
    * ```
@@ -204,11 +211,19 @@ export class ComplianceResource {
 }
 
 /**
- * `since` opens a walk and `cursor` continues one; the endpoint takes one or
- * the other. Sending both is a 400, and dropping one silently here would pick
- * a start position the caller did not ask for.
+ * `since` opens a walk and `cursor` continues one; the endpoint takes exactly
+ * one of them. Sending both is a 400, and so is sending neither: the spec
+ * makes `since` required unless `cursor` is present. Dropping or inventing one
+ * silently here would pick a start position the caller did not ask for.
  */
 function assertStreamStart(params: AuditStreamParams): void {
+  if (params.since === undefined && params.cursor === undefined) {
+    throw new ConfigurationError(
+      "SIEM stream needs 'since' or 'cursor': 'since' opens a walk at an instant and " +
+        "'cursor' continues one from the previous result's cursor. Sending neither is " +
+        'rejected by the endpoint.',
+    );
+  }
   if (params.since !== undefined && params.cursor !== undefined) {
     throw new ConfigurationError(
       "SIEM stream takes 'since' or 'cursor', not both: 'since' opens a walk and 'cursor' " +
