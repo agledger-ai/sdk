@@ -4,6 +4,40 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Reconciled against API v1.6.0.
+
+### Fixed (the SIEM stream dropped audit events)
+
+- **`compliance.streamAll` sends the stream cursor back verbatim instead of rebuilding a timestamp from it.** It used to split `X-AGLedger-Stream-Cursor` at its last underscore and feed the instant half back as `since`. Rows written in one database transaction all carry the same `created_at`, and `since` is compared by instant alone, so any page boundary landing inside such a group skipped every remaining row that shared the newest instant. Those events were never delivered to the SIEM and nothing reported a gap. The walk now continues with `cursor`, which carries the row id alongside a full-precision instant and steps through the group. Anyone forwarding audit events with `streamAll` should re-pull the window they care about: the rows lost this way are still on the Server.
+
+- **A page yielding rows with no cursor to resume from raises `PaginationLimitError` rather than returning quietly.** The walk cannot advance past it, and stopping there hands back a prefix of the stream that reads as all of it. A bound you set with `maxPages` still ends the walk quietly, because that stop is yours.
+
+### Changed
+
+- **`AuditStreamParams.since` is optional and `cursor` is new.** Send one or the other, never both: `since` opens a walk, `cursor` continues one. Passing both throws `ConfigurationError` before the request leaves the process, rather than silently dropping one and starting somewhere you did not ask for.
+
+- **`AuditStreamResult.hasMore` means "this page produced rows".** It was `events.length >= (limit ?? 100)`, a guess that is wrong in both directions once the Server holds rows back: a short page is not the end of the stream. On a cursor walk the only honest local signal is whether this poll returned anything, and a zero-row page ends this poll rather than the stream.
+
+- **`AuditStreamResult.holdbackSeconds` is new.** Whole seconds by which the page stops short of now, because a transaction open on the Server has not committed and rows stamped inside it are not yet visible. `0` means the page runs up to the present; a large value means an empty page is not evidence that nothing has happened, so hold the cursor and keep polling. Null when the Server sends no header.
+
+- **`FederationPeer` is the row the endpoint serves.** Five of its seven fields (`hubId`, `name`, `endpoint`, `publicKey`, `registeredAt`) are served by no version of `GET /federation/v1/admin/peers`, so anything reading them got `undefined`. The real row is `peerId`, `peerHubId`, `peerUrl`, `status` and `createdAt`, plus the optional `agentDirectoryHash`, `consecutiveDeliveryFailures`, `lastDeliveryAt`, `lastDeliveryError` and `lastSyncAt`. Reachability is `lastDeliveryAt` with `consecutiveDeliveryFailures`, not `lastSyncAt`, which only moves when a peer pushes its agent directory. This is a breaking type change for code that typed a peers listing, and the fields it breaks on never held a value.
+
+- **`PeerHandshakeResult` is declared.** It was `{ established: boolean; peerHubId?: string }` plus an index signature; `established` is not a field the route serves. The 201 carries `peered` (always `true`), `peerId`, `peerHubId`, `status`, `serverSigningPublicKey`, `serverEncryptionPublicKey` and optional `nextSteps`. `peerHubId` is the identifier every `/federation/v1/admin/peers/{peerHubId}` path takes; `peerId` is a receiver-local row id no admin path accepts.
+
+- **The federation peer methods name their parameter `peerHubId`,** matching the path parameter the API renamed from `hubId`. `federationAdmin.getPeer`, `revokePeer`, `resyncPeer` and `deletePeer` take it positionally, so the URL they build is unchanged and no call site has to move.
+
+- **`audit.orgReadsCheckpoints.list` returns the whole envelope.** It declared `{ data }` alone, so the `checkpointing` sweep schedule, `hasMore`, `nextCursor` and `total` were all served and none were reachable. The schedule is what separates a log whose first sweep has not fired from missing checkpoints. It has its own type rather than reusing `VaultCheckpointingSchedule`, which carries an `anchoringEnabled` this endpoint does not serve. The method also takes `offset` and `cursor` now, so a listing past the first page can be walked.
+
+### Added
+
+- **`audit.orgReadsCheckpoints.listReads()`** for `GET /v1/audit/org-reads`, the read-transparency log entries the checkpoints cover, oldest first in `leafIndex` order. Without it an empty checkpoint list could not be told apart from "no qualifying reads have happened yet": nothing here means nothing was logged, while rows here with no checkpoint mean the sweep has not run over them. Verify one against a checkpoint with `proof()`, passing its `leafIndex`.
+
+- **`events.list` and `events.listAll` take `until`,** returning events created strictly before that instant. Pair it with `since` (inclusive) to close a window, and consecutive windows compose without overlap when the next `since` equals the previous `until`. Both methods now take the named `ListEventsParams`.
+
+- **`OpsSummary.vault.orgReadsCheckpoints`,** the platform-wide read-transparency sweep posture: `cron`, `lastCheckpointAt` across all orgs, and `workerScheduled` (null when the worker posture could not be determined).
+
 ## [1.9.0] - 2026-08-21
 
 ### Fixed (enum members that could never have worked)
