@@ -118,7 +118,15 @@ function buildRoutes(spec, source) {
   };
 }
 
-function buildFields(spec) {
+/**
+ * `prev` is the committed snapshot, and its `enums` block is carried forward
+ * rather than rebuilt: pinning a union means deciding which spec enum it MEANS,
+ * which is a judgement (see enum-parity.test.ts) and not something this script
+ * can derive. Dropping it on a refresh would leave enum-parity with nothing to
+ * read, so a whole class of drift would go unchecked the moment the API bumped.
+ * Re-pin by hand when the spec's enum members move.
+ */
+function buildFields(spec, prev) {
   const schemas = {};
   for (const [name, schema] of Object.entries(spec.components?.schemas ?? {})) {
     schemas[name] = propNames(schema, spec);
@@ -128,6 +136,9 @@ function buildFields(spec) {
     apiVersion: spec.info?.version ?? null,
     schemaCount: Object.keys(schemas).length,
     schemas: Object.fromEntries(Object.entries(schemas).sort(([a], [b]) => a.localeCompare(b))),
+    enumCount: prev?.enumCount ?? 0,
+    enums: prev?.enums ?? {},
+    enumsUnpinned: prev?.enumsUnpinned ?? [],
   };
 }
 
@@ -198,9 +209,9 @@ const { spec, source } = await loadSpec();
 console.log(`Spec: ${spec.info?.title ?? 'unknown'} v${spec.info?.version ?? '?'}  (${source})`);
 
 const nextRoutes = buildRoutes(spec, source);
-const nextFields = buildFields(spec);
 const prevRoutes = JSON.parse(readFileSync(ROUTES, 'utf8'));
 const prevFields = JSON.parse(readFileSync(FIELDS, 'utf8'));
+const nextFields = buildFields(spec, prevFields);
 
 console.log(`\nroutes.json (${prevRoutes.count} -> ${nextRoutes.count}):`);
 const routesDrift =
