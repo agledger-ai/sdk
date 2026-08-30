@@ -434,11 +434,15 @@ export class HttpClient {
         const cursor = response.headers.get('X-AGLedger-Stream-Cursor') ?? null;
         // Whole seconds the page stops short of now. Absent on a Server that
         // predates the header, and absent on a 503, which served no page at
-        // all; both read as null rather than as a caught-up zero.
+        // all; both read as null rather than as a caught-up zero. So is a
+        // value that is not a whole number: the contract carries no fraction,
+        // so `3.5` is a header this SDK does not understand rather than 3.5
+        // seconds of holdback. `Number()` would have taken it.
         const holdbackRaw = response.headers.get('X-AGLedger-Stream-Holdback-Seconds');
-        const holdbackParsed =
-          holdbackRaw === null || holdbackRaw.trim() === '' ? Number.NaN : Number(holdbackRaw);
-        const holdbackSeconds = Number.isFinite(holdbackParsed) ? holdbackParsed : null;
+        const holdbackSeconds =
+          holdbackRaw !== null && /^[+-]?\d+$/.test(holdbackRaw.trim())
+            ? Number(holdbackRaw.trim())
+            : null;
 
         return { data, cursor, holdbackSeconds };
       } catch (err) {
