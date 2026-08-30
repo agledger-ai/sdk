@@ -14,6 +14,18 @@ Reconciled against API v1.6.0.
 
 - **A page yielding rows with no cursor to resume from raises `PaginationLimitError` rather than returning quietly.** The walk cannot advance past it, and stopping there hands back a prefix of the stream that reads as all of it. A bound you set with `maxPages` still ends the walk quietly, because that stop is yours.
 
+### Fixed (three event types the webhook API rejects)
+
+- **`WebhookEventType` is the set a subscription can actually fire on.** It named `record.settled`, `record.released` and `dispute.evidence_window_closed`, which `POST /v1/webhooks` has never accepted: the create route declares a strict enum, so `webhooks.create({ eventTypes: ['record.settled'] })` was a 400 from a parameter this SDK typed as valid. None of the three was ever delivered as a webhook type either. Settlement outcomes reach subscribers as `signal.emitted` and `signal.received`, not as per-variant types. Removing them is a breaking type change for anyone who named one, and the code it breaks was making a request the Server refused.
+
+- **`EventType` is new, and carries the wider set.** The three removed above are queryable on `GET /v1/events`, which serves a deliberate superset of the subscribable enum as replay surface. That is the type to reach for when filtering the event listing. It has no `*` member, because the wildcard is a subscription filter rather than a type any event carries.
+
+- **`audit.orgReadsCheckpoints.proof()` takes the leaf index as a number.** The `leaf` query parameter is an integer, and the value to send is `OrgAdminRead.leafIndex`, which is a number too, so the documented workflow (list the leaves, prove one against a checkpoint) did not compile.
+
+- **`compliance.stream` rejects a call that sends neither `since` nor `cursor`.** The endpoint requires `since` unless a `cursor` is present, so an empty params object was a guaranteed 400. It throws `ConfigurationError` alongside the existing both-were-sent check.
+
+- **A fractional `X-AGLedger-Stream-Holdback-Seconds` reads as null.** The header is whole seconds, and `3.5` was being reported as 3.5 seconds of holdback rather than as a header this client does not understand.
+
 ### Changed
 
 - **`AuditStreamParams.since` is optional and `cursor` is new.** Send one or the other, never both: `since` opens a walk, `cursor` continues one. Passing both throws `ConfigurationError` before the request leaves the process, rather than silently dropping one and starting somewhere you did not ask for.
@@ -35,6 +47,10 @@ Reconciled against API v1.6.0.
 - **`audit.orgReadsCheckpoints.listReads()`** for `GET /v1/audit/org-reads`, the read-transparency log entries the checkpoints cover, oldest first in `leafIndex` order. Without it an empty checkpoint list could not be told apart from "no qualifying reads have happened yet": nothing here means nothing was logged, while rows here with no checkpoint mean the sweep has not run over them. Verify one against a checkpoint with `proof()`, passing its `leafIndex`.
 
 - **`events.list` and `events.listAll` take `until`,** returning events created strictly before that instant. Pair it with `since` (inclusive) to close a window, and consecutive windows compose without overlap when the next `since` equals the previous `until`. Both methods now take the named `ListEventsParams`.
+
+- **`events.list` and `events.listAll` take `recordId` and `eventType`.** Both are served by the route and neither was on the params type, and because TypeScript rejects unknown keys in an object literal, neither filter could be passed without a cast. `eventType` takes the new `EventType`.
+
+- **`FederationPeerStatus` and `OrgReadsCheckpointingSource` are named types.** Both were spelled inline on the field that uses them, where the enum-member parity guard cannot see them: it reads top-level type aliases, so an inline union drifts unchecked. They are pinned to the API enum now, and `FederationPeer['status']` and `OrgReadsCheckpointingSchedule['source']` are unchanged for callers.
 
 - **`OpsSummary.vault.orgReadsCheckpoints`,** the platform-wide read-transparency sweep posture: `cron`, `lastCheckpointAt` across all orgs, and `workerScheduled` (null when the worker posture could not be determined).
 
