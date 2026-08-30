@@ -756,6 +756,20 @@ describe('EventsResource', () => {
     await client.events.list({ since: '2026-01-01T00:00:00Z' });
     expect(fetch.mock.calls[0][0]).not.toContain('until=');
   });
+
+  it('filters by record and by event type', async () => {
+    // Both are served by the route and were absent from the params type, and
+    // excess-property checking means an absent key cannot be passed at all.
+    const { client, fetch } = createPageMockClient();
+    await client.events.list({
+      since: '2026-01-01T00:00:00Z',
+      recordId: '11111111-2222-3333-4444-555555555555',
+      eventType: 'record.settled',
+    });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('recordId=11111111-2222-3333-4444-555555555555');
+    expect(url).toContain('eventType=record.settled');
+  });
 });
 
 describe('ReputationResource', () => {
