@@ -1,17 +1,21 @@
 import type { HttpClient } from '../http.js';
-import type { AgledgerEvent, Page, ListParams, RequestOptions, AutoPaginateOptions } from '../types.js';
+import type {
+  AgledgerEvent,
+  Page,
+  ListEventsParams,
+  RequestOptions,
+  AutoPaginateOptions,
+} from '../types.js';
 
 export class EventsResource {
   constructor(private readonly http: HttpClient) {}
 
   /**
-   * List events globally. Requires `since` parameter (ISO timestamp).
-   * GET /v1/events?since=...&order=asc|desc
+   * List events globally. `since` is required and inclusive; pair it with
+   * `until` to close the window so consecutive polls compose without overlap.
+   * GET /v1/events?since=...&until=...&order=asc|desc
    */
-  list(
-    params: { since: string; order?: 'asc' | 'desc' } & ListParams,
-    options?: RequestOptions,
-  ): Promise<Page<AgledgerEvent>> {
+  list(params: ListEventsParams, options?: RequestOptions): Promise<Page<AgledgerEvent>> {
     return this.http.getPage<AgledgerEvent>(
       '/v1/events',
       params as unknown as Record<string, unknown>,
@@ -21,7 +25,7 @@ export class EventsResource {
 
   /** Auto-paginating iterator. Yields individual events across all pages. */
   listAll(
-    params: { since: string; order?: 'asc' | 'desc' } & ListParams,
+    params: ListEventsParams,
     options?: RequestOptions & AutoPaginateOptions,
   ): AsyncGenerator<AgledgerEvent> {
     return this.http.paginate<AgledgerEvent>(

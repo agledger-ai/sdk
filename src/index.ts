@@ -128,6 +128,7 @@ export type {
 
   // Events & Audit
   AgledgerEvent,
+  ListEventsParams,
 
   // Rate limits
   RateLimitInfo,
@@ -166,6 +167,11 @@ export type {
 
   // Org-admin reads checkpoints (SCITT-style)
   OrgReadsCheckpoint,
+  OrgReadsCheckpointPage,
+  OrgReadsCheckpointingSchedule,
+  ListOrgReadsCheckpointsParams,
+  OrgAdminRead,
+  ListOrgAdminReadsParams,
   CosignCheckpointParams,
   OrgReadsInclusionProof,
 

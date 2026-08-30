@@ -9,13 +9,13 @@ import type {
 } from '../types.js';
 
 /**
- * Federation admin surface: operator-side management of peer servers
+ * Federation admin surface: operator-side management of peer Servers
  * and the federation outbound DLQ. Requires the `admin` role.
  */
 export class FederationAdminResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** Create a single-use peering token for hub-to-hub federation setup. */
+  /** Create a single-use peering token for peer-to-peer federation setup. */
   createPeeringToken(
     params: { label: string },
     options?: RequestOptions,
@@ -23,7 +23,7 @@ export class FederationAdminResource {
     return this.http.post<PeeringToken>('/federation/v1/admin/peering-tokens', params, options);
   }
 
-  /** List all peer servers known to this instance. */
+  /** List all peer Servers known to this instance. */
   listPeers(
     params?: ListPeersParams,
     options?: RequestOptions,
@@ -31,37 +31,37 @@ export class FederationAdminResource {
     return this.http.getPage<FederationPeer>('/federation/v1/admin/peers', params as Record<string, unknown>, options);
   }
 
-  /** Get details for a specific peer server. */
+  /** Get details for a specific peer Server. Takes `peerHubId`, not `peerId`. */
   getPeer(
-    hubId: string,
+    peerHubId: string,
     options?: RequestOptions,
   ): Promise<FederationPeer> {
-    return this.http.get<FederationPeer>(`/federation/v1/admin/peers/${hubId}`, undefined, options);
+    return this.http.get<FederationPeer>(`/federation/v1/admin/peers/${peerHubId}`, undefined, options);
   }
 
-  /** Revoke a peer server (irreversible). */
+  /** Revoke a peer Server (irreversible). */
   revokePeer(
-    hubId: string,
+    peerHubId: string,
     params: { reason: string },
     options?: RequestOptions,
   ): Promise<{ revoked: boolean }> {
-    return this.http.post(`/federation/v1/admin/peers/${hubId}/revoke`, params, options);
+    return this.http.post(`/federation/v1/admin/peers/${peerHubId}/revoke`, params, options);
   }
 
-  /** Trigger a full resync with a peer server. */
+  /** Trigger a full resync with a peer Server. */
   resyncPeer(
-    hubId: string,
+    peerHubId: string,
     options?: RequestOptions,
   ): Promise<{ synced: boolean }> {
-    return this.http.post(`/federation/v1/admin/peers/${hubId}/resync`, {}, options);
+    return this.http.post(`/federation/v1/admin/peers/${peerHubId}/resync`, {}, options);
   }
 
   /** Permanently remove a revoked peer's record. */
   deletePeer(
-    hubId: string,
+    peerHubId: string,
     options?: RequestOptions,
   ): Promise<{ deleted: boolean }> {
-    return this.http.delete(`/federation/v1/admin/peers/${hubId}`, undefined, options);
+    return this.http.delete(`/federation/v1/admin/peers/${peerHubId}`, undefined, options);
   }
 
   /** List failed outbound federation messages in the dead-letter queue. */
@@ -80,7 +80,7 @@ export class FederationAdminResource {
     return this.http.post('/federation/v1/admin/dlq/recover', params, options);
   }
 
-  /** This instance's federation identity (hubId, public keys, endpoint URL). */
+  /** This instance's federation identity: hub id, both federation public keys, and whether it can complete a handshake at all. */
   getInstance(options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.get('/federation/v1/admin/instance', undefined, options);
   }

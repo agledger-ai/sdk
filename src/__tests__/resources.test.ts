@@ -737,6 +737,27 @@ describe('ComplianceResource', () => {
   });
 });
 
+describe('EventsResource', () => {
+  it('closes the window with until', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.events.list({
+      since: '2026-01-01T00:00:00Z',
+      until: '2026-01-02T00:00:00Z',
+      limit: 10,
+    });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/events');
+    expect(url).toContain(`since=${encodeURIComponent('2026-01-01T00:00:00Z')}`);
+    expect(url).toContain(`until=${encodeURIComponent('2026-01-02T00:00:00Z')}`);
+  });
+
+  it('sends no until when the caller leaves the window open', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.events.list({ since: '2026-01-01T00:00:00Z' });
+    expect(fetch.mock.calls[0][0]).not.toContain('until=');
+  });
+});
+
 describe('ReputationResource', () => {
   it('gets agent reputation', async () => {
     const { client, fetch } = createMockClient();
@@ -815,10 +836,66 @@ describe('DiscoveryResource', () => {
 describe('AuditResource', () => {
   it('lists org-reads checkpoints', async () => {
     const { client, fetch } = createMockClient({ data: [] });
-    await client.audit.orgReadsCheckpoints.list({ limit: 10 });
+    await client.audit.orgReadsCheckpoints.list({ limit: 10, offset: 20 });
     const url = fetch.mock.calls[0][0];
     expect(url).toContain('/v1/audit/org-reads/checkpoints');
     expect(url).toContain('limit=10');
+    expect(url).toContain('offset=20');
+  });
+
+  it('org-reads checkpoint page carries the sweep schedule and the paging fields', async () => {
+    // The listing declared only `data`, so `checkpointing`, `hasMore`,
+    // `nextCursor` and `total` were all served and none were reachable.
+    const { client } = createMockClient({
+      checkpointing: {
+        cron: '0 */6 * * *',
+        intervalMinutes: 360,
+        nextRunAt: '2026-01-01T06:00:00Z',
+        lastCheckpointAt: null,
+        source: 'worker',
+      },
+      data: [],
+      hasMore: false,
+      nextCursor: null,
+      total: 0,
+    });
+    const page = await client.audit.orgReadsCheckpoints.list();
+    expect(page.checkpointing.cron).toBe('0 */6 * * *');
+    expect(page.checkpointing.lastCheckpointAt).toBeNull();
+    expect(page.checkpointing.source).toBe('worker');
+    expect(page.hasMore).toBe(false);
+    expect(page.nextCursor).toBeNull();
+    expect(page.total).toBe(0);
+  });
+
+  it('lists the org-reads leaves the checkpoints cover', async () => {
+    const { client, fetch } = createMockClient({
+      data: [
+        {
+          id: 'read-1',
+          orgId: 'org-1',
+          leafIndex: 0,
+          leafHash: 'a'.repeat(64),
+          recordId: 'rec-1',
+          callerKeyId: 'key-1',
+          filterApplied: 'none',
+          readContext: 'interactive',
+          exportBatchId: null,
+          readAt: '2026-01-01T00:00:00Z',
+        },
+      ],
+      hasMore: false,
+      nextCursor: null,
+      total: 1,
+    });
+    const page = await client.audit.orgReadsCheckpoints.listReads({ limit: 50, cursor: 'cur-1' });
+    const url = fetch.mock.calls[0][0];
+    expect(url).toContain('/v1/audit/org-reads');
+    expect(url).not.toContain('/checkpoints');
+    expect(url).toContain('limit=50');
+    expect(url).toContain('cursor=cur-1');
+    expect(page.data[0]?.leafIndex).toBe(0);
+    expect(page.data[0]?.exportBatchId).toBeNull();
   });
 
   it('gets a single org-reads checkpoint', async () => {

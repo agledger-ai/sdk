@@ -1935,6 +1935,21 @@ export interface VerdictStatistics {
 }
 
 
+/** Query parameters for the global event listing (`GET /v1/events`). */
+export interface ListEventsParams extends ListParams {
+  /** ISO timestamp: events created at or after this instant (inclusive). Required. */
+  since: string;
+  /**
+   * ISO timestamp: events created strictly before this instant (exclusive).
+   * Pair it with `since` to close the window and make the page reproducible;
+   * consecutive windows compose without overlap when the next `since` equals
+   * the previous `until`.
+   */
+  until?: string;
+  /** Sort order by creation time (default: `asc`). */
+  order?: 'asc' | 'desc';
+}
+
 export interface AgledgerEvent {
   id: string;
   /** Event type (e.g. `record.created`). Wire field is `type`, not `eventType`. */
@@ -2410,25 +2425,81 @@ export interface OrgReadsCheckpoint {
   witnessCosignedAt?: string | null;
 }
 
+/**
+ * When the org-reads checkpoint sweep runs, and when it last did.
+ *
+ * The sweep is time-driven, so an install that has logged qualifying reads
+ * still returns an empty checkpoint list until the first run. Read this before
+ * reporting checkpoints as missing.
+ *
+ * Distinct from {@link VaultCheckpointingSchedule}, which describes the
+ * `/v1/audit-vault/checkpoints` sweep and carries `anchoringEnabled`. This
+ * schedule has no anchoring posture.
+ */
+export interface OrgReadsCheckpointingSchedule {
+  /** Cron the sweep runs on, in UTC. Fixed cadence; there is no env knob. */
+  cron: string;
+  /** Cadence in minutes derived from `cron`. Null when the schedule is not a fixed interval. */
+  intervalMinutes: number | null;
+  /** ISO 8601 timestamp of the next scheduled sweep, or null. */
+  nextRunAt: string | null;
+  /** Newest checkpoint in the caller's org; null until the first sweep lands one. */
+  lastCheckpointAt: string | null;
+  /** `worker` when read from the schedule the worker registered, `config` when this process fell back to its own defaults. */
+  source: 'worker' | 'config' | (string & {});
+}
 
 /**
- * Org-admin reads checkpoint (SCITT-style signed tree head). Wire fields: the
- * timestamp is `checkpointAt` (not `createdAt`) and the signed envelope is
- * `coseSign1Base64` (not `sthBytes`/`signature`).
+ * A page of org-reads checkpoints plus the sweep schedule the engine returns
+ * alongside it. The schedule always travels with the page, so an empty `data`
+ * can be read against the cadence that produced it rather than requiring a
+ * second call.
  */
-export interface OrgReadsCheckpoint {
+export interface OrgReadsCheckpointPage extends Page<OrgReadsCheckpoint> {
+  checkpointing: OrgReadsCheckpointingSchedule;
+}
+
+/**
+ * One entry in the org's read-transparency log: a single qualifying cross-party
+ * admin read. These rows are the Merkle leaves the signed checkpoints cover, so
+ * an empty listing here is what separates "no qualifying reads have happened"
+ * from "the sweep has not run yet".
+ */
+export interface OrgAdminRead {
   id: string;
   orgId: string;
-  treeSize: number;
-  rootHash: string;
-  checkpointAt: string;
-  logId?: string;
-  /** Base64 of the canonical COSE_Sign1 (RFC 9052) envelope over the STH. */
-  coseSign1Base64?: string;
-  signingKeyId?: string | null;
-  witnessSignature?: string | null;
-  witnessKeyId?: string | null;
-  witnessCosignedAt?: string | null;
+  /** Position in the Merkle tree; the listing is ordered by it, oldest first. */
+  leafIndex: number;
+  /** sha256 hex of the row's COSE_Sign1 bytes: the leaf the checkpoints cover. */
+  leafHash: string;
+  recordId: string;
+  /** API key that performed the read. */
+  callerKeyId: string;
+  filterApplied: string;
+  /** `interactive`, `scheduled-job`, or `export-batch:<uuid>`. */
+  readContext: string;
+  exportBatchId: string | null;
+  readAt: string;
+}
+
+/** Pagination for the org-reads checkpoint listing. */
+export interface ListOrgReadsCheckpointsParams {
+  /** 1..200, default 50. */
+  limit?: number;
+  /** Offset-based paging; ignored when `cursor` is set. */
+  offset?: number;
+  /** `nextCursor` from the previous page, sent back with the same query parameters. */
+  cursor?: string;
+}
+
+/** Pagination for the org-reads leaf listing (`GET /v1/audit/org-reads`). */
+export interface ListOrgAdminReadsParams {
+  /** 1..200, default 50. */
+  limit?: number;
+  /** Offset-based paging; ignored when `cursor` is set. */
+  offset?: number;
+  /** `nextCursor` from the previous page, sent back with the same query parameters. */
+  cursor?: string;
 }
 
 /** Cosign payload for an org-reads checkpoint. */
@@ -3410,11 +3481,25 @@ export interface PeerHandshakeParams {
   agentDirectory: Array<{ agentId: string; types: string[] }>;
 }
 
-/** Result of a peer handshake. */
+/**
+ * Result of a peer handshake: the receiver's side of the registration.
+ *
+ * `peerHubId` is the identifier every `/federation/v1/admin/peers/{peerHubId}`
+ * path takes, in canonical lowercase. `peerId` is the receiver-local row id and
+ * no admin path accepts it.
+ */
 export interface PeerHandshakeResult {
-  established: boolean;
-  peerHubId?: string;
-  [key: string]: unknown;
+  /** Always true: a refusal is a thrown 4xx, never a false here. */
+  peered: true;
+  /** Receiver-local row id of the registration. */
+  peerId: string;
+  /** The hub id the registration is filed under, canonical lowercase. */
+  peerHubId: string;
+  /** Peer status as created (`active`). */
+  status: string;
+  serverSigningPublicKey: string;
+  serverEncryptionPublicKey: string;
+  nextSteps?: NextStep[];
 }
 
 
@@ -3768,15 +3853,37 @@ export interface VerificationKeysResponse {
 }
 
 
-/** A peer server in hub-to-hub federation. */
+/** A peer Server in peer-to-peer federation. */
 export interface FederationPeer {
-  hubId: string;
-  name: string;
-  endpoint: string;
-  status: 'active' | 'suspended' | 'revoked';
-  publicKey: string;
-  lastSyncAt: string | null;
-  registeredAt: string;
+  /** Receiver-local row id. No admin path takes it. */
+  peerId: string;
+  /** The identifier every `/federation/v1/admin/peers/{peerHubId}` path takes. */
+  peerHubId: string;
+  peerUrl: string;
+  status: 'active' | 'suspended' | 'revoked' | (string & {});
+  createdAt: string;
+  /** Digest of the agent directory this peer last pushed. Null until it has pushed one. */
+  agentDirectoryHash?: string | null;
+  /**
+   * Failed delivery attempts since the last success, reset to 0 on a 2xx. Not
+   * purely a reachability count: a peer that answers and rejects the payload
+   * counts here too, because the message did not get through either way.
+   * `lastDeliveryError` says which, naming the status code when the peer answered.
+   */
+  consecutiveDeliveryFailures?: number;
+  /**
+   * When an outbound message last reached this peer with a 2xx. Null means
+   * nothing has been delivered yet, not that the peer is unreachable.
+   */
+  lastDeliveryAt?: string | null;
+  /** Why the most recent delivery attempt failed, cleared on the next success. */
+  lastDeliveryError?: string | null;
+  /**
+   * When this peer last pushed its agent directory. Directory-sync state, NOT
+   * reachability: V1 federation has no pull protocol, so a peer taking delivery
+   * after delivery never moves it. Read `lastDeliveryAt` for reachability.
+   */
+  lastSyncAt?: string | null;
 }
 
 /** Parameters for listing known peer servers (`GET /federation/v1/admin/peers`). */
@@ -3785,7 +3892,7 @@ export interface ListPeersParams extends ListParams {
   status?: FederationPeer['status'];
 }
 
-/** A single-use peering token for hub-to-hub federation setup. */
+/** A single-use peering token for peer-to-peer federation setup. */
 export interface PeeringToken {
   token: string;
   expiresAt: string;
@@ -4024,6 +4131,20 @@ export interface OpsSummary {
       bucket: string | null;
       workerEnabled: boolean | null;
       reconciled: boolean | null;
+    };
+    /**
+     * Read-transparency (`org_admin_reads`) checkpoint sweep posture. The sweep
+     * runs in the worker on a fixed cron; there is no env knob.
+     *
+     * Platform-wide, unlike the per-org block on
+     * `GET /v1/audit/org-reads/checkpoints`: `lastCheckpointAt` is the newest
+     * checkpoint across all orgs, null until the first sweep lands one.
+     * `workerScheduled: null` means the worker posture could not be determined.
+     */
+    orgReadsCheckpoints: {
+      cron: string;
+      lastCheckpointAt: string | null;
+      workerScheduled: boolean | null;
     };
   };
   webhooks: {
