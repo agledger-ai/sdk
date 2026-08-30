@@ -493,7 +493,7 @@
         "signal.received"
       ],
       "specSites": [
-        "paths//v1/events/get/parameters/3/schema"
+        "paths//v1/events/get/parameters/eventType/schema"
       ]
     },
     "EvidenceType": {
@@ -515,6 +515,8 @@
         "suspended"
       ],
       "specSites": [
+        "paths//federation/v1/admin/peers/get/parameters/status/schema",
+        "paths//federation/v1/admin/peers/get/responses/200/content/application/json/schema/allOf/1/properties/data/items/properties/status",
         "paths//federation/v1/admin/peers/{peerHubId}/get/responses/200/content/application/json/schema/properties/status"
       ]
     },
