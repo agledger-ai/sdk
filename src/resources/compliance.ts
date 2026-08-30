@@ -15,7 +15,7 @@ import type {
   ListParams,
   RequestOptions,
 } from '../types.js';
-import { PaginationLimitError } from '../errors.js';
+import { ConfigurationError, PaginationLimitError } from '../errors.js';
 
 /**
  * Compliance, audit, and EU AI Act reporting surface. The `stream` method is
@@ -111,19 +111,25 @@ export class ComplianceResource {
 
   /**
    * Pull audit events as NDJSON for SIEM ingestion.
-   * Returns parsed events and an opaque cursor for the next poll.
    * Requires `audit:read` scope. Route mounted at `/v1/siem/stream`.
+   *
+   * Open a walk with `since`; continue it by sending the previous result's
+   * `cursor` back verbatim. Never rebuild `since` from a cursor: rows written
+   * in one transaction share a `created_at`, so a time-only boundary skips
+   * every row sharing the newest instant.
    *
    * @example
    * ```ts
-   * const page = await client.compliance.stream({ since: '2026-01-01T00:00:00Z', limit: 500 });
-   * for (const event of page.events) {
-   *   await sendToSiem(event);
+   * let page = await client.compliance.stream({ since: '2026-01-01T00:00:00Z', limit: 500 });
+   * while (page.hasMore && page.cursor) {
+   *   for (const event of page.events) await sendToSiem(event);
+   *   page = await client.compliance.stream({ cursor: page.cursor, limit: 500 });
    * }
    * ```
    */
   async stream(params: AuditStreamParams, options?: RequestOptions): Promise<AuditStreamResult> {
-    const { data, cursor } = await this.http.getNdjson(
+    assertStreamStart(params);
+    const { data, cursor, holdbackSeconds } = await this.http.getNdjson(
       '/v1/siem/stream',
       params as unknown as Record<string, unknown>,
       options,
@@ -131,13 +137,22 @@ export class ComplianceResource {
     return {
       events: data,
       cursor,
-      hasMore: data.length >= (params.limit ?? 100),
+      // Not `data.length >= limit`: the Server holds back rows whose
+      // transaction is still open, so a short page is not the end of the
+      // stream. Whether this poll produced rows is the only honest local signal.
+      hasMore: data.length > 0,
+      holdbackSeconds,
     };
   }
 
   /**
    * Auto-paginating async iterator for SIEM streaming. Follows the cursor
    * until the stream is exhausted.
+   *
+   * The first request uses whatever the caller passed, `since` or `cursor`;
+   * every later one sends the previous page's cursor back verbatim. The cursor
+   * is never taken apart, because the instant half of it does not address a
+   * position inside a group of rows that share one `created_at`.
    *
    * Unbounded, it runs behind a 100-page runaway guard, and hitting that guard
    * throws {@link PaginationLimitError}: a SIEM feed that stops early and says
@@ -148,26 +163,57 @@ export class ComplianceResource {
     params: AuditStreamParams,
     options?: RequestOptions & { maxPages?: number },
   ): AsyncGenerator<Record<string, unknown>, void, undefined> {
+    assertStreamStart(params);
     const ceilingIsDefault = options?.maxPages === undefined;
     const maxPages = options?.maxPages ?? 100;
-    let since = params.since;
+    let next: AuditStreamParams = params;
     let yielded = 0;
     let page = 0;
 
     for (; page < maxPages; page++) {
-      const result = await this.stream({ ...params, since }, options);
+      const result = await this.stream(next, options);
       for (const event of result.events) {
         yield event;
         yielded++;
       }
-      if (!result.hasMore || !result.cursor) return;
-      // Extract timestamp from composite cursor (timestamp_id format)
-      const underscoreIdx = result.cursor.lastIndexOf('_');
-      since = underscoreIdx > 0 ? result.cursor.substring(0, underscoreIdx) : result.cursor;
+      if (result.events.length === 0) return;
+      if (!result.cursor) {
+        // Rows came back with no resume position, so the walk cannot advance
+        // and the caller asked for no bound. Stopping here would hand back a
+        // prefix of the stream that reads as all of it.
+        throw new PaginationLimitError(
+          '/v1/siem/stream',
+          page + 1,
+          yielded,
+          maxPages,
+          `SIEM stream returned ${result.events.length} event(s) with no ` +
+            `X-AGLedger-Stream-Cursor after ${yielded} item(s), so the walk cannot resume ` +
+            'past them. Retry from the last cursor you held; the rows yielded so far are a ' +
+            'prefix of the stream, not all of it.',
+        );
+      }
+      // Carry the page shape forward, drop the start position: `since` and
+      // `cursor` are mutually exclusive and only the cursor advances.
+      next = { cursor: result.cursor, limit: params.limit, format: params.format };
     }
 
     if (ceilingIsDefault) {
       throw new PaginationLimitError('/v1/siem/stream', page, yielded, maxPages);
     }
+  }
+}
+
+/**
+ * `since` opens a walk and `cursor` continues one; the endpoint takes one or
+ * the other. Sending both is a 400, and dropping one silently here would pick
+ * a start position the caller did not ask for.
+ */
+function assertStreamStart(params: AuditStreamParams): void {
+  if (params.since !== undefined && params.cursor !== undefined) {
+    throw new ConfigurationError(
+      "SIEM stream takes 'since' or 'cursor', not both: 'since' opens a walk and 'cursor' " +
+        'continues one. Pass the previous result\'s cursor verbatim to continue, and drop ' +
+        "'since'.",
+    );
   }
 }
