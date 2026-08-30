@@ -4,7 +4,7 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.10.0] - 2026-08-30
 
 Reconciled against API v1.6.0.
 
