@@ -963,12 +963,15 @@ describe('AuditResource', () => {
     expect(init.method).toBe('POST');
   });
 
-  it('fetches an inclusion proof for a leaf', async () => {
+  it('fetches an inclusion proof by the leaf index a leaf row carries', async () => {
+    // `leaf` is `type: integer` on the wire, and the value to send is
+    // `OrgAdminRead.leafIndex`, a number. Typing it as a string made the two
+    // halves of the documented workflow not fit together.
     const { client, fetch } = createMockClient();
-    await client.audit.orgReadsCheckpoints.proof('chk-1', 'leafhash');
+    await client.audit.orgReadsCheckpoints.proof('chk-1', 7);
     const url = fetch.mock.calls[0][0];
     expect(url).toContain('/v1/audit/org-reads/checkpoints/chk-1/proof');
-    expect(url).toContain('leaf=leafhash');
+    expect(url).toContain('leaf=7');
   });
 });
 
