@@ -1692,7 +1692,18 @@ export interface ListDisputesParams extends ListParams {
 }
 
 
-/** Known webhook event types matching the AGLedger API (39 types). Accepts any string for forward compatibility. */
+/**
+ * Event types a webhook subscription can fire on: every member of the
+ * `POST /v1/webhooks` `eventTypes` enum, plus the `*` wildcard. Accepts any
+ * string for forward compatibility.
+ *
+ * This is a SUBSET of {@link EventType}, the `/v1/events` query enum. Three
+ * types are queryable there and rejected here: `record.settled` (a deprecated
+ * alias of `record.fulfilled`), `record.released`, and
+ * `dispute.evidence_window_closed`. They are replay surface only. Settlement
+ * outcomes reach webhooks as `signal.emitted` / `signal.received`, not as
+ * per-variant types, so naming one of the three in a subscription is a 400.
+ */
 export type WebhookEventType =
   // Wildcard: subscribe to every event type
   | '*'
@@ -1727,11 +1738,8 @@ export type WebhookEventType =
   // Settlement & disputes
   | 'signal.emitted'
   | 'signal.received'
-  | 'record.settled'
-  | 'record.released'
   | 'dispute.opened'
   | 'dispute.escalated'
-  | 'dispute.evidence_window_closed'
   | 'dispute.resolved'
   | 'dispute.withdrawn'
   // Federation
@@ -1935,6 +1943,61 @@ export interface VerdictStatistics {
 }
 
 
+/**
+ * Event types queryable on `GET /v1/events` via {@link ListEventsParams.eventType}.
+ *
+ * A deliberate superset of {@link WebhookEventType}: `record.settled`,
+ * `record.released` and `dispute.evidence_window_closed` are persisted-event
+ * and replay surface, readable here but not subscribable. There is no `*`
+ * member, because the wildcard is a subscription filter and not a type any
+ * event carries. Accepts any string for forward compatibility.
+ */
+export type EventType =
+  | 'agent.reference_added'
+  | 'cascading.gate.complete'
+  | 'dispute.escalated'
+  | 'dispute.evidence_window_closed'
+  | 'dispute.opened'
+  | 'dispute.resolved'
+  | 'dispute.withdrawn'
+  | 'federation.dispute'
+  | 'federation.record.state_changed'
+  | 'federation.settlement.signal'
+  | 'record.activated'
+  | 'record.ai_impact_assessment_filed'
+  | 'record.cancelled'
+  | 'record.completion_invalid'
+  | 'record.completion_submitted'
+  | 'record.compliance_attestation_filed'
+  | 'record.created'
+  | 'record.delegated'
+  | 'record.expired'
+  | 'record.failed'
+  | 'record.federation_activated'
+  | 'record.federation_cancelled'
+  | 'record.federation_expired'
+  | 'record.federation_failed'
+  | 'record.federation_fulfilled'
+  | 'record.federation_proposal_rejected'
+  | 'record.federation_recorded'
+  | 'record.federation_remediated'
+  | 'record.fulfilled'
+  | 'record.gate_complete'
+  | 'record.gate_held'
+  | 'record.proposal_accepted'
+  | 'record.proposal_counter_proposed'
+  | 'record.proposal_rejected'
+  | 'record.proposed'
+  | 'record.recorded'
+  | 'record.reference_added'
+  | 'record.registered'
+  | 'record.released'
+  | 'record.revision_requested'
+  | 'record.settled'
+  | 'signal.emitted'
+  | 'signal.received'
+  | (string & {});
+
 /** Query parameters for the global event listing (`GET /v1/events`). */
 export interface ListEventsParams extends ListParams {
   /** ISO timestamp: events created at or after this instant (inclusive). Required. */
@@ -1946,6 +2009,14 @@ export interface ListEventsParams extends ListParams {
    * the previous `until`.
    */
   until?: string;
+  /** Only events attached to this record (UUID). */
+  recordId?: string;
+  /**
+   * Only events of this type. The `/v1/events` enum is a superset of the
+   * subscribable {@link WebhookEventType} set, so `record.settled`,
+   * `record.released` and `dispute.evidence_window_closed` are queryable here.
+   */
+  eventType?: EventType;
   /** Sort order by creation time (default: `asc`). */
   order?: 'asc' | 'desc';
 }
@@ -2426,6 +2497,15 @@ export interface OrgReadsCheckpoint {
 }
 
 /**
+ * Where the org-reads sweep schedule was read from.
+ *
+ * Named rather than inline so enum-member parity can see it: `parseUnions`
+ * reads `export type X =` declarations, so a union spelled inside an interface
+ * field is invisible to the guard that exists to catch enum drift.
+ */
+export type OrgReadsCheckpointingSource = 'worker' | 'config' | (string & {});
+
+/**
  * When the org-reads checkpoint sweep runs, and when it last did.
  *
  * The sweep is time-driven, so an install that has logged qualifying reads
@@ -2446,7 +2526,7 @@ export interface OrgReadsCheckpointingSchedule {
   /** Newest checkpoint in the caller's org; null until the first sweep lands one. */
   lastCheckpointAt: string | null;
   /** `worker` when read from the schedule the worker registered, `config` when this process fell back to its own defaults. */
-  source: 'worker' | 'config' | (string & {});
+  source: OrgReadsCheckpointingSource;
 }
 
 /**
@@ -3853,6 +3933,15 @@ export interface VerificationKeysResponse {
 }
 
 
+/**
+ * Peering status of a federation peer.
+ *
+ * Named rather than inline for the same reason as
+ * {@link OrgReadsCheckpointingSource}: an inline field union is not something
+ * the enum-parity guard can read, so its members would drift unchecked.
+ */
+export type FederationPeerStatus = 'active' | 'suspended' | 'revoked' | (string & {});
+
 /** A peer Server in peer-to-peer federation. */
 export interface FederationPeer {
   /** Receiver-local row id. No admin path takes it. */
@@ -3860,7 +3949,7 @@ export interface FederationPeer {
   /** The identifier every `/federation/v1/admin/peers/{peerHubId}` path takes. */
   peerHubId: string;
   peerUrl: string;
-  status: 'active' | 'suspended' | 'revoked' | (string & {});
+  status: FederationPeerStatus;
   createdAt: string;
   /** Digest of the agent directory this peer last pushed. Null until it has pushed one. */
   agentDirectoryHash?: string | null;

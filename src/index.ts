@@ -128,6 +128,7 @@ export type {
 
   // Events & Audit
   AgledgerEvent,
+  EventType,
   ListEventsParams,
 
   // Rate limits
@@ -169,6 +170,7 @@ export type {
   OrgReadsCheckpoint,
   OrgReadsCheckpointPage,
   OrgReadsCheckpointingSchedule,
+  OrgReadsCheckpointingSource,
   ListOrgReadsCheckpointsParams,
   OrgAdminRead,
   ListOrgAdminReadsParams,
@@ -309,6 +311,7 @@ export type {
 
   // Federation: Peers
   FederationPeer,
+  FederationPeerStatus,
   ListPeersParams,
   PeeringToken,
 

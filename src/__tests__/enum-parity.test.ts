@@ -13,6 +13,11 @@
  *     a 400. The same file already spelled them correctly inline, once.
  *   - `SchemaVersionStatus` named DEPRECATED and DELETED, neither of which the
  *     API has, and omitted DISABLED, which it serves.
+ *   - `WebhookEventType` was the union of the webhook-create enum and the
+ *     wider `/v1/events` query enum, so `record.settled`, `record.released`
+ *     and `dispute.evidence_window_closed` typed clean and 400'd on create.
+ *     It is pinned to the subscribable set now, with `EventType` carrying the
+ *     queryable superset.
  *
  * Each was reachable from a typed, documented parameter. Mocks cannot catch
  * this class (they assert what the SDK sends) and neither can the parity
@@ -87,10 +92,26 @@ describe('enum-member parity', () => {
 
   it('parses whole unions, not the part before the first comment', () => {
     // The specific regression: a semicolon inside a `//` heading truncated
-    // WebhookEventType to 8 of its 44 members.
-    expect(unions.WebhookEventType).toHaveLength(44);
+    // WebhookEventType to 8 of its 41 members.
+    expect(unions.WebhookEventType).toHaveLength(41);
     expect(unions.WebhookEventType).toContain('*');
-    expect(unions.WebhookEventType).toContain('record.settled');
+    expect(unions.WebhookEventType).toContain('record.federation_activated');
+  });
+
+  it('keeps the subscribable set apart from the queryable one', () => {
+    // `POST /v1/webhooks` rejects three types `GET /v1/events` serves, so one
+    // union cannot stand for both. The SDK typed the union of the two as
+    // subscribable, which made three documented values a 400 on create.
+    const subscribable = new Set(unions.WebhookEventType);
+    const queryable = new Set(unions.EventType);
+    expect([...queryable].filter((v) => !subscribable.has(v)).sort()).toEqual([
+      'dispute.evidence_window_closed',
+      'record.released',
+      'record.settled',
+    ]);
+    // The wildcard is a subscription filter, not a type an event carries.
+    expect(queryable.has('*')).toBe(false);
+    expect([...subscribable].filter((v) => v !== '*' && !queryable.has(v))).toEqual([]);
   });
 
   it('pins every union that has an exact spec enum', () => {
