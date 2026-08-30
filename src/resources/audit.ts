@@ -84,8 +84,13 @@ export class OrgReadsCheckpointsResource {
     );
   }
 
-  /** Get the inclusion proof for a leaf (specified via `leaf` query) within this checkpoint. */
-  proof(id: string, leaf: string, options?: RequestOptions): Promise<OrgReadsInclusionProof> {
+  /**
+   * Get the inclusion proof for one leaf within this checkpoint.
+   *
+   * `leaf` is the zero-based Merkle position, which is what
+   * {@link OrgAdminRead.leafIndex} carries: pass that value straight through.
+   */
+  proof(id: string, leaf: number, options?: RequestOptions): Promise<OrgReadsInclusionProof> {
     return this.http.get<OrgReadsInclusionProof>(
       `/v1/audit/org-reads/checkpoints/${id}/proof`,
       { leaf },
