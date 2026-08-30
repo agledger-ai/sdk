@@ -101,7 +101,8 @@ describe('critical routes exist in the current API spec', () => {
     // Disputes (org-wide listing)
     ['GET', '/v1/disputes'],
 
-    // Org-reads checkpoints
+    // Org-reads: the checkpoints, and the leaves they cover
+    ['GET', '/v1/audit/org-reads'],
     ['GET', '/v1/audit/org-reads/checkpoints'],
     ['POST', '/v1/audit/org-reads/checkpoints/{id}/cosign'],
     ['GET', '/v1/audit/org-reads/checkpoints/{id}/proof'],
@@ -146,6 +147,12 @@ describe('critical routes exist in the current API spec', () => {
     ['GET', '/v1/peer-agents'],
     ['GET', '/v1/scitt/checkpoint'],
     ['GET', '/.well-known/scitt-configuration'],
+
+    // Federation peer paths: the path parameter is peerHubId, not hubId
+    ['GET', '/federation/v1/admin/peers/{peerHubId}'],
+    ['DELETE', '/federation/v1/admin/peers/{peerHubId}'],
+    ['POST', '/federation/v1/admin/peers/{peerHubId}/resync'],
+    ['POST', '/federation/v1/admin/peers/{peerHubId}/revoke'],
   ];
 
   for (const [method, path] of CRITICAL_ROUTES) {
