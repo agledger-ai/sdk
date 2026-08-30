@@ -1,7 +1,11 @@
 import type { HttpClient } from '../http.js';
 import type {
   RequestOptions,
+  OrgAdminRead,
   OrgReadsCheckpoint,
+  OrgReadsCheckpointPage,
+  ListOrgAdminReadsParams,
+  ListOrgReadsCheckpointsParams,
   CosignCheckpointParams,
   OrgReadsInclusionProof,
   VaultCheckpoint,
@@ -19,10 +23,41 @@ import type {
 export class OrgReadsCheckpointsResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** List recent signed checkpoints for the calling org. */
-  list(params?: { limit?: number }, options?: RequestOptions): Promise<{ data: OrgReadsCheckpoint[] }> {
-    return this.http.get<{ data: OrgReadsCheckpoint[] }>(
+  /**
+   * List recent signed checkpoints for the calling org, newest first.
+   *
+   * The result carries `checkpointing`, the sweep schedule. The sweep is
+   * time-driven, so an empty `data` with `lastCheckpointAt: null` is a log
+   * whose first sweep has not fired, not a missing checkpoint. Compare against
+   * {@link listReads}, which lists the leaves the checkpoints cover: nothing
+   * there means nothing has been logged.
+   */
+  list(
+    params?: ListOrgReadsCheckpointsParams,
+    options?: RequestOptions,
+  ): Promise<OrgReadsCheckpointPage> {
+    return this.http.get<OrgReadsCheckpointPage>(
       '/v1/audit/org-reads/checkpoints',
+      params as Record<string, unknown>,
+      options,
+    );
+  }
+
+  /**
+   * List the read-transparency log entries the checkpoints cover, oldest first
+   * in `leafIndex` order. One row per qualifying cross-party admin read.
+   *
+   * Read it alongside {@link list}: an empty listing here means no qualifying
+   * read has been logged, while rows here with no checkpoint mean the sweep has
+   * not run over them yet. Verify one row against a checkpoint with
+   * {@link OrgReadsCheckpointsResource.proof}, passing its `leafIndex`.
+   */
+  listReads(
+    params?: ListOrgAdminReadsParams,
+    options?: RequestOptions,
+  ): Promise<Page<OrgAdminRead>> {
+    return this.http.getPage<OrgAdminRead>(
+      '/v1/audit/org-reads',
       params as Record<string, unknown>,
       options,
     );

@@ -28,21 +28,41 @@ describe('FederationResource (peer-facing)', () => {
     });
   });
 
-  it('peerHandshake() posts to /federation/v1/peer', async () => {
-    await client.federation.peerHandshake({
-      hubId: 'hub-x',
+  it('peerHandshake() posts to /federation/v1/peer and returns the registration', async () => {
+    fetch = mockFetch({
+      peered: true,
+      peerId: 'row-1',
+      peerHubId: 'hub-x',
+      status: 'active',
+      serverSigningPublicKey: 'ed25519-pk',
+      serverEncryptionPublicKey: 'x25519-pk',
+    });
+    client = new AgledgerClient({
+      apiKey: 'agl_adm_test',
+      baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    const result = await client.federation.peerHandshake({
+      peerHubId: 'hub-x',
+      peerUrl: 'https://peer.test',
       signingPublicKey: 'ed25519-pk',
       encryptionPublicKey: 'x25519-pk',
       peeringToken: 'tok-abc',
+      boundOrgId: 'org-1',
       agentDirectory: [],
     });
     const { url } = lastCall(fetch);
     expect(url).toContain('/federation/v1/peer');
+    // peerHubId is the id every admin peer path takes; peerId is receiver-local.
+    expect(result.peerHubId).toBe('hub-x');
+    expect(result.peerId).toBe('row-1');
+    expect(result.status).toBe('active');
+    expect(result.peered).toBe(true);
   });
 
   it('syncAgentDirectory() posts to /federation/v1/peer/agent-sync', async () => {
     await client.federation.syncAgentDirectory({
-      hubId: 'hub-x',
+      peerHubId: 'hub-x',
       agents: [],
       directoryHash: 'sha256-abc',
     });
@@ -193,6 +213,46 @@ describe('FederationAdminResource', () => {
     const { url } = lastCall(fetch);
     expect(url).toContain('/federation/v1/admin/peers');
     expect(url).toContain('status=active');
+  });
+
+  it('a peer row carries the delivery columns the endpoint actually serves', async () => {
+    fetch = mockFetch({
+      data: [
+        {
+          peerId: 'row-1',
+          peerHubId: 'hub-x',
+          peerUrl: 'https://peer.test',
+          status: 'active',
+          createdAt: '2026-01-01T00:00:00Z',
+          agentDirectoryHash: null,
+          consecutiveDeliveryFailures: 2,
+          lastDeliveryAt: '2026-01-02T00:00:00Z',
+          lastDeliveryError: 'peer returned 502',
+          lastSyncAt: null,
+        },
+      ],
+      hasMore: false,
+    });
+    client = new AgledgerClient({
+      apiKey: 'agl_adm_test',
+      baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+    });
+    const page = await client.federationAdmin.listPeers();
+    const peer = page.data[0];
+    expect(peer?.peerHubId).toBe('hub-x');
+    expect(peer?.peerUrl).toBe('https://peer.test');
+    // Reachability is lastDeliveryAt plus the failure count, not lastSyncAt.
+    expect(peer?.consecutiveDeliveryFailures).toBe(2);
+    expect(peer?.lastDeliveryError).toBe('peer returned 502');
+    expect(peer?.lastSyncAt).toBeNull();
+  });
+
+  it('getPeer() and resyncPeer() take the peerHubId the API paths name', async () => {
+    await client.federationAdmin.getPeer('hub-x');
+    expect(lastCall(fetch).url).toContain('/federation/v1/admin/peers/hub-x');
+    await client.federationAdmin.resyncPeer('hub-x');
+    expect(lastCall(fetch).url).toContain('/federation/v1/admin/peers/hub-x/resync');
   });
 
   it('revokePeer() requires reason in body', async () => {
