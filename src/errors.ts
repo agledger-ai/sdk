@@ -363,11 +363,24 @@ export class PaginationLimitError extends AgledgerError {
   /** Ceiling that was hit. */
   readonly maxPages: number;
 
-  constructor(path: string, pagesRead: number, itemsYielded: number, maxPages: number) {
+  /**
+   * `message` overrides the ceiling wording for the other way a walk truncates
+   * without being asked to: a page that carries rows but no resume token, so
+   * there is nothing to advance on. Same class, because the caller's problem is
+   * the same one, a prefix that reads as the whole listing.
+   */
+  constructor(
+    path: string,
+    pagesRead: number,
+    itemsYielded: number,
+    maxPages: number,
+    message?: string,
+  ) {
     super(
-      `Pagination of ${path} stopped at the ${maxPages}-page ceiling after ${itemsYielded} item(s), ` +
-        `and the listing has more. Raise 'limit' to fit the walk in fewer pages, pass ` +
-        `'maxPages' to lift the ceiling, or pass 'maxItems' to take a prefix on purpose.`,
+      message ??
+        `Pagination of ${path} stopped at the ${maxPages}-page ceiling after ${itemsYielded} item(s), ` +
+          `and the listing has more. Raise 'limit' to fit the walk in fewer pages, pass ` +
+          `'maxPages' to lift the ceiling, or pass 'maxItems' to take a prefix on purpose.`,
     );
     this.name = 'PaginationLimitError';
     this.path = path;

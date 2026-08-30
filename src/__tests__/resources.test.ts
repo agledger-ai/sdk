@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AgledgerClient } from '../client.js';
+import { ConfigurationError, PaginationLimitError } from '../errors.js';
 
 function createMockClient(responseOverride?: unknown) {
   const fetch = vi.fn().mockResolvedValue({
@@ -558,6 +559,7 @@ describe('ComplianceResource', () => {
       text: vi.fn().mockResolvedValue(ndjson),
       headers: new Headers({
         'X-AGLedger-Stream-Cursor': '2026-01-01T01:00:00Z_evt-2',
+        'X-AGLedger-Stream-Holdback-Seconds': '12',
       }),
     });
     const client = new AgledgerClient({
@@ -571,7 +573,8 @@ describe('ComplianceResource', () => {
     expect(result.events).toHaveLength(2);
     expect(result.events[0]).toHaveProperty('type', 'record.created');
     expect(result.cursor).toBe('2026-01-01T01:00:00Z_evt-2');
-    expect(result.hasMore).toBe(false);
+    expect(result.holdbackSeconds).toBe(12);
+    expect(result.hasMore).toBe(true);
 
     const url = fetch.mock.calls[0][0];
     expect(url).toContain('/siem/stream');
@@ -579,19 +582,18 @@ describe('ComplianceResource', () => {
     expect(fetch.mock.calls[0][1].headers.Accept).toBe('application/x-ndjson');
   });
 
-  it('stream returns hasMore when event count equals limit', async () => {
-    const events = Array.from({ length: 5 }, (_, i) => ({
-      type: 'record.created',
-      timestamp: `2026-01-01T0${i}:00:00Z`,
-      id: `evt-${i}`,
-    }));
-    const ndjson = events.map((e) => JSON.stringify(e)).join('\n') + '\n';
+  it('a page shorter than limit still reports hasMore', async () => {
+    // The Server holds back rows whose transaction has not committed, so a
+    // short page is a page, not the end of the stream. Only a zero-row page
+    // ends this poll.
+    const events = [{ type: 'record.created', timestamp: '2026-01-01T00:00:00Z', id: 'evt-1' }];
     const fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      text: vi.fn().mockResolvedValue(ndjson),
+      text: vi.fn().mockResolvedValue(events.map((e) => JSON.stringify(e)).join('\n') + '\n'),
       headers: new Headers({
-        'X-AGLedger-Stream-Cursor': '2026-01-01T04:00:00Z_evt-4',
+        'X-AGLedger-Stream-Cursor': '2026-01-01T00:00:00Z_evt-1',
+        'X-AGLedger-Stream-Holdback-Seconds': '0',
       }),
     });
     const client = new AgledgerClient({
@@ -601,39 +603,17 @@ describe('ComplianceResource', () => {
       maxRetries: 0,
     });
 
-    const result = await client.compliance.stream({ since: '2026-01-01T00:00:00Z', limit: 5 });
-    expect(result.events).toHaveLength(5);
+    const result = await client.compliance.stream({ since: '2026-01-01T00:00:00Z', limit: 500 });
     expect(result.hasMore).toBe(true);
-    expect(result.cursor).toBe('2026-01-01T04:00:00Z_evt-4');
+    expect(result.holdbackSeconds).toBe(0);
   });
 
-  it('streamAll iterates across multiple pages', async () => {
-    const page1Events = [
-      { type: 'record.created', timestamp: '2026-01-01T00:00:00Z', id: 'evt-1' },
-      { type: 'record.fulfilled', timestamp: '2026-01-01T01:00:00Z', id: 'evt-2' },
-    ];
-    const page2Events = [
-      { type: 'record.expired', timestamp: '2026-01-01T02:00:00Z', id: 'evt-3' },
-    ];
-    let callCount = 0;
-    const fetch = vi.fn().mockImplementation(() => {
-      callCount++;
-      if (callCount === 1) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          text: vi.fn().mockResolvedValue(page1Events.map((e) => JSON.stringify(e)).join('\n') + '\n'),
-          headers: new Headers({
-            'X-AGLedger-Stream-Cursor': '2026-01-01T01:00:00Z_evt-2',
-          }),
-        });
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        text: vi.fn().mockResolvedValue(page2Events.map((e) => JSON.stringify(e)).join('\n') + '\n'),
-        headers: new Headers(),
-      });
+  it('reports a missing holdback header as null, not as a caught-up zero', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi.fn().mockResolvedValue(''),
+      headers: new Headers(),
     });
     const client = new AgledgerClient({
       apiKey: 'test_key',
@@ -642,13 +622,118 @@ describe('ComplianceResource', () => {
       maxRetries: 0,
     });
 
-    const allEvents: Record<string, unknown>[] = [];
-    for await (const event of client.compliance.streamAll({ since: '2026-01-01T00:00:00Z', limit: 2 })) {
-      allEvents.push(event);
+    const result = await client.compliance.stream({ since: '2026-01-01T00:00:00Z' });
+    expect(result.events).toEqual([]);
+    expect(result.cursor).toBeNull();
+    expect(result.holdbackSeconds).toBeNull();
+    expect(result.hasMore).toBe(false);
+  });
+
+  it('refuses since and cursor together rather than dropping one', async () => {
+    const { client, fetch } = createMockClient();
+    await expect(
+      client.compliance.stream({ since: '2026-01-01T00:00:00Z', cursor: '2026-01-01T00:00:00.000001Z_evt-1' }),
+    ).rejects.toThrow(ConfigurationError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('streamAll sends the cursor back verbatim and keeps rows sharing one created_at', async () => {
+    // The regression this guards: streamAll used to split the cursor at its
+    // last underscore and send the instant half back as `since`. Rows written
+    // in one transaction share a created_at, so a `since` boundary landing
+    // inside that group skipped every row carrying the same instant.
+    //
+    // The mock answers the way the endpoint does: `since` is strictly after by
+    // instant alone, `cursor` steps through the (instant, id) pairs. All four
+    // rows below were written in one transaction.
+    const instant = '2026-01-01T00:00:00.123456Z';
+    const rows = ['evt-1', 'evt-2', 'evt-3', 'evt-4'].map((id) => ({
+      type: 'record.created',
+      created_at: instant,
+      id,
+    }));
+
+    const fetch = vi.fn().mockImplementation((rawUrl: string) => {
+      const query = new URL(rawUrl).searchParams;
+      const since = query.get('since');
+      const cursor = query.get('cursor');
+      expect(since === null || cursor === null).toBe(true);
+
+      let start = 0;
+      if (cursor) {
+        const id = cursor.slice(cursor.lastIndexOf('_') + 1);
+        start = rows.findIndex((r) => r.id === id) + 1;
+      } else if (since) {
+        // Strictly after, by instant. Every row shares one, so a `since` equal
+        // to it matches nothing.
+        start = since < instant ? 0 : rows.length;
+      }
+
+      const limit = Number(query.get('limit') ?? '100');
+      const page = rows.slice(start, start + limit);
+      const headers = new Headers({ 'X-AGLedger-Stream-Holdback-Seconds': '0' });
+      const last = page.at(-1);
+      if (last) headers.set('X-AGLedger-Stream-Cursor', `${instant}_${last.id}`);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        text: vi.fn().mockResolvedValue(page.map((e) => JSON.stringify(e)).join('\n')),
+        headers,
+      });
+    });
+
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const seen: string[] = [];
+    for await (const event of client.compliance.streamAll({
+      since: '2026-01-01T00:00:00.000000Z',
+      limit: 2,
+    })) {
+      seen.push(event.id as string);
     }
-    expect(allEvents).toHaveLength(3);
-    expect(allEvents[2]).toHaveProperty('type', 'record.expired');
-    expect(fetch).toHaveBeenCalledTimes(2);
+
+    // Every row, including the two that a time-only boundary skipped.
+    expect(seen).toEqual(['evt-1', 'evt-2', 'evt-3', 'evt-4']);
+
+    const urls = fetch.mock.calls.map((c: unknown[]) => String(c[0]));
+    expect(urls[0]).toContain('since=');
+    expect(urls[0]).not.toContain('cursor=');
+    for (const url of urls.slice(1)) {
+      expect(url).not.toContain('since=');
+      expect(url).toContain('cursor=');
+    }
+    expect(urls[1]).toContain(`cursor=${encodeURIComponent(`${instant}_evt-2`)}`);
+  });
+
+  it('streamAll raises when a page carries rows but no cursor to resume from', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: vi
+        .fn()
+        .mockResolvedValue(JSON.stringify({ type: 'record.created', id: 'evt-1' })),
+      headers: new Headers(),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const walk = async () => {
+      const seen: Record<string, unknown>[] = [];
+      for await (const event of client.compliance.streamAll({ since: '2026-01-01T00:00:00Z' })) {
+        seen.push(event);
+      }
+      return seen;
+    };
+    await expect(walk()).rejects.toThrow(PaginationLimitError);
   });
 });
 

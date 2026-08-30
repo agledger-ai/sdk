@@ -2336,9 +2336,27 @@ export interface VaultCheckpointPage extends Page<VaultCheckpoint> {
 }
 
 
+/**
+ * Where a SIEM stream poll starts. Pass `since` to open a walk or `cursor` to
+ * continue one, never both: they are mutually exclusive and sending both is
+ * rejected before the request leaves the process.
+ */
 export interface AuditStreamParams {
-  /** ISO timestamp: only events after this point (required). */
-  since: string;
+  /**
+   * ISO timestamp: only events created strictly after this instant, compared at
+   * microsecond resolution. Opens a walk. Omit it when resuming from `cursor`.
+   */
+  since?: string;
+  /**
+   * The previous response's {@link AuditStreamResult.cursor}, sent back
+   * verbatim. Continues a walk exactly after the last row already handed over.
+   *
+   * Do not take this apart. It pairs a full-precision instant with a row id
+   * because rows written in one transaction share a `created_at`, so a
+   * time-only boundary cannot address a position inside that group and skips
+   * every row sharing the newest instant.
+   */
+  cursor?: string;
   /** Max events to return per page (default: 100, max: 1000). */
   limit?: number;
   /** Response format: 'ocsf' (OCSF-mapped) or 'raw' (default: 'ocsf'). */
@@ -2348,10 +2366,48 @@ export interface AuditStreamParams {
 export interface AuditStreamResult {
   /** Parsed NDJSON events. Shape depends on format param. */
   events: Record<string, unknown>[];
-  /** Opaque cursor for the next poll. Null if no events returned. */
+  /**
+   * Resume position after the last row on this page, as
+   * `<RFC 3339 instant>_<uuid>`. Send it back verbatim as
+   * {@link AuditStreamParams.cursor}. Null when the page is empty.
+   */
   cursor: string | null;
-  /** True if the number of events equals the limit (more data likely available). */
+  /**
+   * Whether this page produced rows. On a cursor walk that is the only honest
+   * local signal: a page shorter than `limit` is not the end of the stream,
+   * because the Server holds back rows whose transaction has not committed.
+   * A zero-row page means this poll is exhausted, not that the stream is.
+   */
   hasMore: boolean;
+  /**
+   * Whole seconds by which this page stops short of now, because a transaction
+   * open on the Server has not committed and rows stamped inside it are not yet
+   * visible. `0` means the page runs up to the present; a large value means an
+   * empty page is not evidence that nothing has happened. Null when the Server
+   * sent no `X-AGLedger-Stream-Holdback-Seconds` header.
+   */
+  holdbackSeconds: number | null;
+}
+
+
+/**
+ * Org-admin reads checkpoint (SCITT-style signed tree head). Wire fields: the
+ * timestamp is `checkpointAt` (not `createdAt`) and the signed envelope is
+ * `coseSign1Base64` (not `sthBytes`/`signature`).
+ */
+export interface OrgReadsCheckpoint {
+  id: string;
+  orgId: string;
+  treeSize: number;
+  rootHash: string;
+  checkpointAt: string;
+  logId?: string;
+  /** Base64 of the canonical COSE_Sign1 (RFC 9052) envelope over the STH. */
+  coseSign1Base64?: string;
+  signingKeyId?: string | null;
+  witnessSignature?: string | null;
+  witnessKeyId?: string | null;
+  witnessCosignedAt?: string | null;
 }
 
 

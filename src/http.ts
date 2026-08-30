@@ -372,7 +372,7 @@ export class HttpClient {
     path: string,
     params?: Record<string, unknown>,
     options?: RequestOptions,
-  ): Promise<{ data: T[]; cursor: string | null }> {
+  ): Promise<{ data: T[]; cursor: string | null; holdbackSeconds: number | null }> {
     const url = this.buildUrl(path, params);
     let lastError: Error | undefined;
 
@@ -432,8 +432,15 @@ export class HttpClient {
         const lines = text.split('\n').filter((l) => l.trim().length > 0);
         const data = lines.map((line) => JSON.parse(line) as T);
         const cursor = response.headers.get('X-AGLedger-Stream-Cursor') ?? null;
+        // Whole seconds the page stops short of now. Absent on a Server that
+        // predates the header, and absent on a 503, which served no page at
+        // all; both read as null rather than as a caught-up zero.
+        const holdbackRaw = response.headers.get('X-AGLedger-Stream-Holdback-Seconds');
+        const holdbackParsed =
+          holdbackRaw === null || holdbackRaw.trim() === '' ? Number.NaN : Number(holdbackRaw);
+        const holdbackSeconds = Number.isFinite(holdbackParsed) ? holdbackParsed : null;
 
-        return { data, cursor };
+        return { data, cursor, holdbackSeconds };
       } catch (err) {
         clearTimeout(timer);
         if (err instanceof AgledgerApiError) throw err;
