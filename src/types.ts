@@ -1879,36 +1879,125 @@ export interface WebhookTestResult {
 }
 
 
-/** Per-Type reputation score for an agent. */
-export interface ReputationScore {
-  agentId: string;
-  type: string;
-  /** Scores are `null` until the agent has history (server types them `number | null`). */
-  reliabilityScore: number | null;
-  accuracyScore: number | null;
-  efficiencyScore: number | null;
-  compositeScore: number | null;
-  /** Statistical confidence (0-1): a number, not a label. Null until the agent has history. */
-  confidenceLevel: number | null;
-  /** Scoring formula version (an integer, for reproducibility). */
-  formulaVersion: number;
-  lifetimeRecords: number;
-  lifetimeVerdicts: number;
-  lifetimeAccepted: number;
-  lifetimeCompletions: number;
-  reversals: number;
-  lastUpdatedAt: string;
-  recentHistory?: Record<string, unknown>[];
+/** Parameters for `GET /v1/agents/{agentId}/drift`. */
+export interface GetAgentDriftParams {
+  /** Window length in days, 1 to 365. Default 7. */
+  window?: number;
+  /** Narrow `byType` to one type. `overall` is unaffected. */
+  type?: string;
 }
 
-/** Transaction history entry for an agent. */
-export interface ReputationHistoryEntry {
+/** Parameters for `GET /v1/agents/drift`. */
+export interface ListFleetDriftParams extends CursorListParams {
+  /** Window length in days, 1 to 365. Default 7. */
+  window?: number;
+}
+
+/** The two windows a drift reading was computed over. */
+export interface DriftWindow {
+  days: number;
+  currentFrom: string;
+  currentTo: string;
+  baselineFrom: string;
+  baselineTo: string;
+}
+
+/** Counts of what an agent did inside one window. */
+export interface DriftBucket {
+  from: string;
+  to: string;
+  /**
+   * Records created in the window with this agent as the acting party: named
+   * as performer, or as principal when no performer is named.
+   */
+  records: number;
+  /** Completions this agent submitted that passed structural validation. */
+  completions: number;
+  /**
+   * Gate verdicts rendered on this agent's records: the final verdict on each
+   * completion, so a principal-gated record counts the principal's verdict and
+   * not the engine's structural pass before it. Zero for a notarize-only agent.
+   */
+  verdicts: number;
+  accepted: number;
+  rejected: number;
+  /** Disputes resolved OVERTURNED in the window on this agent's records. */
+  overturned: number;
+  /** `accepted / verdicts`. Null when the window holds no verdict. */
+  acceptanceRate: number | null;
+  /**
+   * Median milliseconds from record activation to completion submitted. A
+   * resubmission after a revision request measures from the original
+   * activation. Null when the window holds no completion.
+   */
+  medianCompletionMs: number | null;
+}
+
+/**
+ * `current` minus `baseline`, field by field. The sign says the direction;
+ * nothing here says whether a direction is good. Null where either side is.
+ */
+export interface DriftChange {
+  records: number;
+  completions: number;
+  verdicts: number;
+  overturned: number;
+  acceptanceRate: number | null;
+  medianCompletionMs: number | null;
+}
+
+/** One series: the current window, the window before it, and the difference. */
+export interface DriftSeries {
+  current: DriftBucket;
+  baseline: DriftBucket;
+  change: DriftChange;
+}
+
+/** Drift for one agent, overall and per type. */
+export interface AgentDrift {
+  agentId: string;
+  window: DriftWindow;
+  overall: DriftSeries;
+  /**
+   * One entry per type the agent touched in either window. Always the
+   * complete set; this listing does not page.
+   */
+  byType: Array<DriftSeries & { type: string }>;
+}
+
+/** One agent's roll-up row in the org-wide fleet listing. */
+export interface FleetDriftRow extends DriftSeries {
+  agentId: string;
+  displayName: string;
+}
+
+/** A page of {@link FleetDriftRow}, with the window every row was computed over. */
+export interface FleetDriftPage extends Page<FleetDriftRow> {
+  window: DriftWindow;
+}
+
+/** Filters for `GET /v1/agents/{agentId}/history`. */
+export interface AgentHistoryParams extends CursorListParams {
+  /** Filter by type. */
+  type?: string;
+  /** Filter by gate verdict. */
+  outcome?: Verdict;
+  /** Records created on or after this instant (ISO-8601). */
+  from?: string;
+  /** Records created on or before this instant (ISO-8601). */
+  to?: string;
+}
+
+/** One record in an agent's history. */
+export interface AgentHistoryEntry {
   recordId: string;
   type: string;
+  /** Record status at the time of the read. */
   status: string;
+  /** Gate verdict: `accept`, `reject`, or `PENDING` when none has been rendered. */
   outcome: string;
   createdAt: string;
-  completedAt?: string;
+  completedAt?: string | null;
 }
 
 /** A single counterparty-pair row in {@link VerdictStatistics}. */
@@ -2248,6 +2337,13 @@ export interface AuditSignatureCoverage {
  */
 export type AuditChainIntegrityReason =
   | 'chain_broken_at'
+  /**
+   * The record exists but its chain holds no entries. Every creation path
+   * appends an entry in the same transaction as the record, so an empty chain
+   * is every entry gone, not a record that was never chained. Reported rather
+   * than passed as a trivially valid chain.
+   */
+  | 'audit_vault_empty'
   | 'audit_vault_row_missing_for_checkpoint'
   | 'checkpoint_hash_mismatch'
   | 'payload_drift'
@@ -2820,7 +2916,12 @@ export interface ConformanceResponse {
     delegationChains?: boolean;
     cascadingGate?: boolean;
     disputeResolution?: boolean;
-    reputationScoring?: boolean;
+    /**
+     * `GET /v1/agents/{agentId}/drift` and `GET /v1/agents/drift`: what each
+     * agent did in the current window against the window before it. A change
+     * is the signal; there is no score.
+     */
+    agentDrift?: boolean;
     webhookDelivery?: boolean;
     a2aProtocol?: boolean;
     encryptedMode?: boolean;
@@ -2887,6 +2988,18 @@ export interface AdminOrg {
   name: string;
   recordCount?: number;
   createdAt: string;
+  /**
+   * When this account was deactivated, or null while it is active. A
+   * deactivated account refuses every credential bound to it and cannot be
+   * issued a new one; clear it with {@link AdminResource.reactivateOrg}.
+   */
+  deactivatedAt?: string | null;
+  /**
+   * `provisioning` while this row is reconciled from the provisioning
+   * directory, null otherwise. A provisioning-managed row refuses deactivate
+   * and reactivate with 409: remove it from the YAML and reload instead.
+   */
+  managedBy?: 'provisioning' | null;
   /** Suggested next API calls after org creation. */
   nextSteps?: NextStep[];
 }
@@ -2897,6 +3010,18 @@ export interface AdminAgent {
   agentCardUrl?: string | null;
   recordCount?: number;
   createdAt: string;
+  /**
+   * When this account was deactivated, or null while it is active. A
+   * deactivated account refuses every credential bound to it and cannot be
+   * issued a new one; clear it with {@link AdminResource.reactivateAgent}.
+   */
+  deactivatedAt?: string | null;
+  /**
+   * `provisioning` while this row is reconciled from the provisioning
+   * directory, null otherwise. A provisioning-managed row refuses deactivate
+   * and reactivate with 409: remove it from the YAML and reload instead.
+   */
+  managedBy?: 'provisioning' | null;
   /** Suggested next API calls after agent creation. */
   nextSteps?: NextStep[];
 }
@@ -2924,12 +3049,24 @@ export interface CreateOrgParams {
 export interface CreateAgentParams {
   /** Org ID the agent belongs to. */
   orgId: string;
-  /** Internal name for the agent. */
-  name: string;
-  /** Customer-facing display name. */
+  /** The agent's name, unique within the org. */
   displayName: string;
   /** A2A agent card URL for verification. */
   agentCardUrl?: string;
+  /**
+   * Issuer URL of the external identity this agent answers to, matching a
+   * registered trusted issuer. Set with `oidcSub` or not at all. With both
+   * set, `POST /v1/auth/oidc/cert` resolves this agent from a token carrying
+   * that issuer and subject.
+   */
+  oidcIss?: string;
+  /**
+   * Subject claim of the external identity, verbatim as the IdP issues it:
+   * the object id of an Azure managed identity, `system:serviceaccount:<ns>:<name>`
+   * for a Kubernetes service-account token, the SPIFFE ID of a workload.
+   * Unique per (org, issuer).
+   */
+  oidcSub?: string;
 }
 
 /** Org configuration payload. */
@@ -2982,6 +3119,18 @@ export interface ListApiKeysParams extends ListParams {
   isActive?: boolean;
   /** Cross-owner filter: keys created strictly before this ISO-8601 timestamp. */
   createdBefore?: string;
+  /**
+   * Cross-owner filter: keys whose expiry falls strictly before this ISO-8601
+   * timestamp. The rotation queue. Keys with no expiry are NOT matched; ask
+   * for those with `neverExpires: true`.
+   */
+  expiresBefore?: string;
+  /**
+   * Cross-owner filter: `true` returns only keys with no expiry, `false` only
+   * keys that have one. The inventory an install adopting a key lifetime cap
+   * needs, since the cap bounds what is minted from then on, not what exists.
+   */
+  neverExpires?: boolean;
 }
 
 export interface AdminApiKey {
@@ -3129,6 +3278,38 @@ export interface DeactivateAgentParams {
   reason?: string;
 }
 
+/** Result of deactivating an org or an agent. */
+export interface DeactivateResult {
+  id: string;
+  accountType: string;
+  /** Number of API keys revoked alongside the account. */
+  keysRevoked: number;
+  nextSteps?: NextStep[];
+}
+
+export interface ReactivateParams {
+  reason?: string;
+}
+
+/** Result of reactivating an org or an agent. */
+export interface ReactivateResult {
+  id: string;
+  accountType: string;
+  /**
+   * False when the account was already active, which is a no-op rather than
+   * an error: an operator running it twice during an incident wants the
+   * account on.
+   */
+  wasDeactivated: boolean;
+  /** When it had been deactivated, or null when it was already active. */
+  deactivatedAt: string | null;
+  /**
+   * Suggested actions after reactivation. Minting a replacement key comes
+   * first: reactivation does not restore the revoked ones.
+   */
+  nextSteps?: NextStep[];
+}
+
 export interface SetCapabilitiesParams {
   contractTypes: string[];
 }
@@ -3143,10 +3324,21 @@ export interface RateLimitExemption {
 
 /** Static-provisioning status payload. */
 export interface ProvisioningStatus {
-  loaded: boolean;
-  sourcePath?: string | null;
-  lastLoadedAt?: string | null;
-  entries?: Record<string, number>;
+  /** False when no provisioning directory is configured; the counters are then zero. */
+  configured: boolean;
+  configPath?: string;
+  /** Reloads report what would change and write nothing. */
+  dryRun?: boolean;
+  /** Whether a reload removes rows absent from the YAML. */
+  prune?: boolean;
+  lastReloadAt?: string | null;
+  /** Rows currently reconciled from the directory, by resource. */
+  managed?: {
+    orgs?: number;
+    agents?: number;
+    webhooks?: number;
+    schemas?: number;
+  };
   /**
    * Files in the provisioning directory that cannot be loaded right now, one
    * entry per failure, empty when the directory is clean. A file that fails to
@@ -3156,6 +3348,77 @@ export interface ProvisioningStatus {
    * applied. Re-read from disk on each call.
    */
   loadErrors?: string[];
+  /**
+   * True when a reload right now would skip pruning entirely: `prune` is on
+   * AND `loadErrors` is non-empty. Prune reads "absent from the YAML" as "the
+   * operator removed it", which is only sound when the YAML was understood.
+   */
+  pruneSuppressed?: boolean;
+}
+
+/** Per-resource counters from a provisioning reload. */
+export interface ProvisioningReloadCounts {
+  created: number;
+  updated: number;
+  pruned: number;
+  createdNames?: string[];
+  updatedNames?: string[];
+  prunedNames?: string[];
+}
+
+/** One `api_keys` row a provisioning reload created. */
+export interface ProvisioningGeneratedKey {
+  ownerName?: string;
+  ownerType?: string;
+  label?: string;
+  /** `api_keys.id`. Pass it to {@link AdminResource.updateApiKey} to disable the key. */
+  keyId?: string;
+  /**
+   * Where the key material came from: `generated` if the Server minted it,
+   * `supplied` if the provisioning YAML carried an `apiKey`.
+   */
+  source?: 'generated' | 'supplied';
+  /**
+   * One-shot plaintext readout, present on `source: 'generated'` only and
+   * only in this response: it is never logged and cannot be retrieved later.
+   */
+  apiKey?: string;
+}
+
+/** Result of `POST /v1/admin/provisioning/reload`. */
+export interface ProvisioningReloadResult {
+  orgs?: ProvisioningReloadCounts;
+  agents?: ProvisioningReloadCounts;
+  webhooks?: ProvisioningReloadCounts;
+  schemas?: ProvisioningReloadCounts;
+  apiKeys?: {
+    created?: number;
+    skipped?: number;
+    /**
+     * One entry per key row this reconcile created. Capture any `apiKey` here
+     * or disable the key: the plaintext exists nowhere else.
+     */
+    generated?: ProvisioningGeneratedKey[];
+  };
+  errors?: Array<{ resource?: string; name?: string; error?: string }>;
+  trustedIssuers?: {
+    /** False when the directory has no trusted_issuers file. */
+    configured?: boolean;
+    filePath?: string;
+    total?: number;
+    inserted?: number;
+    updated?: number;
+    deleted?: number;
+    skipped?: {
+      /** Rows left alone because an admin created them outside provisioning. */
+      admin_managed?: number;
+      malformed_yaml?: number;
+    };
+    errors?: unknown[];
+  };
+  loadedAt?: string;
+  dryRun?: boolean;
+  nextSteps?: NextStep[];
 }
 
 /** Diagnostic support-bundle payload (JSON envelope). */
@@ -3618,11 +3881,25 @@ export interface CircuitBreakerResult {
 
 /** Parameters for updating agent identity. */
 export interface UpdateAgentParams {
-  agentClass?: string;
-  ownerRef?: string;
-  orgUnit?: string;
+  agentClass?: AgentClass;
+  ownerRef?: string | null;
+  orgUnit?: string | null;
   description?: string;
+  /** Public AgentCard URL (A2A). Pass null to clear. */
+  agentCardUrl?: string | null;
+  /**
+   * Issuer URL of an external identity this agent answers to, matching a
+   * registered trusted issuer. Set with `oidcSub`: a subject is unique only
+   * within its issuer, and a half-set pair is refused. Pass null on both to
+   * unbind.
+   */
+  oidcIss?: string | null;
+  /** Subject claim of the external identity, verbatim as the IdP issues it. */
+  oidcSub?: string | null;
 }
+
+/** Agent classification: personal (human-owned), system (always-on), team (shared), ephemeral (per-task). */
+export type AgentClass = 'personal' | 'system' | 'team' | 'ephemeral';
 
 
 /**
@@ -3638,6 +3915,10 @@ export interface AgentProfile {
   ownerRef: string | null;
   orgUnit: string | null;
   description: string | null;
+  /** Issuer of the external identity bound to this agent, or null when unbound. */
+  oidcIss?: string | null;
+  /** Subject of the external identity bound to this agent, or null when unbound. */
+  oidcSub?: string | null;
   references?: Record<string, unknown>[];
   createdAt: string;
 }
@@ -3868,8 +4149,11 @@ export interface LicenseInfo {
   /** License validity gate ('valid' / 'invalid' / 'expired'). */
   validity: string;
   tier: LicenseTier;
-  /** Where the license was loaded from (e.g. 'env', 'file', 'default'). */
-  source?: string;
+  /**
+   * Where the license was loaded from: a PEM file, a compact key (the form a
+   * Helm values file carries), the marketplace, or nowhere.
+   */
+  source?: 'pem' | 'compact' | 'marketplace' | 'none' | (string & {});
   features: string[];
   customerId?: string | null;
   customerName?: string | null;
@@ -3989,27 +4273,6 @@ export interface PeeringToken {
 }
 
 
-/** Parameters for contributing aggregated reputation data for an agent. */
-export interface ContributeReputationParams {
-  agentId: string;
-  type: string;
-  /** Reporting period (e.g. '2026-Q2'). */
-  period: string;
-  totalRecords: number;
-  totalVerified: number;
-  totalPassed: number;
-  signature?: string;
-}
-
-/** Aggregated federated reputation for an agent. */
-export interface FederationAgentReputation {
-  agentId: string;
-  overallScore: number;
-  contributions: number;
-  byType: Record<string, { score: number; count: number }>;
-}
-
-
 /** Parameters for synchronizing the agent directory with a peer. */
 export interface AgentDirectorySyncParams {
   peerHubId: string;
@@ -4021,6 +4284,9 @@ export interface AgentDirectorySyncParams {
 
 /** Who a trusted issuer's tokens may authenticate as. */
 export type TrustedIssuerAppliesTo = 'agent' | 'principal' | 'admin' | 'any';
+
+/** The agent scope profiles a trusted issuer may grant to the agents it creates. */
+export type AutoProvisionScopeProfile = 'agent-full' | 'agent-readonly' | 'agent-performer-only';
 
 /**
  * A trusted OIDC issuer. Tokens minted by this issuer can be exchanged for
@@ -4041,6 +4307,24 @@ export interface TrustedIssuer {
   /** Override of the default allowed signature algs; null inherits defaults. */
   allowedAlgs: string[] | null;
   maxCredentialTtlSeconds: number;
+  /**
+   * When true, the first `POST /v1/auth/oidc/cert` from a subject this Server
+   * has never seen creates the agent under this issuer's org (agentClass
+   * `ephemeral`) instead of refusing the exchange.
+   */
+  autoProvisionAgents: boolean;
+  /**
+   * Scope profile granted to agents this issuer creates, and the scope ceiling
+   * for every cert minted from it: the IdP's mapped `scopes` claim intersects
+   * this set and can never widen past it.
+   */
+  autoProvisionScopeProfile: AutoProvisionScopeProfile | null;
+  /**
+   * Ceiling on how many agents this issuer may auto-provision in its org.
+   * Checked inside the creating transaction; at the limit the token exchange
+   * is refused with the count and the limit named.
+   */
+  autoProvisionMaxAgents: number;
   label: string | null;
   /** `provisioning` when sourced from static config; null when API-managed. */
   managedBy: 'provisioning' | null;
@@ -4062,6 +4346,15 @@ export interface CreateTrustedIssuerParams {
   claimMapping?: Record<string, string>;
   allowedAlgs?: string[] | null;
   maxCredentialTtlSeconds?: number;
+  /**
+   * Let the first token exchange from an unknown subject create the agent.
+   * Requires `orgId` and `autoProvisionScopeProfile`.
+   */
+  autoProvisionAgents?: boolean;
+  /** Scope profile granted to auto-provisioned agents, and the cert scope ceiling. */
+  autoProvisionScopeProfile?: AutoProvisionScopeProfile | null;
+  /** Ceiling on agents this issuer may auto-provision. Default 1000. */
+  autoProvisionMaxAgents?: number;
   label?: string | null;
   enabled?: boolean;
 }
@@ -4076,6 +4369,15 @@ export interface UpdateTrustedIssuerParams {
   claimMapping?: Record<string, string>;
   allowedAlgs?: string[] | null;
   maxCredentialTtlSeconds?: number;
+  /**
+   * Let the first token exchange from an unknown subject create the agent.
+   * Requires `orgId` and `autoProvisionScopeProfile`.
+   */
+  autoProvisionAgents?: boolean;
+  /** Scope profile granted to auto-provisioned agents, and the cert scope ceiling. */
+  autoProvisionScopeProfile?: AutoProvisionScopeProfile | null;
+  /** Ceiling on agents this issuer may auto-provision. Default 1000. */
+  autoProvisionMaxAgents?: number;
   label?: string | null;
   enabled?: boolean;
 }
@@ -4127,6 +4429,25 @@ export interface RotateKeyParams {
    * Omit to revoke the old key immediately.
    */
   gracePeriodSeconds?: number;
+}
+
+/** Result of `POST /v1/auth/keys/rotate`. */
+export interface RotateKeyResult {
+  /** New API key (plaintext, shown once). Use as the Bearer token. */
+  apiKey: string;
+  role?: ApiKeyRole | (string & {});
+  /** True when the old key was deactivated immediately (no grace window). */
+  previousKeyDeactivated?: boolean;
+  /** When the old key stops working under a grace window; null on immediate cutover. */
+  previousKeyDeactivatesAt?: string | null;
+  /**
+   * When the REPLACEMENT key expires. Null unless the install caps key
+   * lifetime, which binds the replacement exactly as it binds a freshly
+   * minted key: rotation is not a way around the cap. Schedule the next
+   * rotation before this instant.
+   */
+  expiresAt?: string | null;
+  nextSteps?: NextStep[];
 }
 
 export interface IssueEphemeralCertParams {

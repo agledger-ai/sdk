@@ -18,7 +18,7 @@ Enterprises deploying AI agents need to know what each agent was asked to do, wh
 - Notarize what was asked and who it was delegated to (Records)
 - Capture what was reported to be done (Completions)
 - Capture the principal's accept/reject verdict on the result (the Gate)
-- Track agent reliability across your organization over time (reputation)
+- See how each agent's activity moves from one window to the next (drift)
 
 ## Vocabulary
 
@@ -138,7 +138,7 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 | `client.predicates` | Predicate JSON Schema discovery (`list`, `get(kind)`) |
 | `client.disputes` | List, file, escalate, and resolve disputes |
 | `client.webhooks` | Manage webhook endpoints and deliveries |
-| `client.reputation` | Query agent health scores and history |
+| `client.drift` | Agent drift: what an agent did this window against the window before (`getAgent`, `listFleet`, `listAllFleet`), plus per-record history |
 | `client.events` | List audit events |
 | `client.schemas` | Browse, register, version, disable/enable, and validate against Type schemas |
 | `client.compliance` | Compliance exports, EU AI Act assessments, SIEM stream |
@@ -149,7 +149,7 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 | `client.admin` | Admin operations (org + agent + API-key provisioning, vault, DLQ, system health, plus `admin.records.{list, import}` and `admin.vault.{anchors, scan, signingKeys}`) |
 | `client.a2a` | A2A Protocol support (AgentCard, JSON-RPC 2.0) |
 | `client.capabilities` | Agent Type capability management |
-| `client.federation` | Federation peer operations (peer handshake, state transitions, signals, co-sign, disputes, reputation) |
+| `client.federation` | Federation peer operations (peer handshake, state transitions, signals, co-sign, disputes) |
 | `client.federationAdmin` | Federation server administration (peers, DLQ, peering tokens, instance identity) |
 | `client.agents` | Agent identity and references |
 | `client.references` | Cross-system reference lookups (Record + agent surfaces) |

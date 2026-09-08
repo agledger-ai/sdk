@@ -12,8 +12,6 @@ import type {
   CoSignRequestResult,
   SubmitDisputeProtocolParams,
   DisputeProtocolResult,
-  ContributeReputationParams,
-  FederationAgentReputation,
 } from '../types.js';
 
 /**
@@ -81,21 +79,5 @@ export class FederationResource {
     options?: RequestOptions,
   ): Promise<DisputeProtocolResult> {
     return this.http.post('/federation/v1/disputes', params, options);
-  }
-
-  /** Contribute aggregated reputation data for an agent to the federation. */
-  contributeReputation(
-    params: ContributeReputationParams,
-    options?: RequestOptions,
-  ): Promise<{ contributed: boolean }> {
-    return this.http.post('/federation/v1/reputation/contribute', params, options);
-  }
-
-  /** Get an agent's federated reputation score. */
-  getAgentReputation(
-    agentId: string,
-    options?: RequestOptions,
-  ): Promise<FederationAgentReputation> {
-    return this.http.get<FederationAgentReputation>(`/federation/v1/agents/${agentId}/reputation`, undefined, options);
   }
 }

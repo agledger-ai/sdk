@@ -4,6 +4,51 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] - 2026-09-08
+
+Reconciled against the API build that follows 1.6.0. The headline is that agent reputation is gone from the Server and agent drift replaced it, which removes a resource and a scope from this SDK.
+
+### Changed (breaking)
+
+- **`client.reputation` is `client.drift`.** The Server no longer computes a reputation score, a composite, or a confidence level, and the routes that served them are gone. What it serves instead is drift: counts of what an agent did in the current window (records, completions, verdicts, accepted, rejected, overturned, acceptance rate, median completion time), the same counts for the window before it, and the difference. The difference is the signal; there is no score, no weighting and no threshold. `drift.getAgent(agentId, { window?, type? })` reads one agent, overall and per type. `drift.listFleet({ window?, limit?, cursor? })` is the org-wide roll-up for an org-bound admin key, one row per agent, with the window every row was computed over returned beside the rows; `drift.listAllFleet` walks it. `drift.getAgentHistory` is the per-record history that used to be `reputation.getHistory`, now with its filters typed. `ReputationScore` and `ReputationHistoryEntry` are gone; `AgentDrift`, `DriftBucket`, `DriftChange`, `FleetDriftRow`, `FleetDriftPage` and `AgentHistoryEntry` are the new types.
+
+- **`Scopes.REPUTATION_READ` is `Scopes.DRIFT_READ`, and the string is `drift:read`.** The Server refuses `reputation:read` everywhere a scope is validated, so a key request or profile check that still names it fails on the wire regardless of what this SDK exports. The profile descriptions and memberships follow.
+
+- **`federation.contributeReputation` and `federation.getAgentReputation` are removed**, with `ContributeReputationParams` and `FederationAgentReputation`. The cross-Server contribution flow no longer exists.
+
+- **`CreateAgentParams` no longer has `name`.** `POST /v1/admin/agents` accepts `displayName` only and refuses `name` as an unknown property, so the previous type, which required both, had no callable form against the current Server: omitting `name` failed to compile and sending it was a 400. `displayName` is the agent's name, unique within the org; the two fields never described different values.
+
+- **`ConformanceResponse.capabilities.reputationScoring` is `agentDrift`.**
+
+- **`Scopes.DISPUTES_MANAGE` is removed.** The Server has never had a `disputes:manage` scope at any published version, so a key request that named it was refused. It was carried on `admin-standard` here for a full release cycle.
+
+
+- **Types that named fields the wire never carried are corrected.** `auth.rotateKey` resolves to `RotateKeyResult`, which has no `keyId` (the route never returned one) and does have `role`, `previousKeyDeactivated`, `previousKeyDeactivatesAt` and the new `expiresAt`. `ProvisioningStatus` is the shape `GET /v1/admin/provisioning/status` serves (`configured`, `configPath`, `dryRun`, `prune`, `lastReloadAt`, `managed`, `loadErrors`, `pruneSuppressed`); `loaded`, `sourcePath`, `lastLoadedAt` and `entries` were invented. `admin.reloadLicense` resolves to `LicenseInfo` and `admin.reloadProvisioning` to `ProvisioningReloadResult`; neither route returns a `reloaded` flag. `admin.deactivateOrg` and `admin.deactivateAgent` resolve to `DeactivateResult`.
+
+### Added
+
+- **`admin.reactivateOrg` and `admin.reactivateAgent`** (`POST /v1/admin/{orgs,agents}/{id}/reactivate`). Idempotent: an already-active account returns `wasDeactivated: false` rather than an error. Reactivation does not restore the keys deactivation revoked. `AdminOrg` and `AdminAgent` rows now carry `deactivatedAt` and `managedBy`, and a provisioning-managed row refuses both verbs with a 409.
+
+- **Agents can be bound to an external identity.** `CreateAgentParams` and `UpdateAgentParams` take `oidcIss` and `oidcSub` together (a half-set pair is refused), and `AgentProfile` reports them. With both set, `POST /v1/auth/oidc/cert` resolves the agent from a token carrying that issuer and subject. `UpdateAgentParams` also gains `agentCardUrl`, which the route has always accepted, and `agentClass` is typed as the `AgentClass` union the Server enforces.
+
+- **Trusted issuers can auto-provision agents.** `TrustedIssuer`, `CreateTrustedIssuerParams` and `UpdateTrustedIssuerParams` carry `autoProvisionAgents`, `autoProvisionScopeProfile` (an `AutoProvisionScopeProfile`, which is also the scope ceiling for every cert the issuer mints) and `autoProvisionMaxAgents`.
+
+- **`ListApiKeysParams.expiresBefore` and `neverExpires`**: the rotation queue and the no-expiry inventory. Keys with no expiry are not matched by `expiresBefore`.
+
+- **`RotateKeyResult.expiresAt`**: when the replacement key expires under an install-wide key lifetime cap. Rotation is not a way around the cap; schedule the next rotation before this instant.
+
+- **`LicenseInfo.source` knows `compact`**, the key form a Helm values file carries.
+
+- **`ProvisioningReloadResult.apiKeys.generated[].keyId` and `.source`**: which key rows the reconcile created and whether the Server minted the material (`generated`, with a one-shot `apiKey` readout that exists nowhere else) or the YAML supplied it.
+
+- **`AuditChainIntegrityReason` names `audit_vault_empty`**: the record exists but its chain holds no entries. Every creation path appends an entry in the same transaction as the record, so an empty chain is every entry gone, and the export reports it rather than passing a trivially valid chain.
+
+### Fixed
+
+- **`ScopeProfiles` matches what the Server grants.** The hand-mirrored copy had drifted on every profile. The three agent profiles were missing `audit:read` and `compliance:read` (an agent's own records have been self-auditable since API 1.5), `agent-full` was missing `drift:read`, `admin-standard` listed `admin:backfill` and `schemas:admin` that the Server does not grant it, and `admin-iac` carried `schemas:admin` where the Server grants `schemas:write`. The live source is `GET /v1/scope-profiles`; this copy exists so a client can reason about a profile offline, and now it can.
+
+- **The enum guard pins `AgentClass` and `AutoProvisionScopeProfile`**, and every previously pinned union was re-read against the new spec with no drift.
+
 ## [1.10.0] - 2026-08-30
 
 Reconciled against API v1.6.0.

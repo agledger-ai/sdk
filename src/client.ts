@@ -5,7 +5,7 @@ import { CompletionsResource } from './resources/completions.js';
 import { GateResource } from './resources/gate.js';
 import { DisputesResource } from './resources/disputes.js';
 import { WebhooksResource } from './resources/webhooks.js';
-import { ReputationResource } from './resources/reputation.js';
+import { DriftResource } from './resources/drift.js';
 import { EventsResource } from './resources/events.js';
 import { SchemasResource } from './resources/schemas.js';
 import { ComplianceResource } from './resources/compliance.js';
@@ -32,7 +32,7 @@ export class AgledgerClient {
   readonly gate: GateResource;
   readonly disputes: DisputesResource;
   readonly webhooks: WebhooksResource;
-  readonly reputation: ReputationResource;
+  readonly drift: DriftResource;
   readonly events: EventsResource;
   readonly schemas: SchemasResource;
   readonly compliance: ComplianceResource;
@@ -107,7 +107,7 @@ export class AgledgerClient {
     this.gate = new GateResource(http);
     this.disputes = new DisputesResource(http);
     this.webhooks = new WebhooksResource(http);
-    this.reputation = new ReputationResource(http);
+    this.drift = new DriftResource(http);
     this.events = new EventsResource(http);
     this.schemas = new SchemasResource(http);
     this.compliance = new ComplianceResource(http);

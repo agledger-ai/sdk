@@ -43,11 +43,10 @@ export const Scopes = {
 
   // Disputes
   DISPUTES_READ: 'disputes:read',
-  DISPUTES_MANAGE: 'disputes:manage',
 
-  // Events & reputation
+  // Events & drift
   EVENTS_READ: 'events:read',
-  REPUTATION_READ: 'reputation:read',
+  DRIFT_READ: 'drift:read',
 
   // Schemas
   SCHEMAS_READ: 'schemas:read',
@@ -80,14 +79,14 @@ export interface ScopeProfile {
 export const ScopeProfiles: Record<string, ScopeProfile> = {
   'admin-observer': {
     name: 'admin-observer',
-    description: 'Read-only admin: audit, compliance, events, disputes, reputation, schemas, webhooks, records, completions',
+    description: 'Read-only admin: audit, compliance, events, disputes, drift, schemas, webhooks, records, completions',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.AUDIT_READ,
       Scopes.COMPLIANCE_READ,
       Scopes.EVENTS_READ,
       Scopes.DISPUTES_READ,
-      Scopes.REPUTATION_READ,
+      Scopes.DRIFT_READ,
       Scopes.SCHEMAS_READ,
       Scopes.WEBHOOKS_READ,
       Scopes.RECORDS_READ,
@@ -96,7 +95,12 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'admin-standard': {
     name: 'admin-standard',
-    description: 'Default admin: full org governance plus Record/completion action rights (admin actions signed as admin in vault)',
+    description:
+      'Default admin: full org governance plus record action rights (admin actions signed as admin in vault). ' +
+      'Carries schemas:write for contract types in its own org; schemas:admin (cross-org and engine-core authority) ' +
+      'is deliberately kept off this profile and lives on admin-schema. completions:write is held to delegate, ' +
+      'not to exercise: an admin key is never a performer, and this is the only profile whose scopes cover ' +
+      'agent-full and agent-performer-only, so dropping it would stop an org-admin minting agent keys.',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.AUDIT_READ,
@@ -104,18 +108,15 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
       Scopes.COMPLIANCE_WRITE,
       Scopes.EVENTS_READ,
       Scopes.DISPUTES_READ,
-      Scopes.DISPUTES_MANAGE,
-      Scopes.REPUTATION_READ,
+      Scopes.DRIFT_READ,
       Scopes.SCHEMAS_READ,
       Scopes.SCHEMAS_WRITE,
-      Scopes.SCHEMAS_ADMIN,
       Scopes.WEBHOOKS_READ,
       Scopes.WEBHOOKS_MANAGE,
       Scopes.AGENTS_READ,
       Scopes.AGENTS_MANAGE,
       Scopes.ADMIN_KEYS,
       Scopes.ADMIN_SYSTEM,
-      Scopes.ADMIN_BACKFILL,
       Scopes.RECORDS_READ,
       Scopes.RECORDS_WRITE,
       Scopes.COMPLETIONS_READ,
@@ -124,28 +125,27 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'admin-iac': {
     name: 'admin-iac',
-    description: 'Infrastructure provisioning; agents, webhooks, keys, schemas',
+    description:
+      'Infrastructure provisioning: agents, webhooks, keys, schemas. The full own-org schema surface ' +
+      '(register, import, preview, export, lifecycle) rides on schemas:write. Resolves as org-admin; ' +
+      'engine-core and cross-org rows are platform-only and stay out of reach.',
     allowedRoles: ['admin'],
-    scopes: [
-      Scopes.ADMIN_KEYS,
-      Scopes.AGENTS_MANAGE,
-      Scopes.WEBHOOKS_MANAGE,
-      Scopes.SCHEMAS_ADMIN,
-    ],
+    scopes: [Scopes.ADMIN_KEYS, Scopes.AGENTS_MANAGE, Scopes.WEBHOOKS_MANAGE, Scopes.SCHEMAS_WRITE],
   },
   'admin-schema': {
     name: 'admin-schema',
-    description: 'Schema registry management: create, version, disable/enable custom Types',
+    description:
+      'Schema registry management: create, version, disable/enable custom types. schemas:admin is held as ' +
+      'the schema-admin role marker, not for reach: it resolves this key to the schema-admin structural role ' +
+      'instead of org-admin. Every schema action this key performs is authorized by schemas:write.',
     allowedRoles: ['admin'],
-    scopes: [
-      Scopes.SCHEMAS_READ,
-      Scopes.SCHEMAS_WRITE,
-      Scopes.SCHEMAS_ADMIN,
-    ],
+    scopes: [Scopes.SCHEMAS_READ, Scopes.SCHEMAS_WRITE, Scopes.SCHEMAS_ADMIN],
   },
   'agent-full': {
     name: 'agent-full',
-    description: 'Full agent: Record lifecycle, completions, disputes, events, and schemas',
+    description:
+      'Full agent: record lifecycle, completions, disputes, events, schemas, self-audit of own records, ' +
+      'and self-introspection of own drift',
     allowedRoles: ['agent'],
     scopes: [
       Scopes.RECORDS_READ,
@@ -156,26 +156,29 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
       Scopes.DISPUTES_READ,
       Scopes.EVENTS_READ,
       Scopes.SCHEMAS_READ,
+      Scopes.AUDIT_READ,
+      Scopes.COMPLIANCE_READ,
+      Scopes.DRIFT_READ,
     ],
   },
   'agent-readonly': {
     name: 'agent-readonly',
-    description: 'Read-only agent: view Record history',
+    description: 'Read-only agent: view own records, completions, and audit trail',
     allowedRoles: ['agent'],
-    scopes: [
-      Scopes.RECORDS_READ,
-      Scopes.COMPLETIONS_READ,
-    ],
+    scopes: [Scopes.RECORDS_READ, Scopes.COMPLETIONS_READ, Scopes.AUDIT_READ, Scopes.COMPLIANCE_READ],
   },
   'agent-performer-only': {
     name: 'agent-performer-only',
-    description: 'Performer agent: can deliver completions and read Records, but cannot be principal of new Records',
+    description:
+      'Performer agent: can deliver completions, read records, and self-audit, but cannot be principal of new records',
     allowedRoles: ['agent'],
     scopes: [
       Scopes.RECORDS_READ,
       Scopes.COMPLETIONS_READ,
       Scopes.COMPLETIONS_WRITE,
       Scopes.SCHEMAS_READ,
+      Scopes.AUDIT_READ,
+      Scopes.COMPLIANCE_READ,
     ],
   },
 };

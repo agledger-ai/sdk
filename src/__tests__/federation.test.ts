@@ -160,25 +160,6 @@ describe('FederationResource (peer-facing)', () => {
     const { url } = lastCall(fetch);
     expect(url).toContain('/federation/v1/disputes');
   });
-
-  it('contributeReputation() posts to /federation/v1/reputation/contribute', async () => {
-    await client.federation.contributeReputation({
-      agentId: 'a-1',
-      type: 'ACH-PROC-v1',
-      period: '2026-Q2',
-      totalRecords: 10,
-      totalVerified: 9,
-      totalPassed: 9,
-    });
-    const { url } = lastCall(fetch);
-    expect(url).toContain('/federation/v1/reputation/contribute');
-  });
-
-  it('getAgentReputation() GETs /federation/v1/agents/{id}/reputation', async () => {
-    await client.federation.getAgentReputation('a-1');
-    const { url } = lastCall(fetch);
-    expect(url).toContain('/federation/v1/agents/a-1/reputation');
-  });
 });
 
 describe('FederationAdminResource', () => {

@@ -55,7 +55,7 @@ function usedByResources(): Set<string> {
   const names = new Set<string>();
   const modules = [
     'records', 'completions', 'schemas', 'agents', 'audit', 'webhooks',
-    'disputes', 'admin', 'reputation', 'federation',
+    'disputes', 'admin', 'drift', 'federation',
   ];
   for (const mod of modules) {
     let src: string;

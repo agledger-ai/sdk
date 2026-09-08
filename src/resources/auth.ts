@@ -3,6 +3,7 @@ import type {
   AccountProfile,
   RequestOptions,
   RotateKeyParams,
+  RotateKeyResult,
   IssueEphemeralCertParams,
   IssueEphemeralCertResult,
 } from '../types.js';
@@ -29,8 +30,8 @@ export class AuthResource {
   rotateKey(
     params?: RotateKeyParams,
     options?: RequestOptions,
-  ): Promise<{ apiKey: string; keyId: string }> {
-    return this.http.post('/v1/auth/keys/rotate', params ?? undefined, options);
+  ): Promise<RotateKeyResult> {
+    return this.http.post<RotateKeyResult>('/v1/auth/keys/rotate', params ?? undefined, options);
   }
 
   /**

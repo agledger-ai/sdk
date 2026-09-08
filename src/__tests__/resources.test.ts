@@ -806,20 +806,65 @@ describe('EventsResource', () => {
   });
 });
 
-describe('ReputationResource', () => {
-  it('gets agent reputation', async () => {
-    const { client, fetch } = createMockClient();
-    await client.reputation.getAgent('agent-123');
-    expect(fetch.mock.calls[0][0]).toContain('/agents/agent-123/reputation');
+describe('DriftResource', () => {
+  it('reads one agent at /agents/{id}/drift with window and type', async () => {
+    const { client, fetch } = createMockClient({ agentId: 'agent-123', window: {}, overall: {}, byType: [] });
+    await client.drift.getAgent('agent-123', { window: 30, type: 'notarize-generic-v1' });
+    const url = fetch.mock.calls[0][0] as string;
+    expect(url).toContain('/v1/agents/agent-123/drift');
+    expect(url).toContain('window=30');
+    expect(url).toContain('type=notarize-generic-v1');
+    expect(url).not.toContain('reputation');
   });
 
-  it('gets agent history at correct path', async () => {
+  it('lists the fleet at /agents/drift and keeps the window beside the rows', async () => {
+    const window = { days: 7, currentFrom: 'a', currentTo: 'b', baselineFrom: 'c', baselineTo: 'd' };
+    const { client, fetch } = createMockClient({
+      window,
+      data: [{ agentId: 'a-1', displayName: 'one' }],
+      total: 1,
+      nextCursor: null,
+      hasMore: false,
+    });
+    const page = await client.drift.listFleet({ window: 7, limit: 50 });
+    const url = fetch.mock.calls[0][0] as string;
+    expect(url).toContain('/v1/agents/drift?');
+    expect(url).toContain('window=7');
+    expect(url).toContain('limit=50');
+    expect(page.window).toEqual(window);
+    expect(page.data).toHaveLength(1);
+    expect(page.hasMore).toBe(false);
+  });
+
+  it('walks the fleet with listAllFleet, resending the window with each cursor', async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true, status: 200, headers: new Headers(),
+        json: vi.fn().mockResolvedValue({ window: {}, data: [{ agentId: 'a-1' }], hasMore: true, nextCursor: 'c2' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true, status: 200, headers: new Headers(),
+        json: vi.fn().mockResolvedValue({ window: {}, data: [{ agentId: 'a-2' }], hasMore: false, nextCursor: null }),
+      });
+    const client = new AgledgerClient({
+      apiKey: 'test_key', baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch, maxRetries: 0,
+    });
+    const ids: string[] = [];
+    for await (const row of client.drift.listAllFleet({ window: 14 })) ids.push(row.agentId);
+    expect(ids).toEqual(['a-1', 'a-2']);
+    const second = fetch.mock.calls[1][0] as string;
+    expect(second).toContain('cursor=c2');
+    expect(second).toContain('window=14');
+  });
+
+  it('gets agent history at /agents/{id}/history', async () => {
     const { client, fetch } = createPageMockClient();
-    await client.reputation.getHistory('agent-123', { from: '2026-01-01' });
-    const url = fetch.mock.calls[0][0];
-    expect(url).toContain('/agents/agent-123/history');
-    expect(url).not.toContain('/reputation/history');
+    await client.drift.getAgentHistory('agent-123', { from: '2026-01-01', outcome: 'accept' });
+    const url = fetch.mock.calls[0][0] as string;
+    expect(url).toContain('/v1/agents/agent-123/history');
     expect(url).toContain('from=2026-01-01');
+    expect(url).toContain('outcome=accept');
   });
 });
 
