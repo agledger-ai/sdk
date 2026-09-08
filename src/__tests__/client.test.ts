@@ -23,7 +23,7 @@ describe('AgledgerClient', () => {
     expect(client.gate).toBeDefined();
     expect(client.disputes).toBeDefined();
     expect(client.webhooks).toBeDefined();
-    expect(client.reputation).toBeDefined();
+    expect(client.drift).toBeDefined();
     expect(client.events).toBeDefined();
     expect(client.schemas).toBeDefined();
     expect(client.compliance).toBeDefined();

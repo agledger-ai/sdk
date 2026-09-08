@@ -87,7 +87,6 @@ const ALIASES: Record<string, string> = {
   DisputeEvidence: 'DisputeEvidence',
   WebhookSubscription: 'Webhook',
   WebhookDelivery: 'WebhookDelivery',
-  ReputationScore: 'ReputationScore',
   EntityReference: 'EntityReference',
   NextStepAction: 'NextStep',
   // The error body is a contract like any other, and was the one mapped
@@ -109,8 +108,6 @@ const ALIASES: Record<string, string> = {
  * interface name. Keep this list SHORT and justify every entry.
  */
 const ALLOWED_SDK_ONLY: Record<string, Set<string>> = {
-  // recentHistory is hydrated from the separate reputation-history endpoint.
-  ReputationScore: new Set(['recentHistory']),
   // `code` is the SDK's normalized alias for the body's `code` OR `error`.
   // `docUrl` is dead: no route emits it (the engine schema has no such
   // property, so Fastify strips it). Kept, deprecated, so callers compile.

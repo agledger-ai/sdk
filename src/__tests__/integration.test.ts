@@ -180,13 +180,31 @@ describe('SDK integration: response shape validation', async () => {
     createdRecordId = undefined;
   });
 
-  // --- Reputation ---
+  // --- Agent drift ---
 
-  it('reputation.getAgent() returns Page<ReputationScore>', async () => {
+  it('drift.getAgent() returns the two windows and the change', async () => {
     const agentId = await resolveAgentId();
     if (!agentId) return;
-    const page = await client.reputation.getAgent(agentId);
-    assertPage(page, 'reputation.getAgent');
+    const drift = await client.drift.getAgent(agentId);
+    expect(drift.agentId).toBe(agentId);
+    expect(drift.window.days).toBe(7);
+    expect(typeof drift.overall.current.records).toBe('number');
+    expect(typeof drift.overall.baseline.records).toBe('number');
+    expect(drift.overall.change.records).toBe(drift.overall.current.records - drift.overall.baseline.records);
+    expect(Array.isArray(drift.byType)).toBe(true);
+  });
+
+  it('drift.listFleet() pages the org with the window beside the rows', async () => {
+    const page = await client.drift.listFleet({ limit: 5 });
+    assertPage(page, 'drift.listFleet');
+    expect(page.window.days).toBe(7);
+  });
+
+  it('drift.getAgentHistory() returns a Page', async () => {
+    const agentId = await resolveAgentId();
+    if (!agentId) return;
+    const page = await client.drift.getAgentHistory(agentId, { limit: 5 });
+    assertPage(page, 'drift.getAgentHistory');
   });
 
   // --- Verification Keys ---

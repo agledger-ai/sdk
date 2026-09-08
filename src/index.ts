@@ -122,9 +122,18 @@ export type {
   WebhookDelivery,
   WebhookTestResult,
 
-  // Reputation
-  ReputationScore,
-  ReputationHistoryEntry,
+  // Agent drift
+  GetAgentDriftParams,
+  ListFleetDriftParams,
+  DriftWindow,
+  DriftBucket,
+  DriftChange,
+  DriftSeries,
+  AgentDrift,
+  FleetDriftRow,
+  FleetDriftPage,
+  AgentHistoryParams,
+  AgentHistoryEntry,
 
   // Events & Audit
   AgledgerEvent,
@@ -216,8 +225,14 @@ export type {
   SetCapabilitiesParams,
   DeactivateOrgParams,
   DeactivateAgentParams,
+  DeactivateResult,
+  ReactivateParams,
+  ReactivateResult,
   RateLimitExemption,
   ProvisioningStatus,
+  ProvisioningReloadCounts,
+  ProvisioningGeneratedKey,
+  ProvisioningReloadResult,
   SupportBundle,
   LicenseInstanceInfo,
   ListWebhooksParams,
@@ -230,12 +245,14 @@ export type {
   // Admin: Trusted OIDC issuers & ephemeral certs
   TrustedIssuer,
   TrustedIssuerAppliesTo,
+  AutoProvisionScopeProfile,
   CreateTrustedIssuerParams,
   UpdateTrustedIssuerParams,
   ListTrustedIssuersParams,
   RevokeTrustedIssuerCertsResult,
   EphemeralCert,
   RotateKeyParams,
+  RotateKeyResult,
   IssueEphemeralCertParams,
   IssueEphemeralCertResult,
   RevokeEphemeralCertResult,
@@ -276,6 +293,7 @@ export type {
   AgentProfile,
   AgentDirectoryEntry,
   UpdateAgentParams,
+  AgentClass,
   PeerAgent,
   ListPeerAgentsParams,
   PeerAgentsResponse,
@@ -314,10 +332,6 @@ export type {
   FederationPeerStatus,
   ListPeersParams,
   PeeringToken,
-
-  // Federation: Reputation
-  ContributeReputationParams,
-  FederationAgentReputation,
 
   // Federation: Peer Sync
   AgentDirectorySyncParams,

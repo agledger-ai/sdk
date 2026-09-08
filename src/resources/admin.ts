@@ -30,10 +30,14 @@ import type {
   VerifyVaultAnchorsParams,
   AuthCacheStats,
   ProvisioningStatus,
+  ProvisioningReloadResult,
   SupportBundle,
   RateLimitExemption,
   DeactivateOrgParams,
   DeactivateAgentParams,
+  DeactivateResult,
+  ReactivateParams,
+  ReactivateResult,
   AdminImportRecordsParams,
   AdminImportRecordsResult,
   RecordRow,
@@ -224,8 +228,22 @@ export class AdminResource {
     orgId: string,
     params: DeactivateOrgParams = {},
     options?: RequestOptions,
-  ): Promise<Record<string, unknown>> {
-    return this.http.post(`/v1/admin/orgs/${orgId}/deactivate`, params, options);
+  ): Promise<DeactivateResult> {
+    return this.http.post<DeactivateResult>(`/v1/admin/orgs/${orgId}/deactivate`, params, options);
+  }
+
+  /**
+   * Reactivate a deactivated org. Idempotent: an already-active org returns
+   * `wasDeactivated: false` rather than an error. Reactivation does not
+   * restore the keys deactivation revoked; mint replacements. Platform key
+   * only, and a provisioning-managed org refuses with 409.
+   */
+  reactivateOrg(
+    orgId: string,
+    params: ReactivateParams = {},
+    options?: RequestOptions,
+  ): Promise<ReactivateResult> {
+    return this.http.post<ReactivateResult>(`/v1/admin/orgs/${orgId}/reactivate`, params, options);
   }
 
   /** Deactivate an agent. Revokes the agent's API keys. */
@@ -233,8 +251,22 @@ export class AdminResource {
     agentId: string,
     params: DeactivateAgentParams = {},
     options?: RequestOptions,
-  ): Promise<Record<string, unknown>> {
-    return this.http.post(`/v1/admin/agents/${agentId}/deactivate`, params, options);
+  ): Promise<DeactivateResult> {
+    return this.http.post<DeactivateResult>(`/v1/admin/agents/${agentId}/deactivate`, params, options);
+  }
+
+  /**
+   * Reactivate a deactivated agent. Idempotent: an already-active agent
+   * returns `wasDeactivated: false` rather than an error. Reactivation does
+   * not restore the keys deactivation revoked; mint replacements. Platform
+   * key only, and a provisioning-managed agent refuses with 409.
+   */
+  reactivateAgent(
+    agentId: string,
+    params: ReactivateParams = {},
+    options?: RequestOptions,
+  ): Promise<ReactivateResult> {
+    return this.http.post<ReactivateResult>(`/v1/admin/agents/${agentId}/reactivate`, params, options);
   }
 
   /** Set an agent's Type capabilities (PUT: replaces all). */
@@ -315,14 +347,23 @@ export class AdminResource {
     return this.http.get<LicenseInstanceInfo>('/v1/admin/license/instance-id', undefined, options);
   }
 
-  /** Reload the license file from disk without restarting the service. */
-  reloadLicense(options?: RequestOptions): Promise<{ reloaded: boolean }> {
-    return this.http.post('/v1/admin/license/reload', {}, options);
+  /**
+   * Reload the license from disk without restarting the service. Returns the
+   * license status as {@link AdminResource.getLicense} does; there is no
+   * separate `reloaded` flag on the wire.
+   */
+  reloadLicense(options?: RequestOptions): Promise<LicenseInfo> {
+    return this.http.post<LicenseInfo>('/v1/admin/license/reload', {}, options);
   }
 
-  /** Reload the static-provisioning config from disk. */
-  reloadProvisioning(options?: RequestOptions): Promise<{ reloaded: boolean }> {
-    return this.http.post('/v1/admin/provisioning/reload', {}, options);
+  /**
+   * Reload the static-provisioning config from disk. The result carries what
+   * changed per resource, and for any API key the reconcile minted, the
+   * plaintext in `apiKeys.generated[].apiKey`: it exists nowhere else, so
+   * capture it here or disable the key.
+   */
+  reloadProvisioning(options?: RequestOptions): Promise<ProvisioningReloadResult> {
+    return this.http.post<ProvisioningReloadResult>('/v1/admin/provisioning/reload', {}, options);
   }
 
   /** Get the current static-provisioning status (loaded entries, last reload). */
