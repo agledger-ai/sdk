@@ -96,6 +96,6 @@
     "prettier": "^3.4.0",
     "publint": "^0.3.21",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.0"
+    "vitest": "^5.0.0"
   }
 }
