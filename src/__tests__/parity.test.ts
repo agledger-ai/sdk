@@ -67,7 +67,6 @@ describe('critical routes exist in the current API spec', () => {
     ['POST', '/v1/records/{id}/transition'],
     ['POST', '/v1/records/{id}/accept'],
     ['POST', '/v1/records/{id}/reject'],
-    ['POST', '/v1/records/{id}/counter-propose'],
     ['POST', '/v1/records/{id}/verdict'],
     ['POST', '/v1/records/{recordId}/completions'],
     ['GET', '/v1/records/{recordId}/completions'],
@@ -98,8 +97,9 @@ describe('critical routes exist in the current API spec', () => {
     ['POST', '/v1/schemas/preview'],
     ['POST', '/v1/schemas/import'],
 
-    // Disputes (org-wide listing)
+    // Disputes (org-wide listing, and the principal's outcome rendering)
     ['GET', '/v1/disputes'],
+    ['POST', '/v1/disputes/{id}/resolve'],
 
     // Org-reads: the checkpoints, and the leaves they cover
     ['GET', '/v1/audit/org-reads'],
@@ -151,7 +151,6 @@ describe('critical routes exist in the current API spec', () => {
     // Federation peer paths: the path parameter is peerHubId, not hubId
     ['GET', '/federation/v1/admin/peers/{peerHubId}'],
     ['DELETE', '/federation/v1/admin/peers/{peerHubId}'],
-    ['POST', '/federation/v1/admin/peers/{peerHubId}/resync'],
     ['POST', '/federation/v1/admin/peers/{peerHubId}/revoke'],
   ];
 
@@ -201,6 +200,15 @@ describe('retired routes are gone from the spec', () => {
     ['PUT', '/v1/admin/strings/overrides/{key}'],
     ['DELETE', '/v1/admin/strings/overrides/{key}'],
     ['GET', '/v1/admin/strings/drift'],
+
+    // Negotiation counter-proposal, the dispute tier ladder, and peer agent
+    // directory sync: removed with the API build that follows 1.6.0, without
+    // aliases.
+    ['POST', '/v1/records/{id}/counter-propose'],
+    ['POST', '/v1/records/{id}/accept-counter'],
+    ['POST', '/v1/records/{recordId}/dispute/escalate'],
+    ['POST', '/federation/v1/admin/peers/{peerHubId}/resync'],
+    ['POST', '/federation/v1/peer/agent-sync'],
   ];
 
   for (const [method, path] of RETIRED) {

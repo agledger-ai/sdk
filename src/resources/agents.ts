@@ -9,7 +9,7 @@ import type {
   AutoPaginateOptions,
   ListPeerAgentsParams,
   PeerAgentsResponse,
-  CursorListParams,
+  ListAgentsParams,
 } from '../types.js';
 
 export class AgentsResource {
@@ -19,14 +19,17 @@ export class AgentsResource {
    * List agents in the caller's org (peer directory).
    * Returns the lightweight directory shape: for full agent identity use
    * {@link AgentsResource.get}.
+   *
+   * Deactivated agents are dropped unless `includeDeactivated` is set. That
+   * value is bound into `nextCursor`, so set it before the walk starts.
    */
-  list(params?: CursorListParams, options?: RequestOptions): Promise<Page<AgentDirectoryEntry>> {
+  list(params?: ListAgentsParams, options?: RequestOptions): Promise<Page<AgentDirectoryEntry>> {
     return this.http.getPage<AgentDirectoryEntry>('/v1/agents', params as Record<string, unknown>, options);
   }
 
   /** Auto-paginating iterator over the org agent directory. */
   listAll(
-    params?: CursorListParams,
+    params?: ListAgentsParams,
     options?: RequestOptions & AutoPaginateOptions,
   ): AsyncGenerator<AgentDirectoryEntry> {
     return this.http.paginate<AgentDirectoryEntry>('/v1/agents', params as Record<string, unknown>, options);

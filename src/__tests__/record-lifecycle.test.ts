@@ -19,8 +19,15 @@ describe('RECORD_TRANSITIONS', () => {
     expect(statuses).toContain('REVISION_REQUESTED');
     expect(statuses).toContain('RECORDED');
     expect(statuses).toContain('DISPUTED');
-    expect(statuses).toContain('PENDING_ARBITRATION');
     expect(statuses.length).toBeGreaterThanOrEqual(13);
+  });
+
+  it('has no arbitration state to reach from DISPUTED', () => {
+    // The tier ladder is gone from the Server: a dispute the engine does not
+    // auto-resolve waits for the principal to render an outcome, and the
+    // Record settles at FULFILLED or FAILED either way.
+    expect(Object.keys(RECORD_TRANSITIONS)).not.toContain('PENDING_ARBITRATION');
+    expect(getValidTransitions('DISPUTED')).toEqual(['FULFILLED', 'FAILED']);
   });
 });
 
@@ -32,7 +39,6 @@ describe('TERMINAL_STATUSES', () => {
     expect(TERMINAL_STATUSES).toContain('CANCELLED');
     expect(TERMINAL_STATUSES).toContain('REJECTED');
     expect(TERMINAL_STATUSES).toContain('RECORDED');
-    expect(TERMINAL_STATUSES).toContain('PENDING_ARBITRATION');
   });
 
   it('does not include non-terminal statuses', () => {

@@ -4,9 +4,27 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.11.0] - 2026-09-08
+## [1.11.0] - 2026-09-10
 
-Reconciled against the API build that follows 1.6.0. The headline is that agent reputation is gone from the Server and agent drift replaced it, which removes a resource and a scope from this SDK.
+Reconciled against the API build that follows 1.6.0. Two things are gone from the Server and this release removes both without aliases: agent reputation, which agent drift replaced, and the dispute tier ladder, which a single principal rendering replaced. Commission, the peer agent-directory sync and proposal counter-offers went with them.
+
+### Removed (the Server removed the route or the field)
+
+- **`records.counterPropose` and `records.acceptCounter` are gone**, with `CounterProposeParams`. `POST /v1/records/{id}/counter-propose` and `POST /v1/records/{id}/accept-counter` no longer exist. Negotiation is propose, then accept or reject: a performer who wants different terms rejects and the principal creates the Record it means. `AcceptanceStatus` no longer names `COUNTER_PROPOSED`, and `record.proposal_counter_proposed` is no longer a webhook event type a subscription can name.
+
+- **`disputes.escalate` is gone**, and so is the tier ladder behind it. `DisputeStatus` is `EVIDENCE_WINDOW`, `PENDING_RESOLUTION`, `RESOLVED`, `WITHDRAWN`: the three tier values (`TIER_2_REVIEW`, `ESCALATED`, `TIER_3_ARBITRATION`) are gone from the type, from `RecordRow.disputeStatus`, and from the `status` and `disputeStatus` query filters, all of which declare a strict enum, so a retired value is a 400. `Dispute` loses `currentTier`, `feeChargedTo`, `feeAmount` and `feeCurrency`; there are no tiers to charge for. `dispute.escalated` is no longer subscribable.
+
+- **`PENDING_ARBITRATION` is gone from `RecordStatus`**, from `RECORD_TRANSITIONS` and `TERMINAL_STATUSES` in `record-lifecycle`, from `BackfillRecord.terminalStatus`, and from `RecordRow.awaitingActor`, which is now `principal`, `performer`, `system` or null. `DISPUTED` transitions to `FULFILLED` or `FAILED`; there is no state in between. The label survives on one wire only: `federation.submitStateTransition` still accepts it, because a peer on the previous version is still sending it through a rolling upgrade.
+
+- **Commission is gone from every Record surface.** `RecordRow.commissionPct` and `commissionAmount`, `CreateRecordParams.commissionPct` (and the bulk item that extends it), `DelegateRecordParams.commissionPct`, and `SchemaRulesConfig.commissionSourceField` are all removed. AGLedger records acceptance; it never computed a payment.
+
+- **`federation.syncAgentDirectory` and `federationAdmin.resyncPeer` are gone**, with `AgentDirectorySyncParams`. `POST /federation/v1/peer/agent-sync` and `POST /federation/v1/admin/peers/{peerHubId}/resync` no longer exist, and the peer columns they fed go with them: `FederationPeer` loses `agentDirectoryHash` and `lastSyncAt`. Reachability was never `lastSyncAt` anyway; it is `lastDeliveryAt` with `consecutiveDeliveryFailures`.
+
+- **The peer handshake body is exactly five fields.** `PeerHandshakeParams` is `peerHubId`, `peerUrl`, `signingPublicKey`, `peeringToken` and `boundOrgId`, all required; `encryptionPublicKey` and `agentDirectory` are gone and the route refuses anything else. It is unauthenticated now: the single-use peering token in the body is what admits the call. `PeerHandshakeResult` loses `serverEncryptionPublicKey`.
+
+- **`FederationPeerStatus` no longer names `suspended`**, on peer rows or on the `status` filter of the peers listing, and `OpsSummary.federation.peers` loses its `suspended` counter. A peer is `active` or `revoked`.
+
+- **`AiImpactAssessment.overseerName` is gone.** The assessment records the oversight configuration, not a named individual.
 
 ### Changed (breaking)
 
@@ -26,6 +44,24 @@ Reconciled against the API build that follows 1.6.0. The headline is that agent 
 - **Types that named fields the wire never carried are corrected.** `auth.rotateKey` resolves to `RotateKeyResult`, which has no `keyId` (the route never returned one) and does have `role`, `previousKeyDeactivated`, `previousKeyDeactivatesAt` and the new `expiresAt`. `ProvisioningStatus` is the shape `GET /v1/admin/provisioning/status` serves (`configured`, `configPath`, `dryRun`, `prune`, `lastReloadAt`, `managed`, `loadErrors`, `pruneSuppressed`); `loaded`, `sourcePath`, `lastLoadedAt` and `entries` were invented. `admin.reloadLicense` resolves to `LicenseInfo` and `admin.reloadProvisioning` to `ProvisioningReloadResult`; neither route returns a `reloaded` flag. `admin.deactivateOrg` and `admin.deactivateAgent` resolve to `DeactivateResult`.
 
 ### Added
+
+- **`disputes.resolve(disputeId, { outcome, rationale? })`** (`POST /v1/disputes/{id}/resolve`). This is what replaced the tier ladder: the principal renders the outcome and the engine records it. `OVERTURNED` means the disputed verdict does not stand, so a Record that had FAILED settles at FULFILLED with the verdict re-rendered as accept (one already FULFILLED or REMEDIATED is restored to that terminal) and a RELEASE Settlement Signal follows carrying `reasonCode: DISPUTE_OVERTURNED`. `UPHELD` returns the Record to exactly the status it held before the dispute and emits no signal. Accepted while the dispute is in `EVIDENCE_WINDOW` or `PENDING_RESOLUTION`; one already `RESOLVED` or `WITHDRAWN` is refused with 422. `DisputeOutcome` and `ResolveDisputeParams` are new. The path parameter is the DISPUTE id, unlike every other dispute method on this resource, which takes the Record id: read it from `disputes.list()` or from `RecordRow.disputeId`.
+
+- **`CreateRecordParams.maxRevisions`** (1-20): the rework cap for this Record. Omit it to inherit the org default `enforcement.defaultMaxRevisions`, which is 3 unless the org set it. Immutable once the Record is created. Reaching the cap refuses the next resubmit with 422 and leaves the Record where it was, so the principal can still verdict, cancel or dispute it. Bulk create takes it too.
+
+- **`agents.list` and `agents.listAll` take `includeDeactivated`** via the new `ListAgentsParams`, and `AgentProfile` and `AgentDirectoryEntry` carry `deactivatedAt`. The default drops the agents an operator deactivated, which a new Record cannot name. The flag is bound into `nextCursor`, so set it before a walk starts rather than partway through.
+
+- **Org config is typed.** `OrgConfig` was an index signature; it is now `config` (the overrides an operator explicitly stored, as `OrgConfigDocument`), `enforcement` (the values actually in force, as `EnforcementSettings`), `enforcementDefaults` (the engine defaults, which is where a cleared override lands) and `enforcementSource` (per field, `org` or `default`). `SetOrgConfigParams` types the PATCH the same way, with every enforcement key nullable because `null` is how an override is dropped rather than changed, plus the new `disputes.autoReadjudicate` (`toleranceExpansion`, `deadlineGraceSeconds`) and `enforcement.defaultMaxRevisions`. `approvedSuppliers` is a string array, which is what the route has always taken; it was typed as an object.
+
+- **`CoSignStatus` is a named, exported union, and it knows `partial`**: some co-signers answered and some did not, which used to read as `pending` or `failed` depending on nothing the caller could see. `RecordRow.coSignStatus` and `settlementSignal.coSignStatus` both use it; it was written inline at both sites, where the enum guard could not see it.
+
+- **`EventType` gains `system.cascading_gate_enqueue_failed` and `system.verification_enqueue_failed`**, the two engine-internal failure events, plus the two types retired from subscriptions above. All four are queryable history and none is subscribable, so the gap between `EventType` and `WebhookEventType` is seven members now rather than three.
+
+- **`FederationDlqEntry.firstFailedAt`**: when the message first failed, as distinct from when the row was written. A queue entry retried for a day has one of each.
+
+- **`AgentHistoryEntry.status` is the `RecordStatus` union** rather than a bare string, matching the enum the route now declares.
+
+- **`DisputeResponse` carries `nextSteps`**, which the dispute read has started serving.
 
 - **`admin.reactivateOrg` and `admin.reactivateAgent`** (`POST /v1/admin/{orgs,agents}/{id}/reactivate`). Idempotent: an already-active account returns `wasDeactivated: false` rather than an error. Reactivation does not restore the keys deactivation revoked. `AdminOrg` and `AdminAgent` rows now carry `deactivatedAt` and `managedBy`, and a provisioning-managed row refuses both verbs with a 409.
 
@@ -47,7 +83,11 @@ Reconciled against the API build that follows 1.6.0. The headline is that agent 
 
 - **`ScopeProfiles` matches what the Server grants.** The hand-mirrored copy had drifted on every profile. The three agent profiles were missing `audit:read` and `compliance:read` (an agent's own records have been self-auditable since API 1.5), `agent-full` was missing `drift:read`, `admin-standard` listed `admin:backfill` and `schemas:admin` that the Server does not grant it, and `admin-iac` carried `schemas:admin` where the Server grants `schemas:write`. The live source is `GET /v1/scope-profiles`; this copy exists so a client can reason about a profile offline, and now it can.
 
-- **The enum guard pins `AgentClass` and `AutoProvisionScopeProfile`**, and every previously pinned union was re-read against the new spec with no drift.
+- **The enum guard pins `AgentClass` and `AutoProvisionScopeProfile`**, and it now also pins `DisputeOutcome`, `EnforcementMode` and `EnforcementSource`. Every pinned union was re-read against the current spec, which is what caught the five that had moved: `DisputeStatus`, `RecordStatus`, `FederationPeerStatus`, `EventType` and `WebhookEventType`.
+
+- **`disputes.create` says what the create envelope carries.** The 201 is `{ dispute, autoReadjudication, nextSteps }` and the method returns the dispute; `autoReadjudication` (renamed from `tier1Result` on the wire) says whether the engine's automatic re-check already resolved the dispute and, when it did not, why. Reach it with `client.request()` when that matters.
+
+- **`federationAdmin.revokePeer` resolves to `{ revoked: true; nextSteps? }`.** It declared `revoked: boolean`, and the route never returns false: a refusal is a thrown 4xx. The `remoteAgentsDeleted` count it used to carry is gone with the agent directory.
 
 ## [1.10.0] - 2026-08-30
 

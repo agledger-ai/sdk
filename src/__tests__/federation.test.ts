@@ -35,7 +35,6 @@ describe('FederationResource (peer-facing)', () => {
       peerHubId: 'hub-x',
       status: 'active',
       serverSigningPublicKey: 'ed25519-pk',
-      serverEncryptionPublicKey: 'x25519-pk',
     });
     client = new AgledgerClient({
       apiKey: 'agl_adm_test',
@@ -46,28 +45,25 @@ describe('FederationResource (peer-facing)', () => {
       peerHubId: 'hub-x',
       peerUrl: 'https://peer.test',
       signingPublicKey: 'ed25519-pk',
-      encryptionPublicKey: 'x25519-pk',
       peeringToken: 'tok-abc',
       boundOrgId: 'org-1',
-      agentDirectory: [],
     });
-    const { url } = lastCall(fetch);
+    const { url, init } = lastCall(fetch);
     expect(url).toContain('/federation/v1/peer');
+    // The body is exactly these five and the route refuses anything else: no
+    // encryption key and no agent directory ride along any more.
+    expect(JSON.parse(init.body as string)).toEqual({
+      peerHubId: 'hub-x',
+      peerUrl: 'https://peer.test',
+      signingPublicKey: 'ed25519-pk',
+      peeringToken: 'tok-abc',
+      boundOrgId: 'org-1',
+    });
     // peerHubId is the id every admin peer path takes; peerId is receiver-local.
     expect(result.peerHubId).toBe('hub-x');
     expect(result.peerId).toBe('row-1');
     expect(result.status).toBe('active');
     expect(result.peered).toBe(true);
-  });
-
-  it('syncAgentDirectory() posts to /federation/v1/peer/agent-sync', async () => {
-    await client.federation.syncAgentDirectory({
-      peerHubId: 'hub-x',
-      agents: [],
-      directoryHash: 'sha256-abc',
-    });
-    const { url } = lastCall(fetch);
-    expect(url).toContain('/federation/v1/peer/agent-sync');
   });
 
   it('submitStateTransition() posts to /federation/v1/state-transitions', async () => {
@@ -205,11 +201,9 @@ describe('FederationAdminResource', () => {
           peerUrl: 'https://peer.test',
           status: 'active',
           createdAt: '2026-01-01T00:00:00Z',
-          agentDirectoryHash: null,
           consecutiveDeliveryFailures: 2,
           lastDeliveryAt: '2026-01-02T00:00:00Z',
           lastDeliveryError: 'peer returned 502',
-          lastSyncAt: null,
         },
       ],
       hasMore: false,
@@ -223,17 +217,16 @@ describe('FederationAdminResource', () => {
     const peer = page.data[0];
     expect(peer?.peerHubId).toBe('hub-x');
     expect(peer?.peerUrl).toBe('https://peer.test');
-    // Reachability is lastDeliveryAt plus the failure count, not lastSyncAt.
+    // Reachability is lastDeliveryAt plus the failure count. The directory-sync
+    // columns are gone with the sync route that fed them.
     expect(peer?.consecutiveDeliveryFailures).toBe(2);
     expect(peer?.lastDeliveryError).toBe('peer returned 502');
-    expect(peer?.lastSyncAt).toBeNull();
+    expect(peer?.lastDeliveryAt).toBe('2026-01-02T00:00:00Z');
   });
 
-  it('getPeer() and resyncPeer() take the peerHubId the API paths name', async () => {
+  it('getPeer() takes the peerHubId the API paths name', async () => {
     await client.federationAdmin.getPeer('hub-x');
     expect(lastCall(fetch).url).toContain('/federation/v1/admin/peers/hub-x');
-    await client.federationAdmin.resyncPeer('hub-x');
-    expect(lastCall(fetch).url).toContain('/federation/v1/admin/peers/hub-x/resync');
   });
 
   it('revokePeer() requires reason in body', async () => {

@@ -136,7 +136,7 @@ export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 | `client.gate` | Run the gate evaluation (`evaluate`) against a Record's criteria (advisory in `principal` mode, final in `auto`) |
 | `client.scitt` | SCITT/SCRAPI entries (`register`, `get`) and Transparency Service key set |
 | `client.predicates` | Predicate JSON Schema discovery (`list`, `get(kind)`) |
-| `client.disputes` | List, file, escalate, and resolve disputes |
+| `client.disputes` | List, file, resolve and withdraw disputes |
 | `client.webhooks` | Manage webhook endpoints and deliveries |
 | `client.drift` | Agent drift: what an agent did this window against the window before (`getAgent`, `listFleet`, `listAllFleet`), plus per-record history |
 | `client.events` | List audit events |
