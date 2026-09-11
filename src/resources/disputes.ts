@@ -3,6 +3,7 @@ import type {
   Dispute,
   DisputeResponse,
   CreateDisputeParams,
+  ResolveDisputeParams,
   EvidenceType,
   RequestOptions,
   Page,
@@ -34,7 +35,10 @@ export class DisputesResource {
    */
   async create(recordId: string, params: CreateDisputeParams, options?: RequestOptions): Promise<Dispute> {
     const response = await this.http.post<Record<string, unknown>>(`/v1/records/${recordId}/dispute`, params, options);
-    // API may return { dispute, tier1Result } envelope on create
+    // The 201 is a { dispute, autoReadjudication, nextSteps } envelope. Read
+    // the envelope with `client.request()` when the auto-readjudication result
+    // matters: `autoResolved` says whether the engine's re-check already
+    // resolved the dispute, and `reason` says why it did not.
     return (response.dispute ?? response) as Dispute;
   }
 
@@ -46,9 +50,35 @@ export class DisputesResource {
     return this.http.get<DisputeResponse>(`/v1/records/${recordId}/dispute`, undefined, options);
   }
 
-  /** Escalate a dispute to the next review tier. */
-  escalate(recordId: string, options?: RequestOptions): Promise<Dispute> {
-    return this.http.post<Dispute>(`/v1/records/${recordId}/dispute/escalate`, undefined, options);
+  /**
+   * Render the outcome of a dispute. Takes the DISPUTE id, not the Record id:
+   * read it from `disputes.list()` or from `RecordRow.disputeId`.
+   *
+   * The rendering is the caller's, not the engine's. `OVERTURNED` settles a
+   * Record that had FAILED at FULFILLED with the verdict re-rendered as accept
+   * (one already FULFILLED or REMEDIATED is restored to that terminal) and a
+   * RELEASE Settlement Signal follows; `UPHELD` returns the Record to exactly
+   * the status it held before the dispute and emits no signal.
+   *
+   * Accepted while the dispute is in `EVIDENCE_WINDOW` or `PENDING_RESOLUTION`.
+   * One already `RESOLVED` or `WITHDRAWN` is refused with 422 carrying
+   * `currentState` and `allowedActions`. Auth is the Record's principal or an
+   * org-admin key.
+   *
+   * @example
+   * ```ts
+   * await client.disputes.resolve(dispute.id, {
+   *   outcome: 'OVERTURNED',
+   *   rationale: 'Delivery evidence matches the criteria within tolerance',
+   * });
+   * ```
+   */
+  resolve(
+    disputeId: string,
+    params: ResolveDisputeParams,
+    options?: RequestOptions,
+  ): Promise<Dispute> {
+    return this.http.post<Dispute>(`/v1/disputes/${disputeId}/resolve`, params, options);
   }
 
   /** Withdraw an open dispute. Optional `reason` is recorded in the audit trail. */

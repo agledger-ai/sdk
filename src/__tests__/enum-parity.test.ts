@@ -92,22 +92,30 @@ describe('enum-member parity', () => {
 
   it('parses whole unions, not the part before the first comment', () => {
     // The specific regression: a semicolon inside a `//` heading truncated
-    // WebhookEventType to 8 of its 41 members.
-    expect(unions.WebhookEventType).toHaveLength(41);
+    // WebhookEventType to 8 of its members.
+    expect(unions.WebhookEventType).toHaveLength(39);
     expect(unions.WebhookEventType).toContain('*');
     expect(unions.WebhookEventType).toContain('record.federation_activated');
   });
 
   it('keeps the subscribable set apart from the queryable one', () => {
-    // `POST /v1/webhooks` rejects three types `GET /v1/events` serves, so one
+    // `POST /v1/webhooks` rejects seven types `GET /v1/events` serves, so one
     // union cannot stand for both. The SDK typed the union of the two as
     // subscribable, which made three documented values a 400 on create.
+    //
+    // Three are replay surface that was never subscribable, two are retired and
+    // stay queryable so historical events remain readable, and two are
+    // engine-internal failures with no subscription form.
     const subscribable = new Set(unions.WebhookEventType);
     const queryable = new Set(unions.EventType);
     expect([...queryable].filter((v) => !subscribable.has(v)).sort()).toEqual([
+      'dispute.escalated',
       'dispute.evidence_window_closed',
+      'record.proposal_counter_proposed',
       'record.released',
       'record.settled',
+      'system.cascading_gate_enqueue_failed',
+      'system.verification_enqueue_failed',
     ]);
     // The wildcard is a subscription filter, not a type an event carries.
     expect(queryable.has('*')).toBe(false);

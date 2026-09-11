@@ -6,6 +6,7 @@ import type {
   ListPeersParams,
   PeeringToken,
   FederationDlqEntry,
+  NextStep,
 } from '../types.js';
 
 /**
@@ -44,16 +45,8 @@ export class FederationAdminResource {
     peerHubId: string,
     params: { reason: string },
     options?: RequestOptions,
-  ): Promise<{ revoked: boolean }> {
+  ): Promise<{ revoked: true; nextSteps?: NextStep[] }> {
     return this.http.post(`/federation/v1/admin/peers/${peerHubId}/revoke`, params, options);
-  }
-
-  /** Trigger a full resync with a peer Server. */
-  resyncPeer(
-    peerHubId: string,
-    options?: RequestOptions,
-  ): Promise<{ synced: boolean }> {
-    return this.http.post(`/federation/v1/admin/peers/${peerHubId}/resync`, {}, options);
   }
 
   /** Permanently remove a revoked peer's record. */

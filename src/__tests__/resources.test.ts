@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AgledgerClient } from '../client.js';
-import { ConfigurationError, PaginationLimitError } from '../errors.js';
+import { ConfigurationError, PaginationLimitError, UnprocessableError } from '../errors.js';
 
 function createMockClient(responseOverride?: unknown) {
   const fetch = vi.fn().mockResolvedValue({
@@ -137,12 +137,27 @@ describe('RecordsResource', () => {
     expect(body.reason).toBe('No longer needed');
   });
 
-  it('counter-proposes on a record', async () => {
+  it('sends maxRevisions on create when the caller caps rework', async () => {
     const { client, fetch } = createMockClient();
-    await client.records.counterPropose('rec-123', { counterCriteria: { price: 50 }, message: 'Lower price' });
-    const [url, init] = fetch.mock.calls[0];
-    expect(url).toContain('/records/rec-123/counter-propose');
-    expect(JSON.parse(init.body).message).toBe('Lower price');
+    await client.records.create({
+      type: 'ACH-PROC-v1',
+      platform: 'test',
+      criteria: { item_spec: 'Widget' },
+      maxRevisions: 5,
+    });
+    expect(JSON.parse(fetch.mock.calls[0][1].body).maxRevisions).toBe(5);
+  });
+
+  it('omits maxRevisions when the caller does not cap rework', async () => {
+    // Omitted means "inherit the org default", which is not the same as any
+    // number this client could pick.
+    const { client, fetch } = createMockClient();
+    await client.records.create({
+      type: 'ACH-PROC-v1',
+      platform: 'test',
+      criteria: { item_spec: 'Widget' },
+    });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).not.toHaveProperty('maxRevisions');
   });
 
   it('batch-gets records by ID', async () => {
@@ -165,12 +180,6 @@ describe('RecordsResource', () => {
     const { client, fetch } = createMockClient();
     await client.records.accept('rec-123');
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({});
-  });
-
-  it('accepts a counter-proposal', async () => {
-    const { client, fetch } = createMockClient();
-    await client.records.acceptCounter('rec-123');
-    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/accept-counter');
   });
 
   it('gets delegation chain, unwrapping the paginated envelope to the row array', async () => {
@@ -237,7 +246,6 @@ describe('RecordsResource', () => {
       contractVersion: '1',
       platform: 'test',
       criteria: {},
-      commissionPct: 10,
     });
     const [url, init] = fetch.mock.calls[0];
     expect(url).toMatch(/\/records(?!\/)/);
@@ -388,18 +396,116 @@ describe('DisputesResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/dispute');
   });
 
-  it('escalates a dispute', async () => {
+  it('resolves a dispute by dispute id, not by record id', async () => {
+    // The path parameter is the dispute's own id: every other dispute route on
+    // this resource is keyed by the Record, so sending a record id here reaches
+    // a different dispute or none at all.
     const { client, fetch } = createMockClient();
-    await client.disputes.escalate('rec-123');
-    expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/dispute/escalate');
+    await client.disputes.resolve('dsp-789', {
+      outcome: 'OVERTURNED',
+      rationale: 'Delivery evidence matches the criteria within tolerance',
+    });
+    const [url, init] = fetch.mock.calls[0];
+    expect(url).toContain('/v1/disputes/dsp-789/resolve');
+    expect(url).not.toContain('/records/');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body)).toEqual({
+      outcome: 'OVERTURNED',
+      rationale: 'Delivery evidence matches the criteria within tolerance',
+    });
+  });
+
+  it('resolves a dispute with outcome alone', async () => {
+    const { client, fetch } = createMockClient();
+    await client.disputes.resolve('dsp-789', { outcome: 'UPHELD' });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ outcome: 'UPHELD' });
+  });
+
+  it('raises the already-terminal refusal as UnprocessableError, with its recovery hint', async () => {
+    // A dispute already RESOLVED or WITHDRAWN is refused with the state it is
+    // in and what is still allowed, so a caller recovers without parsing prose.
+    const fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      json: vi.fn().mockResolvedValue({
+        error: 'INVALID_ACTION',
+        message: 'Dispute is already RESOLVED',
+        currentState: 'RESOLVED',
+        allowedActions: [],
+        recoveryHint: 'Read the dispute; it has already been resolved.',
+      }),
+      headers: new Headers(),
+    });
+    const client = new AgledgerClient({
+      apiKey: 'test_key',
+      baseUrl: 'https://agledger.test',
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      maxRetries: 0,
+    });
+
+    const err = await client.disputes
+      .resolve('dsp-789', { outcome: 'UPHELD' })
+      .catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(UnprocessableError);
+    const api = err as UnprocessableError;
+    expect(api.status).toBe(422);
+    expect(api.code).toBe('INVALID_ACTION');
+    expect(api.recoveryHint).toContain('already been resolved');
+    expect(api.retryable).toBe(false);
   });
 
   it('lists disputes org-wide', async () => {
     const { client, fetch } = createPageMockClient();
-    await client.disputes.list({ status: 'OPENED' });
+    await client.disputes.list({ status: 'PENDING_RESOLUTION' });
     const url = fetch.mock.calls[0][0];
     expect(url).toContain('/v1/disputes');
-    expect(url).toContain('status=OPENED');
+    expect(url).toContain('status=PENDING_RESOLUTION');
+  });
+});
+
+describe('AgentsResource', () => {
+  it('drops deactivated agents by default, by sending no includeDeactivated at all', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.agents.list();
+    const url = fetch.mock.calls[0][0] as string;
+    expect(url).toContain('/v1/agents');
+    expect(url).not.toContain('includeDeactivated');
+  });
+
+  it('asks for deactivated agents when told to', async () => {
+    const { client, fetch } = createPageMockClient();
+    await client.agents.list({ includeDeactivated: true, limit: 50 });
+    const url = fetch.mock.calls[0][0] as string;
+    expect(url).toContain('includeDeactivated=true');
+    expect(url).toContain('limit=50');
+  });
+
+  it('carries includeDeactivated into the walk, where the cursor binds it', async () => {
+    // The value is bound into nextCursor, so a walk that sets it partway
+    // through is not the walk the caller thinks it is: it has to be set on the
+    // first request.
+    const { client, fetch } = createPageMockClient();
+    for await (const _row of client.agents.listAll({ includeDeactivated: true })) break;
+    expect(fetch.mock.calls[0][0] as string).toContain('includeDeactivated=true');
+  });
+
+  it('reads deactivatedAt off a directory row', async () => {
+    const { client } = createPageMockClient([
+      {
+        id: 'agt-1',
+        orgId: 'org-1',
+        displayName: 'Retired worker',
+        agentCardUrl: null,
+        agentClass: 'system',
+        orgUnit: null,
+        description: null,
+        deactivatedAt: '2026-03-01T00:00:00Z',
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    ]);
+    const page = await client.agents.list({ includeDeactivated: true });
+    expect(page.data[0]?.deactivatedAt).toBe('2026-03-01T00:00:00Z');
   });
 });
 

@@ -3,7 +3,6 @@ import type {
   RequestOptions,
   PeerHandshakeParams,
   PeerHandshakeResult,
-  AgentDirectorySyncParams,
   SubmitStateTransitionParams,
   StateTransitionResult,
   RelaySignalParams,
@@ -24,22 +23,16 @@ export class FederationResource {
 
   /**
    * Establish a peer relationship with another AGLedger instance.
-   * Caller presents a single-use peering token plus their signing/encryption
-   * public keys; receiver responds with the symmetric handshake payload.
+   *
+   * The single-use peering token in the body is what admits the call, so the
+   * route carries no other authentication. The receiver answers with its own
+   * signing key and the hub id the registration is filed under.
    */
   peerHandshake(
     params: PeerHandshakeParams,
     options?: RequestOptions,
   ): Promise<PeerHandshakeResult> {
     return this.http.post('/federation/v1/peer', params, options);
-  }
-
-  /** Synchronize agent directory with a peer. */
-  syncAgentDirectory(
-    params: AgentDirectorySyncParams,
-    options?: RequestOptions,
-  ): Promise<{ synced: boolean }> {
-    return this.http.post('/federation/v1/peer/agent-sync', params, options);
   }
 
   /**

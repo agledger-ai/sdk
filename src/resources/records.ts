@@ -8,7 +8,6 @@ import type {
   GetRecordParams,
   SearchRecordsParams,
   DelegateRecordParams,
-  CounterProposeParams,
   BatchGetRecordsResult,
   Page,
   BulkCreateResult,
@@ -101,16 +100,6 @@ export class RecordsResource {
    */
   reject(id: string, message?: string, options?: RequestOptions): Promise<RecordRow> {
     return this.http.post<RecordRow>(`/v1/records/${id}/reject`, message ? { message } : {}, options);
-  }
-
-  /** Counter-propose modified terms on a PROPOSED Record. Sets acceptanceStatus to COUNTER_PROPOSED. */
-  counterPropose(id: string, params: CounterProposeParams, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.post<RecordRow>(`/v1/records/${id}/counter-propose`, params, options);
-  }
-
-  /** Accept a counter-proposal on a Record. */
-  acceptCounter(id: string, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.post<RecordRow>(`/v1/records/${id}/accept-counter`, {}, options);
   }
 
   /**

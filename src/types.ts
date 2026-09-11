@@ -666,7 +666,6 @@ export interface SchemaRulesConfig {
   syncRuleIds: string[];
   asyncRuleIds: string[];
   fieldMappings?: SchemaFieldMapping[];
-  commissionSourceField?: string;
 }
 
 /**
@@ -782,7 +781,13 @@ export interface ExportSchemaOptions {
 }
 
 /** Performer's response to a Record proposal. */
-export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'COUNTER_PROPOSED' | (string & {});
+export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | (string & {});
+
+/**
+ * Co-signature state of a Record or a Settlement Signal. `partial` is a
+ * multi-peer co-sign where some counter-signatures came back and some did not.
+ */
+export type CoSignStatus = 'not_required' | 'pending' | 'succeeded' | 'partial' | 'failed';
 
 /** Customer-facing Record statuses. The API maps internal states to these display statuses. Accepts any string for forward compatibility. */
 export type RecordStatus =
@@ -796,7 +801,6 @@ export type RecordStatus =
   | 'FAILED'
   | 'REMEDIATED'
   | 'EXPIRED'
-  | 'PENDING_ARBITRATION'
   | 'CANCELLED'
   | 'REJECTED'
   | 'RECORDED'
@@ -949,10 +953,6 @@ export interface RecordRow {
   tolerance?: Record<string, unknown>;
   /** ISO 8601 deadline for completion. */
   deadline?: string | null;
-  /** Commission percentage for the performing agent. */
-  commissionPct?: number | null;
-  /** Computed commission amount, or null. */
-  commissionAmount?: number | null;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
   /** Gate mode: auto (auto-settles against the principal's pre-configured predicates), or principal (engine advisory pass, then the principal renders accept/reject). */
@@ -1110,7 +1110,7 @@ export interface RecordRow {
   /** ID of the most recent Completion submitted against this Record, or null. */
   latestCompletionId?: string | null;
   /** Which role the Record is currently awaiting, or null when not blocked on anyone. */
-  awaitingActor?: 'principal' | 'performer' | 'system' | 'arbitration' | null;
+  awaitingActor?: 'principal' | 'performer' | 'system' | null;
   /** Terminal-state reason string, or null while non-terminal. */
   terminalReason?: string | null;
   /** ISO 8601 timestamp when the Record expired, or null. */
@@ -1128,7 +1128,7 @@ export interface RecordRow {
   /** Whether a co-signature is required before settlement, or null when not configured. */
   coSignRequired?: boolean | null;
   /** Co-signature state, or null when co-sign is not configured. */
-  coSignStatus?: 'not_required' | 'pending' | 'succeeded' | 'failed' | null;
+  coSignStatus?: CoSignStatus | null;
   /** Hex Ed25519 counter-signature from the most recent successful co-sign, verifiable offline against the peer's published vault keys. Null when co-sign is not configured or not yet completed. */
   counterSignature?: string | null;
   /** Settlement Signal projected onto the Record (SETTLE/HOLD/RELEASE), or null until a terminal verdict produces one. */
@@ -1198,7 +1198,7 @@ export interface SettlementSignalSummary {
   /** Idempotency key for the signal, or null. */
   idempotencyKey: string | null;
   /** Co-signature state of the signal, or null. */
-  coSignStatus?: 'not_required' | 'pending' | 'succeeded' | 'failed' | null;
+  coSignStatus?: CoSignStatus | null;
   /** Hex Ed25519 counter-signature on the signal, or null. */
   counterSignature?: string | null;
   /** ISO 8601 expiry of the signal, or null. */
@@ -1255,10 +1255,16 @@ export interface CreateRecordParams {
   tolerance?: Record<string, unknown>;
   /** ISO 8601 deadline for completion. */
   deadline?: string;
-  /** Commission percentage for the performing agent. */
-  commissionPct?: number;
   /** Max completion submissions allowed. Null/omit for unlimited. */
   maxSubmissions?: number;
+  /**
+   * Maximum rework cycles this Record allows (1-20). Omit to inherit the org
+   * default `enforcement.defaultMaxRevisions` (3 unless the org set it).
+   * Immutable once the Record is created. Reaching the cap refuses the next
+   * resubmit with 422 and leaves the Record where it was, so the principal can
+   * still verdict, cancel or dispute it.
+   */
+  maxRevisions?: number;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
   /** Gate mode: auto (default; auto-settles against the principal's pre-configured predicates), or principal (engine advisory pass, then the principal renders accept/reject). */
@@ -1443,16 +1449,6 @@ export interface DelegateRecordParams {
   contractVersion?: string;
   platform?: string;
   criteria: Record<string, unknown>;
-  commissionPct?: number;
-}
-
-/** Parameters for counter-proposing modified terms on a Record. */
-export interface CounterProposeParams {
-  counterCriteria?: Record<string, unknown>;
-  counterTolerance?: Record<string, unknown>;
-  counterDeadline?: string;
-  counterCommissionPct?: number;
-  message?: string;
 }
 
 /** Result of a batch Record fetch. */
@@ -1609,19 +1605,19 @@ export interface RecordStatusSummary {
 /**
  * Lifecycle status of a dispute.
  *
- * Known values: EVIDENCE_WINDOW, TIER_2_REVIEW, ESCALATED, TIER_3_ARBITRATION,
- * RESOLVED, WITHDRAWN. Accepts any string for forward compatibility.
+ * Known values: EVIDENCE_WINDOW, PENDING_RESOLUTION, RESOLVED, WITHDRAWN.
+ * Accepts any string for forward compatibility.
  *
  * This is the full set the Server serves, and the set every dispute-status
- * filter validates against. `OPENED` and `TIER_1_REVIEW` were listed here and
- * exist nowhere in the API: the three query params that take this type declare
- * a strict enum, so either value is a guaranteed 400.
+ * filter validates against. The tier ladder (`TIER_2_REVIEW`, `ESCALATED`,
+ * `TIER_3_ARBITRATION`) is gone: a dispute the engine does not auto-resolve
+ * waits at `PENDING_RESOLUTION` for the principal to render an outcome. The
+ * three query params that take this type declare a strict enum, so a retired
+ * value is a 400.
  */
 export type DisputeStatus =
   | 'EVIDENCE_WINDOW'
-  | 'TIER_2_REVIEW'
-  | 'ESCALATED'
-  | 'TIER_3_ARBITRATION'
+  | 'PENDING_RESOLUTION'
   | 'RESOLVED'
   | 'WITHDRAWN'
   | (string & {});
@@ -1646,12 +1642,8 @@ export interface Dispute {
   grounds: DisputeGrounds;
   context?: string;
   status: DisputeStatus;
-  currentTier: number;
   outcome?: string | null;
   resolutionRationale?: string | null;
-  feeChargedTo?: string | null;
-  feeAmount?: number | null;
-  feeCurrency?: string | null;
   evidenceWindowClosesAt?: string | null;
   createdAt: string;
   resolvedAt?: string | null;
@@ -1678,11 +1670,33 @@ export interface DisputeEvidence {
 export interface DisputeResponse {
   dispute: Dispute;
   evidence: DisputeEvidence[];
+  /** Suggested next API calls for this dispute. */
+  nextSteps?: NextStep[];
 }
 
 export interface CreateDisputeParams {
   grounds: DisputeGrounds;
   context?: string;
+}
+
+/**
+ * Outcome the principal renders on a dispute.
+ *
+ * `OVERTURNED` means the disputed verdict does not stand: a Record whose
+ * pre-dispute status was FAILED settles at FULFILLED with the verdict
+ * re-rendered as accept, and one that was already FULFILLED or REMEDIATED is
+ * restored to that terminal. Either way a RELEASE Settlement Signal follows
+ * with `reasonCode: DISPUTE_OVERTURNED`. `UPHELD` means the verdict stands and
+ * the Record returns to exactly the status it held before the dispute, with no
+ * signal.
+ */
+export type DisputeOutcome = 'UPHELD' | 'OVERTURNED';
+
+/** Parameters for rendering the outcome of a dispute. */
+export interface ResolveDisputeParams {
+  outcome: DisputeOutcome;
+  /** Why this outcome was rendered, recorded on the dispute (max 2000 chars). */
+  rationale?: string;
 }
 
 /** Query parameters for the org-wide dispute listing. */
@@ -1697,12 +1711,17 @@ export interface ListDisputesParams extends ListParams {
  * `POST /v1/webhooks` `eventTypes` enum, plus the `*` wildcard. Accepts any
  * string for forward compatibility.
  *
- * This is a SUBSET of {@link EventType}, the `/v1/events` query enum. Three
- * types are queryable there and rejected here: `record.settled` (a deprecated
- * alias of `record.fulfilled`), `record.released`, and
- * `dispute.evidence_window_closed`. They are replay surface only. Settlement
- * outcomes reach webhooks as `signal.emitted` / `signal.received`, not as
- * per-variant types, so naming one of the three in a subscription is a 400.
+ * This is a SUBSET of {@link EventType}, the `/v1/events` query enum. Seven
+ * types are queryable there and rejected here. Three are replay surface that
+ * was never subscribable: `record.settled` (a deprecated alias of
+ * `record.fulfilled`), `record.released` and `dispute.evidence_window_closed`.
+ * Settlement outcomes reach webhooks as `signal.emitted` / `signal.received`,
+ * not as per-variant types. Two are retired: `dispute.escalated` and
+ * `record.proposal_counter_proposed` stay queryable so historical events remain
+ * readable, and no new one is ever written. Two are engine-internal failure
+ * events with no subscription form: `system.cascading_gate_enqueue_failed` and
+ * `system.verification_enqueue_failed`. Naming any of the seven in a
+ * subscription is a 400.
  */
 export type WebhookEventType =
   // Wildcard: subscribe to every event type
@@ -1727,7 +1746,6 @@ export type WebhookEventType =
   | 'record.proposed'
   | 'record.proposal_accepted'
   | 'record.proposal_rejected'
-  | 'record.proposal_counter_proposed'
   | 'record.delegated'
   | 'record.revision_requested'
   // Cascading gate
@@ -1739,7 +1757,6 @@ export type WebhookEventType =
   | 'signal.emitted'
   | 'signal.received'
   | 'dispute.opened'
-  | 'dispute.escalated'
   | 'dispute.resolved'
   | 'dispute.withdrawn'
   // Federation
@@ -1993,7 +2010,7 @@ export interface AgentHistoryEntry {
   recordId: string;
   type: string;
   /** Record status at the time of the read. */
-  status: string;
+  status: RecordStatus;
   /** Gate verdict: `accept`, `reject`, or `PENDING` when none has been rendered. */
   outcome: string;
   createdAt: string;
@@ -2035,11 +2052,14 @@ export interface VerdictStatistics {
 /**
  * Event types queryable on `GET /v1/events` via {@link ListEventsParams.eventType}.
  *
- * A deliberate superset of {@link WebhookEventType}: `record.settled`,
- * `record.released` and `dispute.evidence_window_closed` are persisted-event
- * and replay surface, readable here but not subscribable. There is no `*`
- * member, because the wildcard is a subscription filter and not a type any
- * event carries. Accepts any string for forward compatibility.
+ * A deliberate superset of {@link WebhookEventType}, by seven members: the
+ * three replay-only types (`record.settled`, `record.released`,
+ * `dispute.evidence_window_closed`), the two retired ones still readable in
+ * history (`dispute.escalated`, `record.proposal_counter_proposed`), and the
+ * two engine-internal failure events (`system.cascading_gate_enqueue_failed`,
+ * `system.verification_enqueue_failed`). There is no `*` member, because the
+ * wildcard is a subscription filter and not a type any event carries. Accepts
+ * any string for forward compatibility.
  */
 export type EventType =
   | 'agent.reference_added'
@@ -2085,6 +2105,8 @@ export type EventType =
   | 'record.settled'
   | 'signal.emitted'
   | 'signal.received'
+  | 'system.cascading_gate_enqueue_failed'
+  | 'system.verification_enqueue_failed'
   | (string & {});
 
 /** Query parameters for the global event listing (`GET /v1/events`). */
@@ -2190,7 +2212,6 @@ export interface AiImpactAssessment {
   /** The formally-assessed tier; always one of the four tiers (never `unclassified`). */
   riskLevel: EuAiActRiskTier;
   domain: EuAiActDomain;
-  overseerName?: string;
   humanOversight?: Record<string, unknown>;
   testingResults?: Record<string, unknown>;
   createdAt: string;
@@ -2771,7 +2792,6 @@ export interface BackfillRecord {
     | 'FULFILLED'
     | 'REMEDIATED'
     | 'REJECTED'
-    | 'PENDING_ARBITRATION'
     | 'RECORDED'
     | 'EXPIRED'
     | 'CANCELLED'
@@ -3069,21 +3089,124 @@ export interface CreateAgentParams {
   oidcSub?: string;
 }
 
+/** How an enforcement rule is applied: skip it, warn on it, or block on it. */
+export type EnforcementMode = 'none' | 'advisory' | 'enforced';
+
+/** Whether a resolved enforcement value came from the org or from the engine default. */
+export type EnforcementSource = 'org' | 'default';
+
+/**
+ * The enforcement knobs, fully resolved. Every field is present: read
+ * {@link OrgConfig.enforcementSource} to tell an org override from an engine
+ * default, and {@link OrgConfig.config}`.enforcement` for the overrides alone.
+ */
+export interface EnforcementSettings {
+  /** Default constraint inheritance mode for new delegated Records. Default: `none`. */
+  constraintInheritanceDefault: ConstraintInheritanceMode;
+  /** Maximum delegation chain depth (1-10). Default: 5. */
+  maxDelegationDepth: number;
+  /** Maximum criteria payload size in bytes (1024-65536). Default: 10240. */
+  criteriaSizeLimitBytes: number;
+  /** When true, enforcement violations log warnings instead of blocking. Default: false. */
+  advisoryMode: boolean;
+  /** How tolerance-based gate rules are enforced. Default: `enforced`. */
+  toleranceEnforcement: EnforcementMode;
+  /** How deadline checks are enforced. Default: `enforced`. */
+  deadlineEnforcement: EnforcementMode;
+  /** How schema validation is enforced for criteria and completion evidence. Default: `enforced`. */
+  schemaValidation: EnforcementMode;
+  /** How the `maxSubmissions` completion cap is enforced. Default: `enforced`. */
+  maxSubmissionsMode: EnforcementMode;
+  /**
+   * Revision cap stamped onto a Record at create when the create body sends no
+   * `maxRevisions` (1-20). Default: 3. A change applies to Records created
+   * afterwards; existing Records keep the cap they were stamped with.
+   */
+  defaultMaxRevisions: number;
+  /** How expression-based custom gate rules are enforced. Default: `enforced`. */
+  expressionRuleMode: EnforcementMode;
+  /** Maximum custom types this org can register (10-10000). Default: 50. */
+  maxContractTypes: number;
+  /** Maximum versions per type (1-1000). Default: 100. */
+  maxVersionsPerType: number;
+  /** Maximum `fieldMappings` on one type (1-200). Default: 50. */
+  maxFieldMappingsPerType: number;
+  /** Maximum tolerance entries on one Record (1-500). Default: 50. */
+  maxToleranceEntriesPerRecord: number;
+  /** Maximum active webhook subscriptions per org (1-1000). Default: 50. */
+  maxWebhookSubscriptions: number;
+  /** Maximum external references per Record (5-200). Default: 50. */
+  maxRecordReferences: number;
+  /** Maximum external references per agent (5-100). Default: 25. */
+  maxAgentReferences: number;
+  /** Maximum active API keys per owner, org or agent (5-100). Default: 25. */
+  maxApiKeysPerOwner: number;
+  /** Whether a Record may carry per-field `enforcementOverrides`. Overrides can only relax, never tighten. Default: false. */
+  allowRecordOverrides: boolean;
+}
+
+/**
+ * Automatic re-check run once when a dispute is opened. Absent or null means no
+ * re-check runs and the dispute waits at `PENDING_RESOLUTION`. When set, the
+ * type's gate rules are re-run with the widening below and a PASS resolves the
+ * dispute `OVERTURNED` with a reporter of `system`. Only applies to Records in
+ * `auto` gate mode whose type declares rules to re-run.
+ */
+export interface AutoReadjudicateConfig {
+  /** Multiplier applied to every numeric tolerance band on the re-run (1-3). 1 re-runs at the original bands. */
+  toleranceExpansion: number;
+  /** Grace added to deadline checks on the re-run, in seconds (0-86400). */
+  deadlineGraceSeconds: number;
+}
+
+/** Dispute handling for an org. */
+export interface DisputesConfig {
+  autoReadjudicate?: AutoReadjudicateConfig | null;
+}
+
+/**
+ * The org config document: only what an operator explicitly set. A key absent
+ * here is a key running on its engine default. Read {@link OrgConfig.enforcement}
+ * for the values actually in force.
+ */
+export interface OrgConfigDocument {
+  enforcement?: Partial<EnforcementSettings>;
+  disputes?: DisputesConfig;
+  /** Approved supplier IDs for the `supplier_approved` gate rule. */
+  approvedSuppliers?: string[];
+}
+
 /** Org configuration payload. */
 export interface OrgConfig {
   id?: string;
-  config?: Record<string, unknown>;
+  /** What the operator explicitly stored, not what is in force. */
+  config?: OrgConfigDocument;
+  /** The enforcement values actually in force, org overrides resolved over engine defaults. */
+  enforcement?: EnforcementSettings;
+  /** Per field, whether the resolved value came from the org or from the engine default. */
+  enforcementSource?: Record<keyof EnforcementSettings, EnforcementSource>;
+  /** The engine defaults, which is where a cleared override lands. */
+  enforcementDefaults?: EnforcementSettings;
   nextSteps?: NextStep[];
   [key: string]: unknown;
 }
 
 /**
  * Parameters for merge-updating org configuration (PATCH semantics).
- * Only provided fields are updated.
+ *
+ * Only provided fields are updated, key by key: a key you omit keeps whatever
+ * it had. Send a key as `null` to drop that override and return the key to its
+ * engine default, or send a whole block as `null` to drop every override in it
+ * at once.
  */
 export interface SetOrgConfigParams {
-  enforcement?: Record<string, unknown>;
-  approvedSuppliers?: Record<string, unknown>;
+  enforcement?: { [K in keyof EnforcementSettings]?: EnforcementSettings[K] | null } | null;
+  disputes?: DisputesConfig | null;
+  /**
+   * Replaced wholesale by the array you send; `null` removes the list, which is
+   * how the allow-list goes back to unset.
+   */
+  approvedSuppliers?: string[] | null;
 }
 
 /** Parameters for listing webhooks with optional URL filter. */
@@ -3783,6 +3906,11 @@ export interface CoSignRequestResult {
  * Dispute-protocol action, lowercase. The route declares a strict enum, so a
  * value outside this set is a 400. Note these are past tense and do not match
  * the `DisputeGrounds` or `DisputeStatus` casing.
+ *
+ * `escalated` is inbound compatibility only. The tier ladder is gone, so this
+ * Server never emits it; it stays accepted for one release so a peer still on
+ * the previous version can finish a rolling upgrade, and the receiver projects
+ * such a message to `PENDING_RESOLUTION`. Do not send it.
  */
 export type DisputeProtocolAction = 'opened' | 'resolved' | 'withdrawn' | 'escalated';
 
@@ -3799,6 +3927,11 @@ export interface SubmitDisputeProtocolParams {
    */
   disputeStatus: DisputeStatus;
   idempotencyKey: string;
+  /**
+   * Accepted and ignored. The tier ladder is gone: this exists for one release
+   * so a peer still on the previous version can finish a rolling upgrade. Never
+   * emitted, never stored, never read.
+   */
   tier?: number;
   grounds?: string;
   outcome?: string;
@@ -3814,15 +3947,18 @@ export interface DisputeProtocolResult {
 }
 
 
-/** Parameters for establishing a peer relationship with another AGLedger instance. */
+/**
+ * Parameters for establishing a peer relationship with another AGLedger
+ * instance. All five are required and the route refuses anything else: the
+ * single-use `peeringToken` in the body is what admits the call, so the route
+ * carries no other authentication.
+ */
 export interface PeerHandshakeParams {
   peerHubId: string;
   peerUrl: string;
   signingPublicKey: string;
-  encryptionPublicKey: string;
   peeringToken: string;
   boundOrgId: string;
-  agentDirectory: Array<{ agentId: string; types: string[] }>;
 }
 
 /**
@@ -3842,7 +3978,6 @@ export interface PeerHandshakeResult {
   /** Peer status as created (`active`). */
   status: string;
   serverSigningPublicKey: string;
-  serverEncryptionPublicKey: string;
   nextSteps?: NextStep[];
 }
 
@@ -3862,6 +3997,8 @@ export interface FederationDlqEntry {
   payload: Record<string, unknown>;
   errorMessage: string;
   attempts: number;
+  /** When this message first failed, as distinct from when the row was written. */
+  firstFailedAt: string;
   createdAt: string;
 }
 
@@ -3920,6 +4057,8 @@ export interface AgentProfile {
   /** Subject of the external identity bound to this agent, or null when unbound. */
   oidcSub?: string | null;
   references?: Record<string, unknown>[];
+  /** When an operator deactivated this agent, or null while it is active. */
+  deactivatedAt?: string | null;
   createdAt: string;
 }
 
@@ -4225,7 +4364,7 @@ export interface VerificationKeysResponse {
  * {@link OrgReadsCheckpointingSource}: an inline field union is not something
  * the enum-parity guard can read, so its members would drift unchecked.
  */
-export type FederationPeerStatus = 'active' | 'suspended' | 'revoked' | (string & {});
+export type FederationPeerStatus = 'active' | 'revoked' | (string & {});
 
 /** A peer Server in peer-to-peer federation. */
 export interface FederationPeer {
@@ -4236,8 +4375,6 @@ export interface FederationPeer {
   peerUrl: string;
   status: FederationPeerStatus;
   createdAt: string;
-  /** Digest of the agent directory this peer last pushed. Null until it has pushed one. */
-  agentDirectoryHash?: string | null;
   /**
    * Failed delivery attempts since the last success, reset to 0 on a 2xx. Not
    * purely a reachability count: a peer that answers and rejects the payload
@@ -4252,12 +4389,6 @@ export interface FederationPeer {
   lastDeliveryAt?: string | null;
   /** Why the most recent delivery attempt failed, cleared on the next success. */
   lastDeliveryError?: string | null;
-  /**
-   * When this peer last pushed its agent directory. Directory-sync state, NOT
-   * reachability: V1 federation has no pull protocol, so a peer taking delivery
-   * after delivery never moves it. Read `lastDeliveryAt` for reachability.
-   */
-  lastSyncAt?: string | null;
 }
 
 /** Parameters for listing known peer servers (`GET /federation/v1/admin/peers`). */
@@ -4272,15 +4403,6 @@ export interface PeeringToken {
   expiresAt: string;
 }
 
-
-/** Parameters for synchronizing the agent directory with a peer. */
-export interface AgentDirectorySyncParams {
-  peerHubId: string;
-  agents: Array<{ agentId: string; types: string[] }>;
-  directoryHash: string;
-  /** Optional incremental-sync watermark. */
-  since?: string;
-}
 
 /** Who a trusted issuer's tokens may authenticate as. */
 export type TrustedIssuerAppliesTo = 'agent' | 'principal' | 'admin' | 'any';
@@ -4504,7 +4626,6 @@ export interface OpsSummary {
        * it.
        */
       active: number;
-      suspended: number;
       revoked: number;
       /** Active peers whose last delivery attempt succeeded. */
       delivering: number;
@@ -4584,7 +4705,23 @@ export interface AgentDirectoryEntry {
   agentClass: 'personal' | 'system' | 'team' | 'ephemeral';
   orgUnit: string | null;
   description: string | null;
+  /**
+   * When an operator deactivated this agent, or null while it is active. Only
+   * ever non-null on a listing that asked for deactivated agents.
+   */
+  deactivatedAt?: string | null;
   createdAt: string;
+}
+
+/** Filters for the org agent directory (`GET /v1/agents`). */
+export interface ListAgentsParams extends CursorListParams {
+  /**
+   * `false` (the default) drops the agents an operator deactivated, which a new
+   * Record cannot name. `true` adds them back, told apart by a non-null
+   * `deactivatedAt`. The value is bound into `nextCursor`, so set it before the
+   * walk starts rather than partway through.
+   */
+  includeDeactivated?: boolean;
 }
 
 /** A federated agent synced into the local directory from a peer. */

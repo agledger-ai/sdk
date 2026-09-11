@@ -78,11 +78,11 @@ export type {
   GetRecordParams,
   SearchRecordsParams,
   DelegateRecordParams,
-  CounterProposeParams,
   BatchGetRecordsResult,
   BulkCreateRecordItem,
   SignedStatement,
   SettlementSignalSummary,
+  CoSignStatus,
   RecordReadCompletion,
 
   // Completions
@@ -107,10 +107,12 @@ export type {
   DisputeStatus,
   DisputeProtocolAction,
   DisputeGrounds,
+  DisputeOutcome,
   Dispute,
   DisputeResponse,
   DisputeEvidence,
   CreateDisputeParams,
+  ResolveDisputeParams,
   ListDisputesParams,
   WithdrawDisputeParams,
 
@@ -214,7 +216,13 @@ export type {
   CreateOrgParams,
   CreateAgentParams,
   OrgConfig,
+  OrgConfigDocument,
   SetOrgConfigParams,
+  EnforcementSettings,
+  EnforcementMode,
+  EnforcementSource,
+  DisputesConfig,
+  AutoReadjudicateConfig,
   CreateApiKeyParams,
   UpdateApiKeyParams,
   CreateApiKeyResult,
@@ -292,6 +300,7 @@ export type {
   // Agents
   AgentProfile,
   AgentDirectoryEntry,
+  ListAgentsParams,
   UpdateAgentParams,
   AgentClass,
   PeerAgent,
@@ -334,7 +343,6 @@ export type {
   PeeringToken,
 
   // Federation: Peer Sync
-  AgentDirectorySyncParams,
 
   // Errors
   ApiErrorResponse,
