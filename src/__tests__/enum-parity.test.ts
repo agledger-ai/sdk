@@ -64,16 +64,30 @@ const typesSrc = readFileSync(resolve(__dirname, '../types.ts'), 'utf8');
 function parseUnions(source: string): Record<string, string[]> {
   const src = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
   const out: Record<string, string[]> = {};
+  const aliases: Record<string, string> = {};
   for (const match of src.matchAll(/export type (\w+)\s*=/g)) {
     const start = match.index + match[0].length;
     const end = src.indexOf(';', start);
     if (end === -1) continue;
     const body = src.slice(start, end);
+    // A union whose members live on a closed sibling: `export type Open =
+    // Closed | (string & {});`. The filter unions are declared that way so the
+    // members are written once, and this guard still sees both names.
+    const alias = body.match(/^\s*(\w+)\s*\|\s*\(string & \{\}\)\s*$/);
+    if (alias) {
+      aliases[match[1]] = alias[1];
+      continue;
+    }
     // String literals, `|`, the open-union idiom, whitespace, and nothing else:
     // any residue means this is not a plain union of string literals.
     if (body.replace(/'[^']*'|\(string & \{\}\)|\||\s/g, '')) continue;
     const values = [...body.matchAll(/'([^']*)'/g)].map((m) => m[1]).sort();
     if (values.length) out[match[1]] = values;
+  }
+  // Resolve one level only: an alias chain is a shape this file should see and
+  // refuse rather than follow.
+  for (const [name, target] of Object.entries(aliases)) {
+    if (out[target]) out[name] = out[target];
   }
   return out;
 }

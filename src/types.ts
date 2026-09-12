@@ -789,8 +789,16 @@ export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | (string & 
  */
 export type CoSignStatus = 'not_required' | 'pending' | 'succeeded' | 'partial' | 'failed';
 
-/** Customer-facing Record statuses. The API maps internal states to these display statuses. Accepts any string for forward compatibility. */
-export type RecordStatus =
+/**
+ * The Record statuses a status FILTER accepts, closed on purpose.
+ *
+ * {@link RecordStatus} stays open because the Server may ADD a status and a
+ * response carrying one should still type. A filter is the other direction:
+ * the querystring is a strict enum server-side, so a value outside this set is
+ * a 400 rather than an empty page. `PENDING_ARBITRATION` was removed in API
+ * 1.7.0 and is the reason this distinction is drawn.
+ */
+export type RecordStatusFilter =
   | 'CREATED'
   | 'PROPOSED'
   | 'ACTIVE'
@@ -803,8 +811,10 @@ export type RecordStatus =
   | 'EXPIRED'
   | 'CANCELLED'
   | 'REJECTED'
-  | 'RECORDED'
-  | (string & {});
+  | 'RECORDED';
+
+/** Customer-facing Record statuses. The API maps internal states to these display statuses. Accepts any string for forward compatibility. */
+export type RecordStatus = RecordStatusFilter | (string & {});
 
 /**
  * Record transition action accepted by `POST /v1/records/{id}/transition`.
@@ -1170,6 +1180,14 @@ export interface RecordIntegrity {
   projectionChecked: boolean;
   /** Record fields that diverged from the chain when `reason` is `record_projection_drift`. */
   driftFields: string[];
+  /**
+   * Record fields the comparison actually covered, which is not a fixed list:
+   * `criteria` and `verdict` are compared only where the chain asserts them.
+   * So on a record whose chain asserts no outcome (a dispute-overturned one),
+   * `verified: true` is silent about the served `verdict`. Read this before
+   * treating a clean `verified` as covering the field you care about.
+   */
+  comparedFields: string[];
 }
 
 /**
@@ -1209,6 +1227,43 @@ export interface SettlementSignalSummary {
   source?: 'outbound' | 'inbound' | 'local';
   /** Peer the signal was received from (inbound only), or null. */
   receivedFrom?: Record<string, unknown> | null;
+  /**
+   * The per-peer legs {@link coSignStatus} and {@link counterSignature} roll up,
+   * sorted by `peerHubId`. The only surface that answers WHICH peer did what:
+   * the rollup is one word over the whole fan-out, and the counter-signature
+   * beside it is one peer's artifact. It matters most for a waived leg, which
+   * sits outside the count on every rollup value.
+   *
+   * Read each leg off its own `status`, never off `deliveredToPeers` or
+   * `failedToPeers`: a peer can counter-sign and still fail delivery. Present
+   * only on `source: 'outbound'`; an empty array when no signal row carries
+   * co-sign metadata, which is the same condition that leaves `coSignStatus` null.
+   */
+  coSignPeers?: CoSignPeerLeg[];
+}
+
+/**
+ * One peer's leg of a Settlement Signal co-sign fan-out.
+ *
+ * {@link CoSignPeerLeg.status} is deliberately narrower than {@link CoSignStatus}:
+ * `partial` is a fan-out outcome no single peer can hold, so it exists only on
+ * the rollup.
+ */
+export interface CoSignPeerLeg {
+  /** The peer this leg was addressed to. */
+  peerHubId: string;
+  /**
+   * That peer's own co-sign answer. `not_required` is a leg that was never
+   * asked: a single-signature contract type, or a peer the lenient peer policy
+   * waived because it does not carry the co-sign type (that leg anchors a
+   * `FEDERATION_CO_SIGN_WAIVED` chain entry).
+   */
+  status: 'not_required' | 'pending' | 'succeeded' | 'failed';
+  /**
+   * That peer's own counter-signature, verifiable offline against its published
+   * vault keys. Null unless its `status` is `succeeded`.
+   */
+  counterSignature: string | null;
 }
 
 /**
@@ -1332,7 +1387,8 @@ export interface UpdateRecordParams {
 
 export interface ListRecordsParams extends ListParams {
   orgId?: string;
-  status?: RecordStatus;
+  /** Strict enum server-side: a value outside it is a 400, not an empty page. */
+  status?: RecordStatusFilter;
   /** Filter by Type. */
   type?: RecordType;
   /** Filter by performer agent ID. */
@@ -1376,7 +1432,8 @@ export interface GetRecordParams {
 
 export interface SearchRecordsParams extends ListParams {
   orgId?: string;
-  status?: RecordStatus;
+  /** Strict enum server-side: a value outside it is a 400, not an empty page. */
+  status?: RecordStatusFilter;
   type?: RecordType;
   /**
    * Narrow the calling agent's auto-scope to one side of the Record.
@@ -1462,6 +1519,19 @@ export interface BulkCreateRecordItem extends CreateRecordParams {
   idempotencyKey?: string;
 }
 
+
+/**
+ * Filters for `completions.list()` / `completions.listAll()`.
+ *
+ * `structuralValidation` is a strict enum server-side and does NOT accept
+ * `WARNING`, which {@link StructuralValidation} carries as a stored value:
+ * WARNING is synthesized on read from the completion's advisory warnings, so
+ * there is no column to filter on. Filter on `ACCEPTED` and inspect
+ * `warnings` on the rows.
+ */
+export interface ListCompletionsParams extends ListParams {
+  structuralValidation?: 'ACCEPTED' | 'INVALID';
+}
 
 /** Structural validation result for completions. */
 export type StructuralValidation = 'ACCEPTED' | 'INVALID' | 'WARNING' | (string & {});
@@ -1551,10 +1621,42 @@ export interface GateEvaluationResult {
 /** Gate status for a Record (`GET /v1/records/{id}/gate-status`). */
 export interface GateStatus {
   recordId: string;
-  phase1Status: string;
-  phase2Status: string;
+  /**
+   * Structural validation phase: the completion shape against the type's
+   * `completionSchema`. `not_applicable` when the record reached a terminal
+   * state without a completion, so none is coming: a notarize-only type, a
+   * parent settled by its children's rollup in auto mode, a record cancelled
+   * or timed out before evidence landed.
+   *
+   * Agents driving settle/hold should key on {@link verdict} instead.
+   */
+  phase1Status: 'pending' | 'passed' | 'failed' | 'not_applicable';
+  /**
+   * Semantic (rules-engine) evaluation phase. In `principal` gate mode this
+   * reflects whichever verdict row is most recent, engine-advisory or
+   * principal-rendered, so {@link verdict} is the unambiguous accept/reject.
+   * `superseded` means the latest evaluation row is no longer the decision that
+   * stands: a dispute resolved OVERTURNED re-renders `verdict` and writes no
+   * evaluation row of its own, leaving the failing gate row on the record with
+   * `verdict: accept` and `recommendation: RELEASE` beside it.
+   */
+  phase2Status: 'pending' | 'in_progress' | 'passed' | 'failed' | 'superseded' | 'not_applicable';
   lastEvaluatedAt?: string | null;
   pendingRules?: string[];
+  /** The unambiguous gate decision, or null until one is rendered. */
+  verdict?: Verdict | null;
+  /**
+   * The Settlement Signal the record last emitted, the same value
+   * `records.get(id).settlementSignal.recommendation` carries. `RELEASE` is the
+   * value that says a dispute overturn released a held settlement rather than
+   * settling it. Null while pending, while the record is DISPUTED, and on a
+   * federation projection.
+   */
+  recommendation?: 'SETTLE' | 'HOLD' | 'RELEASE' | null;
+  /** Whether the engine renders the verdict or a principal does. */
+  gateMode?: 'auto' | 'principal';
+  /** Who rendered the standing verdict, or null when none has been. */
+  reporterType?: 'system' | 'principal' | 'accessor' | null;
 }
 
 
@@ -1615,12 +1717,17 @@ export interface RecordStatusSummary {
  * three query params that take this type declare a strict enum, so a retired
  * value is a 400.
  */
-export type DisputeStatus =
+/**
+ * The dispute statuses a status FILTER accepts, closed on purpose. See
+ * {@link RecordStatusFilter} for why the filter and the response type differ.
+ */
+export type DisputeStatusFilter =
   | 'EVIDENCE_WINDOW'
   | 'PENDING_RESOLUTION'
   | 'RESOLVED'
-  | 'WITHDRAWN'
-  | (string & {});
+  | 'WITHDRAWN';
+
+export type DisputeStatus = DisputeStatusFilter | (string & {});
 
 /** Known dispute grounds. */
 export type DisputeGrounds =
@@ -1701,7 +1808,8 @@ export interface ResolveDisputeParams {
 
 /** Query parameters for the org-wide dispute listing. */
 export interface ListDisputesParams extends ListParams {
-  status?: DisputeStatus;
+  /** Strict enum server-side: a value outside it is a 400, not an empty page. */
+  status?: DisputeStatusFilter;
   recordId?: string;
 }
 
@@ -2011,6 +2119,14 @@ export interface AgentHistoryEntry {
   type: string;
   /** Record status at the time of the read. */
   status: RecordStatus;
+  /**
+   * The structural role this agent held on the record: `performer` it was
+   * assigned the work, `principal` it registered the work, `both` it is on both
+   * sides. An agent-created notarize record defaults its performer to its
+   * principal, so `both` is the ordinary case. Same vocabulary as `role` on
+   * `records.list()`, plus `both` for the overlap a filter does not need to name.
+   */
+  role: 'performer' | 'principal' | 'both';
   /** Gate verdict: `accept`, `reject`, or `PENDING` when none has been rendered. */
   outcome: string;
   createdAt: string;
@@ -2835,7 +2951,11 @@ export interface AdminImportRecordsResult {
 /** Query parameters for `GET /v1/admin/records`. */
 export interface QueryAdminRecordsParams extends ListParams {
   orgId?: string;
-  status?: string;
+  /**
+   * Strict enum server-side: a value outside it is a 400, not an empty page.
+   * The engine dropped `PENDING_ARBITRATION` in API 1.7.0.
+   */
+  status?: RecordStatusFilter;
   type?: string;
   agentId?: string;
   sort?: string;
@@ -3327,6 +3447,33 @@ export interface CreateApiKeyResult {
   scopeProfile: string | null;
 }
 
+/**
+ * One endpoint's delivery health (`GET /v1/admin/webhooks/health`).
+ */
+export interface WebhookHealthEntry {
+  id: string;
+  url: string;
+  ownerId: string;
+  ownerType: string;
+  isActive: boolean;
+  isPaused: boolean;
+  circuitState: 'closed' | 'open' | 'half_open' | (string & {});
+  consecutiveFailures: number;
+  lastSuccessfulAt: string | null;
+  /**
+   * Last failed delivery. Pair with {@link consecutiveFailures} and
+   * {@link circuitState} for "how long has this endpoint been down".
+   *
+   * It moves on failures the receiver never saw as well: an SSRF refusal, a
+   * missing signing key, a missing or undecryptable secret. Those dead-letter
+   * the event and leave the breaker alone, so the event stays replayable from
+   * `admin.listDlq()`.
+   */
+  lastFailureAt: string | null;
+  circuitOpenedAt: string | null;
+  createdAt: string;
+}
+
 export interface WebhookDlqEntry {
   id: string;
   webhookId: string;
@@ -3360,7 +3507,12 @@ export interface SystemHealth {
   /** Process uptime in seconds. */
   uptime: number;
   database: {
-    status: 'healthy' | 'degraded' | (string & {});
+    /**
+     * `healthy`: the `SELECT 1` probe answered under 2s. `degraded`: it
+     * answered, slower than that. `outage`: it did not complete, so this
+     * Server cannot serve reads at all.
+     */
+    status: 'healthy' | 'degraded' | 'outage' | (string & {});
     /** `SELECT 1` round-trip latency in ms. */
     latencyMs: number | null;
     pool: {
@@ -3372,16 +3524,25 @@ export interface SystemHealth {
       waiting: number;
     };
   };
-  /** Job counts for every queue the product runs, keyed by queue name. */
-  queues: Record<string, QueueCounts>;
+  /**
+   * Job counts for every queue the product runs, keyed by queue name. `null`
+   * for a queue whose stats could not be read; {@link SystemHealth.degradedReasons}
+   * names those, because a queue missing from the backlog check is exactly what
+   * that check exists to catch.
+   */
+  queues: Record<string, QueueCounts | null>;
   /**
    * Deliveries parked in the webhook dead-letter table. Not an entry in
    * {@link SystemHealth.queues} because it is not a queue: a permanently failed
    * delivery (SSRF refusal, 410, 4xx, an undecryptable secret) never reaches the
    * pg-boss dead-letter queue, so that queue reads ~0 whatever is parked.
    * Non-zero degrades `status`; recover from `GET /v1/admin/webhook-dlq`.
+   *
+   * `null` means the table could not be counted, which also degrades `status`:
+   * this endpoint fails open rather than erroring, and a `0` there would assert
+   * that nothing is parked.
    */
-  webhookDeadLetters: number;
+  webhookDeadLetters: number | null;
   process: {
     /** Resident set size in MB. */
     rssMb: number;
@@ -3939,10 +4100,24 @@ export interface SubmitDisputeProtocolParams {
   schemaRef?: FederationSchemaRef;
 }
 
-/** Result of a federation dispute-protocol submission. */
+/**
+ * Result of a federation dispute-protocol submission: the receiving Server's
+ * acknowledgement, not a dispute resource.
+ */
 export interface DisputeProtocolResult {
-  received: boolean;
-  disputeId?: string;
+  /** The receiver accepted the message. A refusal is a thrown 4xx, never a false here. */
+  ack: boolean;
+  /** Whether the receiver applied the transition, as opposed to acknowledging a no-op. */
+  applied?: boolean;
+  /** Why the receiver did not apply it, when `applied` is false. */
+  reason?: string | null;
+  /** The receiver's signature over the acknowledgement. */
+  serverSignature?: string;
+  serverTimestamp?: string;
+  /** The schema the receiver resolved the message against. */
+  schemaRef?: FederationSchemaRef;
+  /** Suggested next API calls. */
+  nextSteps?: NextStep[];
   [key: string]: unknown;
 }
 
@@ -4123,11 +4298,38 @@ export interface VaultAnchor {
   createdAt: string;
 }
 
-/** Result of verifying vault trust anchors. */
+/**
+ * Result of verifying vault trust anchors: one row per checkpoint compared
+ * against its object-store anchor.
+ */
 export interface VaultAnchorVerifyResult {
-  valid: boolean;
-  anchorsChecked: number;
-  errors: string[];
+  data: VaultAnchorVerifyRow[];
+  /** Suggested next API calls. */
+  nextSteps?: NextStep[];
+}
+
+/** One checkpoint-versus-anchor comparison in a {@link VaultAnchorVerifyResult}. */
+export interface VaultAnchorVerifyRow {
+  recordId?: string;
+  chainPosition?: number;
+  /**
+   * True only for `outcome: 'verified'`. Branch on {@link outcome}, not on
+   * this: six distinct situations answer false and only two of them are findings.
+   */
+  match?: boolean;
+  /**
+   * What the comparison found. `verified`: the anchor matches the database
+   * checkpoint. `tamper`: both exist and the payload hash or the signed
+   * envelope differs, which is the finding this endpoint exists for.
+   * `no_such_key`: the checkpoint exists and its anchor object does not.
+   * `empty_body`: the object exists and is empty. `s3_error`: the object store
+   * could not be read, so nothing was compared. `no_checkpoint`: the record has
+   * no checkpoint row at the requested position. `anchoring_disabled`:
+   * `VAULT_ANCHOR_ENABLED` is off, so no anchor was ever written.
+   */
+  outcome?: 'verified' | 'tamper' | 'no_such_key' | 'empty_body' | 's3_error' | 'no_checkpoint' | 'anchoring_disabled' | (string & {});
+  /** Human-readable expansion of {@link outcome}. */
+  detail?: string;
 }
 
 /**
@@ -4225,6 +4427,16 @@ export interface VaultScanResult {
    * The single field to branch on; a full scan folds the record-less chains into it.
    */
   healthy: boolean;
+  /**
+   * Records carrying no chain entry and no checkpoint at all, counted on a full
+   * scan. A `recordIds`-scoped scan reports 0, and so does a scan whose check
+   * did not complete, which says so in its errors. Every create path appends
+   * its first entry inside the create transaction, so a record with none is an
+   * anomaly rather than a young record.
+   */
+  recordsMissingChain: number;
+  /** Ids behind {@link recordsMissingChain}, newest first, capped at 100. */
+  missingChainRecords: string[];
   brokenRecords: VaultScanBrokenRecord[];
   brokenRecordsTruncated: boolean;
   /** Record-less chain findings. Present on a full scan; absent on a `recordIds`-scoped scan. */
@@ -4364,7 +4576,13 @@ export interface VerificationKeysResponse {
  * {@link OrgReadsCheckpointingSource}: an inline field union is not something
  * the enum-parity guard can read, so its members would drift unchecked.
  */
-export type FederationPeerStatus = 'active' | 'revoked' | (string & {});
+/**
+ * The peer statuses a status FILTER accepts, closed on purpose. See
+ * {@link RecordStatusFilter} for why the filter and the response type differ.
+ */
+export type FederationPeerStatusFilter = 'active' | 'revoked';
+
+export type FederationPeerStatus = FederationPeerStatusFilter | (string & {});
 
 /** A peer Server in peer-to-peer federation. */
 export interface FederationPeer {
@@ -4393,8 +4611,8 @@ export interface FederationPeer {
 
 /** Parameters for listing known peer servers (`GET /federation/v1/admin/peers`). */
 export interface ListPeersParams extends ListParams {
-  /** Filter by peering status. */
-  status?: FederationPeer['status'];
+  /** Filter by peering status. Strict enum server-side: anything else is a 400. */
+  status?: FederationPeerStatusFilter;
 }
 
 /** A single-use peering token for peer-to-peer federation setup. */
