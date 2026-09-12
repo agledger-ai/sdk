@@ -8,6 +8,7 @@ import type {
   EventType,
   FederationPeer,
   FederationPeerStatus,
+  FederationPeerStatusFilter,
   ListEventsParams,
   ListPeersParams,
   OpsSummary,
@@ -112,9 +113,15 @@ describe('v1.6.0: federation peers', () => {
     expectTypeOf<FederationPeer>().not.toHaveProperty('registeredAt');
   });
 
-  it('the status filter still tracks the peer status', () => {
-    expectTypeOf<ListPeersParams['status']>().toEqualTypeOf<FederationPeer['status'] | undefined>();
+  it('the status filter is the closed set, narrower than the peer status it filters on', () => {
+    // API 1.7.0: the peer status response type stays open (the Server may add a
+    // status), the filter does not (the querystring 400s on anything else).
+    expectTypeOf<ListPeersParams['status']>().toEqualTypeOf<FederationPeerStatusFilter | undefined>();
     expectTypeOf<'active'>().toMatchTypeOf<FederationPeer['status']>();
+    expectTypeOf<'active'>().toMatchTypeOf<FederationPeerStatusFilter>();
+    // An arbitrary string types as a peer status and does NOT type as a filter.
+    expectTypeOf<'suspended'>().toMatchTypeOf<FederationPeer['status']>();
+    expectTypeOf<'suspended'>().not.toMatchTypeOf<FederationPeerStatusFilter>();
   });
 });
 

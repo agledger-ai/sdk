@@ -12,6 +12,7 @@ export type {
 
   // Pagination
   ListParams,
+  ListCompletionsParams,
   LimitParams,
   CursorListParams,
   OffsetListParams,
@@ -62,6 +63,7 @@ export type {
   // Records
   AcceptanceStatus,
   RecordStatus,
+  RecordStatusFilter,
   RecordTransitionAction,
   OperatingMode,
   GateMode,
@@ -83,6 +85,7 @@ export type {
   SignedStatement,
   SettlementSignalSummary,
   CoSignStatus,
+  CoSignPeerLeg,
   RecordReadCompletion,
 
   // Completions
@@ -105,6 +108,7 @@ export type {
 
   // Disputes
   DisputeStatus,
+  DisputeStatusFilter,
   DisputeProtocolAction,
   DisputeGrounds,
   DisputeOutcome,
@@ -227,6 +231,7 @@ export type {
   UpdateApiKeyParams,
   CreateApiKeyResult,
   WebhookDlqEntry,
+  WebhookHealthEntry,
   SystemHealth,
   QueueCounts,
   WebhookSigningAlg,
@@ -316,6 +321,7 @@ export type {
   VaultSigningKey,
   VaultAnchor,
   VaultAnchorVerifyResult,
+  VaultAnchorVerifyRow,
   VaultScanJob,
   VaultScanState,
   VaultScanResult,
@@ -339,6 +345,7 @@ export type {
   // Federation: Peers
   FederationPeer,
   FederationPeerStatus,
+  FederationPeerStatusFilter,
   ListPeersParams,
   PeeringToken,
 

@@ -4,10 +4,12 @@ import type {
   AdminAgent,
   AdminApiKey,
   WebhookDlqEntry,
+  WebhookHealthEntry,
   SystemHealth,
   SetCapabilitiesParams,
   Page,
   ListParams,
+  CursorListParams,
   RequestOptions,
   RecordType,
   CreateApiKeyParams,
@@ -197,8 +199,13 @@ export class AdminResource {
     return this.http.post<RevokeEphemeralCertResult>(`/v1/admin/ephemeral-certs/${certId}/revoke`, {}, options);
   }
 
-  /** List all orgs on the platform. */
-  listOrgs(params?: ListParams, options?: RequestOptions): Promise<Page<AdminOrg>> {
+  /**
+   * List all orgs on the platform.
+   *
+   * Cursor-paged only: the route dropped `offset` in API 1.7.0 and the
+   * querystring refuses unknown properties, so sending one is a 400.
+   */
+  listOrgs(params?: CursorListParams, options?: RequestOptions): Promise<Page<AdminOrg>> {
     return this.http.getPage<AdminOrg>('/v1/admin/orgs', params as Record<string, unknown>, options);
   }
 
@@ -213,8 +220,17 @@ export class AdminResource {
     return this.http.post<AdminOrg>('/v1/admin/orgs', params, options);
   }
 
-  /** List all registered agents on the platform. */
-  listAgents(params?: ListParams, options?: RequestOptions): Promise<Page<AdminAgent>> {
+  /**
+   * List all registered agents on the platform.
+   *
+   * Cursor-paged only: the route dropped `offset` in API 1.7.0 and the
+   * querystring refuses unknown properties, so sending one is a 400.
+   *
+   * Deactivated agents are always included and there is no flag to exclude
+   * them. `agents.list({ includeDeactivated })` is the org-scoped listing that
+   * takes the flag; this platform listing takes neither half of it.
+   */
+  listAgents(params?: CursorListParams, options?: RequestOptions): Promise<Page<AdminAgent>> {
     return this.http.getPage<AdminAgent>('/v1/admin/agents', params as Record<string, unknown>, options);
   }
 
@@ -376,8 +392,14 @@ export class AdminResource {
     return this.http.post('/v1/admin/discovery/reload', {}, options);
   }
 
-  /** List webhook dead-letter queue entries. */
-  listDlq(params?: ListParams, options?: RequestOptions): Promise<Page<WebhookDlqEntry>> {
+  /**
+   * List webhook dead-letter queue entries.
+   *
+   * Cursor-paged only: the route dropped `offset` in API 1.7.0 and the
+   * querystring refuses unknown properties, so sending one is a 400. The
+   * per-webhook listing `webhooks.listDlq()` still takes both.
+   */
+  listDlq(params?: CursorListParams, options?: RequestOptions): Promise<Page<WebhookDlqEntry>> {
     return this.http.getPage<WebhookDlqEntry>('/v1/admin/webhook-dlq', params as Record<string, unknown>, options);
   }
 
@@ -417,7 +439,7 @@ export class AdminResource {
   }
 
   /** Get health status of all webhooks (delivery stats, circuit breaker states). */
-  getWebhookHealth(params?: ListParams, options?: RequestOptions): Promise<Page<Record<string, unknown>>> {
+  getWebhookHealth(params?: ListParams, options?: RequestOptions): Promise<Page<WebhookHealthEntry>> {
     return this.http.getPage('/v1/admin/webhooks/health', params as Record<string, unknown>, options);
   }
 

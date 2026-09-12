@@ -4,6 +4,7 @@ import type {
   SubmitCompletionParams,
   Page,
   ListParams,
+  ListCompletionsParams,
   RequestOptions,
   AutoPaginateOptions,
 } from '../types.js';
@@ -30,12 +31,12 @@ export class CompletionsResource {
     return this.http.get<Completion>(`/v1/records/${recordId}/completions/${completionId}`, undefined, options);
   }
 
-  list(recordId: string, params?: ListParams, options?: RequestOptions): Promise<Page<Completion>> {
+  list(recordId: string, params?: ListCompletionsParams, options?: RequestOptions): Promise<Page<Completion>> {
     return this.http.getPage<Completion>(`/v1/records/${recordId}/completions`, params as Record<string, unknown>, options);
   }
 
   /** Auto-paginating iterator. Yields individual completions. */
-  listAll(recordId: string, params?: ListParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<Completion> {
+  listAll(recordId: string, params?: ListCompletionsParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<Completion> {
     return this.http.paginate<Completion>(`/v1/records/${recordId}/completions`, params as Record<string, unknown>, options);
   }
 }
