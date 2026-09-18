@@ -124,7 +124,9 @@ of a long-lived API key. Your operator registers the IdP once as a trusted
 issuer (`client.admin.trustedIssuers.create()`, platform key); from then on the
 agent exchanges an OIDC token for a short-lived AGLedger cert and presents the
 cert on every request. `oidcCertCredential` does the exchange, refreshes the
-cert before it expires, and re-exchanges once if a request is refused with 401:
+cert before it expires (keeping the current cert if that refresh fails while
+it is still valid), and re-exchanges once if the Server refuses the cert with
+401:
 
 ```typescript
 import { AgledgerClient, oidcCertCredential } from '@agledger/sdk';
