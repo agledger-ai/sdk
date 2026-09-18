@@ -12,10 +12,10 @@ const DEFAULT_REFRESH_FRACTION = 0.5;
 const EXCHANGE_TIMEOUT_MS = 30_000;
 
 /**
- * Longest wait before asking the token source again after it handed back a
- * token the Server had already exchanged, while the current cert still works.
+ * Longest wait before trying again after a refresh-point exchange failed while
+ * the current cert still works.
  */
-const REUSED_TOKEN_RECHECK_MS = 30_000;
+const RETRY_EXCHANGE_AFTER_MS = 30_000;
 
 const REUSED_TOKEN_HINT =
   'getOidcToken returned a token that was already exchanged. The Server accepts each OIDC token id once, ' +
@@ -113,7 +113,7 @@ export function oidcCertCredential(options: OidcCertCredentialOptions): OidcCert
   let cached: { token: string; refreshAt: number; expiresAt: number } | undefined;
   let inflight: Promise<string> | undefined;
 
-  async function exchange(ctx: BearerTokenContext, forced: boolean): Promise<string> {
+  async function exchange(ctx: BearerTokenContext): Promise<string> {
     const oidcToken = await getOidcToken();
     if (typeof oidcToken !== 'string' || oidcToken.trim() === '') {
       throw new ConfigurationError('getOidcToken returned no token.');
@@ -150,14 +150,9 @@ export function oidcCertCredential(options: OidcCertCredentialOptions): OidcCert
       }) as ApiErrorResponse;
       if (!errorBody.requestId) errorBody.requestId = response.headers.get('x-request-id') ?? undefined;
       if (response.status === 409) {
-        // The source handed back a token the Server already exchanged. A cert
-        // that still works is kept, and the source asked again soon; with no
-        // usable cert left there is nothing to fall back on.
-        const now = Date.now();
-        if (!forced && cached && now < cached.expiresAt) {
-          cached.refreshAt = now + Math.max(1_000, Math.min(REUSED_TOKEN_RECHECK_MS, (cached.expiresAt - now) / 4));
-          return cached.token;
-        }
+        // The source handed back a token the Server already exchanged. At a
+        // refresh point getToken keeps the current cert; this is the error
+        // for when there is no cert left to keep.
         const error = new OidcExchangeError(409, errorBody);
         error.message = `${error.message}. ${REUSED_TOKEN_HINT}`;
         throw error;
@@ -191,10 +186,24 @@ export function oidcCertCredential(options: OidcCertCredentialOptions): OidcCert
       if (inflight) return inflight;
       const refused =
         !!cached && ctx.forceRefresh && (ctx.rejectedToken === undefined || ctx.rejectedToken === cached.token);
-      if (cached && !refused && Date.now() < cached.refreshAt) return cached.token;
-      inflight = exchange(ctx, refused).finally(() => {
-        inflight = undefined;
-      });
+      const now = Date.now();
+      if (cached && !refused && now < cached.refreshAt) return cached.token;
+      // Only an ahead-of-expiry refresh has a cert to fall back on. A forced
+      // exchange (the Server refused the cert) or one after expiry has none,
+      // so its failure is the request's failure.
+      const fallback = cached && !refused && now < cached.expiresAt ? cached : undefined;
+      inflight = exchange(ctx)
+        .catch((err: unknown) => {
+          const t = Date.now();
+          if (!fallback || cached !== fallback || t >= fallback.expiresAt) throw err;
+          // The IdP or the Server is unavailable, or the source repeated a
+          // token: keep the cert that still works and try again shortly.
+          fallback.refreshAt = t + Math.max(1_000, Math.min(RETRY_EXCHANGE_AFTER_MS, (fallback.expiresAt - t) / 4));
+          return fallback.token;
+        })
+        .finally(() => {
+          inflight = undefined;
+        });
       return inflight;
     },
 

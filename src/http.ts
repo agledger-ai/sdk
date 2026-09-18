@@ -157,13 +157,44 @@ function resolveAuthSource(options: AgledgerClientOptions): AuthSource {
   );
 }
 
-/** Release a response body the client will not read, so the connection can be reused. */
-async function discardBody(response: Response): Promise<void> {
+/**
+ * Whether a 401 refused the bearer itself, as opposed to something else the
+ * request carried. The Server answers 401 for an `AGLedger-On-Behalf-Of`
+ * delegation token it cannot validate and for an `X-Agent-Signature` that
+ * does not verify; a new cert changes neither, so those surface as is.
+ */
+function isBearerRejection(body: Record<string, unknown>): boolean {
+  const text = [body.message, body.detail]
+    .filter((v): v is string => typeof v === 'string')
+    .join(' ')
+    .toLowerCase();
+  return !(
+    text.includes('agledger-on-behalf-of') ||
+    text.includes('delegation token') ||
+    text.includes('x-agent-signature')
+  );
+}
+
+/** An error response's JSON body, or the status line when it has none. */
+async function readErrorBody(response: Response): Promise<Record<string, unknown>> {
   try {
-    await response.body?.cancel();
+    const parsed = (await response.json()) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
   } catch {
-    // Nothing to release.
+    // Not JSON.
   }
+  return { error: 'unknown', message: response.statusText || `HTTP ${response.status}` };
+}
+
+/** Parse an error body as JSON, falling back to the status line. */
+function errorBodyFrom(text: string, response: Response): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+  } catch {
+    // Not JSON.
+  }
+  return { error: 'unknown', message: response.statusText || `HTTP ${response.status}` };
 }
 
 /** Failures getting a token that a later attempt may not repeat. */
@@ -340,7 +371,9 @@ export class HttpClient {
 
         if (response.ok) return bytes;
 
-        if (this.shouldReauthenticate(response.status, auth, authState)) {
+        const reauthBody =
+          response.status === 401 ? errorBodyFrom(new TextDecoder().decode(bytes), response) : {};
+        if (this.shouldReauthenticate(response.status, reauthBody, auth, authState)) {
           attempt--;
           skipBackoff = true;
           continue;
@@ -504,17 +537,11 @@ export class HttpClient {
         this.parseRateLimitHeaders(response.headers);
 
         if (!response.ok) {
-          if (this.shouldReauthenticate(response.status, auth, authState)) {
-            await discardBody(response);
+          const errorBody = await readErrorBody(response);
+          if (this.shouldReauthenticate(response.status, errorBody, auth, authState)) {
             attempt--;
             skipBackoff = true;
             continue;
-          }
-          let errorBody: Record<string, unknown>;
-          try {
-            errorBody = (await response.json()) as Record<string, unknown>;
-          } catch {
-            errorBody = { error: 'unknown', message: response.statusText || `HTTP ${response.status}` };
           }
 
           const error = this.mapError(response.status, errorBody, response.headers);
@@ -591,8 +618,14 @@ export class HttpClient {
    * Whether a 401 on this attempt earns the one forced refresh and retry: only
    * a credential's bearer, and only once per request.
    */
-  private shouldReauthenticate(status: number, auth: ResolvedAuth, state: AuthRetryState): boolean {
+  private shouldReauthenticate(
+    status: number,
+    body: Record<string, unknown>,
+    auth: ResolvedAuth,
+    state: AuthRetryState,
+  ): boolean {
     if (status !== 401 || !auth.credential || state.reauthenticated) return false;
+    if (!isBearerRejection(body)) return false;
     state.reauthenticated = true;
     state.forceRefresh = true;
     state.rejectedToken = auth.token;
@@ -712,22 +745,11 @@ export class HttpClient {
           return (await response.json()) as T;
         }
 
-        if (this.shouldReauthenticate(response.status, auth, authState)) {
-          await discardBody(response);
+        const errorBody = await readErrorBody(response);
+        if (this.shouldReauthenticate(response.status, errorBody, auth, authState)) {
           attempt--;
           skipBackoff = true;
           continue;
-        }
-
-        // Parse error body
-        let errorBody: Record<string, unknown>;
-        try {
-          errorBody = (await response.json()) as Record<string, unknown>;
-        } catch {
-          errorBody = {
-            error: 'unknown',
-            message: response.statusText || `HTTP ${response.status}`,
-          };
         }
 
         const error = this.mapError(response.status, errorBody, response.headers);

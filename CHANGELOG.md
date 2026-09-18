@@ -45,6 +45,9 @@ Reconciled against the API 1.8.0 build. It adds OIDC workload identity to the cl
 
 ### Fixed
 
+- **A 401 the cert did not cause no longer triggers a re-exchange.** The Server also answers 401 for an `AGLedger-On-Behalf-Of` delegation token it cannot validate and for an `X-Agent-Signature` that does not verify. A new cert changes neither, and with a token source that repeats a token the forced exchange 409'd and hid the real error, so those now surface as the `AuthenticationError` the Server sent.
+- **A failed exchange at the refresh point keeps the current cert.** When the IdP is unreachable, or the Server answers 5xx, 429, 409 or anything else at a refresh ahead of expiry, the request goes out with the cert that is still valid and the exchange is tried again shortly. Only an exchange forced by a 401, or one after the cert has expired, fails the request. The refresh point is timed from local receipt using the cert's own lifetime, so a Server clock that disagrees with the local one cannot force an exchange on every request.
+
 - `IssueEphemeralCertParams.proofOfPossession` was documented as base64url; the Server requires standard base64 with `==` padding.
 - A test now resolves every route each resource method calls against the route snapshot, so a method that reaches a route the Server does not register fails the suite. That is how `getRateLimitExemption` and the `predicates.get` version path were found.
 

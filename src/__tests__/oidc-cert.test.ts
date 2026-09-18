@@ -358,6 +358,119 @@ describe('oidcCertCredential', () => {
     });
   });
 
+  describe('a 401 the cert did not cause', () => {
+    // Bodies as a live 1.8.0 Server answers them.
+    const delegation401 = () =>
+      json(401, {
+        type: '/problems/unauthorized', status: 401, error: 'UNAUTHORIZED',
+        detail: 'agledger-on-behalf-of token did not validate against any trusted_issuers row (applies_to in principal, any)',
+        message: 'agledger-on-behalf-of token did not validate against any trusted_issuers row (applies_to in principal, any)',
+      });
+    const delegationReason401 = () =>
+      json(401, {
+        type: '/problems/unauthorized', status: 401, error: 'UNAUTHORIZED', reason: 'token_expired',
+        message: 'agledger-on-behalf-of: token expired. Register or fix the principal trusted issuer.',
+      });
+    const signature401 = () =>
+      json(401, {
+        type: '/problems/unauthorized', status: 401, error: 'UNAUTHORIZED',
+        detail: 'X-Agent-Signature does not verify against the ephemeral cert public key over the request body hash',
+        message: 'X-Agent-Signature does not verify against the ephemeral cert public key over the request body hash',
+      });
+
+    for (const [label, respond] of [
+      ['an unvalidated delegation token', delegation401],
+      ['a delegation token rejected with a reason', delegationReason401],
+      ['an agent signature that does not verify', signature401],
+    ] as const) {
+      it(`surfaces ${label} as is, without re-exchanging`, async () => {
+        const server = fakeServer({ respond });
+        const getOidcToken = tokenSource();
+        const c = client(server.fetch, oidcCertCredential({ getOidcToken }));
+        const err = (await c.records
+          .create({ type: 't', criteria: {} } as never, { onBehalfOf: 'delegation.jws' })
+          .catch((e: unknown) => e)) as AuthenticationError;
+        expect(err).toBeInstanceOf(AuthenticationError);
+        expect(err.message).toMatch(/agledger-on-behalf-of|X-Agent-Signature/);
+        expect(server.exchanges).toHaveLength(1);
+        expect(server.requests).toHaveLength(1);
+        expect(getOidcToken).toHaveBeenCalledTimes(1);
+      });
+    }
+
+    it('still re-exchanges on a revoked cert', async () => {
+      const server = fakeServer({
+        respond: ({ bearer }) =>
+          bearer === 'cert-1'
+            ? json(401, { error: 'UNAUTHORIZED', message: 'Ephemeral cert has been revoked; mint a fresh one to continue' })
+            : json(200, {}),
+      });
+      const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
+      await c.auth.getMe();
+      expect(server.exchanges).toHaveLength(2);
+    });
+  });
+
+  describe('a failed exchange at the refresh point', () => {
+    for (const [label, response] of [
+      ['a 503', () => json(503, { error: 'SERVICE_UNAVAILABLE', message: 'down' })],
+      ['a 429', () => json(429, { error: 'RATE_LIMITED', message: 'slow down' })],
+      ['a 400', () => json(400, { error: 'VALIDATION_ERROR', message: 'bad' })],
+    ] as const) {
+      it(`keeps the still-valid cert on ${label}, and fails only once the cert has expired`, async () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-09-18T00:00:00Z'));
+        const server = fakeServer({ lifetimeMs: 120_000, exchange: (n) => (n > 1 ? response() : undefined) });
+        const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
+        await c.auth.getMe();
+        vi.setSystemTime(new Date('2026-09-18T00:01:10Z'));
+        await expect(c.auth.getMe()).resolves.toBeDefined();
+        expect(server.requests.map((r) => r.bearer)).toEqual(['cert-1', 'cert-1']);
+        vi.setSystemTime(new Date('2026-09-18T00:02:01Z'));
+        await expect(c.auth.getMe()).rejects.toBeInstanceOf(OidcExchangeError);
+      });
+    }
+
+    it('keeps the still-valid cert when the token source itself fails', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-09-18T00:00:00Z'));
+      let idpUp = true;
+      const server = fakeServer({ lifetimeMs: 120_000 });
+      const c = client(
+        server.fetch,
+        oidcCertCredential({
+          getOidcToken: async () => {
+            if (!idpUp) throw new Error('IdP unreachable');
+            return jwt({ sub: 'workload-a', jti: String(Math.random()) });
+          },
+        }),
+      );
+      await c.auth.getMe();
+      idpUp = false;
+      vi.setSystemTime(new Date('2026-09-18T00:01:10Z'));
+      await expect(c.auth.getMe()).resolves.toBeDefined();
+      expect(server.requests.at(-1)!.bearer).toBe('cert-1');
+    });
+
+    it('times the refresh point from local receipt, so a skewed Server clock cannot force an exchange per request', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-09-18T00:00:00Z'));
+      // The Server's clock runs ten minutes behind: its window already ended by ours.
+      const server = fakeServer({
+        exchange: (n) =>
+          json(201, {
+            cert: { id: `c${n}`, issuedAt: '2026-09-17T23:50:00.000Z', expiresAt: '2026-09-17T23:52:00.000Z' },
+            certJws: `cert-${n}`,
+          }),
+      });
+      const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
+      await c.auth.getMe();
+      await c.auth.getMe();
+      await c.auth.getMe();
+      expect(server.exchanges).toHaveLength(1);
+    });
+  });
+
   it('refuses a token with no readable subject before calling the Server', async () => {
     const server = fakeServer();
     const c = client(server.fetch, oidcCertCredential({ getOidcToken: () => 'not-a-jwt' }));
