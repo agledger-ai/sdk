@@ -4,7 +4,7 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## [1.12.0] - 2026-09-18
 
 Reconciled against the API 1.8.0 build. It adds OIDC workload identity to the client, and it removes fields and methods the SDK declared that the Server never sent: a sweep of every method's declared return type against the route it calls found them across the admin, federation, discovery and reference surfaces. Each removal below is a type that was wrong on the wire before this release, so code that read one of those fields was reading `undefined`.
 
@@ -52,6 +52,10 @@ Reconciled against the API 1.8.0 build. It adds OIDC workload identity to the cl
 
 - `IssueEphemeralCertParams.proofOfPossession` was documented as base64url; the Server requires standard base64 with `==` padding.
 - A test now resolves every route each resource method calls against the route snapshot, so a method that reaches a route the Server does not register fails the suite. That is how `getRateLimitExemption` and the `predicates.get` version path were found.
+
+### Changed
+
+- `LICENSE` follows SDK License Template 1.9: section 1 says AGLedger LLC does not receive, inspect or use the data you process through your deployment and collects no product usage information from it; section 7 names AGLedger and Settlement Signal as trademarks of AGLedger LLC; section 8 refers to issued or pending U.S. patents.
 
 ## [1.11.0] - 2026-09-10
 
