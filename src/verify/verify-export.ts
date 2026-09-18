@@ -22,6 +22,7 @@ export type {
   EntryVerificationResult,
   OutOfBandKeyEntry,
   FailureCode,
+  AgentPublicKeyJwk,
 } from '@agledger/verify-core';
 
 /**
@@ -53,6 +54,21 @@ export type {
  * if (result.keyProvenance.outOfBand === 0) {
  *   throw new Error('verdict trusts only export-embedded keys: not an independent audit');
  * }
+ * ```
+ *
+ * Entries written under an OIDC cert carry the agent's own signature over the
+ * request body. Pass the cert's public key as `agentKeys` to re-check those
+ * too; `result.agentSignatures` counts how many were present and verified, and
+ * one that does not verify breaks the chain with `CHAIN_AGENT_SIGNATURE_INVALID`.
+ * Neither the export nor the Server hands out cert keys, so without `agentKeys`
+ * the check reports `skipped_no_input`.
+ *
+ * @example Re-check the agent signatures an `oidcCertCredential` sealed
+ * ```ts
+ * const credential = oidcCertCredential({ getOidcToken });
+ * // ... the agent writes Records through a client using `credential` ...
+ * const result = verifyExport(exp, { agentKeys: [credential.publicKeyJwk] });
+ * console.log(result.agentSignatures); // { present: 1, verified: 1 }
  * ```
  */
 export function verifyExport(
