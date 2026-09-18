@@ -1,6 +1,10 @@
 // Client
 export { AgledgerClient, createFederationClient } from './client.js';
 
+// OIDC workload identity: exchange an IdP token for a short-lived cert
+export { oidcCertCredential, OidcExchangeError } from './auth/oidc-cert.js';
+export type { OidcCertCredential, OidcCertCredentialOptions } from './auth/oidc-cert.js';
+
 // Types: everything exported for downstream consumers
 export type {
   // Next Steps (HATEOAS)
@@ -8,6 +12,8 @@ export type {
 
   // Client config
   AgledgerClientOptions,
+  BearerCredential,
+  BearerTokenContext,
   RequestOptions,
 
   // Pagination

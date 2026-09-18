@@ -30,9 +30,62 @@ export interface RateLimitInfo {
 }
 
 
+/**
+ * What the client hands a {@link BearerCredential} each time it needs a token.
+ */
+export interface BearerTokenContext {
+  /** The client's base URL, trailing slashes removed. */
+  baseUrl: string;
+  /** The client's `fetch`, so a credential's own calls go through the same transport. */
+  fetch: typeof globalThis.fetch;
+  /**
+   * True when the Server refused a request made with `rejectedToken` (401):
+   * the credential must not hand that token out again.
+   */
+  forceRefresh: boolean;
+  /**
+   * The token the refused request carried. When the credential already holds
+   * a different one (another request refreshed first), it can return that
+   * instead of exchanging again.
+   */
+  rejectedToken?: string;
+}
+
+/**
+ * A bearer the client drives rather than a fixed string: it is asked for a
+ * token before every request, and asked again with `forceRefresh` once if a
+ * request is refused with 401. {@link oidcCertCredential} is the one the SDK
+ * ships.
+ */
+export interface BearerCredential {
+  getToken(context: BearerTokenContext): Promise<string>;
+  /**
+   * Headers to attach to a request with a body, computed over the exact bytes
+   * sent. Called once per request, before the first attempt.
+   */
+  signBody?(body: Uint8Array): Record<string, string> | Promise<Record<string, string>>;
+}
+
+/**
+ * Client options. Pass exactly one of `apiKey` and `bearerToken`.
+ */
 export interface AgledgerClientOptions {
-  /** API key (Bearer token) */
-  apiKey: string;
+  /** API key (`agl_...`), sent as the bearer on every request. */
+  apiKey?: string;
+  /**
+   * A bearer other than an API key, in one of three forms:
+   *
+   * - A string, sent as is.
+   * - A function, called before every request (each retry included) with the
+   *   result sent as the bearer. The client caches nothing, so the function
+   *   decides freshness. Use it to hand the Server an admin OIDC token from
+   *   your IdP directly. If the operator turned on `jtiSingleUse` for that
+   *   trusted issuer, each token is accepted once, so the function must mint
+   *   a fresh token on every call rather than return a cached one.
+   * - A {@link BearerCredential}, such as {@link oidcCertCredential}, which
+   *   exchanges an OIDC token for a short-lived cert and refreshes it.
+   */
+  bearerToken?: string | (() => string | Promise<string>) | BearerCredential;
   /**
    * Base URL of your AGLedger instance, e.g. `https://agledger.internal`.
    * Required: every deployment is self-hosted, so there is no default to fall
@@ -62,9 +115,21 @@ export interface RequestOptions {
    * Override authentication for this request.
    * - `'none'`: omit the Authorization header entirely (used for federation register/revoke).
    * - Any other string: sent as `Bearer <value>` (used for federation gateway bearer tokens).
-   * - `undefined` (default): use the client's configured API key.
+   * - `undefined` (default): use the client's configured credential.
+   *
+   * An override also turns off body signing for the request.
    */
   authOverride?: 'none' | (string & {});
+  /**
+   * RFC 8693 delegation token (the token-exchange result your IdP issued) for
+   * work done on behalf of a person or another party. Sent as the
+   * `AGLedger-On-Behalf-Of` header beside your own credential, never instead
+   * of it. Accepted on record create, transition and verdict, completion
+   * submit, and A2A; the engine validates it against a trusted issuer whose
+   * `appliesTo` is `principal` or `any` and seals the delegation into the
+   * signed chain entry.
+   */
+  onBehalfOf?: string;
   /** Custom headers to merge with defaults for this request. */
   headers?: Record<string, string>;
 }
@@ -5280,6 +5345,7 @@ export interface IssueEphemeralCertParams {
   /**
    * Ed25519 signature over the UTF-8 bytes of `agledger.oidc.cert.v1\n<token sub>`,
    * STANDARD base64 with `==` padding (88 characters), not base64url.
+   * {@link oidcCertCredential} does the whole exchange for you.
    */
   proofOfPossession: string;
   /** Target agent identity; defaults from the mapped OIDC claims. */

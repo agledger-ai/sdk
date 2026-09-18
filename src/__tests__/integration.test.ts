@@ -12,6 +12,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { AgledgerClient } from '../client.js';
+import { oidcCertCredential } from '../auth/oidc-cert.js';
 import type { Page } from '../types.js';
 
 const API_URL = process.env['AGLEDGER_TEST_API_URL'] || 'http://localhost:3001';
@@ -324,5 +325,31 @@ describe('SDK integration: response shape validation', async () => {
     const conformance = await client.discovery.getConformance();
     expect(typeof conformance.license?.validity).toBe('string');
     expect(typeof conformance.license?.escalated).toBe('boolean');
+  });
+
+  // Needs a trusted issuer registered for the IdP behind the URL, with
+  // `appliesTo: agent` and a way to bind the subject (auto-provisioning or a
+  // claim mapping). Skipped silently otherwise, so check the timing: a real
+  // exchange plus a record write takes tens of milliseconds, not one.
+  it('oidcCertCredential exchanges, and the chain entry seals the body signature', async () => {
+    const tokenUrl = process.env['AGLEDGER_TEST_OIDC_TOKEN_URL'];
+    if (!tokenUrl) return;
+    const agent = new AgledgerClient({
+      baseUrl: API_URL,
+      bearerToken: oidcCertCredential({ getOidcToken: async () => (await fetch(tokenUrl)).text() }),
+    });
+    const me = await agent.auth.getMe();
+    expect(me.authType).toBe('ephemeral_cert');
+    const record = await agent.records.create({
+      type: 'notarize-generic-v1',
+      criteria: { summary: 'sdk integration: signed by the cert key' },
+    });
+    const exported = await client.records.getAuditExport(record.id);
+    // The entry's payload is the in-toto predicate body.
+    const onBehalfOf = (exported.entries[0]!.payload as {
+      on_behalf_of?: { agent_signature?: { alg?: string; content_hash?: string } };
+    }).on_behalf_of;
+    expect(onBehalfOf?.agent_signature?.alg).toBe('EdDSA');
+    expect(onBehalfOf?.agent_signature?.content_hash).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 });
