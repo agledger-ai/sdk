@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { generateKeyPairSync, hash, sign, type KeyObject } from 'node:crypto';
 import { encode as cborEncode, rfc8949EncodeOptions } from 'cborg';
 import { verifyExport } from '../verify/verify-export.js';
@@ -317,5 +318,38 @@ describe('verifyExport: COSE_Sign1 (format 2.0)', () => {
     expect(result.valid).toBe(false);
     expect(result.brokenAt?.position).toBe(2);
     expect(result.brokenAt?.code).toBe('CHAIN_COSE_HEADER_MISMATCH');
+  });
+});
+
+
+describe('verifyExport: agent signatures sealed under an OIDC cert', () => {
+  // An unmodified export from a live API 1.8.0 instance: one Record written by
+  // a client whose bearer was oidcCertCredential, with that credential's
+  // public key captured beside it.
+  const fixture = JSON.parse(
+    readFileSync(new URL('./fixtures/agent-signed-export.json', import.meta.url), 'utf8'),
+  ) as { agentPublicKeyJwk: { kty: 'OKP'; crv: 'Ed25519'; x: string }; export: RecordAuditExport };
+
+  it('re-checks the body signature against the credential key', () => {
+    const result = verifyExport(fixture.export, { agentKeys: [fixture.agentPublicKeyJwk] });
+    expect(result.valid).toBe(true);
+    expect(result.agentSignatures).toEqual({ present: 1, verified: 1 });
+    expect(result.optionalChecks.agent_signature).toBe('applied');
+  });
+
+  it('counts the signature and leaves it unchecked without the key', () => {
+    const result = verifyExport(fixture.export);
+    expect(result.valid).toBe(true);
+    expect(result.agentSignatures).toEqual({ present: 1, verified: 0 });
+    expect(result.optionalChecks.agent_signature).toBe('skipped_no_input');
+  });
+
+  it('checks nothing against a key the entry does not name', () => {
+    const { publicKey } = generateKeyPairSync('ed25519');
+    const other = publicKey.export({ format: 'jwk' }) as { kty: 'OKP'; crv: 'Ed25519'; x: string };
+    const result = verifyExport(fixture.export, { agentKeys: [other] });
+    expect(result.valid).toBe(true);
+    expect(result.agentSignatures.verified).toBe(0);
+    expect(result.optionalChecks.agent_signature).toBe('skipped_no_input');
   });
 });

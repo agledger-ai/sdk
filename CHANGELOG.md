@@ -26,6 +26,8 @@ Reconciled against the API 1.8.0 build. It adds OIDC workload identity to the cl
 - Typed results where a method returned `Record<string, unknown>`: `records.getGraph` (`RecordGraph`), the four reference methods on `references` and `agents` (`EntityReferencesResult`), `capabilities.get` and `set` and `admin.setCapabilities` (`AgentCapabilities`), `disputes.submitEvidence`, `federationAdmin.getInstance`, and the DLQ retry methods (`DlqRetryResult`, `DlqRetryAllResult`).
 - `BulkCreateResult` items carry `errorCode` and the summary `replayed`; `BatchGetRecordsResult` carries `notFound`; `RecordAuditExport` carries `verificationGuide`; `SchemaQuickStart` (one declaration, shared by both schema reads) carries `tolerance` and `gateMode`; `MetaSchema` carries `fieldMappingValueTypeSpec`, `expressionBindings`, `verbVocabulary` and the rest the route serves.
 
+- **`verifyExport(exp, { agentKeys })`** re-checks, offline, the agent signatures an OIDC cert sealed into the chain, against the cert keys you supply (`oidcCertCredential().publicKeyJwk`). `result.agentSignatures` counts those present and verified, and one that does not verify is `CHAIN_AGENT_SIGNATURE_INVALID`. `AgentPublicKeyJwk` is re-exported from `@agledger/sdk/verify`. Needs `@agledger/verify-core` 1.5.0, which the dependency range now names.
+
 ### Removed (the Server never sent the field or served the route)
 
 - **`environment` is gone from `CreateApiKeyParams`.** The Server refuses it now (400), and it never carried meaning: a key is a row in one Server's database.

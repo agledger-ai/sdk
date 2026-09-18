@@ -447,6 +447,33 @@ or `/.well-known/scitt-keys`) or to add keys that rotated out. Use
 the export's own embedded keys. `result.keyProvenance` reports how many
 signatures were checked against out-of-band vs export-embedded keys.
 
+Entries written under an OIDC cert also carry the agent's own signature over
+the request body. Pass the cert's public key as `agentKeys` to re-check it
+offline; `oidcCertCredential` exposes the key it binds every cert to:
+
+```typescript
+import { AgledgerClient, oidcCertCredential } from '@agledger/sdk';
+import { verifyExport } from '@agledger/sdk/verify';
+
+const credential = oidcCertCredential({
+  getOidcToken: async () => (await fetch(process.env.OIDC_TOKEN_URL!)).text(),
+});
+const agent = new AgledgerClient({ baseUrl: process.env.AGLEDGER_EXTERNAL_URL!, bearerToken: credential });
+const written = await agent.records.create({
+  type: 'notarize-generic-v1',
+  criteria: { summary: 'Rotated the staging database credentials' },
+});
+
+const exported = await client.records.getAuditExport(written.id);
+const checked = verifyExport(exported, { agentKeys: [credential.publicKeyJwk] });
+console.log(checked.agentSignatures); // { present: 1, verified: 1 }
+```
+
+A sealed signature that does not verify breaks the chain with
+`CHAIN_AGENT_SIGNATURE_INVALID`. Neither the export nor the Server hands out
+cert keys, so without `agentKeys` the check reports `skipped_no_input` and
+`agentSignatures.verified` stays 0.
+
 ## SCITT / SCRAPI
 
 Register Signed Statements with the Transparency Service and retrieve Transparent
