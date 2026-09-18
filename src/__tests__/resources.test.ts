@@ -1281,13 +1281,41 @@ describe('AdminResource', () => {
   });
 
   it('bulk revokes API keys', async () => {
-    const { client, fetch } = createMockClient({ revoked: 3 });
+    const { client, fetch } = createMockClient({ revoked: 3, alreadyInactive: 0, notFound: [], nextSteps: [] });
     await client.admin.bulkRevokeApiKeys(['key-1', 'key-2', 'key-3']);
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/admin/api-keys/bulk-revoke');
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body);
     expect(body.keyIds).toEqual(['key-1', 'key-2', 'key-3']);
+  });
+
+  it('bulk revokes by filter, sending the filters as the body', async () => {
+    const { client, fetch } = createMockClient({ revoked: 2, alreadyInactive: 1, notFound: [], nextSteps: [] });
+    const result = await client.admin.bulkRevokeApiKeys({
+      neverUsed: true,
+      createdBefore: '2026-06-01T00:00:00Z',
+      reason: 'dormant',
+    });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body).toEqual({ neverUsed: true, createdBefore: '2026-06-01T00:00:00Z', reason: 'dormant' });
+    expect(result.alreadyInactive).toBe(1);
+  });
+
+  it('sends the dormancy filters on the key listing', async () => {
+    const { client, fetch } = createMockClient({ data: [], hasMore: false });
+    await client.admin.listApiKeys({ lastUsedBefore: '2026-06-01T00:00:00Z', neverUsed: false });
+    const url = new URL(fetch.mock.calls[0][0]);
+    expect(url.searchParams.get('lastUsedBefore')).toBe('2026-06-01T00:00:00Z');
+    expect(url.searchParams.get('neverUsed')).toBe('false');
+  });
+
+  it('replaces a key IP allow-list, including clearing it with null', async () => {
+    const { client, fetch } = createMockClient({ id: 'k1', allowedIps: null });
+    await client.admin.updateApiKey('k1', { allowedIps: ['10.0.0.0/8'] });
+    await client.admin.updateApiKey('k1', { allowedIps: null });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ allowedIps: ['10.0.0.0/8'] });
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ allowedIps: null });
   });
 
   it('sets capabilities with PUT', async () => {
@@ -1330,16 +1358,17 @@ describe('AdminResource', () => {
     expect(body.agentApprovalRequired).toBe(true);
   });
 
-  it('lists owner-level rate limit exemptions', async () => {
-    const { client, fetch } = createMockClient([{ ownerId: 'ent-1' }]);
-    await client.admin.listRateLimitExemptions();
+  it('lists owner-level rate limit exemptions as owner ids', async () => {
+    const { client, fetch } = createMockClient({ data: ['ent-1'], total: 1 });
+    const page = await client.admin.listRateLimitExemptions();
+    expect(page.data).toEqual(['ent-1']);
     expect(fetch.mock.calls[0][0]).toContain('/v1/admin/rate-limit-exemptions');
     expect(fetch.mock.calls[0][1].method).toBe('GET');
   });
 
   it('sets rate limit exemption for owner', async () => {
-    const { client, fetch } = createMockClient({ ownerId: 'ent-1' });
-    await client.admin.setRateLimitExemption('ent-1', { reason: 'VIP' });
+    const { client, fetch } = createMockClient({ ownerId: 'ent-1', exempt: true });
+    await client.admin.setRateLimitExemption('ent-1');
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/admin/rate-limit-exemptions/ent-1');
     expect(init.method).toBe('PUT');
@@ -1353,8 +1382,17 @@ describe('AdminResource', () => {
     expect(init.method).toBe('DELETE');
   });
 
+  it('reloads license from a key in the body, and still takes options first', async () => {
+    const { client, fetch } = createMockClient({ validity: 'valid', tier: 'developer', notice: null });
+    await client.admin.reloadLicense({ license: 'agl_dev_v1_abc' }, { timeout: 5000 });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ license: 'agl_dev_v1_abc' });
+    await client.admin.reloadLicense({ idempotencyKey: 'idem-1' });
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({});
+    expect(fetch.mock.calls[1][1].headers['Idempotency-Key']).toBe('idem-1');
+  });
+
   it('reloads license', async () => {
-    const { client, fetch } = createMockClient({ reloaded: true });
+    const { client, fetch } = createMockClient({ validity: 'unlicensed', tier: 'unlicensed', notice: null });
     await client.admin.reloadLicense();
     expect(fetch.mock.calls[0][0]).toContain('/v1/admin/license/reload');
     expect(fetch.mock.calls[0][1].method).toBe('POST');
@@ -1758,5 +1796,57 @@ describe('SchemasResource', () => {
     expect(body.fieldMappings[0].expression).toBe(
       'abs(evidence.amount - criteria.target) <= tolerance.amount',
     );
+  });
+});
+
+describe('API 1.8.0 client surface', () => {
+  it('filters fleet capabilities by type, and still takes options first', async () => {
+    const { client, fetch } = createMockClient({ data: [{ agentId: 'a1', displayName: null, contractTypes: ['t1'] }], total: 1 });
+    const page = await client.admin.getFleetCapabilities({ type: 't1' });
+    expect(new URL(fetch.mock.calls[0][0]).searchParams.get('type')).toBe('t1');
+    expect(page.data[0].contractTypes).toEqual(['t1']);
+    await client.admin.getFleetCapabilities({ timeout: 1000 });
+    expect(new URL(fetch.mock.calls[1][0]).search).toBe('');
+  });
+
+  it('pages a reference lookup instead of reading a single match', async () => {
+    const match = {
+      entityType: 'record',
+      entityId: 'rec-1',
+      reference: { id: 'r1', system: 'erp', refType: 'po', refId: '42', displayName: null, uri: null, attributes: null, createdAt: 't', createdBy: 'k' },
+    };
+    const { client, fetch } = createMockClient({ data: [match], total: 1, nextCursor: null, hasMore: false });
+    const page = await client.references.lookup({ system: 'erp', refType: 'po', refId: '42', limit: 10 });
+    expect(page.data[0].entityId).toBe('rec-1');
+    const url = new URL(fetch.mock.calls[0][0]);
+    expect(url.pathname).toBe('/v1/references');
+    expect(url.searchParams.get('limit')).toBe('10');
+  });
+
+  it('sends the single-use and subject-allowlist settings on a trusted issuer', async () => {
+    const { client, fetch } = createMockClient({ id: 'ti-1', jtiSingleUse: true, subjectAllowlist: ['svc-a'] });
+    await client.admin.trustedIssuers.create({
+      issuerUrl: 'https://idp.example',
+      expectedAudience: 'agledger',
+      jtiSingleUse: true,
+      subjectAllowlist: ['svc-a'],
+    });
+    await client.admin.trustedIssuers.update('ti-1', { managedBy: null, subjectAllowlist: null });
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({ jtiSingleUse: true, subjectAllowlist: ['svc-a'] });
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ managedBy: null, subjectAllowlist: null });
+  });
+
+  it('exempts an owner with no request body', async () => {
+    const { client, fetch } = createMockClient({ ownerId: 'a1', exempt: true });
+    await client.admin.setRateLimitExemption('a1');
+    expect(fetch.mock.calls[0][1].method).toBe('PUT');
+    expect(fetch.mock.calls[0][1].body).toBeUndefined();
+  });
+
+  it('has no method for a per-owner exemption read, which the Server never served', () => {
+    expect((client() as unknown as Record<string, unknown>).getRateLimitExemption).toBeUndefined();
+    function client() {
+      return createMockClient().client.admin;
+    }
   });
 });
