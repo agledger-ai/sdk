@@ -157,39 +157,19 @@ function resolveAuthSource(options: AgledgerClientOptions): AuthSource {
   );
 }
 
-/**
- * Whether a 401 refused the bearer itself, as opposed to something else the
- * request carried. The Server answers 401 for an `AGLedger-On-Behalf-Of`
- * delegation token it cannot validate and for an `X-Agent-Signature` that
- * does not verify; a new cert changes neither, so those surface as is.
- */
-function isBearerRejection(body: Record<string, unknown>): boolean {
-  const text = [body.message, body.detail]
-    .filter((v): v is string => typeof v === 'string')
-    .join(' ')
-    .toLowerCase();
-  return !(
-    text.includes('agledger-on-behalf-of') ||
-    text.includes('delegation token') ||
-    text.includes('x-agent-signature')
-  );
+/** Release a response body the client will not read, so the connection can be reused. */
+async function discardBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Nothing to release.
+  }
 }
 
 /** An error response's JSON body, or the status line when it has none. */
 async function readErrorBody(response: Response): Promise<Record<string, unknown>> {
   try {
     const parsed = (await response.json()) as unknown;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
-  } catch {
-    // Not JSON.
-  }
-  return { error: 'unknown', message: response.statusText || `HTTP ${response.status}` };
-}
-
-/** Parse an error body as JSON, falling back to the status line. */
-function errorBodyFrom(text: string, response: Response): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(text) as unknown;
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
   } catch {
     // Not JSON.
@@ -371,9 +351,7 @@ export class HttpClient {
 
         if (response.ok) return bytes;
 
-        const reauthBody =
-          response.status === 401 ? errorBodyFrom(new TextDecoder().decode(bytes), response) : {};
-        if (this.shouldReauthenticate(response.status, reauthBody, auth, authState)) {
+        if (await this.shouldReauthenticate(response.status, auth, authState)) {
           attempt--;
           skipBackoff = true;
           continue;
@@ -538,7 +516,7 @@ export class HttpClient {
 
         if (!response.ok) {
           const errorBody = await readErrorBody(response);
-          if (this.shouldReauthenticate(response.status, errorBody, auth, authState)) {
+          if (await this.shouldReauthenticate(response.status, auth, authState)) {
             attempt--;
             skipBackoff = true;
             continue;
@@ -618,18 +596,47 @@ export class HttpClient {
    * Whether a 401 on this attempt earns the one forced refresh and retry: only
    * a credential's bearer, and only once per request.
    */
-  private shouldReauthenticate(
+  private async shouldReauthenticate(
     status: number,
-    body: Record<string, unknown>,
     auth: ResolvedAuth,
     state: AuthRetryState,
-  ): boolean {
+  ): Promise<boolean> {
     if (status !== 401 || !auth.credential || state.reauthenticated) return false;
-    if (!isBearerRejection(body)) return false;
+    // Spent here, not on the retry: the probe below runs at most once a request.
     state.reauthenticated = true;
+    if (await this.bearerStillAccepted(auth.token)) return false;
     state.forceRefresh = true;
     state.rejectedToken = auth.token;
     return true;
+  }
+
+  /**
+   * Whether the Server still accepts the bearer a request was just refused
+   * with. A 401 is not always about the credential: the Server also answers
+   * 401 for an `AGLedger-On-Behalf-Of` token that does not validate and for an
+   * `X-Agent-Signature` that does not verify, and a new cert fixes neither.
+   * One `GET /v1/auth/me` with the same bearer tells them apart; when it
+   * succeeds, the 401 surfaces as the Server sent it. Any other answer, or no
+   * answer, reads as the bearer refused.
+   */
+  private async bearerStillAccepted(token: string | undefined): Promise<boolean> {
+    if (!token) return false;
+    try {
+      const probe = await this.fetchFn(this.buildUrl('/v1/auth/me'), {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': `agledger-node/${SDK_VERSION}`,
+          'X-SDK-Version': SDK_VERSION,
+          Authorization: `Bearer ${token}`,
+        },
+        signal: AbortSignal.timeout(this.timeout),
+      });
+      await discardBody(probe);
+      return probe.ok;
+    } catch {
+      return false;
+    }
   }
 
   /** Signature headers over the exact body bytes, when the credential signs. */
@@ -746,7 +753,7 @@ export class HttpClient {
         }
 
         const errorBody = await readErrorBody(response);
-        if (this.shouldReauthenticate(response.status, errorBody, auth, authState)) {
+        if (await this.shouldReauthenticate(response.status, auth, authState)) {
           attempt--;
           skipBackoff = true;
           continue;
