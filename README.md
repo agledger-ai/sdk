@@ -1,8 +1,8 @@
 # @agledger/sdk
 
-The official TypeScript SDK for [AGLedger](https://agledger.ai): change control for AI agents. A self-hosted notary that records every change an agent makes, signed and hash-chained, and gates the ones that matter.
+The official TypeScript SDK for [AGLedger](https://agledger.ai): change control for AI agents. Agent memory, approvals, audit trail, and notifications: one API, one signed ledger, self-hosted.
 
-Two runtime dependencies, each used only by an opt-in entry point: `cborg` (COSE_Sign1 decoding in `@agledger/sdk/verify`) and `http-message-signatures` (RFC 9421 ed25519 webhook verification in `@agledger/sdk/webhooks`). The core client has none beyond `fetch`. TypeScript strict. Requires Node.js 24+ (also runs on Deno and Bun).
+Two runtime dependencies, each used only by an opt-in entry point: `@agledger/verify-core` (offline chain verification in `@agledger/sdk/verify`, and the signature primitives behind `@agledger/sdk/webhooks`) and `http-message-signatures` (RFC 9421 webhook verification in `@agledger/sdk/webhooks`). The core client uses `fetch` and `node:crypto`, nothing else. TypeScript strict. Requires Node.js 24+ (also runs on Deno and Bun).
 
 **Learn more**
 
@@ -93,7 +93,8 @@ console.log(record.signedStatement?.chainPosition, record.signedStatement?.leafH
 
 ```typescript
 const client = new AgledgerClient({
-  // Required
+  // A credential is required: an API key, or `bearerToken` (see
+  // "OIDC workload identity" below). Pass exactly one.
   apiKey: 'your_api_key',
 
   // Your AGLedger instance URL. Required: every deployment is self-hosted, so
@@ -116,10 +117,85 @@ export AGLEDGER_API_KEY=agl_agt_...
 export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
 ```
 
+## OIDC workload identity
+
+An agent can authenticate with a token from your own identity provider instead
+of a long-lived API key. Your operator registers the IdP once as a trusted
+issuer (`client.admin.trustedIssuers.create()`, platform key); from then on the
+agent exchanges an OIDC token for a short-lived AGLedger cert and presents the
+cert on every request. `oidcCertCredential` does the exchange, refreshes the
+cert before it expires, and re-exchanges once if a request is refused with 401:
+
+```typescript
+import { AgledgerClient, oidcCertCredential } from '@agledger/sdk';
+
+const client = new AgledgerClient({
+  baseUrl: process.env.AGLEDGER_EXTERNAL_URL!,
+  bearerToken: oidcCertCredential({
+    // Called on every exchange, and must return a fresh token each time: the
+    // Server accepts each token id once. Here, your IdP's token endpoint.
+    getOidcToken: async () => (await fetch(process.env.OIDC_TOKEN_URL!)).text(),
+  }),
+});
+
+const me = await client.auth.getMe();
+console.log(me.authType, me.cert?.expiresAt); // 'ephemeral_cert', the cert's expiry
+
+// Record writes are signed by the key the cert is bound to, and the Server
+// seals that signature into the chain entry.
+const record = await client.records.create({
+  type: 'notarize-generic-v1',
+  criteria: { summary: 'Rotated the staging database credentials' },
+});
+console.log(record.signedStatement?.chainPosition);
+```
+
+`getOidcToken` must return a new token (a new `jti`) on every call: the
+Server exchanges each token id once and refuses a repeat with 409. A source
+that cannot mint on demand, such as a projected Kubernetes service-account
+token read with `readFile(tokenPath, 'utf8')`, changes only when the kubelet
+rotates it. When such a source hands back the token it already exchanged, the
+credential keeps the current cert while that cert is valid and asks again
+shortly after. Once the cert has expired, or a request made with it was
+refused, a repeated token throws `OidcExchangeError` (409) saying so.
+
+The credential generates one Ed25519 key pair in memory and never writes it
+anywhere. Each exchange proves possession of that key, so the cert is bound to
+this process. Pass `agentId` to bind the cert to a specific agent, and
+`refreshFraction` (default `0.5`) to change how far into the cert's lifetime it
+re-exchanges. Concurrent requests share one exchange. Because the credential
+holds the cert's key, it signs every request body (`X-Agent-Signature` over the
+SHA-256 of the exact bytes sent); the Server records that signature in the
+chain entry for record create, transition and verdict, completion submit, and
+A2A. A refused exchange throws `OidcExchangeError` carrying the Server's
+`recoveryHint`, with the OIDC token scrubbed from anything that echoed it.
+
+`bearerToken` also takes a plain string or a function. A function is called
+before every request, retries included, and its result is sent as the bearer;
+the client caches nothing. Use that form to send an admin OIDC token from your
+IdP directly:
+
+```typescript
+import { AgledgerClient } from '@agledger/sdk';
+
+const admin = new AgledgerClient({
+  baseUrl: process.env.AGLEDGER_EXTERNAL_URL!,
+  // Called before every request; the client caches nothing.
+  bearerToken: async () => (await fetch(process.env.ADMIN_OIDC_TOKEN_URL!)).text(),
+});
+console.log((await admin.auth.getMe()).authType); // 'oidc'
+```
+
+If the operator turned on `jtiSingleUse` for that trusted issuer, the Server
+accepts each admin token once per `jti`, so the function must mint a new token
+on every call instead of returning a cached one. A token without a `jti` stays
+reusable either way.
+
 ## Features
 
 - **Stripe-style client** with resource sub-clients (`client.records`, `client.completions`, etc.)
 - **Automatic retries** with exponential backoff + jitter for 429/5xx errors
+- **API keys or OIDC workload identity**: `oidcCertCredential` exchanges your IdP's token for a short-lived cert, refreshes it, and signs request bodies
 - **Idempotency keys** auto-generated for all mutating requests, plus per-item `idempotencyKey` on bulk-create for replay-safe high-volume ingest
 - **Auto-pagination** via async iterators
 - **Webhook signature verification** (separate import to keep browser bundles lean)
@@ -259,7 +335,7 @@ try {
 }
 ```
 
-Error classes: `AuthenticationError`, `PermissionError`, `NotFoundError`, `ValidationError`, `UnprocessableError`, `RateLimitError`, `ConnectionError`, `TimeoutError`.
+Error classes: `AuthenticationError`, `PermissionError`, `NotFoundError`, `ValidationError`, `UnprocessableError`, `RateLimitError`, `ConnectionError`, `TimeoutError`, and `OidcExchangeError` for a refused OIDC cert exchange.
 
 ## Webhook Verification
 
@@ -392,7 +468,8 @@ settlement-signal, vault-checkpoint, schema-event, org-read,
 counter-attestation, federation-projection):
 
 ```typescript
-const kinds = await client.predicates.list();
+const { data: kinds } = await client.predicates.list();
+// The JSON Schema document itself ($schema, $id, properties, ...).
 const schema = await client.predicates.get('settlement-signal');
 ```
 
@@ -439,9 +516,7 @@ API documentation is available at your instance's `/docs` endpoint (Swagger UI).
 
 ## Licensing
 
-The database is the license line. AGLedger is **free with its bundled PostgreSQL** (Docker Compose or Helm), in production, with every feature and every topology, federation included. Connecting to an external or managed database (Aurora, RDS, Cloud SQL, self-managed) requires a perpetual Enterprise license, priced per external database instance, plus an annual subscription for Enterprise-grade support. The license is perpetual: production never stops due to licensing.
-
-Full details: [agledger.ai/pricing](https://agledger.ai/pricing) | [License Agreement](https://agledger.ai/license)
+Running AGLedger in production requires a license. The Developer Edition license is free; see https://agledger.ai/license and https://agledger.ai/pricing.
 
 ## SDK License
 
