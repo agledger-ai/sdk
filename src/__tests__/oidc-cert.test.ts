@@ -200,7 +200,8 @@ describe('oidcCertCredential', () => {
     const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
     await expect(c.auth.getMe()).resolves.toEqual({ ok: true });
     expect(server.exchanges).toHaveLength(2);
-    expect(server.requests.map((r) => r.bearer)).toEqual(['cert-1', 'cert-2']);
+    // The refused request, the probe that confirms the cert is refused, the retry.
+    expect(server.requests.map((r) => r.bearer)).toEqual(['cert-1', 'cert-1', 'cert-2']);
   });
 
   it('surfaces a second 401 as the authentication error, after exactly one re-exchange', async () => {
@@ -210,7 +211,8 @@ describe('oidcCertCredential', () => {
     expect(err).toBeInstanceOf(AuthenticationError);
     expect(err).not.toBeInstanceOf(OidcExchangeError);
     expect(server.exchanges).toHaveLength(2);
-    expect(server.requests).toHaveLength(2);
+    // Request, probe, retry: the second 401 is not probed again.
+    expect(server.requests).toHaveLength(3);
   });
 
   it('shares one exchange across concurrent requests', async () => {
@@ -253,7 +255,7 @@ describe('oidcCertCredential', () => {
     });
     const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
     await c.records.create({ type: 't', criteria: {} } as never);
-    const [first, second] = server.requests.map((r) => r.init);
+    const [first, second] = server.requests.filter((r) => r.url.endsWith('/v1/records')).map((r) => r.init);
     expect(second.body).toBe(first.body);
     expect((second.headers as Record<string, string>)['X-Agent-Signature']).toBe(
       (first.headers as Record<string, string>)['X-Agent-Signature'],
@@ -359,55 +361,77 @@ describe('oidcCertCredential', () => {
   });
 
   describe('a 401 the cert did not cause', () => {
-    // Bodies as a live 1.8.0 Server answers them.
+    // Bodies as a live 1.8.0 Server answers them. The route refuses; the cert
+    // is still good, so GET /v1/auth/me with it succeeds.
     const delegation401 = () =>
       json(401, {
-        type: '/problems/unauthorized', status: 401, error: 'UNAUTHORIZED',
-        detail: 'agledger-on-behalf-of token did not validate against any trusted_issuers row (applies_to in principal, any)',
+        error: 'UNAUTHORIZED',
         message: 'agledger-on-behalf-of token did not validate against any trusted_issuers row (applies_to in principal, any)',
-      });
-    const delegationReason401 = () =>
-      json(401, {
-        type: '/problems/unauthorized', status: 401, error: 'UNAUTHORIZED', reason: 'token_expired',
-        message: 'agledger-on-behalf-of: token expired. Register or fix the principal trusted issuer.',
       });
     const signature401 = () =>
       json(401, {
-        type: '/problems/unauthorized', status: 401, error: 'UNAUTHORIZED',
-        detail: 'X-Agent-Signature does not verify against the ephemeral cert public key over the request body hash',
+        error: 'UNAUTHORIZED',
         message: 'X-Agent-Signature does not verify against the ephemeral cert public key over the request body hash',
       });
+    // Wording the client has never seen: the probe, not the message, decides.
+    const unfamiliar401 = () => json(401, { error: 'UNAUTHORIZED', message: 'some future refusal' });
+    const probes = (server: ReturnType<typeof fakeServer>) =>
+      server.requests.filter((r) => r.url.endsWith('/v1/auth/me')).length;
 
-    for (const [label, respond] of [
+    for (const [label, refusal] of [
       ['an unvalidated delegation token', delegation401],
-      ['a delegation token rejected with a reason', delegationReason401],
       ['an agent signature that does not verify', signature401],
+      ['a refusal in wording it has never seen', unfamiliar401],
     ] as const) {
-      it(`surfaces ${label} as is, without re-exchanging`, async () => {
-        const server = fakeServer({ respond });
+      it(`surfaces ${label} as sent when the cert still authenticates`, async () => {
+        const server = fakeServer({
+          respond: ({ url }) => (url.endsWith('/v1/records') ? refusal() : json(200, { authType: 'ephemeral_cert' })),
+        });
         const getOidcToken = tokenSource();
         const c = client(server.fetch, oidcCertCredential({ getOidcToken }));
         const err = (await c.records
           .create({ type: 't', criteria: {} } as never, { onBehalfOf: 'delegation.jws' })
           .catch((e: unknown) => e)) as AuthenticationError;
         expect(err).toBeInstanceOf(AuthenticationError);
-        expect(err.message).toMatch(/agledger-on-behalf-of|X-Agent-Signature/);
+        expect(err.message).toBe(((await refusal().json()) as { message: string }).message);
         expect(server.exchanges).toHaveLength(1);
-        expect(server.requests).toHaveLength(1);
         expect(getOidcToken).toHaveBeenCalledTimes(1);
+        // The refused create, then one probe with the same cert.
+        expect(server.requests.map((r) => r.url.replace(BASE, ''))).toEqual(['/v1/records', '/v1/auth/me']);
+        expect(server.requests[1].bearer).toBe('cert-1');
       });
     }
 
-    it('still re-exchanges on a revoked cert', async () => {
+    it('re-exchanges when the probe says the cert itself is refused', async () => {
       const server = fakeServer({
         respond: ({ bearer }) =>
           bearer === 'cert-1'
             ? json(401, { error: 'UNAUTHORIZED', message: 'Ephemeral cert has been revoked; mint a fresh one to continue' })
-            : json(200, {}),
+            : json(201, { id: 'r' }),
       });
       const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
-      await c.auth.getMe();
+      await c.records.create({ type: 't', criteria: {} } as never);
       expect(server.exchanges).toHaveLength(2);
+      expect(probes(server)).toBe(1);
+      expect(server.requests.map((r) => r.bearer)).toEqual(['cert-1', 'cert-1', 'cert-2']);
+    });
+
+    it('probes at most once per request, however many 401s follow', async () => {
+      const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', message: 'no' }) });
+      const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
+      await expect(c.records.create({ type: 't', criteria: {} } as never)).rejects.toBeInstanceOf(AuthenticationError);
+      expect(probes(server)).toBe(1);
+      expect(server.exchanges).toHaveLength(2);
+    });
+
+    it('never probes on an API-key 401 or a function-bearer 401', async () => {
+      for (const auth of [{ apiKey: 'agl_agt_x' }, { bearerToken: () => 'admin-oidc' }]) {
+        const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', message: 'no' }) });
+        const c = new AgledgerClient({ baseUrl: BASE, fetch: server.fetch as never, maxRetries: 0, ...auth });
+        await expect(c.records.create({ type: 't', criteria: {} } as never)).rejects.toBeInstanceOf(AuthenticationError);
+        expect(probes(server)).toBe(0);
+        expect(server.requests).toHaveLength(1);
+      }
     });
   });
 
@@ -430,6 +454,28 @@ describe('oidcCertCredential', () => {
         await expect(c.auth.getMe()).rejects.toBeInstanceOf(OidcExchangeError);
       });
     }
+
+    it('waits max(1s, min(30s, remaining lifetime / 4)) before the next attempt, whatever the failure', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-09-18T00:00:00Z'));
+      const server = fakeServer({
+        lifetimeMs: 120_000,
+        exchange: (n) => (n === 2 ? json(503, { error: 'SERVICE_UNAVAILABLE' }) : undefined),
+      });
+      const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
+      await c.auth.getMe();
+      // Refresh point at 60s; it fails at 70s with 50s left, so the next try is 12.5s later.
+      vi.setSystemTime(new Date('2026-09-18T00:01:10Z'));
+      await c.auth.getMe();
+      expect(server.exchanges).toHaveLength(2);
+      vi.setSystemTime(new Date('2026-09-18T00:01:22Z'));
+      await c.auth.getMe();
+      expect(server.exchanges).toHaveLength(2);
+      vi.setSystemTime(new Date('2026-09-18T00:01:23Z'));
+      await c.auth.getMe();
+      expect(server.exchanges).toHaveLength(3);
+      expect(server.requests.at(-1)!.bearer).toBe('cert-3');
+    });
 
     it('keeps the still-valid cert when the token source itself fails', async () => {
       vi.useFakeTimers({ toFake: ['Date'] });

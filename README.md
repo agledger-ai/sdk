@@ -165,7 +165,10 @@ The credential generates one Ed25519 key pair in memory and never writes it
 anywhere. Each exchange proves possession of that key, so the cert is bound to
 this process. Pass `agentId` to bind the cert to a specific agent, and
 `refreshFraction` (default `0.5`) to change how far into the cert's lifetime it
-re-exchanges. Concurrent requests share one exchange. Because the credential
+re-exchanges. Concurrent requests share one exchange. A 401 is not always
+about the cert (the Server also refuses an `onBehalfOf` delegation token or a
+body signature with 401), so the client first checks the cert with one
+`GET /v1/auth/me`: if that succeeds, the original 401 surfaces as sent. Because the credential
 holds the cert's key, it signs every request body (`X-Agent-Signature` over the
 SHA-256 of the exact bytes sent); the Server records that signature in the
 chain entry for record create, transition and verdict, completion submit, and
