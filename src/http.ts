@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import type {
   AgledgerClientOptions,
+  BearerCredential,
   RequestOptions,
   RateLimitInfo,
   Page,
@@ -102,8 +103,77 @@ function appendQueryParam(search: URLSearchParams, key: string, value: unknown):
   search.set(key, String(value));
 }
 
+/** Where the Authorization header comes from. */
+type AuthSource =
+  | { kind: 'static'; token: string }
+  | { kind: 'function'; fn: () => string | Promise<string> }
+  | { kind: 'credential'; credential: BearerCredential };
+
+/** The bearer one attempt was sent with, and the credential that issued it. */
+interface ResolvedAuth {
+  header?: string;
+  token?: string;
+  credential?: BearerCredential;
+}
+
+/**
+ * Per-request auth state across attempts. A 401 on a credential's bearer
+ * earns exactly one forced refresh and one retry, which spends no retry
+ * budget and waits no backoff.
+ */
+interface AuthRetryState {
+  forceRefresh: boolean;
+  rejectedToken?: string;
+  reauthenticated: boolean;
+}
+
+function resolveAuthSource(options: AgledgerClientOptions): AuthSource {
+  const hasKey = options.apiKey !== undefined;
+  const hasBearer = options.bearerToken !== undefined;
+  if (hasKey === hasBearer) {
+    throw new ConfigurationError(
+      hasKey
+        ? 'Pass apiKey or bearerToken, not both.'
+        : 'A credential is required: pass apiKey (an agl_ key) or bearerToken (a string, a function returning one, or a credential such as oidcCertCredential()).',
+    );
+  }
+  if (hasKey) {
+    if (typeof options.apiKey !== 'string' || options.apiKey === '') {
+      throw new ConfigurationError('apiKey must be a non-empty string.');
+    }
+    return { kind: 'static', token: options.apiKey };
+  }
+  const bearer = options.bearerToken;
+  if (typeof bearer === 'string') {
+    if (bearer === '') throw new ConfigurationError('bearerToken must not be empty.');
+    return { kind: 'static', token: bearer };
+  }
+  if (typeof bearer === 'function') return { kind: 'function', fn: bearer };
+  if (bearer && typeof bearer === 'object' && typeof bearer.getToken === 'function') {
+    return { kind: 'credential', credential: bearer };
+  }
+  throw new ConfigurationError(
+    'bearerToken must be a string, a function returning one, or a credential with getToken().',
+  );
+}
+
+/** Release a response body the client will not read, so the connection can be reused. */
+async function discardBody(response: Response): Promise<void> {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Nothing to release.
+  }
+}
+
+/** Failures getting a token that a later attempt may not repeat. */
+function isRetryableAuthFailure(err: unknown): boolean {
+  if (err instanceof AgledgerApiError) return err.retryable;
+  return err instanceof ConnectionError;
+}
+
 export class HttpClient {
-  private readonly apiKey: string;
+  private readonly auth: AuthSource;
   private readonly baseUrl: string;
   private readonly maxRetries: number;
   private readonly timeout: number;
@@ -123,7 +193,6 @@ export class HttpClient {
   }
 
   constructor(options: AgledgerClientOptions) {
-    this.apiKey = options.apiKey;
     // No default base URL. Every AGLedger deployment is self-hosted, so there
     // is no server we could sensibly point at; the old placeholder
     // (agledger.example.com) resolved nowhere and turned a missing option into
@@ -140,6 +209,8 @@ export class HttpClient {
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.idempotencyKeyPrefix = options.idempotencyKeyPrefix ?? '';
+    // After baseUrl, so a client missing both reports the base URL first.
+    this.auth = resolveAuthSource(options);
   }
 
   get<T>(
@@ -215,11 +286,24 @@ export class HttpClient {
       method === 'POST'
         ? opts.idempotencyKey ?? `${this.idempotencyKeyPrefix}${crypto.randomUUID()}`
         : undefined;
+    const signature = await this.signatureHeaders(opts, opts.body);
+    const authState: AuthRetryState = { forceRefresh: false, reauthenticated: false };
     let lastError: Error | undefined;
+    let skipBackoff = false;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      if (attempt > 0) {
+      if (attempt > 0 && !skipBackoff) {
         await this.sleep(this.backoff(attempt, lastError));
+      }
+      skipBackoff = false;
+
+      let auth: ResolvedAuth;
+      try {
+        auth = await this.resolveAuth(opts, authState);
+      } catch (err) {
+        if (!isRetryableAuthFailure(err)) throw err;
+        lastError = err as Error;
+        continue;
       }
 
       const timeout = opts.timeout ?? this.timeout;
@@ -233,15 +317,10 @@ export class HttpClient {
         opts.signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
 
-      const headers: Record<string, string> = {
-        Accept: opts.accept ?? 'application/octet-stream',
-        'User-Agent': `agledger-node/${SDK_VERSION}`,
-        'X-SDK-Version': SDK_VERSION,
-      };
-      const auth = this.authHeader(opts);
-      if (auth) headers.Authorization = auth;
+      const headers = this.baseHeaders(opts.accept ?? 'application/octet-stream', auth, opts);
       if (opts.body) headers['Content-Type'] = opts.contentType ?? 'application/octet-stream';
       if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+      Object.assign(headers, signature);
       if (opts.headers) Object.assign(headers, opts.headers);
 
       try {
@@ -260,6 +339,12 @@ export class HttpClient {
         const bytes = new Uint8Array(arrayBuf);
 
         if (response.ok) return bytes;
+
+        if (this.shouldReauthenticate(response.status, auth, authState)) {
+          attempt--;
+          skipBackoff = true;
+          continue;
+        }
 
         const error = this.mapError(
           response.status,
@@ -374,11 +459,23 @@ export class HttpClient {
     options?: RequestOptions,
   ): Promise<{ data: T[]; cursor: string | null; holdbackSeconds: number | null }> {
     const url = this.buildUrl(path, params);
+    const authState: AuthRetryState = { forceRefresh: false, reauthenticated: false };
     let lastError: Error | undefined;
+    let skipBackoff = false;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      if (attempt > 0) {
+      if (attempt > 0 && !skipBackoff) {
         await this.sleep(this.backoff(attempt, lastError));
+      }
+      skipBackoff = false;
+
+      let auth: ResolvedAuth;
+      try {
+        auth = await this.resolveAuth(options, authState);
+      } catch (err) {
+        if (!isRetryableAuthFailure(err)) throw err;
+        lastError = err as Error;
+        continue;
       }
 
       const timeout = options?.timeout ?? this.timeout;
@@ -393,13 +490,7 @@ export class HttpClient {
         options.signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
 
-      const headers: Record<string, string> = {
-        Accept: 'application/x-ndjson',
-        'User-Agent': `agledger-node/${SDK_VERSION}`,
-        'X-SDK-Version': SDK_VERSION,
-      };
-      const auth = this.authHeader(options);
-      if (auth) headers.Authorization = auth;
+      const headers = this.baseHeaders('application/x-ndjson', auth, options);
       if (options?.headers) Object.assign(headers, options.headers);
 
       try {
@@ -413,6 +504,12 @@ export class HttpClient {
         this.parseRateLimitHeaders(response.headers);
 
         if (!response.ok) {
+          if (this.shouldReauthenticate(response.status, auth, authState)) {
+            await discardBody(response);
+            attempt--;
+            skipBackoff = true;
+            continue;
+          }
           let errorBody: Record<string, unknown>;
           try {
             errorBody = (await response.json()) as Record<string, unknown>;
@@ -463,11 +560,65 @@ export class HttpClient {
   }
 
 
-  /** Build Authorization header value based on options and default API key. */
-  private authHeader(options?: RequestOptions): string | undefined {
-    if (options?.authOverride === 'none') return undefined;
-    if (options?.authOverride) return `Bearer ${options.authOverride}`;
-    return `Bearer ${this.apiKey}`;
+  /**
+   * The bearer for one attempt. A per-request `authOverride` wins; otherwise
+   * the configured source is asked, which for a function or a credential
+   * means a call every attempt.
+   */
+  private async resolveAuth(options: RequestOptions | undefined, state: AuthRetryState): Promise<ResolvedAuth> {
+    if (options?.authOverride === 'none') return {};
+    if (options?.authOverride) return { header: `Bearer ${options.authOverride}` };
+    const source = this.auth;
+    if (source.kind === 'static') return { header: `Bearer ${source.token}` };
+    if (source.kind === 'function') {
+      const token = await source.fn();
+      if (typeof token !== 'string' || token === '') {
+        throw new ConfigurationError('The bearerToken function returned no token.');
+      }
+      return { header: `Bearer ${token}`, token };
+    }
+    const token = await source.credential.getToken({
+      baseUrl: this.baseUrl,
+      fetch: this.fetchFn,
+      forceRefresh: state.forceRefresh,
+      rejectedToken: state.rejectedToken,
+    });
+    state.forceRefresh = false;
+    return { header: `Bearer ${token}`, token, credential: source.credential };
+  }
+
+  /**
+   * Whether a 401 on this attempt earns the one forced refresh and retry: only
+   * a credential's bearer, and only once per request.
+   */
+  private shouldReauthenticate(status: number, auth: ResolvedAuth, state: AuthRetryState): boolean {
+    if (status !== 401 || !auth.credential || state.reauthenticated) return false;
+    state.reauthenticated = true;
+    state.forceRefresh = true;
+    state.rejectedToken = auth.token;
+    return true;
+  }
+
+  /** Signature headers over the exact body bytes, when the credential signs. */
+  private async signatureHeaders(
+    options: RequestOptions | undefined,
+    body: Uint8Array | undefined,
+  ): Promise<Record<string, string>> {
+    if (!body || body.length === 0 || options?.authOverride) return {};
+    if (this.auth.kind !== 'credential' || !this.auth.credential.signBody) return {};
+    return this.auth.credential.signBody(body);
+  }
+
+  /** Headers every request carries, before per-request overrides. */
+  private baseHeaders(accept: string, auth: ResolvedAuth, options: RequestOptions | undefined): Record<string, string> {
+    const headers: Record<string, string> = {
+      Accept: accept,
+      'User-Agent': `agledger-node/${SDK_VERSION}`,
+      'X-SDK-Version': SDK_VERSION,
+    };
+    if (auth.header) headers.Authorization = auth.header;
+    if (options?.onBehalfOf) headers['AGLedger-On-Behalf-Of'] = options.onBehalfOf;
+    return headers;
   }
 
   private buildUrl(path: string, params?: Record<string, unknown>): string {
@@ -496,11 +647,30 @@ export class HttpClient {
         ? `${this.idempotencyKeyPrefix}${crypto.randomUUID()}`
         : undefined);
 
+    // Serialize once: a body signature covers these exact bytes, so every
+    // attempt sends the same string.
+    const payload = body !== undefined ? JSON.stringify(body) : undefined;
+    const signature = await this.signatureHeaders(
+      options,
+      payload !== undefined ? new TextEncoder().encode(payload) : undefined,
+    );
+    const authState: AuthRetryState = { forceRefresh: false, reauthenticated: false };
     let lastError: Error | undefined;
+    let skipBackoff = false;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      if (attempt > 0) {
+      if (attempt > 0 && !skipBackoff) {
         await this.sleep(this.backoff(attempt, lastError));
+      }
+      skipBackoff = false;
+
+      let auth: ResolvedAuth;
+      try {
+        auth = await this.resolveAuth(options, authState);
+      } catch (err) {
+        if (!isRetryableAuthFailure(err)) throw err;
+        lastError = err as Error;
+        continue;
       }
 
       const timeout = options?.timeout ?? this.timeout;
@@ -515,22 +685,17 @@ export class HttpClient {
         options.signal.addEventListener('abort', () => controller.abort(), { once: true });
       }
 
-      const headers: Record<string, string> = {
-        Accept: 'application/json',
-        'User-Agent': `agledger-node/${SDK_VERSION}`,
-        'X-SDK-Version': SDK_VERSION,
-      };
-      const auth = this.authHeader(options);
-      if (auth) headers.Authorization = auth;
-      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      const headers = this.baseHeaders('application/json', auth, options);
+      if (payload !== undefined) headers['Content-Type'] = 'application/json';
       if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+      Object.assign(headers, signature);
       if (options?.headers) Object.assign(headers, options.headers);
 
       try {
         const response = await this.fetchFn(url, {
           method,
           headers,
-          body: body !== undefined ? JSON.stringify(body) : undefined,
+          body: payload,
           signal: controller.signal,
         });
 
@@ -545,6 +710,13 @@ export class HttpClient {
 
         if (response.ok) {
           return (await response.json()) as T;
+        }
+
+        if (this.shouldReauthenticate(response.status, auth, authState)) {
+          await discardBody(response);
+          attempt--;
+          skipBackoff = true;
+          continue;
         }
 
         // Parse error body
