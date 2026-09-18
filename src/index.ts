@@ -163,12 +163,13 @@ export type {
   // Audit Export (per-Record)
   AuditExportEntry,
   AuditChainFailure,
+  AuditChainFailureCode,
   AuditChainIntegrityDetail,
   AuditChainIntegrityReason,
+  AuditChainIntegrityReasonCode,
   AuditSignatureCoverage,
   BackfillImportedRecord,
   FederationSchemaRef,
-  AuditActor,
   RecordAuditExport,
 
   // Audit Stream (SIEM) & Vault
@@ -212,11 +213,31 @@ export type {
   ConformanceResponse,
   ScopeProfileInfo,
   RecordLifecycleInfo,
+  LifecycleState,
 
   // Admin
   AdminOrg,
   AdminAgent,
   AdminApiKey,
+  AdminListAgentsParams,
+  AdminListOrgsParams,
+  AdminRecordSummary,
+  AdminWebhookDlqEntry,
+  AgentCapabilities,
+  BulkRevokeApiKeysParams,
+  BulkRevokeApiKeysResult,
+  CreateAgentResult,
+  DlqRetryAllResult,
+  DlqRetryResult,
+  FleetCapabilitiesParams,
+  FleetCapabilityEntry,
+  ReloadLicenseParams,
+  SupportBundleUploadResult,
+  UpdateApiKeyResult,
+  LicenseNotice,
+  LicenseNoticeKind,
+  LicenseValidity,
+  SchemaQuickStart,
   CreateOrgParams,
   CreateAgentParams,
   OrgConfig,
@@ -315,7 +336,10 @@ export type {
   // References
   EntityReference,
   EntityReferenceInput,
-  ReferenceLookupResult,
+  ReferenceLookupMatch,
+  ReferenceLookupParams,
+  EntityReferencesResult,
+  RecordGraph,
 
   // Admin: Vault
   VaultSigningKey,

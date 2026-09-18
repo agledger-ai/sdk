@@ -53,7 +53,7 @@ export class FederationAdminResource {
   deletePeer(
     peerHubId: string,
     options?: RequestOptions,
-  ): Promise<{ deleted: boolean }> {
+  ): Promise<{ deleted: true; peerHubId: string; nextSteps?: NextStep[] }> {
     return this.http.delete(`/federation/v1/admin/peers/${peerHubId}`, undefined, options);
   }
 
@@ -65,16 +65,30 @@ export class FederationAdminResource {
     return this.http.getPage<FederationDlqEntry>('/federation/v1/admin/dlq', params as Record<string, unknown>, options);
   }
 
-  /** Recover stuck or failed outbound federation jobs. */
+  /**
+   * Recover stuck or failed outbound federation jobs. `{ dryRun: true }`
+   * reports what would be recovered and changes nothing.
+   */
   recoverDlq(
-    params: Record<string, unknown> = {},
+    params: { limit?: number; dryRun?: boolean } = {},
     options?: RequestOptions,
-  ): Promise<{ recovered: number }> {
+  ): Promise<{ recovered: number; inspected: number; dryRun: boolean; nextSteps?: NextStep[] }> {
     return this.http.post('/federation/v1/admin/dlq/recover', params, options);
   }
 
-  /** This instance's federation identity: hub id, both federation public keys, and whether it can complete a handshake at all. */
-  getInstance(options?: RequestOptions): Promise<Record<string, unknown>> {
+  /**
+   * This instance's federation identity: the hub id a peer must be given, the
+   * handshake signing key, and whether it can complete a handshake at all.
+   * `instanceId` is null and `configured` false until the Server has both a
+   * UUID hub id and a signing key; `nextSteps` names what is missing.
+   */
+  getInstance(options?: RequestOptions): Promise<{
+    instanceId: string | null;
+    configured: boolean;
+    /** SPKI-DER, base64. The peer verifies this Server's signed messages against it. */
+    signingPublicKey?: string | null;
+    nextSteps: NextStep[];
+  }> {
     return this.http.get('/federation/v1/admin/instance', undefined, options);
   }
 }

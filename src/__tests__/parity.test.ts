@@ -317,3 +317,46 @@ describe('SDK resource files reach only v0.21-shaped routes', () => {
     });
   }
 });
+
+describe('every route the SDK calls is in the spec', () => {
+  // The critical-routes list above only checks the routes someone thought to
+  // list. `admin.getRateLimitExemption()` called GET
+  // /v1/admin/rate-limit-exemptions/{ownerId}, which the Server never
+  // registered, and nothing noticed because no list named it. This reads the
+  // call sites instead, so a method that reaches a route the spec does not
+  // have fails here.
+  const VERB = /this\.http\.(get|getPage|paginate|getPageWithEnvelope|getNdjson|post|put|patch|delete)(?:<[^>(]*(?:<[^>]*>[^>(]*)*>)?\(\s*(['"`])([^'"`]+)\2/g;
+  const BINARY = /this\.http\.requestBinary\(\s*'(GET|POST)'\s*,\s*(['"`])([^'"`]+)\2/g;
+  const METHOD: Record<string, string> = {
+    get: 'GET', getPage: 'GET', paginate: 'GET', getPageWithEnvelope: 'GET', getNdjson: 'GET',
+    post: 'POST', put: 'PUT', patch: 'PATCH', delete: 'DELETE',
+  };
+  // Reached on purpose although the published spec omits it: dev/test org
+  // bootstrap (see the note on the critical-routes list).
+  const OFF_SPEC = new Set(['POST /v1/admin/orgs']);
+
+  const shape = (p: string) => p.split('?')[0].replace(/\$\{[^}]+\}/g, '{}').replace(/\{[^}]+\}/g, '{}');
+  const known = new Set(manifest.routes.map((r) => `${r.method} ${shape(r.path)}`));
+
+  const resourcesDir = resolve(__dirname, '..', 'resources');
+  const calls: string[] = [];
+  for (const file of readdirSync(resourcesDir).filter((f) => f.endsWith('.ts'))) {
+    const src = readFileSync(join(resourcesDir, file), 'utf8');
+    for (const m of src.matchAll(VERB)) calls.push(`${METHOD[m[1]]} ${m[3]}`);
+    for (const m of src.matchAll(BINARY)) calls.push(`${m[1]} ${m[3]}`);
+  }
+
+  it('finds the call sites, so an extraction slip cannot pass vacuously', () => {
+    expect(calls.length).toBeGreaterThan(150);
+  });
+
+  it('resolves each call to a route in routes.json', () => {
+    const missing = [...new Set(calls)]
+      .filter((c) => {
+        const [method, path] = c.split(' ');
+        return !OFF_SPEC.has(c) && !known.has(`${method} ${shape(path)}`);
+      })
+      .sort();
+    expect(missing, `SDK calls routes the spec does not have:\n${missing.join('\n')}`).toEqual([]);
+  });
+});

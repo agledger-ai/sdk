@@ -6,6 +6,8 @@ import type {
   WebhookDelivery,
   WebhookTestResult,
   WebhookDlqEntry,
+  DlqRetryResult,
+  DlqRetryAllResult,
   Page,
   ListParams,
   ListWebhooksParams,
@@ -109,12 +111,12 @@ export class WebhooksResource {
   }
 
   /** Retry all dead-letter queue entries for a specific webhook. */
-  retryAllDlq(webhookId: string, options?: RequestOptions): Promise<{ retried: number }> {
-    return this.http.post(`/v1/webhooks/${webhookId}/dlq/retry-all`, undefined, options);
+  retryAllDlq(webhookId: string, options?: RequestOptions): Promise<DlqRetryAllResult> {
+    return this.http.post<DlqRetryAllResult>(`/v1/webhooks/${webhookId}/dlq/retry-all`, undefined, options);
   }
 
   /** Retry a single dead-letter queue entry for a specific webhook. */
-  retryDlq(webhookId: string, dlqId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.post(`/v1/webhooks/${webhookId}/dlq/${dlqId}/retry`, undefined, options);
+  retryDlq(webhookId: string, dlqId: string, options?: RequestOptions): Promise<DlqRetryResult> {
+    return this.http.post<DlqRetryResult>(`/v1/webhooks/${webhookId}/dlq/${dlqId}/retry`, undefined, options);
   }
 }

@@ -302,4 +302,27 @@ describe('SDK integration: response shape validation', async () => {
     expect(row.publisher).toBeTruthy();
     expect(row.schemaUrl).toContain('publisher=');
   });
+
+  // Through 1.11.0 `AdminApiKey` declared `id`, `environment`, `rateLimitTier`,
+  // `prefix` and `scopeProfile`, none of which the listing has ever carried:
+  // the key's id is `keyId`. Mocks agreed with the invented shape.
+  it('admin.listApiKeys() rows carry keyId and the revocation fields, nothing invented', async () => {
+    const me = await client.auth.getMe();
+    const page = await client.admin.listApiKeys({ ownerId: me.ownerId, limit: 5 });
+    assertPage(page, 'admin.listApiKeys');
+    const row = page.data[0];
+    expect(row).toBeDefined();
+    expect(typeof row!.keyId).toBe('string');
+    for (const phantom of ['id', 'environment', 'rateLimitTier', 'prefix', 'scopeProfile']) {
+      expect(row, phantom).not.toHaveProperty(phantom);
+    }
+    expect(row).toHaveProperty('revokedAt');
+    expect(row).toHaveProperty('rotatedFromKeyId');
+  });
+
+  it('discovery.getConformance() reports license state without a platform key', async () => {
+    const conformance = await client.discovery.getConformance();
+    expect(typeof conformance.license?.validity).toBe('string');
+    expect(typeof conformance.license?.escalated).toBe('boolean');
+  });
 });

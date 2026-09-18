@@ -170,6 +170,8 @@ export interface BulkCreateResult {
     status: 'created' | 'replayed' | 'error';
     data?: RecordRow;
     error?: string;
+    /** Error class of a `status: 'error'` item, e.g. `ValidationError`. */
+    errorCode?: string;
     /**
      * RFC 9457 problem URI when the failure carries a narrower one than its
      * class, e.g. `/problems/ambiguous-publisher`. Branch on this rather than
@@ -195,6 +197,8 @@ export interface BulkCreateResult {
     total: number;
     succeeded: number;
     failed: number;
+    /** Items answered as `replayed` (also counted in `succeeded`). */
+    replayed?: number;
   };
 }
 
@@ -316,16 +320,23 @@ export interface TypeSchema {
   recordSchema: Record<string, unknown>;
   completionSchema: Record<string, unknown>;
   rulesConfig?: SchemaRulesConfig;
-  quickStart?: {
-    /** Minimal valid criteria example, synthesized from the record schema. Copy and modify. */
-    criteria: Record<string, unknown>;
-    /** Minimal valid completion evidence. `null` on notarize-only Types: no completion phase, so there is no `/completions` call to make. */
-    evidence: Record<string, unknown> | null;
-    /** One entry per registered fieldMapping, keyed by its `toleranceField`. `null` when the type registers none. */
-    tolerance?: Record<string, unknown> | null;
-    /** Present only when the type declares a `defaultGateMode`. Include it in the `POST /v1/records` payload. */
-    gateMode?: GateMode;
-  } | null;
+  quickStart?: SchemaQuickStart | null;
+}
+
+/** Copy-pasteable example payloads for a contract type. */
+export interface SchemaQuickStart {
+  /** Minimal valid criteria example, synthesized from the record schema. Copy and modify. */
+  criteria: Record<string, unknown>;
+  /** Minimal valid completion evidence. `null` on notarize-only Types: no completion phase, so there is no `/completions` call to make. */
+  evidence: Record<string, unknown> | null;
+  /**
+   * One entry per registered fieldMapping, keyed by its `toleranceField` (or
+   * its `ruleId`). Keys ending in `Pct`/`_pct` are percentages. `null` when
+   * the type registers none.
+   */
+  tolerance?: Record<string, number> | null;
+  /** Present only when the type declares a `defaultGateMode`. Include it in the `POST /v1/records` payload. */
+  gateMode?: GateMode;
 }
 
 export interface SchemaValidationResult {
@@ -388,18 +399,32 @@ export interface MetaSchema {
     rootTypeMustBe: string;
     rootMustHaveRequired: boolean;
     blockedKeywords: string[];
+    /** JSON Schema applicators the validator supports. */
+    supportedApplicators?: string[];
+    /** True when `$id` is refused inside a registered schema. */
+    noIdAllowed?: boolean;
     [key: string]: unknown;
   };
   allowedFormats: string[];
   allowedRefs: string[];
   limits: {
-    typeMaxLength: number;
+    contractTypeMaxLength: number;
     maxFieldMappings: number;
     ruleIdPattern: string;
     ruleIdMaxLength: number;
     reservedPrefixes: string[];
   };
   fieldMappingValueTypes: string[];
+  /** Per valueType: the evidence shape it expects and how it compares. */
+  fieldMappingValueTypeSpec?: Record<string, { evidenceShape: string; comparator: string }>;
+  /** Variable roots available inside an expression field mapping, with what each holds. */
+  expressionBindings?: Record<string, string>;
+  /** An expression must evaluate to true or false; any other result is refused. */
+  expressionMustReturnBoolean?: boolean;
+  /** Verbs a `<valueType>:<verb>` ruleId may use, keyed by valueType. */
+  verbVocabulary?: Record<string, Record<string, string>>;
+  /** Default verb per valueType for a free-form ruleId. */
+  verbVocabularyDefaults?: Record<string, string>;
   builtinRuleIds: string[];
   /**
    * Helper functions callable inside an expression, keyed by name.
@@ -420,6 +445,7 @@ export interface MetaSchema {
   examples: {
     minimalRecord: Record<string, unknown>;
     minimalCompletion: Record<string, unknown>;
+    conditionalCompletion?: Record<string, unknown>;
   };
 }
 
@@ -733,10 +759,7 @@ export interface SchemaVersionDetail {
   flipRecordStatusOnDispute?: boolean;
   federateDisputes?: boolean;
   rulesConfig?: SchemaRulesConfig;
-  quickStart?: {
-    criteria: Record<string, unknown>;
-    evidence: Record<string, unknown>;
-  } | null;
+  quickStart?: SchemaQuickStart | null;
   /** Present on `getVersion()` reads only. */
   recordSchema?: Record<string, unknown>;
   /** Present on `getVersion()` reads only. */
@@ -1511,6 +1534,11 @@ export interface DelegateRecordParams {
 /** Result of a batch Record fetch. */
 export interface BatchGetRecordsResult {
   data: RecordRow[];
+  /**
+   * Requested ids that returned no Record: either it does not exist or the
+   * caller cannot see it. The two are not distinguished.
+   */
+  notFound?: string[];
 }
 
 /** Per-item options for bulk-create. */
@@ -1550,8 +1578,19 @@ export interface Completion {
   structuralValidation: 'ACCEPTED' | 'INVALID' | 'WARNING' | (string & {});
   /** Schema validation errors, if any. */
   validationErrors?: string[] | null;
-  /** Validation warnings (non-blocking). */
-  warnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
+  /**
+   * Schema validation warnings, present when `structuralValidation` is
+   * `WARNING` (advisory mode): the errors that would have rejected the
+   * completion under enforced mode, in JSON Schema validator form. Persisted,
+   * so a later read answers the same list the submit did.
+   */
+  warnings?: Array<{
+    keyword?: string;
+    message?: string;
+    instancePath?: string;
+    params?: Record<string, unknown>;
+    [key: string]: unknown;
+  }> | null;
   /** Current status of the parent Record (denormalized). */
   recordStatus?: RecordStatus;
   /** Denormalized gate verdict on the parent Record: accept, reject, or null until the gate evaluates. */
@@ -1570,6 +1609,8 @@ export interface Completion {
   /** Idempotency key used when submitting. */
   idempotencyKey?: string | null;
   createdAt: string;
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
   /** Suggested next API calls after completion submission. */
   nextSteps?: NextStep[];
 }
@@ -1614,6 +1655,8 @@ export interface GateEvaluationResult {
     phase2Result?: Record<string, unknown> | null;
   }>;
   overallStatus: string;
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
   /** Suggested next API calls after evaluation. */
   nextSteps?: NextStep[];
 }
@@ -1657,6 +1700,8 @@ export interface GateStatus {
   gateMode?: 'auto' | 'principal';
   /** Who rendered the standing verdict, or null when none has been. */
   reporterType?: 'system' | 'principal' | 'accessor' | null;
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
 }
 
 
@@ -1777,6 +1822,8 @@ export interface DisputeEvidence {
 export interface DisputeResponse {
   dispute: Dispute;
   evidence: DisputeEvidence[];
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
   /** Suggested next API calls for this dispute. */
   nextSteps?: NextStep[];
 }
@@ -1935,6 +1982,13 @@ export interface Webhook {
   /** Last failed delivery timestamp (ISO 8601), or null if none. */
   lastFailureAt?: string | null;
   createdAt: string;
+  /**
+   * `provisioning` while a provisioning-directory declaration reconciles this
+   * subscription, null when the API owns it. Read it before a write: a managed
+   * subscription answers 409 `PROVISIONING_MANAGED` to delete, update and
+   * rotate. Pause and resume are accepted and hold across reloads.
+   */
+  managedBy?: 'provisioning' | null;
   /** Suggested next API calls for this webhook. */
   nextSteps?: NextStep[];
 }
@@ -2363,26 +2417,11 @@ export interface CreateComplianceRecordParams {
 }
 
 
-/**
- * Actor envelope embedded in canonical audit payloads, hash-chained into
- * the payload so callers can attribute each vault entry to a specific API
- * key / role / owner without trusting external metadata.
- */
-export interface AuditActor {
-  actor_key_id: string | null;
-  actor_role: ApiKeyRole | (string & {}) | null;
-  actor_owner_id: string | null;
-}
-
 export interface AuditExportEntry {
-  /** Per-record monotonic chain position (1-indexed). Canonical field on current exports. */
+  /** Per-record monotonic chain position (1-indexed). */
   chainPosition?: number;
-  /** @deprecated Legacy alias for `chainPosition` (pre-v0.25 exports). */
-  position?: number;
-  /** Canonical entry timestamp (engine v0.25+). */
+  /** When the entry was appended. */
   createdAt?: string;
-  /** @deprecated Pre-v0.25 alias for `createdAt`. */
-  timestamp?: string;
   recordId?: string;
   /** API-key id of the credential that performed this state-change. */
   actorId?: string | null;
@@ -2418,8 +2457,6 @@ export interface AuditExportEntry {
    */
   humanReadableLabel?: string;
   payload: Record<string, unknown>;
-  /** Actor envelope surfaced from canonical payload's `_actor` key. */
-  actor?: AuditActor;
   /**
    * Completion evidence body, present only when the export was fetched with
    * `?evidence=true` AND this is a COMPLETION_SUBMITTED entry.
@@ -2472,7 +2509,10 @@ export interface AuditSignatureCoverage {
  * The `cert_*` / `agent_signature_invalid` modes were added with OIDC
  * ephemeral-cert actor binding (API v0.25.x).
  */
-export type AuditChainIntegrityReason =
+export type AuditChainIntegrityReason = AuditChainIntegrityReasonCode | null;
+
+/** The non-null members of {@link AuditChainIntegrityReason}. */
+export type AuditChainIntegrityReasonCode =
   | 'chain_broken_at'
   /**
    * The record exists but its chain holds no entries. Every creation path
@@ -2488,6 +2528,12 @@ export type AuditChainIntegrityReason =
   | 'cert_actor_drift'
   | 'cert_expired'
   | 'cert_missing'
+  /**
+   * The cert row's `expires_at` is no longer the instant the entry sealed in
+   * `predicate.on_behalf_of.cert.expires_at` (API 1.8.0). The column is
+   * written once at issuance, so a divergence is an out-of-band edit.
+   */
+  | 'cert_window_drift'
   | 'agent_signature_invalid'
   // API v1.3.2: the vault fails closed on per-entry signature
   // verification. `signature_invalid` = a COSE_Sign1 signature did not verify
@@ -2503,11 +2549,13 @@ export type AuditChainIntegrityReason =
    * Not a tamper signal: the chain may be intact and simply need a newer
    * verifier. Check `minVerifierVersion` on the key in `/v1/verification-keys`.
    */
-  | 'unsupported_algorithm'
-  | null;
+  | 'unsupported_algorithm';
 
 /** Specific failure mode inside `chainIntegrityDetail`. */
-export type AuditChainFailure =
+export type AuditChainFailure = AuditChainFailureCode | null;
+
+/** The non-null members of {@link AuditChainFailure}. */
+export type AuditChainFailureCode =
   | 'previous_hash_mismatch'
   | 'payload_hash_mismatch'
   | 'checkpoint_anchor_mismatch'
@@ -2517,6 +2565,8 @@ export type AuditChainFailure =
   | 'cert_actor_drift'
   | 'cert_expired'
   | 'cert_missing'
+  /** See {@link AuditChainIntegrityReasonCode}. */
+  | 'cert_window_drift'
   | 'agent_signature_invalid'
   /**
    * Per-entry signature failures. These reached `chainIntegrityDetail.failure`
@@ -2527,8 +2577,7 @@ export type AuditChainFailure =
   | 'signature_invalid'
   | 'signing_key_unknown'
   | 'signing_key_drift'
-  | 'unsupported_algorithm'
-  | null;
+  | 'unsupported_algorithm';
 
 export interface AuditChainIntegrityDetail {
   brokenAtPosition: number | null;
@@ -2602,6 +2651,19 @@ export interface RecordAuditExport {
     signingKeyWindows?: Record<string, { activatedAt: string; retiredAt: string | null }>;
   };
   entries: AuditExportEntry[];
+  /** How to verify this export offline, step by step. */
+  verificationGuide?: {
+    summary: string;
+    steps: string[];
+    /** Fields in the export that no signature covers. */
+    unsignedFields: string[];
+    evidenceBinding: string;
+    embeddedKeysHint: string;
+    oobKeysHint: string;
+    offlineVerifier: string;
+  };
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
 }
 
 /**
@@ -2958,10 +3020,28 @@ export interface QueryAdminRecordsParams extends ListParams {
   status?: RecordStatusFilter;
   type?: string;
   agentId?: string;
-  sort?: string;
+  sort?: 'createdAt' | 'updatedAt';
   order?: 'asc' | 'desc';
   from?: string;
   to?: string;
+}
+
+/**
+ * One row of the platform-wide record listing (`GET /v1/admin/records`). A
+ * summary, not a full {@link RecordRow}: fetch the Record by id for the rest.
+ */
+export interface AdminRecordSummary {
+  id: string;
+  orgId: string;
+  /** Performer agent, or null on a Record with none. */
+  agentId: string | null;
+  principalAgentId: string;
+  type: string;
+  status: RecordStatus;
+  operatingMode?: OperatingMode;
+  gateMode?: GateMode;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 
@@ -3002,20 +3082,8 @@ export interface AccountProfile {
 
 
 export interface HealthResponse {
-  status: string;
+  status: 'ok' | (string & {});
   version?: string;
-  /**
-   * @deprecated `GET /health` declares only `status`, `version` and
-   * `timestamp`, and the Server strips anything its response schema does not
-   * declare, so this never arrives. Kept so callers compile. Process uptime is
-   * on {@link SystemHealth.uptime} (`GET /v1/admin/system-health`).
-   */
-  uptime?: number;
-  /**
-   * @deprecated Never served: see {@link HealthResponse.uptime}. Database state
-   * is {@link SystemHealth.database}, and it is an object, not a string.
-   */
-  database?: string;
   timestamp: string;
 }
 
@@ -3026,9 +3094,9 @@ export interface StatusComponent {
 }
 
 export interface StatusResponse {
-  status: 'operational' | 'degraded' | 'maintenance' | 'outage' | (string & {});
+  status: 'operational' | 'degraded' | 'outage' | (string & {});
   components: StatusComponent[];
-  activeIncidents: Array<Record<string, unknown>>;
+  /** Process uptime in seconds. */
   uptime: number;
   timestamp: string;
 }
@@ -3117,6 +3185,17 @@ export interface ConformanceResponse {
     searchCursorMaxLength?: number;
     [key: string]: number | undefined;
   };
+  /**
+   * License state of this install, readable without a platform key. Nothing is
+   * gated on it. `notice` names the state an operator has to act on, or is null
+   * on a valid in-scope license; the detail is on `GET /v1/admin/license`.
+   */
+  license?: {
+    validity: LicenseValidity;
+    notice: LicenseNoticeKind | null;
+    /** True once the install is past the escalation age. */
+    escalated: boolean;
+  };
   /** AGLedger API version. */
   version?: string;
 }
@@ -3162,7 +3241,51 @@ export interface AdminAgent {
    * and reactivate with 409: remove it from the YAML and reload instead.
    */
   managedBy?: 'provisioning' | null;
-  /** Suggested next API calls after agent creation. */
+}
+
+/** Result of `POST /v1/admin/agents`. */
+export interface CreateAgentResult {
+  id: string;
+  displayName?: string;
+  agentCardUrl?: string | null;
+  orgId?: string;
+  createdAt?: string;
+  nextSteps?: NextStep[];
+}
+
+/** Filters for `GET /v1/admin/orgs`. */
+export interface AdminListOrgsParams extends CursorListParams {
+  /** Case-insensitive substring match on the org name. */
+  search?: string;
+}
+
+/** Filters for `GET /v1/admin/agents`. */
+export interface AdminListAgentsParams extends CursorListParams {
+  /** Only agents in this org. */
+  orgId?: string;
+  /** Case-insensitive substring match on the display name. */
+  search?: string;
+}
+
+/** One row of `GET /v1/admin/agents/capabilities`. */
+export interface FleetCapabilityEntry {
+  agentId: string;
+  displayName?: string | null;
+  /** Contract types this agent has declared it can perform. */
+  contractTypes: string[];
+}
+
+/** Filter for {@link AdminResource.getFleetCapabilities}. */
+export interface FleetCapabilitiesParams {
+  /** Only agents that declared this contract type. */
+  type: string;
+}
+
+/** Result of `POST /v1/admin/support-bundle/upload`. */
+export interface SupportBundleUploadResult {
+  bundleId?: string;
+  receivedAt?: string;
+  sizeBytes?: number;
   nextSteps?: NextStep[];
 }
 
@@ -3374,35 +3497,66 @@ export interface ListApiKeysParams extends ListParams {
    * needs, since the cap bounds what is minted from then on, not what exists.
    */
   neverExpires?: boolean;
+  /**
+   * Cross-owner filter: keys whose last authenticated request landed strictly
+   * before this ISO-8601 timestamp. The dormancy queue. Keys that have never
+   * authenticated are NOT matched; ask for those with `neverUsed: true`.
+   * `lastUsedAt` moves on a key's next request, so read a page as a snapshot.
+   */
+  lastUsedBefore?: string;
+  /**
+   * Cross-owner filter: `true` returns only keys that have never authenticated
+   * a request, `false` only keys that have. Pair `true` with `createdBefore`,
+   * or it also returns every key minted a minute ago.
+   */
+  neverUsed?: boolean;
 }
 
+/**
+ * One row of `GET /v1/admin/api-keys`. The key's id is `keyId`: the row has
+ * no `id`, `scopeProfile`, `environment`, `rateLimitTier` or `prefix`, and the
+ * SDK declared all five through 1.11.0 while the Server never sent them.
+ */
 export interface AdminApiKey {
-  id: string;
+  keyId: string;
+  /** Org the key belongs to; null for a platform key. */
+  orgId?: string | null;
   /** API key role: admin, agent, or platform. */
   role?: ApiKeyRole | (string & {});
-  ownerId: string;
-  ownerType: KeyOwnerType;
-  /** Whether the key is active. */
-  isActive: boolean;
+  ownerId?: string;
+  ownerType?: KeyOwnerType | (string & {});
   /** Human-readable label. */
   label?: string | null;
-  /** API key scopes. Null = full access for the role. */
-  scopes?: string[] | null;
-  /** Scope profile name if created with a profile. */
-  scopeProfile?: string | null;
-  /** Environment: live or test. */
-  environment?: string;
-  /** Rate limit tier. */
-  rateLimitTier?: string;
-  /** Key prefix (agl_adm_, agl_agt_, agl_plt_). */
-  prefix?: string;
-  createdAt: string;
-  lastUsedAt?: string;
+  /** Whether the key is active. This is the flag authentication reads. */
+  isActive?: boolean;
+  createdAt?: string;
+  /** Null until the key authenticates a request. */
+  lastUsedAt?: string | null;
   expiresAt?: string | null;
+  /** Scheduled deactivation time (a graced rotation sets it). */
+  deactivatesAt?: string | null;
   /** Key that created this key. */
   createdByKeyId?: string | null;
-  /** Scheduled deactivation time. */
-  deactivatesAt?: string | null;
+  /** API key scopes. Null = full access for the role. */
+  scopes?: string[] | null;
+  /** Addresses and CIDR blocks this key may present from; null = any address. */
+  allowedIps?: string[] | null;
+  /**
+   * When the standing deactivation was decided; null while the key has never
+   * been deactivated or has been restored since. On a graced rotation this is
+   * the rotate instant and `deactivatesAt` is when the key stops working.
+   */
+  revokedAt?: string | null;
+  /** The key that decided the standing deactivation. */
+  revokedByKeyId?: string | null;
+  /**
+   * Why the standing deactivation happened: the caller's `reason`, or when it
+   * sent none, the path that did it (`admin_toggle`, `bulk_revoke`,
+   * `account_deactivated`, `provisioning_prune`, `rotated`).
+   */
+  revocationReason?: string | null;
+  /** On a key minted by `POST /v1/auth/keys/rotate`, the key it replaced. */
+  rotatedFromKeyId?: string | null;
 }
 
 export interface CreateApiKeyParams {
@@ -3419,15 +3573,13 @@ export interface CreateApiKeyParams {
   scopeProfile?: string;
   /** Optional expiration date (ISO 8601). */
   expiresAt?: string;
-  /** Environment: live or test. Default: live. */
-  environment?: 'live' | 'test';
-  /** IP allowlist. Null = any IP. */
+  /** IP allow-list: addresses or CIDR blocks. Omit for any address. */
   allowedIps?: string[];
 }
 
 /**
- * Parameters for PATCH /v1/admin/api-keys/{keyId}. Only status and scopes are
- * mutable; `label`, `expiresAt`, and `allowedIps` are settable only at create
+ * Parameters for PATCH /v1/admin/api-keys/{keyId}. Status, scopes and the IP
+ * allow-list are mutable; `label` and `expiresAt` are settable only at create
  * time (the API rejects them here: `additionalProperties: false`).
  */
 export interface UpdateApiKeyParams {
@@ -3436,6 +3588,60 @@ export interface UpdateApiKeyParams {
   reason?: string;
   scopes?: string[] | null;
   scopeProfile?: string | null;
+  /**
+   * Replaces the key's IP allow-list outright: addresses or CIDR blocks, IPv4
+   * or IPv6 (`203.0.113.7`, `10.0.0.0/8`, `2001:db8::/32`). `null` or `[]`
+   * removes the restriction; omit to leave it unchanged. Putting your own key
+   * outside the list is refused with 403 `SELF_IP_LOCKOUT`.
+   */
+  allowedIps?: string[] | null;
+}
+
+/** Result of `PATCH /v1/admin/api-keys/{keyId}`. */
+export interface UpdateApiKeyResult {
+  id?: string;
+  isActive?: boolean;
+  scopes?: string[] | null;
+  scopeProfile?: string | null;
+  allowedIps?: string[] | null;
+  nextSteps?: NextStep[];
+}
+
+/**
+ * Filters for `POST /v1/admin/api-keys/bulk-revoke`. At least one is required
+ * and they AND together. For an admin key the caller's org is ANDed in too.
+ */
+export interface BulkRevokeApiKeysParams {
+  /** Specific key ids (max 100). */
+  keyIds?: string[];
+  ownerId?: string;
+  role?: ApiKeyRole;
+  /** Keys created strictly before this ISO-8601 timestamp. */
+  createdBefore?: string;
+  /**
+   * Keys whose last authenticated request landed strictly before this
+   * ISO-8601 timestamp. Keys that never authenticated are `neverUsed`.
+   */
+  lastUsedBefore?: string;
+  /**
+   * `true` revokes keys that never authenticated and requires `createdBefore`
+   * beside it (sent alone it is refused with 400). `false` is the complement.
+   */
+  neverUsed?: boolean;
+  /** Reason for revocation, recorded on each key as `revocationReason`. */
+  reason?: string;
+}
+
+/**
+ * Result of a bulk revoke. The request is refused rather than narrowed, so a
+ * result here revoked everything it matched.
+ */
+export interface BulkRevokeApiKeysResult {
+  revoked: number;
+  alreadyInactive: number;
+  /** Requested ids that matched nothing the caller can reach. */
+  notFound: string[];
+  nextSteps: NextStep[];
 }
 
 /** Result of creating an API key via the admin endpoint. */
@@ -3443,8 +3649,14 @@ export interface CreateApiKeyResult {
   /** The raw key string: show once, then discard. Prefix matches role (agl_adm_, agl_agt_, agl_plt_). */
   apiKey: string;
   keyId: string;
+  role?: ApiKeyRole | (string & {});
+  ownerId?: string;
+  label?: string | null;
+  expiresAt?: string | null;
   scopes: string[] | null;
   scopeProfile: string | null;
+  allowedIps?: string[] | null;
+  nextSteps?: NextStep[];
 }
 
 /**
@@ -3472,16 +3684,49 @@ export interface WebhookHealthEntry {
   lastFailureAt: string | null;
   circuitOpenedAt: string | null;
   createdAt: string;
+  /** `provisioning` while a provisioning-directory declaration reconciles this subscription. */
+  managedBy?: 'provisioning' | null;
 }
 
+/** A dead-lettered delivery on one subscription (`GET /v1/webhooks/{id}/dlq`). */
 export interface WebhookDlqEntry {
   id: string;
-  webhookId: string;
-  event: string;
-  payload: Record<string, unknown>;
-  failureReason: string;
-  attemptCount: number;
+  subscriptionId: string;
+  eventId: string;
+  /** Event type of the dead-lettered delivery. */
+  type: string;
+  recordId: string | null;
+  /** The event payload that failed to deliver. */
+  data: Record<string, unknown>;
+  errorMessage: string;
+  attempts: number;
   createdAt: string;
+}
+
+/** A dead-lettered delivery across the install (`GET /v1/admin/webhook-dlq`). */
+export interface AdminWebhookDlqEntry {
+  id: string;
+  subscriptionId: string;
+  subscriptionUrl: string | null;
+  eventId: string;
+  eventType: string;
+  recordId: string | null;
+  errorMessage: string;
+  attempts: number;
+  createdAt: string;
+}
+
+/** Result of retrying one dead-letter entry. */
+export interface DlqRetryResult {
+  success?: boolean;
+  nextSteps?: NextStep[];
+}
+
+/** Result of retrying every dead-letter entry in a queue. */
+export interface DlqRetryAllResult {
+  retried?: number;
+  failed?: number;
+  nextSteps?: NextStep[];
 }
 
 /** Per-queue pg-boss job counts, as reported by the admin ops surfaces. */
@@ -3598,12 +3843,18 @@ export interface SetCapabilitiesParams {
   contractTypes: string[];
 }
 
-/** Snapshot of an owner's rate-limit exemption. */
+/** An agent's declared contract-type capabilities. */
+export interface AgentCapabilities {
+  agentId: string;
+  capabilities: Array<{ type: string; declaredAt?: string }>;
+  nextSteps?: NextStep[];
+}
+
+/** Result of granting or removing an owner's rate-limit exemption. */
 export interface RateLimitExemption {
-  ownerId: string;
-  ownerType?: KeyOwnerType | (string & {});
-  reason?: string | null;
-  createdAt?: string;
+  ownerId?: string;
+  exempt?: boolean;
+  nextSteps?: NextStep[];
 }
 
 /** Static-provisioning status payload. */
@@ -3622,6 +3873,12 @@ export interface ProvisioningStatus {
     agents?: number;
     webhooks?: number;
     schemas?: number;
+    /**
+     * Rows in `trusted_issuers` managed by provisioning. Zero while the rest
+     * of the install is healthy means the trusted-issuers pass read nothing:
+     * check `loadErrors` for an entry naming `trusted-issuers.yaml`.
+     */
+    trustedIssuers?: number;
   };
   /**
    * Files in the provisioning directory that cannot be loaded right now, one
@@ -3638,6 +3895,14 @@ export interface ProvisioningStatus {
    * operator removed it", which is only sound when the YAML was understood.
    */
   pruneSuppressed?: boolean;
+  /**
+   * True when the last reconcile read a `trusted-issuers.yaml` byte-identical
+   * to the one it had read before; absent when no pass has run or no such file
+   * exists. After a reload that reported no errors and changed nothing, true
+   * means the edit never reached the pod (on Kubernetes, a ConfigMap projected
+   * through `subPath`, which never receives updates).
+   */
+  trustedIssuersUnchangedSinceLastLoad?: boolean;
 }
 
 /** Per-resource counters from a provisioning reload. */
@@ -3698,24 +3963,77 @@ export interface ProvisioningReloadResult {
       admin_managed?: number;
       malformed_yaml?: number;
     };
-    errors?: unknown[];
+    errors?: string[];
+    loadedAt?: string;
+    /**
+     * True when the bytes read from `filePath` were identical to the bytes this
+     * process last read from it. Separates a genuine no-op from a reconcile
+     * that never saw an edit. False on the first pass after boot.
+     */
+    unchangedSinceLastLoad?: boolean;
   };
-  loadedAt?: string;
   dryRun?: boolean;
   nextSteps?: NextStep[];
 }
 
-/** Diagnostic support-bundle payload (JSON envelope). */
+/**
+ * Diagnostic support bundle (`GET /v1/admin/support-bundle`). Every section is
+ * optional on the wire; `manifest.sections` lists what this one carries and
+ * `guidance.notIncluded` what it deliberately leaves out.
+ */
 export interface SupportBundle {
-  instanceId: string;
-  generatedAt: string;
-  sections: Record<string, unknown>;
+  manifest?: {
+    bundleVersion?: number;
+    generatedAt?: string;
+    generatedBy?: string;
+    generatedFor?: string;
+    sections?: Array<{ name?: string; description?: string; fieldCount?: number }>;
+  };
+  version?: { app?: string; releaseDate?: string; node?: string; pgBundled?: boolean };
+  license?: {
+    tier?: LicenseTier;
+    validity?: LicenseValidity;
+    instanceId?: string | null;
+    licensedThrough?: string | null;
+    /** Same as {@link LicenseInfo.notice}. */
+    notice?: LicenseNotice | null;
+  };
+  health?: {
+    status?: 'healthy' | 'degraded' | (string & {});
+    degradedReasons?: string[];
+    uptime?: number;
+    database?: {
+      status?: 'healthy' | 'degraded' | 'outage' | (string & {});
+      latencyMs?: number | null;
+      pool?: { total?: number; idle?: number; waiting?: number };
+    };
+    queues?: Record<string, unknown>;
+    webhookDeadLetters?: number | null;
+    process?: { rssMb?: number; heapUsedMb?: number; heapTotalMb?: number };
+    timestamp?: string;
+  };
+  authCache?: AuthCacheStats;
+  /** Redacted runtime configuration. */
+  config?: Record<string, unknown>;
+  database?: {
+    version?: string | null;
+    migrations?: Array<{ name?: string; appliedAt?: string }>;
+    tableStats?: Array<{ table?: string; rowEstimate?: number; sizeBytes?: number | null }>;
+  };
+  environment?: {
+    platform?: string;
+    arch?: string;
+    cpuCount?: number;
+    totalMemoryMb?: number;
+    freeMemoryMb?: number;
+  };
+  guidance?: { notIncluded?: string[]; hint?: string };
 }
 
 /** License instance identifier response. */
 export interface LicenseInstanceInfo {
   instanceId: string;
-  createdAt?: string;
+  nextSteps?: NextStep[];
 }
 
 /** One entry in the scope-profiles discovery response. */
@@ -3726,11 +4044,38 @@ export interface ScopeProfileInfo {
   scopes: string[];
 }
 
-/** Record lifecycle discovery response (`GET /lifecycle`). */
+/** One state in a {@link RecordLifecycleInfo} state machine. */
+export interface LifecycleState {
+  validTransitions: string[];
+  /**
+   * Actions the display status accepts, as the union across the engine states
+   * it covers: a specific record may accept a subset. Absent on the dispute
+   * machine.
+   */
+  actions?: string[];
+  terminal: boolean;
+}
+
+/**
+ * The Record and dispute state machines (`GET /lifecycle`). The spec declares
+ * both blocks as open objects, so read the paths defensively.
+ */
 export interface RecordLifecycleInfo {
-  statuses: string[];
-  transitions: Record<string, string[]>;
-  terminalStatuses: string[];
+  record: {
+    states: Record<string, LifecycleState>;
+    actionsCaveat?: string;
+    happyPath?: string[];
+    failPath?: string[];
+    proposalPath?: string[];
+    [key: string]: unknown;
+  };
+  dispute: {
+    states: Record<string, LifecycleState>;
+    happyPath?: string[];
+    happyPathNote?: string;
+    statesNote?: string;
+    [key: string]: unknown;
+  };
 }
 
 /** Query parameters for the platform-wide audit vault export. */
@@ -4001,10 +4346,15 @@ export interface SubmitStateTransitionParams {
 
 /** Result of a state transition submission. */
 export interface StateTransitionResult {
-  ack: boolean;
-  state?: string;
-  recordId?: string;
-  [key: string]: unknown;
+  ack: true;
+  state: string;
+  serverTimestamp: string;
+  serverSignature: string;
+  /** False when the receiving Server acknowledged the transition without applying it; `reason` says why. */
+  applied: boolean;
+  reason?: 'peer_unbound' | 'org_deactivated' | 'missing_agent_ids' | 'same_state' | (string & {});
+  schemaRef?: FederationSchemaRef;
+  nextSteps?: NextStep[];
 }
 
 
@@ -4036,9 +4386,14 @@ export interface RelaySignalParams {
 
 /** Result of a signal relay. */
 export interface SignalRelayResult {
-  relayed: boolean;
-  recordId?: string;
-  [key: string]: unknown;
+  relayed: true;
+  serverSignature: string;
+  serverTimestamp: string;
+  /** False when the receiving Server acknowledged the signal without applying it; `reason` says why. */
+  applied: boolean;
+  reason?: 'peer_unbound' | 'org_deactivated' | 'superseded' | (string & {});
+  schemaRef?: FederationSchemaRef;
+  nextSteps?: NextStep[];
 }
 
 
@@ -4057,9 +4412,11 @@ export interface SubmitCoSignRequestParams {
 
 /** Result of a co-sign request. */
 export interface CoSignRequestResult {
-  queued: boolean;
-  recordId?: string;
-  [key: string]: unknown;
+  coSigned: true;
+  /** The receiving Server's counter-signature over the Settlement Signal. */
+  counterSignature: string;
+  serverTimestamp: string;
+  nextSteps?: NextStep[];
 }
 
 
@@ -4166,15 +4523,14 @@ export interface ListFederationDlqParams {
 /** A failed outbound federation message in the dead-letter queue. */
 export interface FederationDlqEntry {
   id: string;
-  jobType: string;
-  recordId: string | null;
-  agentId: string | null;
-  payload: Record<string, unknown>;
-  errorMessage: string;
-  attempts: number;
-  /** When this message first failed, as distinct from when the row was written. */
+  /** The dead-lettered job's payload. */
+  data: Record<string, unknown>;
+  createdOn: string;
   firstFailedAt: string;
-  createdAt: string;
+  /** Which federation delivery failed, or null when the job does not say. */
+  kind: string | null;
+  peerHubId: string | null;
+  recordId: string | null;
 }
 
 
@@ -4246,7 +4602,7 @@ export interface EntityReference {
   refId: string;
   displayName?: string | null;
   uri?: string | null;
-  attributes?: Record<string, unknown>;
+  attributes?: Record<string, unknown> | null;
   createdAt: string;
   createdBy: string;
 }
@@ -4271,11 +4627,45 @@ export interface EntityReferenceInput {
   attributes?: Record<string, unknown>;
 }
 
-/** Result of a reverse-lookup by external reference. */
-export interface ReferenceLookupResult {
-  references: EntityReference[];
-  entityType: string;
+/**
+ * One match from a reverse lookup by external reference: which entity carries
+ * the reference, and the reference itself.
+ */
+export interface ReferenceLookupMatch {
+  entityType: 'record' | 'agent' | (string & {});
   entityId: string;
+  reference: EntityReference;
+}
+
+/** Parameters for {@link ReferencesResource.lookup}. */
+export interface ReferenceLookupParams extends ListParams {
+  system: string;
+  refType: string;
+  refId: string;
+}
+
+/**
+ * An entity's external references (`GET /v1/records/{id}/references`,
+ * `GET /v1/agents/{id}/references`), and what an attach call returns.
+ */
+export interface EntityReferencesResult {
+  data: EntityReference[];
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
+}
+
+/** A Record's delegation graph (`GET /v1/records/{id}/graph`). */
+export interface RecordGraph {
+  nodes: Array<{
+    id: string;
+    label?: string;
+    status?: RecordStatus;
+    performerAgentId?: string | null;
+    chainDepth?: number;
+  }>;
+  edges: Array<{ source: string; target: string; type: 'delegation' | 'dependency' | (string & {}) }>;
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
 }
 
 
@@ -4484,21 +4874,75 @@ export interface VaultScanList {
 }
 
 
-/** Auth cache statistics. */
+/** Auth cache occupancy (`GET /v1/admin/auth-cache/stats`). */
 export interface AuthCacheStats {
+  /** Entries currently cached. */
   size: number;
-  hitRate: number;
-  evictions: number;
+  /** Capacity. */
+  max: number;
+  /** Entry lifetime in milliseconds. */
+  ttl: number;
 }
 
 
-/** License tier identifier. */
-export type LicenseTier = 'developer' | 'enterprise' | (string & {});
+/**
+ * License tier identifier. `unlicensed` is the tier of an install with no key
+ * (API 1.8.0); nothing is gated on it.
+ */
+export type LicenseTier = 'developer' | 'enterprise' | 'unlicensed' | (string & {});
+
+/** Outcome of validating the install's license key. */
+export type LicenseValidity =
+  | 'valid'
+  | 'unlicensed'
+  | 'lapsed'
+  | 'invalid_signature'
+  | 'invalid_format'
+  | 'instance_mismatch'
+  | 'version_too_new'
+  | 'marketplace_unreachable'
+  | (string & {});
+
+/**
+ * Which license state an operator has to act on: no key installed
+ * (`unlicensed`), a Developer Edition key on an external database
+ * (`dev-external`), or a key that failed validation (`error`).
+ */
+export type LicenseNoticeKind = 'unlicensed' | 'dev-external' | 'error' | (string & {});
+
+/**
+ * The license state an operator has to act on, or null on a valid in-scope
+ * license. Nothing is gated on it. Once `escalated` is true, every 2xx
+ * `/v1/admin/*` response also carries a `Warning` header, and every one that
+ * carries `nextSteps` gains an entry for it.
+ */
+export interface LicenseNotice {
+  kind: LicenseNoticeKind;
+  validity: LicenseValidity;
+  /** Days since this database was initialized; null when that could not be read. */
+  installAgeDays: number | null;
+  /** Install age at which the notice escalates. */
+  escalatesAfterDays: number;
+  escalated: boolean;
+  /** One sentence naming the state. */
+  summary: string;
+  /** What to do about it. */
+  resolution: string;
+  /** Where to get a key. */
+  href: string;
+}
+
+/** Body for {@link AdminResource.reloadLicense}. Pass at most one of the two. */
+export interface ReloadLicenseParams {
+  /** Compact activation string, format `agl_<tier>_v1_<base64url>`. */
+  license?: string;
+  /** Full PEM-wrapped license file contents, including headers. */
+  licenseKey?: string;
+}
 
 /** Platform license information and entitlements. */
 export interface LicenseInfo {
-  /** License validity gate ('valid' / 'invalid' / 'expired'). */
-  validity: string;
+  validity: LicenseValidity;
   tier: LicenseTier;
   /**
    * Where the license was loaded from: a PEM file, a compact key (the form a
@@ -4512,8 +4956,10 @@ export interface LicenseInfo {
   licensedThrough?: string | null;
   releaseDate?: string | null;
   licenseId?: string | null;
-  checkedAt?: string;
-  error?: string | null;
+  checkedAt: string;
+  error?: string;
+  /** The state an operator has to act on, or null on a valid in-scope license. */
+  notice: LicenseNotice | null;
   nextSteps?: NextStep[];
 }
 
@@ -4547,13 +4993,12 @@ export interface VerificationKey {
 /** Response from GET /v1/verification-keys. */
 export interface VerificationKeysResponse {
   data: VerificationKey[];
+  /** `RFC8949-CDE`: deterministic CBOR per RFC 8949 section 4.2.1. */
   canonicalization: string;
-  /**
-   * Hash basis advertised by the engine. Optional: not every server build
-   * emits it; absent means the implicit COSE/Ed25519 default (`SHA-256`).
-   * Kept in step with the Python SDK.
-   */
-  hashAlgorithm?: string;
+  /** Envelope every chain entry is signed in: `COSE_Sign1`. */
+  envelope: 'COSE_Sign1' | (string & {});
+  /** Media type of the signed payload: `application/vnd.in-toto+cbor`. */
+  payloadFormat: string;
   /**
    * Algorithm of the ACTIVE signing key, not of the response. Null on a Server
    * with no active vault signing key. Per-key values live on
@@ -4617,8 +5062,12 @@ export interface ListPeersParams extends ListParams {
 
 /** A single-use peering token for peer-to-peer federation setup. */
 export interface PeeringToken {
-  token: string;
+  /** Hand this to the peer operator; it is shown once. */
+  peeringToken: string;
+  label?: string | null;
+  createdAt: string;
   expiresAt: string;
+  nextSteps?: NextStep[];
 }
 
 
@@ -4665,7 +5114,21 @@ export interface TrustedIssuer {
    * is refused with the count and the limit named.
    */
   autoProvisionMaxAgents: number;
+  /**
+   * When true, an admin OIDC bearer this row validates is accepted once per
+   * token id (`jti`): a second presentation is refused with 401. A client
+   * whose bearer function feeds such a row must mint a fresh token on every
+   * call. A token without a `jti` stays reusable either way.
+   */
+  jtiSingleUse: boolean;
+  /**
+   * Subjects this row admits, matched exactly against the token `sub`, or null
+   * to admit every subject the IdP issues a token for.
+   */
+  subjectAllowlist: string[] | null;
   label: string | null;
+  /** False while the row is switched off: its tokens are refused. */
+  enabled: boolean;
   /** `provisioning` when sourced from static config; null when API-managed. */
   managedBy: 'provisioning' | null;
   createdBy: string | null;
@@ -4695,6 +5158,13 @@ export interface CreateTrustedIssuerParams {
   autoProvisionScopeProfile?: AutoProvisionScopeProfile | null;
   /** Ceiling on agents this issuer may auto-provision. Default 1000. */
   autoProvisionMaxAgents?: number;
+  /**
+   * Accept an admin OIDC bearer once per token id (`jti`). Off by default.
+   * Turn it on only for clients that mint a token per request.
+   */
+  jtiSingleUse?: boolean;
+  /** Subjects (`sub`) this row admits; null or omitted admits every subject. */
+  subjectAllowlist?: string[] | null;
   label?: string | null;
   enabled?: boolean;
 }
@@ -4718,8 +5188,21 @@ export interface UpdateTrustedIssuerParams {
   autoProvisionScopeProfile?: AutoProvisionScopeProfile | null;
   /** Ceiling on agents this issuer may auto-provision. Default 1000. */
   autoProvisionMaxAgents?: number;
+  /**
+   * Accept an admin OIDC bearer once per token id (`jti`). Off by default.
+   * Turn it on only for clients that mint a token per request.
+   */
+  jtiSingleUse?: boolean;
+  /** Subjects (`sub`) this row admits; null or omitted admits every subject. */
+  subjectAllowlist?: string[] | null;
   label?: string | null;
   enabled?: boolean;
+  /**
+   * Pass null to take admin ownership of a provisioning-managed row, which
+   * otherwise refuses a PATCH with 409. The provisioning loader then leaves it
+   * alone.
+   */
+  managedBy?: 'provisioning' | null;
 }
 
 /** Filters for `GET /v1/admin/trusted-issuers`. */
@@ -4794,7 +5277,10 @@ export interface IssueEphemeralCertParams {
   oidcToken: string;
   /** Caller-generated public key (JWK) the cert will be bound to. */
   publicKeyJwk: Record<string, unknown>;
-  /** base64url signature over the canonical proof string (proof-of-possession). */
+  /**
+   * Ed25519 signature over the UTF-8 bytes of `agledger.oidc.cert.v1\n<token sub>`,
+   * STANDARD base64 with `==` padding (88 characters), not base64url.
+   */
   proofOfPossession: string;
   /** Target agent identity; defaults from the mapped OIDC claims. */
   agentId?: string;
@@ -4803,7 +5289,7 @@ export interface IssueEphemeralCertParams {
 /** Result of issuing an ephemeral cert: the cert plus its detached JWS. */
 export interface IssueEphemeralCertResult {
   cert: EphemeralCert;
-  /** The cert as a detached JWS, for offline verification. */
+  /** The cert as a JWT signed by the Server's vault key. Present it as `Authorization: Bearer <certJws>`. */
   certJws: string;
   nextSteps?: NextStep[];
 }
@@ -4818,9 +5304,11 @@ export interface RevokeEphemeralCertResult extends EphemeralCert {
 export interface OpsSummary {
   timestamp: string;
   license: {
-    tier: string;
-    validity: string;
+    tier: LicenseTier;
+    validity: LicenseValidity;
     licensedThrough: string | null;
+    /** Same as {@link LicenseInfo.notice}. */
+    notice: LicenseNotice | null;
   };
   system: {
     /**

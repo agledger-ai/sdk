@@ -10,6 +10,8 @@ import type {
   ListPeerAgentsParams,
   PeerAgentsResponse,
   ListAgentsParams,
+  EntityReferenceInput,
+  EntityReferencesResult,
 } from '../types.js';
 
 export class AgentsResource {
@@ -46,13 +48,13 @@ export class AgentsResource {
   }
 
   /** Add external references to an agent. */
-  addReferences(agentId: string, references: Record<string, unknown>[], options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.post(`/v1/agents/${agentId}/references`, { references }, options);
+  addReferences(agentId: string, references: EntityReferenceInput[], options?: RequestOptions): Promise<EntityReferencesResult> {
+    return this.http.post<EntityReferencesResult>(`/v1/agents/${agentId}/references`, { references }, options);
   }
 
   /** Get an agent's external references. */
-  getReferences(agentId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.get(`/v1/agents/${agentId}/references`, undefined, options);
+  getReferences(agentId: string, options?: RequestOptions): Promise<EntityReferencesResult> {
+    return this.http.get<EntityReferencesResult>(`/v1/agents/${agentId}/references`, undefined, options);
   }
 
   /**

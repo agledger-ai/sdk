@@ -13,19 +13,21 @@ import type { RequestOptions } from '../types.js';
  * `schema-event`, `org-read`, `counter-attestation`, `federation-projection`.
  */
 export interface PredicateListing {
-  kinds: Array<{
+  data: Array<{
+    /** Predicate kind, e.g. `record-state`. */
     kind: string;
-    latestVersion: string;
-    /** Optional human-readable description. */
-    description?: string;
+    /** The in-toto `predicateType` URI this kind is published under. */
+    predicateType: string;
+    /** Where to fetch the JSON Schema for this kind. */
+    schemaUrl: string;
   }>;
 }
 
-export interface PredicateSchema {
-  kind: string;
-  version: string;
-  schema: Record<string, unknown>;
-}
+/**
+ * A predicate's JSON Schema (draft 2019-09), returned as the document itself:
+ * `$schema`, `$id`, `title`, `properties` and the rest sit at the top level.
+ */
+export type PredicateSchema = Record<string, unknown>;
 
 export class PredicatesResource {
   constructor(private readonly http: HttpClient) {}
@@ -36,14 +38,15 @@ export class PredicatesResource {
   }
 
   /**
-   * Fetch the JSON Schema for a specific predicate kind + version.
+   * Fetch the JSON Schema for a predicate kind. `v1` is the only version the
+   * Server publishes; the path segment is literal, so any other value 404s.
    *
    * @example
    * ```ts
-   * const schema = await client.predicates.get('record-state', 'v1');
+   * const schema = await client.predicates.get('record-state');
    * ```
    */
-  get(kind: string, version: string = 'v1', options?: RequestOptions): Promise<PredicateSchema> {
-    return this.http.get<PredicateSchema>(`/predicates/${kind}/${version}`, undefined, options);
+  get(kind: string, _version: 'v1' = 'v1', options?: RequestOptions): Promise<PredicateSchema> {
+    return this.http.get<PredicateSchema>(`/predicates/${kind}/v1`, undefined, options);
   }
 }

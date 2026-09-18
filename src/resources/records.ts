@@ -19,6 +19,7 @@ import type {
   VerdictResult,
   RecordAuditExport,
   VerdictStatistics,
+  RecordGraph,
 } from '../types.js';
 import { getValidTransitions as getTransitions } from '../record-lifecycle.js';
 
@@ -232,8 +233,8 @@ export class RecordsResource {
   }
 
   /** Get the delegation graph for a Record. */
-  getGraph(id: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.get(`/v1/records/${id}/graph`, undefined, options);
+  getGraph(id: string, options?: RequestOptions): Promise<RecordGraph> {
+    return this.http.get<RecordGraph>(`/v1/records/${id}/graph`, undefined, options);
   }
 
   /**

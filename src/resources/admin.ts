@@ -3,7 +3,20 @@ import type {
   AdminOrg,
   AdminAgent,
   AdminApiKey,
-  WebhookDlqEntry,
+  AgentCapabilities,
+  AdminWebhookDlqEntry,
+  AdminListOrgsParams,
+  AdminListAgentsParams,
+  BulkRevokeApiKeysParams,
+  BulkRevokeApiKeysResult,
+  CreateAgentResult,
+  DlqRetryAllResult,
+  DlqRetryResult,
+  FleetCapabilitiesParams,
+  FleetCapabilityEntry,
+  ReloadLicenseParams,
+  SupportBundleUploadResult,
+  UpdateApiKeyResult,
   WebhookHealthEntry,
   SystemHealth,
   SetCapabilitiesParams,
@@ -11,7 +24,6 @@ import type {
   ListParams,
   CursorListParams,
   RequestOptions,
-  RecordType,
   CreateApiKeyParams,
   UpdateApiKeyParams,
   CreateApiKeyResult,
@@ -42,7 +54,7 @@ import type {
   ReactivateResult,
   AdminImportRecordsParams,
   AdminImportRecordsResult,
-  RecordRow,
+  AdminRecordSummary,
   VaultScanList,
   TrustedIssuer,
   CreateTrustedIssuerParams,
@@ -58,14 +70,33 @@ import type {
 } from '../types.js';
 
 /**
+ * For a method that grew a params argument in front of `options`: tell the two
+ * apart by the keys only the params object can carry, so a caller still
+ * passing `options` first keeps working.
+ */
+function splitParams<P>(
+  first: P | RequestOptions | undefined,
+  second: RequestOptions | undefined,
+  paramKeys: readonly string[],
+): [P | undefined, RequestOptions | undefined] {
+  if (first && typeof first === 'object' && paramKeys.some((k) => Object.hasOwn(first, k))) {
+    return [first as P, second];
+  }
+  return [undefined, (first as RequestOptions | undefined) ?? second];
+}
+
+/**
  * Admin sub-resource for Records: org-wide listing and historical backfill.
  */
 export class AdminRecordsResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** List Records across all orgs (platform admin). Supports filters. */
-  list(params?: QueryAdminRecordsParams, options?: RequestOptions): Promise<Page<RecordRow>> {
-    return this.http.getPage<RecordRow>('/v1/admin/records', params as Record<string, unknown>, options);
+  /**
+   * List Records across all orgs (platform admin). Each row is a summary;
+   * fetch a Record by id for its full shape.
+   */
+  list(params?: QueryAdminRecordsParams, options?: RequestOptions): Promise<Page<AdminRecordSummary>> {
+    return this.http.getPage<AdminRecordSummary>('/v1/admin/records', params as Record<string, unknown>, options);
   }
 
   /**
@@ -205,7 +236,7 @@ export class AdminResource {
    * Cursor-paged only: the route dropped `offset` in API 1.7.0 and the
    * querystring refuses unknown properties, so sending one is a 400.
    */
-  listOrgs(params?: CursorListParams, options?: RequestOptions): Promise<Page<AdminOrg>> {
+  listOrgs(params?: AdminListOrgsParams, options?: RequestOptions): Promise<Page<AdminOrg>> {
     return this.http.getPage<AdminOrg>('/v1/admin/orgs', params as Record<string, unknown>, options);
   }
 
@@ -230,13 +261,13 @@ export class AdminResource {
    * them. `agents.list({ includeDeactivated })` is the org-scoped listing that
    * takes the flag; this platform listing takes neither half of it.
    */
-  listAgents(params?: CursorListParams, options?: RequestOptions): Promise<Page<AdminAgent>> {
+  listAgents(params?: AdminListAgentsParams, options?: RequestOptions): Promise<Page<AdminAgent>> {
     return this.http.getPage<AdminAgent>('/v1/admin/agents', params as Record<string, unknown>, options);
   }
 
   /** Create a new agent. Returns the agent resource (flat object). */
-  createAgent(params: CreateAgentParams, options?: RequestOptions): Promise<AdminAgent> {
-    return this.http.post<AdminAgent>('/v1/admin/agents', params, options);
+  createAgent(params: CreateAgentParams, options?: RequestOptions): Promise<CreateAgentResult> {
+    return this.http.post<CreateAgentResult>('/v1/admin/agents', params, options);
   }
 
   /** Deactivate an org. Revokes all API keys owned by the org. */
@@ -286,13 +317,30 @@ export class AdminResource {
   }
 
   /** Set an agent's Type capabilities (PUT: replaces all). */
-  setCapabilities(agentId: string, params: SetCapabilitiesParams, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.put(`/v1/admin/agents/${agentId}/capabilities`, params, options);
+  setCapabilities(agentId: string, params: SetCapabilitiesParams, options?: RequestOptions): Promise<AgentCapabilities> {
+    return this.http.put<AgentCapabilities>(`/v1/admin/agents/${agentId}/capabilities`, params, options);
   }
 
-  /** Get capabilities of all agents in the fleet. */
-  getFleetCapabilities(options?: RequestOptions): Promise<Page<{ agentId: string; capabilities: RecordType[] }>> {
-    return this.http.getPage('/v1/admin/agents/capabilities', undefined, options);
+  /**
+   * Contract types each agent in the fleet declared it can perform. Pass
+   * `{ type }` to list only the agents that declared one type. The route does
+   * not page: every row comes back in `data`.
+   */
+  getFleetCapabilities(options?: RequestOptions): Promise<Page<FleetCapabilityEntry>>;
+  getFleetCapabilities(
+    params: FleetCapabilitiesParams,
+    options?: RequestOptions,
+  ): Promise<Page<FleetCapabilityEntry>>;
+  getFleetCapabilities(
+    paramsOrOptions?: FleetCapabilitiesParams | RequestOptions,
+    options?: RequestOptions,
+  ): Promise<Page<FleetCapabilityEntry>> {
+    const [params, opts] = splitParams<FleetCapabilitiesParams>(paramsOrOptions, options, ['type']);
+    return this.http.getPage<FleetCapabilityEntry>(
+      '/v1/admin/agents/capabilities',
+      params as Record<string, unknown> | undefined,
+      opts,
+    );
   }
 
   /** Get an org's configuration. */
@@ -338,19 +386,35 @@ export class AdminResource {
     return this.http.post('/v1/admin/api-keys', params, options);
   }
 
-  /** Update an API key (activate/deactivate, rename, adjust scopes). */
-  updateApiKey(keyId: string, params: UpdateApiKeyParams, options?: RequestOptions): Promise<AdminApiKey> {
-    return this.http.patch<AdminApiKey>(`/v1/admin/api-keys/${keyId}`, params, options);
+  /**
+   * Update an API key: activate or deactivate it, change its scopes, or
+   * replace its IP allow-list. The response carries the fields that can
+   * change, not the whole key row.
+   */
+  updateApiKey(keyId: string, params: UpdateApiKeyParams, options?: RequestOptions): Promise<UpdateApiKeyResult> {
+    return this.http.patch<UpdateApiKeyResult>(`/v1/admin/api-keys/${keyId}`, params, options);
   }
 
   /** Enable or disable an API key. Convenience wrapper around updateApiKey. */
-  toggleApiKey(keyId: string, isActive: boolean, options?: RequestOptions): Promise<AdminApiKey> {
+  toggleApiKey(keyId: string, isActive: boolean, options?: RequestOptions): Promise<UpdateApiKeyResult> {
     return this.updateApiKey(keyId, { isActive }, options);
   }
 
-  /** Revoke multiple API keys at once. */
-  bulkRevokeApiKeys(keyIds: string[], options?: RequestOptions): Promise<{ revoked: number }> {
-    return this.http.post('/v1/admin/api-keys/bulk-revoke', { keyIds }, options);
+  /**
+   * Revoke API keys in bulk: pass key ids, or a filter object for a sweep
+   * (`{ lastUsedBefore }` retires dormant keys; `{ neverUsed: true,
+   * createdBefore }` retires keys never presented). Filters AND together.
+   *
+   * The Server refuses a sweep that would leave an org with no way to mint
+   * an admin key, or the install with no usable platform key, rather than
+   * narrowing it; the `recoveryHint` names the blocking keys.
+   */
+  bulkRevokeApiKeys(
+    keyIdsOrFilters: string[] | BulkRevokeApiKeysParams,
+    options?: RequestOptions,
+  ): Promise<BulkRevokeApiKeysResult> {
+    const body = Array.isArray(keyIdsOrFilters) ? { keyIds: keyIdsOrFilters } : keyIdsOrFilters;
+    return this.http.post<BulkRevokeApiKeysResult>('/v1/admin/api-keys/bulk-revoke', body, options);
   }
 
   /** Get license status and entitlements. */
@@ -364,12 +428,24 @@ export class AdminResource {
   }
 
   /**
-   * Reload the license from disk without restarting the service. Returns the
-   * license status as {@link AdminResource.getLicense} does; there is no
-   * separate `reloaded` flag on the wire.
+   * Re-validate the license without restarting the service. With no body the
+   * Server reloads from its `AGLEDGER_LICENSE*` environment; pass
+   * `{ license }` (compact string) or `{ licenseKey }` (PEM) to apply a key
+   * from the request instead. Returns the license status as
+   * {@link AdminResource.getLicense} does; there is no separate `reloaded`
+   * flag on the wire.
    */
-  reloadLicense(options?: RequestOptions): Promise<LicenseInfo> {
-    return this.http.post<LicenseInfo>('/v1/admin/license/reload', {}, options);
+  reloadLicense(options?: RequestOptions): Promise<LicenseInfo>;
+  reloadLicense(params: ReloadLicenseParams, options?: RequestOptions): Promise<LicenseInfo>;
+  reloadLicense(
+    paramsOrOptions?: ReloadLicenseParams | RequestOptions,
+    options?: RequestOptions,
+  ): Promise<LicenseInfo> {
+    const [params, opts] = splitParams<ReloadLicenseParams>(paramsOrOptions, options, [
+      'license',
+      'licenseKey',
+    ]);
+    return this.http.post<LicenseInfo>('/v1/admin/license/reload', params ?? {}, opts);
   }
 
   /**
@@ -388,7 +464,7 @@ export class AdminResource {
   }
 
   /** Reload the agent discovery cache. */
-  reloadDiscovery(options?: RequestOptions): Promise<{ reloaded: boolean }> {
+  reloadDiscovery(options?: RequestOptions): Promise<{ reloaded: true; message?: string; nextSteps?: NextStep[] }> {
     return this.http.post('/v1/admin/discovery/reload', {}, options);
   }
 
@@ -399,18 +475,18 @@ export class AdminResource {
    * querystring refuses unknown properties, so sending one is a 400. The
    * per-webhook listing `webhooks.listDlq()` still takes both.
    */
-  listDlq(params?: CursorListParams, options?: RequestOptions): Promise<Page<WebhookDlqEntry>> {
-    return this.http.getPage<WebhookDlqEntry>('/v1/admin/webhook-dlq', params as Record<string, unknown>, options);
+  listDlq(params?: CursorListParams, options?: RequestOptions): Promise<Page<AdminWebhookDlqEntry>> {
+    return this.http.getPage<AdminWebhookDlqEntry>('/v1/admin/webhook-dlq', params as Record<string, unknown>, options);
   }
 
   /** Retry a single dead-letter queue entry. */
-  retryDlq(dlqId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.post(`/v1/admin/webhook-dlq/${dlqId}/retry`, undefined, options);
+  retryDlq(dlqId: string, options?: RequestOptions): Promise<DlqRetryResult> {
+    return this.http.post<DlqRetryResult>(`/v1/admin/webhook-dlq/${dlqId}/retry`, undefined, options);
   }
 
   /** Retry all dead-letter queue entries. */
-  retryAllDlq(options?: RequestOptions): Promise<{ retried: number }> {
-    return this.http.post('/v1/admin/webhook-dlq/retry-all', undefined, options);
+  retryAllDlq(options?: RequestOptions): Promise<DlqRetryAllResult> {
+    return this.http.post<DlqRetryAllResult>('/v1/admin/webhook-dlq/retry-all', undefined, options);
   }
 
   /** Get system health metrics (platform admin). */
@@ -418,24 +494,22 @@ export class AdminResource {
     return this.http.get<SystemHealth>('/v1/admin/system-health', undefined, options);
   }
 
-  /** List all owner-level rate limit exemptions. */
-  listRateLimitExemptions(options?: RequestOptions): Promise<Page<RateLimitExemption>> {
-    return this.http.getPage<RateLimitExemption>('/v1/admin/rate-limit-exemptions', undefined, options);
+  /**
+   * List the owners exempt from rate limiting. Each row is an owner id; check
+   * one owner with `(await listRateLimitExemptions()).data.includes(ownerId)`.
+   */
+  listRateLimitExemptions(options?: RequestOptions): Promise<Page<string>> {
+    return this.http.getPage<string>('/v1/admin/rate-limit-exemptions', undefined, options);
   }
 
-  /** Get a specific owner's rate-limit exemption (404 if none). */
-  getRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<RateLimitExemption> {
-    return this.http.get<RateLimitExemption>(`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
+  /** Exempt an owner (agent or org id) from rate limiting. Idempotent. */
+  setRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<RateLimitExemption> {
+    return this.http.put<RateLimitExemption>(`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
   }
 
-  /** Grant rate limit exemption to an owner. */
-  setRateLimitExemption(ownerId: string, params?: Record<string, unknown>, options?: RequestOptions): Promise<RateLimitExemption> {
-    return this.http.put<RateLimitExemption>(`/v1/admin/rate-limit-exemptions/${ownerId}`, params ?? {}, options);
-  }
-
-  /** Remove rate limit exemption from an owner. */
-  deleteRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.delete(`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
+  /** Remove an owner's rate-limit exemption. Idempotent. */
+  deleteRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<RateLimitExemption> {
+    return this.http.delete<RateLimitExemption>(`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
   }
 
   /** Get health status of all webhooks (delivery stats, circuit breaker states). */
@@ -449,17 +523,17 @@ export class AdminResource {
   }
 
   /** Flush the auth cache. Forces re-validation of all cached credentials. */
-  flushAuthCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
+  flushAuthCache(options?: RequestOptions): Promise<{ flushed: true; nextSteps?: NextStep[] }> {
     return this.http.post('/v1/admin/auth-cache/flush', {}, options);
   }
 
-  /** Get auth cache statistics (hit rate, size, evictions). */
+  /** Get auth cache occupancy (size, capacity, entry lifetime). */
   getAuthCacheStats(options?: RequestOptions): Promise<AuthCacheStats> {
     return this.http.get<AuthCacheStats>('/v1/admin/auth-cache/stats', undefined, options);
   }
 
   /** Flush the schema cache. Forces re-loading of all Type schemas. */
-  flushSchemaCache(options?: RequestOptions): Promise<{ flushed: boolean }> {
+  flushSchemaCache(options?: RequestOptions): Promise<{ flushed?: boolean; nextSteps?: NextStep[] }> {
     return this.http.post('/v1/admin/schemas/cache/flush', {}, options);
   }
 
@@ -469,7 +543,7 @@ export class AdminResource {
   }
 
   /** Upload a support bundle to AGLedger support (opt-in). */
-  uploadSupportBundle(options?: RequestOptions): Promise<{ uploaded: boolean; bundleId?: string }> {
-    return this.http.post('/v1/admin/support-bundle/upload', {}, options);
+  uploadSupportBundle(options?: RequestOptions): Promise<SupportBundleUploadResult> {
+    return this.http.post<SupportBundleUploadResult>('/v1/admin/support-bundle/upload', {}, options);
   }
 }

@@ -9,6 +9,8 @@ import type {
   Page,
   ListDisputesParams,
   WithdrawDisputeParams,
+  DisputeEvidence,
+  NextStep,
 } from '../types.js';
 
 export class DisputesResource {
@@ -109,7 +111,7 @@ export class DisputesResource {
     recordId: string,
     params: { evidenceType: EvidenceType; payload: Record<string, unknown> },
     options?: RequestOptions,
-  ): Promise<Record<string, unknown>> {
-    return this.http.post(`/v1/records/${recordId}/dispute/evidence`, params, options);
+  ): Promise<DisputeEvidence & { nextSteps?: NextStep[] }> {
+    return this.http.post<DisputeEvidence & { nextSteps?: NextStep[] }>(`/v1/records/${recordId}/dispute/evidence`, params, options);
   }
 }
