@@ -4735,13 +4735,67 @@ export interface RecordGraph {
 
 
 /** A vault Ed25519 signing key. */
+/**
+ * A row of the admin vault signing-key registry
+ * (`GET /v1/admin/vault/signing-keys`).
+ *
+ * This route carries no public key: it is the operator's view of which keys
+ * exist and when they signed. The verification keys an auditor needs, with
+ * their SPKI material, come from the ungated `GET /v1/verification-keys`
+ * (`VerificationKey`) instead.
+ */
 export interface VaultSigningKey {
-  id: string;
-  publicKey: string;
+  /** SHA-256 fingerprint of the public key, 16 hex characters. Not a UUID. */
+  keyId: string;
   algorithm: string;
   status: 'active' | 'retired';
-  createdAt: string;
-  rotatedAt: string | null;
+  /**
+   * Earliest instant an entry signed by this key may carry. Derived from the
+   * chain at registration, so never later than the first entry the key signed.
+   */
+  activatedAt: string;
+  /**
+   * When this key stopped signing, or null while it is still active. An entry
+   * written after it is a chain break (`key_expired`), which an offline
+   * verifier reports as `CHAIN_KEY_EXPIRED`.
+   */
+  retiredAt: string | null;
+  /**
+   * The last chain entry this key signed within the last 300s, or null when it
+   * signed nothing in that window. Bounded on purpose. A recent value proves a
+   * process still holds the key; null does NOT prove the opposite, since an
+   * idle process and one that only signs webhooks, certs or Receipts both
+   * leave it null. `GET /health` on each process is the check that answers it.
+   */
+  lastSignedAt: string | null;
+}
+
+/** One entry of `VaultSigningKeyRotation.activeKeys`. */
+export interface VaultActiveSigningKey {
+  keyId: string;
+  algorithm: string;
+  activatedAt: string;
+  /** See `VaultSigningKey.lastSignedAt`: same bounded window, same caveat. */
+  lastSignedAt: string | null;
+}
+
+/**
+ * What `POST /v1/admin/vault/signing-keys/rotate` answers. It reports on the
+ * key the answering process holds; it does not return a registry row, so it
+ * shares no shape with `VaultSigningKey`.
+ */
+export interface VaultSigningKeyRotation {
+  /** The key this process holds, now active. */
+  newKeyId: string;
+  /**
+   * `staged` when this call registered the key; `already_active` when it was
+   * already in the registry, which is the answer after the process registered
+   * it at boot.
+   */
+  status: 'staged' | 'already_active';
+  /** Every key currently able to sign, with its bounded `lastSignedAt`. */
+  activeKeys: VaultActiveSigningKey[];
+  nextSteps?: NextStep[];
 }
 
 /** A vault trust anchor (hash-chain checkpoint). */

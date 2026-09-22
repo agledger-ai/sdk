@@ -4,7 +4,7 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [1.12.0] - 2026-09-18
+## [1.12.0] - 2026-09-21
 
 Reconciled against the API 1.8.0 build. It adds OIDC workload identity to the client, and it removes fields and methods the SDK declared that the Server never sent: a sweep of every method's declared return type against the route it calls found them across the admin, federation, discovery and reference surfaces. Each removal below is a type that was wrong on the wire before this release, so code that read one of those fields was reading `undefined`.
 
@@ -43,6 +43,7 @@ Reconciled against the API 1.8.0 build. It adds OIDC workload identity to the cl
 - **`federationAdmin.createPeeringToken` resolves to `peeringToken`** (with `label` and `createdAt`), not `token`. `FederationDlqEntry` is `{ id, data, createdOn, firstFailedAt, kind, peerHubId, recordId }`. `recoverDlq` takes `{ limit?, dryRun? }` and reports `inspected` and `dryRun`. `deletePeer` reports `peerHubId`.
 - **Federation results match the wire**: `CoSignRequestResult` is `{ coSigned, counterSignature, serverTimestamp }` (it declared `queued`), and `SignalRelayResult` and `StateTransitionResult` carry `serverSignature`, `serverTimestamp`, `applied`, `reason` and `schemaRef` instead of an index signature.
 - **`HealthResponse` loses `uptime` and `database`, and `StatusResponse` loses `activeIncidents`.** `AuthCacheStats` is `{ size, max, ttl }`, not a hit rate. `SupportBundle` is the sectioned document the route serves (`manifest`, `version`, `license`, `health`, `authCache`, `config`, `database`, `environment`, `guidance`). `LicenseInstanceInfo` loses `createdAt`. `ProvisioningReloadResult` loses its top-level `loadedAt`, which lives under `trustedIssuers`. `VerificationKeysResponse` loses `hashAlgorithm` and gains `envelope` and `payloadFormat`. `MetaSchema.limits.typeMaxLength` is `contractTypeMaxLength`. `uploadSupportBundle` resolves to `{ bundleId, receivedAt, sizeBytes }`, not `uploaded`.
+- **The vault signing-key registry is typed as the engine sends it.** `VaultSigningKey` is `{keyId, algorithm, status, activatedAt, retiredAt, lastSignedAt}`; `id`, `publicKey`, `createdAt` and `rotatedAt` were never on the row, and the route serves no key material at all (the ungated `GET /v1/verification-keys`, typed `VerificationKey`, is where an auditor gets it). `admin.vault.signingKeys.rotate()` resolves to the new `VaultSigningKeyRotation` (`newKeyId`, `status: 'staged' | 'already_active'`, `activeKeys`, `nextSteps`), which shares no field with a registry row: it was typed as `VaultSigningKey`, so `(await rotate()).status === 'active'` typechecked and could never be true.
 - **`AuditExportEntry` loses `position`, `timestamp` and `actor`**, pre-0.25 aliases no Server of this line sends, and the `AuditActor` type with them. Read `chainPosition`, `createdAt` and the `actor*` fields.
 
 ### Fixed
@@ -54,6 +55,8 @@ Reconciled against the API 1.8.0 build. It adds OIDC workload identity to the cl
 - A test now resolves every route each resource method calls against the route snapshot, so a method that reaches a route the Server does not register fails the suite. That is how `getRateLimitExemption` and the `predicates.get` version path were found.
 
 ### Changed
+
+- **An audit export re-attributed to another actor no longer verifies.** `verifyExport` runs on `@agledger/verify-core` 1.5.0, which cross-checks an entry's `actorId`, `actorRole` and `actorOwnerId` against the signature-covered actor claim in the COSE protected header and fails `CHAIN_ACTOR_ATTRIBUTION_MISMATCH` on a divergence. The export's own guide points an auditor at those fields as the attribution to rely on, and until now nothing checked them. `result.optionalChecks.actor_attribution` says whether the check applied.
 
 - `LICENSE` follows SDK License Template 1.9: section 1 says AGLedger LLC does not receive, inspect or use the data you process through your deployment and collects no product usage information from it; section 7 names AGLedger and Settlement Signal as trademarks of AGLedger LLC; section 8 refers to issued or pending U.S. patents.
 

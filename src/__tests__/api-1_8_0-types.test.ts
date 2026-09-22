@@ -28,6 +28,9 @@ import type {
   CreateTrustedIssuerParams,
   UpdateApiKeyParams,
   UpdateTrustedIssuerParams,
+  VaultActiveSigningKey,
+  VaultSigningKey,
+  VaultSigningKeyRotation,
   Webhook,
   WebhookHealthEntry,
 } from '../types.js';
@@ -170,5 +173,37 @@ describe('fields the Server never sent are gone', () => {
 
   it('has no per-owner exemption read', () => {
     expectTypeOf<AdminResource>().not.toHaveProperty('getRateLimitExemption');
+  });
+});
+
+describe('v1.8.0: the vault signing-key registry is typed as the engine sends it', () => {
+  // Every declared field but `algorithm` and `status` used to be phantom, and
+  // `rotate()` was typed as a registry row while answering something that
+  // shares no field with one, so `rotate().status === 'active'` typechecked
+  // and could never be true.
+  it('lists rows on keyId, with the bounded lastSignedAt', () => {
+    expectTypeOf<VaultSigningKey['keyId']>().toEqualTypeOf<string>();
+    expectTypeOf<VaultSigningKey['status']>().toEqualTypeOf<'active' | 'retired'>();
+    expectTypeOf<VaultSigningKey['activatedAt']>().toEqualTypeOf<string>();
+    expectTypeOf<VaultSigningKey['retiredAt']>().toEqualTypeOf<string | null>();
+    expectTypeOf<VaultSigningKey['lastSignedAt']>().toEqualTypeOf<string | null>();
+  });
+
+  it('carries none of the fields the route never sends', () => {
+    // `publicKey` in particular: the admin route serves no key material, and an
+    // integrator reaching for it wants the ungated `VerificationKey` instead.
+    expectTypeOf<VaultSigningKey>().not.toHaveProperty('id');
+    expectTypeOf<VaultSigningKey>().not.toHaveProperty('publicKey');
+    expectTypeOf<VaultSigningKey>().not.toHaveProperty('createdAt');
+    expectTypeOf<VaultSigningKey>().not.toHaveProperty('rotatedAt');
+  });
+
+  it('answers a rotation with its own shape, not a registry row', () => {
+    expectTypeOf<Awaited<ReturnType<AdminResource['vault']['signingKeys']['rotate']>>>()
+      .toEqualTypeOf<VaultSigningKeyRotation>();
+    expectTypeOf<VaultSigningKeyRotation['newKeyId']>().toEqualTypeOf<string>();
+    expectTypeOf<VaultSigningKeyRotation['status']>().toEqualTypeOf<'staged' | 'already_active'>();
+    expectTypeOf<VaultSigningKeyRotation['activeKeys']>().toEqualTypeOf<VaultActiveSigningKey[]>();
+    expectTypeOf<VaultActiveSigningKey['lastSignedAt']>().toEqualTypeOf<string | null>();
   });
 });
