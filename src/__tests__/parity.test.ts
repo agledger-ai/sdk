@@ -124,6 +124,10 @@ describe('critical routes exist in the current API spec', () => {
     ['POST', '/v1/admin/vault/scan'],
     ['GET', '/v1/admin/vault/signing-keys'],
     ['POST', '/v1/admin/vault/signing-keys/rotate'],
+    ['POST', '/v1/admin/vault/signing-keys/{keyId}/retire'],
+    ['POST', '/v1/admin/vault/anchors/reconcile'],
+    ['GET', '/v1/admin/vault/rewind'],
+    ['POST', '/v1/admin/vault/rewind/acknowledge'],
 
     // SIEM stream
     ['GET', '/v1/siem/stream'],
