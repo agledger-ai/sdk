@@ -26,7 +26,18 @@ interface ManifestVector {
   expect: 'pass' | 'fail';
   failureCode?: FailureCode;
   brokenAt?: number;
-  options?: { keysFile?: string; requireKeyId?: string; requireOutOfBandKeys?: boolean };
+  options?: {
+    keysFile?: string;
+    requireKeyId?: string;
+    requireOutOfBandKeys?: boolean;
+    /**
+     * A JSON array of agent cert public keys (JWKs). Unmapped, a vector that
+     * expects `CHAIN_AGENT_SIGNATURE_INVALID` runs with no agent keys, the
+     * check reports `skipped_no_input`, the export passes, and the suite fails
+     * on a vector that was never actually exercised.
+     */
+    agentKeysFile?: string;
+  };
   expectSignatureCoverage?: { signed: number; unsigned: number; skipped: number };
 }
 
@@ -57,6 +68,11 @@ describe('verifyExport: shared conformance corpus', () => {
       }
       if (vector.options?.requireKeyId) options.requireKeyId = vector.options.requireKeyId;
       if (vector.options?.requireOutOfBandKeys) options.requireOutOfBandKeys = true;
+      if (vector.options?.agentKeysFile) {
+        options.agentKeys = loadJson<NonNullable<VerifyExportOptions['agentKeys']>>(
+          vector.options.agentKeysFile,
+        );
+      }
 
       const result = verifyExport(exportData, options);
 

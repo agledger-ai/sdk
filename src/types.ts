@@ -2588,6 +2588,17 @@ export type AuditChainIntegrityReasonCode =
   | 'audit_vault_empty'
   | 'audit_vault_row_missing_for_checkpoint'
   | 'checkpoint_hash_mismatch'
+  /**
+   * A checkpoint's own COSE_Sign1 signature did not verify against its
+   * resolved key (`checkpoint_signature_invalid`); the checkpoint names a key
+   * the registry cannot resolve (`checkpoint_key_unknown`); or its signed
+   * claims do not match the checkpoint row they cover
+   * (`checkpoint_claim_mismatch`). The entry chain can be intact while its
+   * anchoring is not, so these are reported apart from the entry-level codes.
+   */
+  | 'checkpoint_signature_invalid'
+  | 'checkpoint_key_unknown'
+  | 'checkpoint_claim_mismatch'
   | 'payload_drift'
   | 'oidc_actor_drift'
   | 'cert_actor_drift'
@@ -2609,6 +2620,16 @@ export type AuditChainIntegrityReasonCode =
   | 'signature_invalid'
   | 'signing_key_unknown'
   | 'signing_key_drift'
+  /**
+   * The entry falls outside its signing key's published window, or the key was
+   * never published: signed after `retiredAt` (`key_expired`), stamped before
+   * `activatedAt` (`key_not_yet_active`), or resolved to a key absent from
+   * `/v1/verification-keys` (`signing_key_unpublished`). The signature itself
+   * may be good; what fails is the key's right to have signed then.
+   */
+  | 'key_expired'
+  | 'key_not_yet_active'
+  | 'signing_key_unpublished'
   /**
    * The entry is signed under a COSE algorithm this engine build cannot verify.
    * Not a tamper signal: the chain may be intact and simply need a newer
@@ -2642,6 +2663,10 @@ export type AuditChainFailureCode =
   | 'signature_invalid'
   | 'signing_key_unknown'
   | 'signing_key_drift'
+  /** See {@link AuditChainIntegrityReasonCode}: same key-window meanings. */
+  | 'key_expired'
+  | 'key_not_yet_active'
+  | 'signing_key_unpublished'
   | 'unsupported_algorithm';
 
 export interface AuditChainIntegrityDetail {
@@ -4795,6 +4820,132 @@ export interface VaultSigningKeyRotation {
   status: 'staged' | 'already_active';
   /** Every key currently able to sign, with its bounded `lastSignedAt`. */
   activeKeys: VaultActiveSigningKey[];
+  nextSteps?: NextStep[];
+}
+
+/**
+ * What `POST /v1/admin/vault/signing-keys/{keyId}/retire` answers. Like
+ * `VaultSigningKeyRotation` it reports on the act, not on a registry row, so
+ * it shares no shape with `VaultSigningKey`.
+ */
+export interface VaultSigningKeyRetirement {
+  retiredKeyId: string;
+  /** The published upper bound of this key's window. */
+  retiredAt: string;
+  /** The last chain entry this key signed before it was retired. */
+  lastSignedAt: string | null;
+  /** Every key still able to sign. Retiring the only active key is refused. */
+  activeKeys: VaultActiveSigningKey[];
+  nextSteps?: NextStep[];
+}
+
+/** Parameters for `admin.vault.signingKeys.retire()`. */
+export interface RetireVaultSigningKeyParams {
+  /**
+   * Retire without waiting for the quiet period. For a compromised key, where
+   * continuing to accept its signatures is worse than the gap.
+   */
+  force?: boolean;
+}
+
+/**
+ * What the object store behind the anchor bucket was observed to support.
+ * Every field is `unknown` until something probed it, so an `unknown` is
+ * "not yet determined", never "not supported".
+ */
+export interface VaultAnchorPosture {
+  /** Whether the store honours `If-None-Match: *` create-only writes. */
+  conditionalWrites: 'unknown' | 'supported' | 'unsupported';
+  /** Whether a key's versions can be counted. */
+  versioning: 'unknown' | 'supported' | 'unsupported';
+  objectLock: 'unknown' | 'enabled' | 'disabled' | 'not_requested' | 'unsupported';
+  /** The answers above in a sentence, including what was not detected. */
+  note: string;
+}
+
+/**
+ * Evidence that the chain was rewound, or `null` when none was recorded.
+ * `acknowledgedAt === null` while chain writes are still refused.
+ */
+export interface VaultRewindState {
+  /** When the evidence was recorded. */
+  detectedAt: string;
+  /** What found it. */
+  source: 'anchor_write' | 'anchor_verify' | 'anchor_reconcile' | 'unknown';
+  /** The finding itself, in the shape the source produced it. */
+  evidence: Record<string, unknown>;
+  /** When an operator acknowledged, or null while writes are refused. */
+  acknowledgedAt: string | null;
+  /** The API key id that acknowledged. */
+  acknowledgedBy: string | null;
+}
+
+/** What `GET /v1/admin/vault/rewind` answers. */
+export interface VaultRewindStatus {
+  /** True when chain writes are refused right now. */
+  blocked: boolean;
+  state: VaultRewindState | null;
+  posture: VaultAnchorPosture;
+}
+
+/** Parameters for `admin.vault.rewind.acknowledge()`. */
+export interface AcknowledgeVaultRewindParams {
+  /** What was reconciled and by whom. Written into the chain entry. */
+  note?: string;
+}
+
+/** What `POST /v1/admin/vault/rewind/acknowledge` answers. */
+export interface VaultRewindAcknowledgement {
+  /** True when this call lifted the refusal, false when it was already lifted. */
+  acknowledged: boolean;
+  /** The `RESTORE_EPOCH` entry this call appended, or null when none was. */
+  epochEntryId: string | null;
+  state: VaultRewindState | null;
+  nextSteps?: NextStep[];
+}
+
+/** One record where the bucket and this database disagree. */
+export interface VaultAnchorReconcileFinding {
+  recordId: string;
+  /** Highest position anchored in the bucket for this key. */
+  anchoredPosition: number;
+  /** This database's chain head for the same key, or null when it holds none. */
+  databasePosition: number | null;
+  finding: 'rewound' | 'missing_locally';
+}
+
+/** Parameters for `admin.vault.anchors.reconcile()`. */
+export interface ReconcileVaultAnchorsParams {
+  /** Key cap for this walk. Defaults to the built-in cap the result reports. */
+  maxKeys?: number;
+  /** Time budget for this walk, in milliseconds. */
+  deadlineMs?: number;
+}
+
+/**
+ * What `POST /v1/admin/vault/anchors/reconcile` answers. The counters are
+ * complete for the walk that ran; `findings` is a capped sample of it, so a
+ * short `findings` beside a large `rewound` is the cap, not a disagreement.
+ */
+export interface VaultAnchorReconcileResult {
+  /** `disabled` when anchoring is off and nothing was compared. */
+  status: 'disabled' | 'ok' | 'findings';
+  /** Objects read under this Server's anchor prefix. */
+  scannedKeys: number;
+  recordsInBucket: number;
+  /** Records whose highest anchored position is past this database's head. */
+  rewound: number;
+  /** Records anchored in the bucket that this database holds nothing for. */
+  missingLocally: number;
+  unverified: number;
+  findings: VaultAnchorReconcileFinding[];
+  /** True when the walk stopped on its key cap or its time budget. */
+  truncated: boolean;
+  /** Which bound ended the walk, or null when it ran to completion. */
+  truncatedReason: string | null;
+  keyLimit: number;
+  deadlineMs: number;
+  posture: VaultAnchorPosture;
   nextSteps?: NextStep[];
 }
 

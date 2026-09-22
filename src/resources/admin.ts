@@ -1,73 +1,80 @@
 import type { HttpClient } from '../http.js';
 import type {
-  AdminOrg,
+  AcknowledgeVaultRewindParams,
   AdminAgent,
   AdminApiKey,
-  AgentCapabilities,
-  AdminWebhookDlqEntry,
-  AdminListOrgsParams,
+  AdminImportRecordsParams,
+  AdminImportRecordsResult,
   AdminListAgentsParams,
+  AdminListOrgsParams,
+  AdminOrg,
+  AdminRecordSummary,
+  AdminWebhookDlqEntry,
+  AgentCapabilities,
+  AuthCacheStats,
+  AutoPaginateOptions,
   BulkRevokeApiKeysParams,
   BulkRevokeApiKeysResult,
+  CircuitBreakerResult,
+  CreateAgentParams,
   CreateAgentResult,
+  CreateApiKeyParams,
+  CreateApiKeyResult,
+  CreateOrgParams,
+  CreateTrustedIssuerParams,
+  CursorListParams,
+  DeactivateAgentParams,
+  DeactivateOrgParams,
+  DeactivateResult,
   DlqRetryAllResult,
   DlqRetryResult,
   FleetCapabilitiesParams,
   FleetCapabilityEntry,
-  ReloadLicenseParams,
-  SupportBundleUploadResult,
-  UpdateApiKeyResult,
-  WebhookHealthEntry,
-  SystemHealth,
-  SetCapabilitiesParams,
-  Page,
-  ListParams,
-  CursorListParams,
-  RequestOptions,
-  CreateApiKeyParams,
-  UpdateApiKeyParams,
-  CreateApiKeyResult,
-  CreateOrgParams,
-  CreateAgentParams,
-  OrgConfig,
-  SetOrgConfigParams,
-  QueryAdminRecordsParams,
-  UpdateCircuitBreakerParams,
-  CircuitBreakerResult,
   LicenseInfo,
   LicenseInstanceInfo,
-  VaultSigningKey,
-  VaultSigningKeyRotation,
-  VaultAnchor,
-  VaultAnchorVerifyResult,
-  VaultScanJob,
-  StartVaultScanParams,
-  VerifyVaultAnchorsParams,
-  AuthCacheStats,
-  ProvisioningStatus,
-  ProvisioningReloadResult,
-  SupportBundle,
-  RateLimitExemption,
-  DeactivateOrgParams,
-  DeactivateAgentParams,
-  DeactivateResult,
-  ReactivateParams,
-  ReactivateResult,
-  AdminImportRecordsParams,
-  AdminImportRecordsResult,
-  AdminRecordSummary,
-  VaultScanList,
-  TrustedIssuer,
-  CreateTrustedIssuerParams,
-  UpdateTrustedIssuerParams,
-  ListTrustedIssuersParams,
-  RevokeTrustedIssuerCertsResult,
-  RevokeEphemeralCertResult,
-  OpsSummary,
-  NextStep,
   LimitParams,
   ListApiKeysParams,
-  AutoPaginateOptions,
+  ListParams,
+  ListTrustedIssuersParams,
+  NextStep,
+  OpsSummary,
+  OrgConfig,
+  Page,
+  ProvisioningReloadResult,
+  ProvisioningStatus,
+  QueryAdminRecordsParams,
+  RateLimitExemption,
+  ReactivateParams,
+  ReactivateResult,
+  ReconcileVaultAnchorsParams,
+  ReloadLicenseParams,
+  RequestOptions,
+  RetireVaultSigningKeyParams,
+  RevokeEphemeralCertResult,
+  RevokeTrustedIssuerCertsResult,
+  SetCapabilitiesParams,
+  SetOrgConfigParams,
+  StartVaultScanParams,
+  SupportBundle,
+  SupportBundleUploadResult,
+  SystemHealth,
+  TrustedIssuer,
+  UpdateApiKeyParams,
+  UpdateApiKeyResult,
+  UpdateCircuitBreakerParams,
+  UpdateTrustedIssuerParams,
+  VaultAnchor,
+  VaultAnchorReconcileResult,
+  VaultAnchorVerifyResult,
+  VaultRewindAcknowledgement,
+  VaultRewindStatus,
+  VaultScanJob,
+  VaultScanList,
+  VaultSigningKey,
+  VaultSigningKeyRetirement,
+  VaultSigningKeyRotation,
+  VerifyVaultAnchorsParams,
+  WebhookHealthEntry,
 } from '../types.js';
 
 /**
@@ -131,6 +138,12 @@ export class AdminVaultResource {
         http.getPage<VaultAnchor>('/v1/admin/vault/anchors', params as unknown as Record<string, unknown>, options),
       verify: (params: VerifyVaultAnchorsParams, options?: RequestOptions) =>
         http.post<VaultAnchorVerifyResult>('/v1/admin/vault/anchors/verify', params, options),
+      reconcile: (params?: ReconcileVaultAnchorsParams, options?: RequestOptions) =>
+        http.post<VaultAnchorReconcileResult>(
+          '/v1/admin/vault/anchors/reconcile',
+          params ?? {},
+          options,
+        ),
     };
     this.scan = {
       run: (params?: StartVaultScanParams, options?: RequestOptions) =>
@@ -145,12 +158,34 @@ export class AdminVaultResource {
         http.getPage<VaultSigningKey>('/v1/admin/vault/signing-keys', undefined, options),
       rotate: (options?: RequestOptions) =>
         http.post<VaultSigningKeyRotation>('/v1/admin/vault/signing-keys/rotate', {}, options),
+      retire: (keyId: string, params?: RetireVaultSigningKeyParams, options?: RequestOptions) =>
+        http.post<VaultSigningKeyRetirement>(
+          `/v1/admin/vault/signing-keys/${keyId}/retire`,
+          params ?? {},
+          options,
+        ),
+    };
+    this.rewind = {
+      get: (options?: RequestOptions) =>
+        http.get<VaultRewindStatus>('/v1/admin/vault/rewind', undefined, options),
+      acknowledge: (params?: AcknowledgeVaultRewindParams, options?: RequestOptions) =>
+        http.post<VaultRewindAcknowledgement>(
+          '/v1/admin/vault/rewind/acknowledge',
+          params ?? {},
+          options,
+        ),
     };
   }
 
   readonly anchors: {
     list(params: { recordId: string }, options?: RequestOptions): Promise<Page<VaultAnchor>>;
     verify(params: VerifyVaultAnchorsParams, options?: RequestOptions): Promise<VaultAnchorVerifyResult>;
+    /**
+     * Walk the anchor bucket against this database. The counters cover the whole
+     * walk; `findings` is a capped sample, and `truncated` says the walk stopped
+     * on its key cap or time budget rather than running out of keys.
+     */
+    reconcile(params?: ReconcileVaultAnchorsParams, options?: RequestOptions): Promise<VaultAnchorReconcileResult>;
   };
 
   readonly scan: {
@@ -162,6 +197,21 @@ export class AdminVaultResource {
   readonly signingKeys: {
     list(options?: RequestOptions): Promise<Page<VaultSigningKey>>;
     rotate(options?: RequestOptions): Promise<VaultSigningKeyRotation>;
+    /**
+     * Retire one key by its `keyId` (the 16-hex fingerprint, not a UUID).
+     * Retiring the only key able to sign is refused, so rotate first. `force`
+     * skips the quiet period, for a key known to be compromised.
+     */
+    retire(keyId: string, params?: RetireVaultSigningKeyParams, options?: RequestOptions): Promise<VaultSigningKeyRetirement>;
+  };
+
+  /**
+   * Chain-rewind state. A detected rewind refuses chain writes until an
+   * operator acknowledges it, which appends a `RESTORE_EPOCH` entry.
+   */
+  readonly rewind: {
+    get(options?: RequestOptions): Promise<VaultRewindStatus>;
+    acknowledge(params?: AcknowledgeVaultRewindParams, options?: RequestOptions): Promise<VaultRewindAcknowledgement>;
   };
 }
 

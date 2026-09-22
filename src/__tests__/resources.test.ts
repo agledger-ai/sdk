@@ -1522,6 +1522,62 @@ describe('AdminResource', () => {
       expect(url).toContain('/v1/admin/vault/signing-keys/rotate');
       expect(init.method).toBe('POST');
     });
+
+    it('retires a signing key by its keyId, which is a fingerprint and not a UUID', async () => {
+      const { client, fetch } = createMockClient({
+        retiredKeyId: 'a1b2c3d4e5f60718', retiredAt: 'now', lastSignedAt: null,
+        activeKeys: [], nextSteps: [],
+      });
+      await client.admin.vault.signingKeys.retire('a1b2c3d4e5f60718');
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toContain('/v1/admin/vault/signing-keys/a1b2c3d4e5f60718/retire');
+      expect(init.method).toBe('POST');
+    });
+
+    it('sends force only when asked, so the default keeps the quiet period', async () => {
+      const { client, fetch } = createMockClient({
+        retiredKeyId: 'k', retiredAt: 'now', lastSignedAt: null, activeKeys: [],
+      });
+      await client.admin.vault.signingKeys.retire('k');
+      expect(JSON.parse(fetch.mock.calls[0][1].body as string)).toEqual({});
+      await client.admin.vault.signingKeys.retire('k', { force: true });
+      expect(JSON.parse(fetch.mock.calls[1][1].body as string)).toEqual({ force: true });
+    });
+
+    it('reconciles the anchor bucket against this database', async () => {
+      const { client, fetch } = createMockClient({
+        status: 'ok', scannedKeys: 0, recordsInBucket: 0, rewound: 0, missingLocally: 0,
+        unverified: 0, findings: [], truncated: false, truncatedReason: null,
+        keyLimit: 1000, deadlineMs: 30000,
+        posture: { conditionalWrites: 'unknown', versioning: 'unknown', objectLock: 'unknown', note: '' },
+      });
+      await client.admin.vault.anchors.reconcile({ maxKeys: 50, deadlineMs: 1000 });
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toContain('/v1/admin/vault/anchors/reconcile');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(init.body as string)).toEqual({ maxKeys: 50, deadlineMs: 1000 });
+    });
+
+    it('reads the chain rewind state', async () => {
+      const { client, fetch } = createMockClient({
+        blocked: false, state: null,
+        posture: { conditionalWrites: 'supported', versioning: 'supported', objectLock: 'enabled', note: '' },
+      });
+      const status = await client.admin.vault.rewind.get();
+      expect(fetch.mock.calls[0][0]).toContain('/v1/admin/vault/rewind');
+      expect(status.blocked).toBe(false);
+    });
+
+    it('acknowledges a rewind, carrying the operator note into the chain entry', async () => {
+      const { client, fetch } = createMockClient({
+        acknowledged: true, epochEntryId: 'entry-1', state: null, nextSteps: [],
+      });
+      await client.admin.vault.rewind.acknowledge({ note: 'restored from the 06:00 base backup' });
+      const [url, init] = fetch.mock.calls[0];
+      expect(url).toContain('/v1/admin/vault/rewind/acknowledge');
+      expect(init.method).toBe('POST');
+      expect(JSON.parse(init.body as string)).toEqual({ note: 'restored from the 06:00 base backup' });
+    });
   });
 });
 
