@@ -37,6 +37,7 @@ import type {
   LicenseInfo,
   LicenseInstanceInfo,
   VaultSigningKey,
+  VaultSigningKeyRotation,
   VaultAnchor,
   VaultAnchorVerifyResult,
   VaultScanJob,
@@ -143,7 +144,7 @@ export class AdminVaultResource {
       list: (options?: RequestOptions) =>
         http.getPage<VaultSigningKey>('/v1/admin/vault/signing-keys', undefined, options),
       rotate: (options?: RequestOptions) =>
-        http.post<VaultSigningKey>('/v1/admin/vault/signing-keys/rotate', {}, options),
+        http.post<VaultSigningKeyRotation>('/v1/admin/vault/signing-keys/rotate', {}, options),
     };
   }
 
@@ -160,7 +161,7 @@ export class AdminVaultResource {
 
   readonly signingKeys: {
     list(options?: RequestOptions): Promise<Page<VaultSigningKey>>;
-    rotate(options?: RequestOptions): Promise<VaultSigningKey>;
+    rotate(options?: RequestOptions): Promise<VaultSigningKeyRotation>;
   };
 }
 

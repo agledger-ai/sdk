@@ -348,7 +348,9 @@ export type {
   RecordGraph,
 
   // Admin: Vault
+  VaultActiveSigningKey,
   VaultSigningKey,
+  VaultSigningKeyRotation,
   VaultAnchor,
   VaultAnchorVerifyResult,
   VaultAnchorVerifyRow,
