@@ -90,6 +90,24 @@ describe('RecordsResource', () => {
     expect(url).toContain('integrity=true');
   });
 
+  it('sends view=compact on the three record reads and passes the compact body through', async () => {
+    const { client, fetch } = createMockClient({
+      id: 'rec-123',
+      status: 'ACTIVE',
+      nextSteps: [{ action: 'submit', method: 'POST', href: '/v1/records/rec-123/completions' }],
+    });
+    const compact = await client.records.get('rec-123', { view: 'compact' });
+    expect(fetch.mock.calls[0][0]).toContain('view=compact');
+    expect(compact.nextSteps?.[0]).toEqual({ action: 'submit', method: 'POST', href: '/v1/records/rec-123/completions' });
+
+    const pages = createPageMockClient([{ id: 'rec-1', status: 'ACTIVE' }]);
+    await pages.client.records.list({ view: 'compact' });
+    await pages.client.records.search({ view: 'compact', status: 'ACTIVE' });
+    expect(pages.fetch.mock.calls[0][0]).toContain('/v1/records?view=compact');
+    expect(pages.fetch.mock.calls[1][0]).toContain('/v1/records/search?');
+    expect(pages.fetch.mock.calls[1][0]).toContain('view=compact');
+  });
+
   it('lists records with optional orgId filter', async () => {
     const { client, fetch } = createPageMockClient();
     await client.records.list({ orgId: 'ent-123' });

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AgledgerApiError,
   AuthenticationError,
+  ConflictError,
   PermissionError,
   ValidationError,
   UnprocessableError,
@@ -73,6 +74,34 @@ describe('AgledgerApiError classifier methods', () => {
       const err = new ValidationError({ message: 'Bad input' });
       expect(err.recoveryHint).toBeUndefined();
       expect(err.refreshUrl).toBeUndefined();
+    });
+  });
+
+  describe('refusal fields forwarded verbatim', () => {
+    it('forwards reason, currentState, allowedActions and existingId', () => {
+      const err = new UnprocessableError({
+        message: 'The scopes this token asks for are admin-only',
+        currentState: 'scope_claim_admin_only',
+        allowedActions: ['fix_the_idp_claim_mapping'],
+      });
+      expect(err.currentState).toBe('scope_claim_admin_only');
+      expect(err.allowedActions).toEqual(['fix_the_idp_claim_mapping']);
+
+      const conflict = new ConflictError({
+        message: 'A trusted issuer with this URL already exists',
+        reason: 'TRUSTED_ISSUER_EXISTS',
+        existingId: '0199a8f0-0000-7000-8000-000000000001',
+      });
+      expect(conflict.reason).toBe('TRUSTED_ISSUER_EXISTS');
+      expect(conflict.existingId).toBe('0199a8f0-0000-7000-8000-000000000001');
+    });
+
+    it('leaves them undefined when the body omits them', () => {
+      const err = new ValidationError({ message: 'Bad input' });
+      expect(err.reason).toBeUndefined();
+      expect(err.currentState).toBeUndefined();
+      expect(err.allowedActions).toBeUndefined();
+      expect(err.existingId).toBeUndefined();
     });
   });
 

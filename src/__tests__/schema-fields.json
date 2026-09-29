@@ -1,7 +1,7 @@
 {
   "generatedFrom": "components.schemas",
   "apiVersion": "1.8.0",
-  "schemaCount": 13,
+  "schemaCount": 15,
   "schemas": {
     "Completion": [
       "agentId",
@@ -79,6 +79,7 @@
       "errors",
       "examplePayload",
       "existingDigest",
+      "existingId",
       "expected",
       "hint",
       "incomingDigest",
@@ -141,6 +142,11 @@
       "workflowStep",
       "workflowTotal"
     ],
+    "NextStepActionCompact": [
+      "action",
+      "href",
+      "method"
+    ],
     "PaginatedResponse": [
       "hasMore",
       "nextCursor",
@@ -170,6 +176,7 @@
       "errors",
       "examplePayload",
       "existingDigest",
+      "existingId",
       "expected",
       "hint",
       "incomingDigest",
@@ -305,6 +312,92 @@
       "verdictChecks",
       "version"
     ],
+    "RecordRowCompact": [
+      "acceptanceRespondedAt",
+      "acceptanceStatus",
+      "activatedAt",
+      "advisoryWarnings",
+      "awaitingActor",
+      "category",
+      "chainDepth",
+      "childRecordIds",
+      "coSignRequired",
+      "coSignStatus",
+      "completionHint",
+      "constraintInheritance",
+      "contractVersion",
+      "correlationId",
+      "counterSignature",
+      "createdAt",
+      "createdByKeyId",
+      "criteria",
+      "deadline",
+      "dependsOn",
+      "disputeCount",
+      "disputeId",
+      "disputeStatus",
+      "enforcementOverrides",
+      "euAiActDomain",
+      "expiredAt",
+      "externalTaskId",
+      "federationStatus",
+      "fulfilledAt",
+      "gateMode",
+      "hasChildren",
+      "hasDispute",
+      "humanOversight",
+      "id",
+      "imported",
+      "integrity",
+      "lastTransitionBy",
+      "lastTransitionReason",
+      "lastVerdictAt",
+      "lastVerdictReason",
+      "latestCompletionId",
+      "maxDisputes",
+      "maxRevisions",
+      "maxSubmissions",
+      "metadata",
+      "nextActions",
+      "nextSteps",
+      "operatingMode",
+      "orgId",
+      "outcome",
+      "parentPrincipalOrgMatchesPerformer",
+      "parentRecordId",
+      "pastDeadline",
+      "performerAgentId",
+      "platform",
+      "platformRef",
+      "principalAgentId",
+      "projectRef",
+      "publisher",
+      "recordRead",
+      "references",
+      "requestedBy",
+      "revisionCount",
+      "riskClassification",
+      "rootRecordId",
+      "schemaUrl",
+      "selfPrincipal",
+      "settlementSignal",
+      "share",
+      "sharedToPeers",
+      "signedStatement",
+      "source",
+      "status",
+      "submissionCount",
+      "supersededByCount",
+      "supersedesRecordId",
+      "terminalReason",
+      "tolerance",
+      "type",
+      "updatedAt",
+      "validTransitions",
+      "verdict",
+      "verdictChecks",
+      "version"
+    ],
     "WebhookDelivery": [
       "attemptNumber",
       "createdAt",
@@ -339,7 +432,7 @@
       "url"
     ]
   },
-  "enumCount": 42,
+  "enumCount": 47,
   "enums": {
     "AgentClass": {
       "values": [
@@ -369,6 +462,7 @@
         "payload_hash_mismatch",
         "previous_hash_mismatch",
         "signature_invalid",
+        "signature_missing",
         "signing_key_drift",
         "signing_key_unknown",
         "signing_key_unpublished",
@@ -393,11 +487,13 @@
         "checkpoint_hash_mismatch",
         "checkpoint_key_unknown",
         "checkpoint_signature_invalid",
+        "checkpoint_unsigned",
         "key_expired",
         "key_not_yet_active",
         "oidc_actor_drift",
         "payload_drift",
         "signature_invalid",
+        "signature_missing",
         "signing_key_drift",
         "signing_key_unknown",
         "signing_key_unpublished",
@@ -713,6 +809,26 @@
         "components/schemas/RecordRow/properties/operatingMode"
       ]
     },
+    "OrgReadsBreakReason": {
+      "values": [
+        "checkpoint_claim_mismatch",
+        "checkpoint_key_unknown",
+        "checkpoint_leaf_count_mismatch",
+        "checkpoint_root_mismatch",
+        "checkpoint_signature_invalid",
+        "checkpoint_unsigned",
+        "leaf_claim_mismatch",
+        "leaf_hash_mismatch",
+        "leaf_index_gap",
+        "leaf_key_unknown",
+        "leaf_signature_invalid",
+        "leaf_signature_missing",
+        "verification_error"
+      ],
+      "specSites": [
+        "paths//v1/admin/vault/scan/{jobId}/get/responses/200/content/application/json/schema/properties/result/properties/orgAdminReads/properties/brokenOrgs/items/properties/reason"
+      ]
+    },
     "OrgReadsCheckpointingSource": {
       "values": [
         "config",
@@ -775,6 +891,17 @@
         "components/schemas/RecordRow/properties/nextActions/items"
       ]
     },
+    "RecordView": {
+      "values": [
+        "compact",
+        "full"
+      ],
+      "specSites": [
+        "paths//v1/records/get/parameters/view/schema",
+        "paths//v1/records/search/get/parameters/view/schema",
+        "paths//v1/records/{id}/get/parameters/view/schema"
+      ]
+    },
     "SchemaCompatibilityMode": {
       "values": [
         "backward",
@@ -828,6 +955,25 @@
         "components/schemas/Completion/properties/structuralValidation"
       ]
     },
+    "TrustedIssuerAlg": {
+      "values": [
+        "ES256",
+        "ES384",
+        "ES512",
+        "EdDSA",
+        "PS256",
+        "PS384",
+        "PS512",
+        "RS256",
+        "RS384",
+        "RS512"
+      ],
+      "specSites": [
+        "paths//v1/admin/trusted-issuers/post/requestBody/content/application/json/schema/properties/allowedAlgs/items",
+        "paths//v1/admin/trusted-issuers/{id}/patch/requestBody/content/application/json/schema/properties/allowedAlgs/items",
+        "paths//v1/admin/trusted-issuers/{id}/get/responses/200/content/application/json/schema/properties/allowedAlgs/items"
+      ]
+    },
     "TrustedIssuerAppliesTo": {
       "values": [
         "admin",
@@ -847,6 +993,49 @@
       ],
       "specSites": [
         "paths//v1/audit-vault/checkpoints/get/responses/200/content/application/json/schema/properties/data/items/properties/chain"
+      ]
+    },
+    "VaultScanBreakReason": {
+      "values": [
+        "agent_signature_invalid",
+        "audit_vault_row_missing_for_checkpoint",
+        "cert_actor_drift",
+        "cert_expired",
+        "cert_missing",
+        "cert_window_drift",
+        "chain_broken_at",
+        "checkpoint_claim_mismatch",
+        "checkpoint_hash_mismatch",
+        "checkpoint_key_unknown",
+        "checkpoint_signature_invalid",
+        "checkpoint_unsigned",
+        "key_expired",
+        "key_not_yet_active",
+        "oidc_actor_drift",
+        "payload_drift",
+        "schema_chain_missing_for_subjects",
+        "signature_invalid",
+        "signature_missing",
+        "signing_key_drift",
+        "signing_key_unknown",
+        "signing_key_unpublished",
+        "unsupported_algorithm",
+        "verification_error"
+      ],
+      "specSites": [
+        "paths//v1/admin/vault/scan/{jobId}/get/responses/200/content/application/json/schema/properties/result/properties/brokenRecords/items/properties/reason",
+        "paths//v1/admin/vault/scan/{jobId}/get/responses/200/content/application/json/schema/properties/result/properties/globalChains/properties/brokenChains/items/properties/reason"
+      ]
+    },
+    "VaultScanFirstFindingReason": {
+      "values": [
+        "key_expired",
+        "key_not_yet_active",
+        "unsupported_algorithm"
+      ],
+      "specSites": [
+        "paths//v1/admin/vault/scan/{jobId}/get/responses/200/content/application/json/schema/properties/result/properties/brokenRecords/items/properties/firstFinding/properties/reason",
+        "paths//v1/admin/vault/scan/{jobId}/get/responses/200/content/application/json/schema/properties/result/properties/globalChains/properties/brokenChains/items/properties/firstFinding/properties/reason"
       ]
     },
     "VaultScanState": {

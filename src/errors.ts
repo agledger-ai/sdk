@@ -46,6 +46,8 @@ export class ConfigurationError extends AgledgerError {
  * - `docUrl`: documentation link, only if the API returned one
  * - `suggestion`: typo-correction hint, only if the API returned one
  * - `recoveryHint`: machine-readable recovery guidance (e.g. on 422 INVALID_ACTION)
+ * - `reason` / `currentState` / `allowedActions`: the refusal's reason code, the state it found, and what is allowed now
+ * - `existingId`: the row a 409 collided with (e.g. TRUSTED_ISSUER_EXISTS)
  * - `refreshUrl`: concrete GET URL to re-fetch state (e.g. on 422 INVALID_ACTION)
  * - `validationErrors`: field-level validation details (for 400/422)
  */
@@ -122,6 +124,31 @@ export class AgledgerApiError extends AgledgerError {
   readonly recoveryHint?: string;
 
   /**
+   * Machine-readable reason code, forwarded from the body. On a 401 OIDC
+   * refusal it names the token check that failed (`expired`, `wrong_audience`,
+   * `wrong_azp`, `jti_replayed`, ...); on a 409 it names the conflict
+   * (`TRUSTED_ISSUER_EXISTS`, `AGENT_NAME_IN_USE`, ...).
+   */
+  readonly reason?: string;
+
+  /**
+   * State the resource was in when the request was refused, forwarded from
+   * the body. Some refusals name their precondition here instead, such as the
+   * cert exchange's 422 `scope_claim_admin_only`.
+   */
+  readonly currentState?: string;
+
+  /** Actions the resource accepts right now, forwarded from the body. Ground truth for the next call. */
+  readonly allowedActions?: string[];
+
+  /**
+   * ID of the row already holding the unique key this request collided with.
+   * Present on 409 `TRUSTED_ISSUER_EXISTS`: read or PATCH that row rather than
+   * creating another.
+   */
+  readonly existingId?: string;
+
+  /**
    * Concrete GET URL the agent should re-fetch to read fresh
    * `nextActions` / `validTransitions` / `allowedActions`. Set on 422
    * INVALID_ACTION when the request path includes a Record id.
@@ -157,6 +184,10 @@ export class AgledgerApiError extends AgledgerError {
     this.suggestion = body.suggestion;
     this.recoveryHint = body.recoveryHint;
     this.refreshUrl = body.refreshUrl;
+    this.reason = body.reason;
+    this.currentState = body.currentState;
+    this.allowedActions = body.allowedActions;
+    this.existingId = body.existingId;
     this.publishers = body.publishers;
     this.registryVersion = body.registryVersion;
     this.pinnedRecords = body.pinnedRecords;
@@ -264,8 +295,8 @@ export class ValidationError extends AgledgerApiError {
  * 422 Unprocessable: the request was valid but the resource state won't
  * accept it (e.g. INVALID_ACTION on `POST /v1/records/{id}/transition`).
  *
- * On INVALID_ACTION the API attaches `recoveryHint` and `refreshUrl` (and
- * `currentState` / `allowedActions` via `details`); surfaced on the base
+ * On INVALID_ACTION the API attaches `recoveryHint`, `refreshUrl`,
+ * `currentState` and `allowedActions`, all surfaced on the base
  * `AgledgerApiError` properties.
  */
 export class UnprocessableError extends AgledgerApiError {

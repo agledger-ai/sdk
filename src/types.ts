@@ -1033,7 +1033,7 @@ export interface RecordRow {
   performerAgentId: string | null;
   /** Agent ID of the principal. */
   principalAgentId: string;
-  /** API key that created this Record (admin, agent, or platform). See audit_vault for the chain of custody. */
+  /** API key that created this Record (admin, agent, or platform). The Record's signed chain (`records.getAuditExport()`) names every party that wrote to it. */
   createdByKeyId: string;
   /** Record Type, e.g. 'ACH-PROC-v1'. */
   type: RecordType;
@@ -1247,6 +1247,54 @@ export interface RecordRow {
   integrity?: RecordIntegrity;
 }
 
+/**
+ * A {@link NextStep} as served under `view: 'compact'`: the call alone, without
+ * the `description`, `afterThis` and `workflow*` fields the full view carries.
+ */
+export interface NextStepCompact {
+  /** What to do next. */
+  action: string;
+  /** HTTP method. */
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  /** Relative URL template (substitute {id} placeholders). */
+  href: string;
+}
+
+/** Response form of a Record read. `full` (the Server's default) is the whole Record. */
+export type RecordView = 'full' | 'compact';
+
+/** The {@link RecordRow} fields whose value can be null. */
+type NullableRecordRowKey = {
+  [K in keyof RecordRow]-?: null extends RecordRow[K] ? K : never;
+}[keyof RecordRow];
+
+/**
+ * A {@link RecordRow} as served under `view: 'compact'`
+ * (`RecordRowCompact` in the OpenAPI document). Every top-level field whose
+ * value is null is left out, so each field the full view types `| null` is
+ * optional here and never null; an absent field was null, or is one the full
+ * view also leaves out on that read. Each `nextSteps` entry carries only
+ * `action`, `method` and `href`. Only the top level is touched: a null inside
+ * `criteria` or `metadata` stays.
+ *
+ * Meant for an agent loop that re-reads Records it has already seen in full.
+ * Read once without `view: 'compact'` to get the step descriptions.
+ */
+export type RecordRowCompact = Omit<RecordRow, NullableRecordRowKey | 'nextSteps'> & {
+  [K in Exclude<NullableRecordRowKey, 'nextSteps'>]?: Exclude<RecordRow[K], null>;
+} & {
+  /** Suggested next calls, trimmed to the call. */
+  nextSteps?: NextStepCompact[];
+};
+
+/**
+ * A page of {@link RecordRowCompact} rows. The envelope's own `nextSteps` are
+ * trimmed the same way as each row's.
+ */
+export type RecordCompactPage = Omit<Page<RecordRowCompact>, 'nextSteps'> & {
+  nextSteps?: NextStepCompact[];
+};
+
 /** Tamper-evidence result attached to a Record read with `?integrity=true`. */
 export interface RecordIntegrity {
   /**
@@ -1293,7 +1341,11 @@ export interface SettlementSignalSummary {
   reasonCode?: string | null;
   /** Rule IDs that failed and drove the recommendation, or null. */
   failingRuleIds?: string[] | null;
-  /** Optional human-readable reason, or null. */
+  /**
+   * Free-text hint the emitted signal carried, or null. Always null when
+   * `source` is `inbound`: free text stays on the Server that wrote it and
+   * does not cross the federation wire.
+   */
   reason?: string | null;
   /** Peer Servers the signal was successfully delivered to. */
   deliveredToPeers: string[];
@@ -1506,6 +1558,12 @@ export interface ListRecordsParams extends ListParams {
    * keys 400 (use the per-row `awaitingActor` field instead).
    */
   actionable?: boolean;
+  /**
+   * Response form. `compact` leaves out every top-level null on each row and
+   * trims `nextSteps` to the call, and the method then resolves to a
+   * {@link RecordCompactPage}. Omitted or `full`, whole {@link RecordRow}s.
+   */
+  view?: RecordView;
 }
 
 /** Options for {@link RecordsResource.get}. */
@@ -1516,6 +1574,12 @@ export interface GetRecordParams {
    * walk; omit for plain reads.
    */
   integrity?: boolean;
+  /**
+   * Response form. `compact` leaves out every top-level null and trims each
+   * `nextSteps` entry to the call, and the method then resolves to a
+   * {@link RecordRowCompact}. Omitted or `full`, the whole {@link RecordRow}.
+   */
+  view?: RecordView;
 }
 
 export interface SearchRecordsParams extends ListParams {
@@ -1581,6 +1645,12 @@ export interface SearchRecordsParams extends ListParams {
   'ref.type'?: string;
   /** External entity reference filter: the entity id within the system. */
   'ref.id'?: string;
+  /**
+   * Response form. `compact` leaves out every top-level null on each row and
+   * trims `nextSteps` to the call, and the method then resolves to a
+   * {@link RecordCompactPage}. Omitted or `full`, whole {@link RecordRow}s.
+   */
+  view?: RecordView;
 }
 
 /**
@@ -1733,7 +1803,8 @@ export interface GateStatus {
    * Structural validation phase: the completion shape against the type's
    * `completionSchema`. `not_applicable` when the record reached a terminal
    * state without a completion, so none is coming: a notarize-only type, a
-   * parent settled by its children's rollup in auto mode, a record cancelled
+   * delegation parent an earlier release settled from its children's rollup
+   * (children can fail a parent but no longer settle one), a record cancelled
    * or timed out before evidence landed.
    *
    * Agents driving settle/hold should key on {@link verdict} instead.
@@ -2032,7 +2103,13 @@ export interface Webhook {
    * 9421 scheme and same verification call, signed under ES256 instead.
    */
   signingAlg: WebhookSigningAlg;
-  /** Only present on creation/rotation of an `hmac` subscription (one-time). Absent for `ed25519`. */
+  /**
+   * Only present on creation/rotation of an `hmac` subscription (one-time).
+   * Absent for `ed25519`, and absent on an `Idempotency-Key` replay of the
+   * create (response header `X-Idempotency-Replayed: true`): the secret is
+   * never stored for replay, and `nextSteps` then leads with the rotate call
+   * that mints a new one.
+   */
   secret?: string;
   /** Whether a secret grace period is active after rotation. */
   secretGraceActive?: boolean;
@@ -2382,6 +2459,8 @@ export interface AgledgerEvent {
 export interface ComplianceExport {
   exportId: string;
   status: 'processing' | 'ready';
+  /** The format this export was created in, which `downloadUrl` serves. */
+  format?: 'csv' | 'json' | 'html';
   downloadUrl?: string;
   createdAt?: string;
   expiresAt?: string;
@@ -2563,7 +2642,11 @@ export interface AuditExportEntry {
 export interface AuditSignatureCoverage {
   /** Entries written by an engine with VAULT_SIGNING_KEY. */
   signed: number;
-  /** Entries with signing_key_id IS NULL (engine booted without a key). */
+  /**
+   * Entries with signing_key_id IS NULL. Only entries written before the
+   * install registered its first signing key count here; an unsigned entry
+   * after that is the `signature_missing` break.
+   */
   unsigned: number;
   total: number;
 }
@@ -2621,6 +2704,19 @@ export type AuditChainIntegrityReasonCode =
   | 'signing_key_unknown'
   | 'signing_key_drift'
   /**
+   * The entry is unsigned where this install cannot have written an unsigned
+   * entry: after a signed entry in the same chain, or at or after the earliest
+   * `activated_at` in the key registry. Unsigned entries from before the
+   * install's first key are reduced signature coverage, not this break.
+   */
+  | 'signature_missing'
+  /**
+   * A checkpoint written at or after the install's first key activation
+   * carries no signature. Same rule as `signature_missing`, applied to the
+   * checkpoint that anchors the chain.
+   */
+  | 'checkpoint_unsigned'
+  /**
    * The entry falls outside its signing key's published window, or the key was
    * never published: signed after `retiredAt` (`key_expired`), stamped before
    * `activatedAt` (`key_not_yet_active`), or resolved to a key absent from
@@ -2663,6 +2759,8 @@ export type AuditChainFailureCode =
   | 'signature_invalid'
   | 'signing_key_unknown'
   | 'signing_key_drift'
+  /** See {@link AuditChainIntegrityReasonCode}. */
+  | 'signature_missing'
   /** See {@link AuditChainIntegrityReasonCode}: same key-window meanings. */
   | 'key_expired'
   | 'key_not_yet_active'
@@ -2691,8 +2789,10 @@ export interface RecordAuditExport {
   /**
    * Hash-chain + signature discriminator. `hash_chain_only` = chain valid,
    * zero entries signed (no Ed25519 verification possible).
-   * `hash_chain_partial_signatures` = chain valid + subset signed (rotation or
-   * mixed booting). `hash_chain_and_signatures` = chain valid AND every entry
+   * `hash_chain_partial_signatures` = chain valid + a subset signed; the
+   * unsigned entries were written before the install registered its first
+   * signing key (an unsigned entry after that, or after a signed entry in the
+   * chain, is the `signature_missing` break instead). `hash_chain_and_signatures` = chain valid AND every entry
    * signed. `invalid` = chainIntegrity is false. Auditors should NOT conclude
    * "Ed25519-verified" from chainIntegrity alone; read this.
    */
@@ -4372,6 +4472,12 @@ export interface ApiErrorResponse {
 
   /** The background job this request was refused in favour of. Present on 409 VAULT_SCAN_IN_FLIGHT. */
   jobId?: string;
+  /**
+   * ID of the row already holding the unique key this request collided with.
+   * Present on 409 `TRUSTED_ISSUER_EXISTS`: read or PATCH that row rather than
+   * creating another.
+   */
+  existingId?: string;
   /** Byte template the proof-of-possession signature must cover. Present on the federation 401. */
   signInputTemplate?: string;
   /** Replacement path for an endpoint retired in a migration. Present on some 404s. */
@@ -4470,7 +4576,12 @@ export interface RelaySignalParams {
   reasonCode?: string | null;
   /** ruleIds that failed when a gate evaluation produced this HOLD. Null for non-rule terminals or older peers. */
   failingRuleIds?: string[] | null;
-  /** Free-text hint (engine summary or principal verdict notes). Null on older peers. */
+  /**
+   * Ignored by the receiver. Peers on API 1.8.0 and earlier send the signal's
+   * free-text reason here, so the field is still accepted, but it is neither
+   * stored nor forwarded: free text does not cross the federation wire, and
+   * `reasonCode` and `failingRuleIds` carry the cause.
+   */
   reason?: string | null;
 }
 
@@ -4571,16 +4682,21 @@ export interface DisputeProtocolResult {
 
 /**
  * Parameters for establishing a peer relationship with another AGLedger
- * instance. All five are required and the route refuses anything else: the
+ * instance. All four are required and the route refuses anything else: the
  * single-use `peeringToken` in the body is what admits the call, so the route
- * carries no other authentication.
+ * carries no other authentication. The token names the local org the peering
+ * binds to, so the body names none.
  */
 export interface PeerHandshakeParams {
+  /**
+   * The initiating Server's hub id (its `AGLEDGER_INSTANCE_ID`). Must be the
+   * hub id the peering token was minted for, else 422 with the token left
+   * unconsumed.
+   */
   peerHubId: string;
   peerUrl: string;
   signingPublicKey: string;
   peeringToken: string;
-  boundOrgId: string;
 }
 
 /**
@@ -4834,6 +4950,15 @@ export interface VaultSigningKeyRetirement {
   retiredAt: string;
   /** The last chain entry this key signed before it was retired. */
   lastSignedAt: string | null;
+  /**
+   * Unexpired ephemeral certs this key minted that the retirement revoked, in
+   * the same transaction: every one on a forced retirement, since the leaked
+   * half could mint a fresh JWS for any of them; always 0 on an unforced one,
+   * whose certs lapse on their own TTL. Holders mint replacements with
+   * `POST /v1/auth/oidc/cert` (an {@link oidcCertCredential} re-exchanges on
+   * the 401 by itself).
+   */
+  revokedCertCount?: number;
   /** Every key still able to sign. Retiring the only active key is refused. */
   activeKeys: VaultActiveSigningKey[];
   nextSteps?: NextStep[];
@@ -5032,12 +5157,65 @@ export interface VaultCheckpointingSchedule {
   anchoringEnabled: boolean;
 }
 
+/**
+ * Why a record chain or a record-less chain broke in a vault scan. Open: the
+ * Server may add codes, and an unknown one still type-checks. The meanings
+ * match {@link AuditChainIntegrityReasonCode}; `schema_chain_missing_for_subjects`
+ * is schema-chain only, and `verification_error` is a walk that could not run.
+ */
+export type VaultScanBreakReason =
+  | 'chain_broken_at'
+  | 'payload_drift'
+  | 'oidc_actor_drift'
+  | 'cert_actor_drift'
+  | 'cert_window_drift'
+  | 'cert_expired'
+  | 'cert_missing'
+  | 'agent_signature_invalid'
+  | 'signature_invalid'
+  | 'signing_key_unknown'
+  | 'signature_missing'
+  | 'signing_key_unpublished'
+  | 'unsupported_algorithm'
+  | 'signing_key_drift'
+  | 'key_expired'
+  | 'key_not_yet_active'
+  | 'audit_vault_row_missing_for_checkpoint'
+  | 'checkpoint_hash_mismatch'
+  | 'checkpoint_signature_invalid'
+  | 'checkpoint_key_unknown'
+  | 'checkpoint_unsigned'
+  | 'checkpoint_claim_mismatch'
+  | 'schema_chain_missing_for_subjects'
+  | 'verification_error'
+  | (string & {});
+
+/**
+ * The reason on a {@link VaultScanFirstFinding}: a key-window or
+ * unsupported-algorithm entry, which does not withhold a checkpoint on its own.
+ */
+export type VaultScanFirstFindingReason = 'key_expired' | 'key_not_yet_active' | 'unsupported_algorithm';
+
+/**
+ * An earlier finding in a chain the scan reports broken further on. The
+ * `reason` and `brokenAt` beside it name the hash, link, drift or signature
+ * break that withholds the chain's checkpoint; this names the first entry
+ * before it that was outside its key's window or under an algorithm the build
+ * cannot verify.
+ */
+export interface VaultScanFirstFinding {
+  brokenAt: number;
+  reason: VaultScanFirstFindingReason;
+}
+
 /** A broken-record finding from a vault scan. */
 export interface VaultScanBrokenRecord {
   recordId: string;
   brokenAt: number;
-  reason: string;
+  reason: VaultScanBreakReason;
   expectedEntries?: number;
+  /** An earlier key-window or unsupported-algorithm entry in the same chain, when there was one. */
+  firstFinding?: VaultScanFirstFinding;
 }
 
 /**
@@ -5051,11 +5229,13 @@ export interface VaultScanBrokenChain {
   orgId: string | null;
   brokenAt: number;
   /**
-   * Same failure taxonomy as `VaultScanBrokenRecord.reason` (plus the schema-chain-only
-   * `schema_chain_missing_for_subjects`). Left as `string` on purpose: the server may add
-   * codes and an open type keeps a new value from becoming a compile break.
+   * Same failure taxonomy as `VaultScanBrokenRecord.reason`, including the
+   * schema-chain-only `schema_chain_missing_for_subjects`. Open, so a code the
+   * Server adds later is not a compile break.
    */
-  reason: string;
+  reason: VaultScanBreakReason;
+  /** An earlier key-window or unsupported-algorithm entry in the same chain, when there was one. */
+  firstFinding?: VaultScanFirstFinding;
 }
 
 /**
@@ -5071,9 +5251,63 @@ export interface VaultScanGlobalChains {
   broken: number;
   /** Subset of `broken`, broken on per-entry signature verification. */
   signatureErrors: number;
+  /** Chains holding an entry under an algorithm this build cannot verify. */
+  unsupportedAlgorithm?: number;
   /** Capped at 100 entries; `brokenChainsTruncated === true` means more broke. */
   brokenChains: VaultScanBrokenChain[];
   brokenChainsTruncated: boolean;
+}
+
+/**
+ * Why the cross-party read log broke for one org. Open, so a code the Server
+ * adds later is not a compile break. `leaf_signature_missing` and
+ * `checkpoint_unsigned` are the read-log twins of the vault chain's
+ * `signature_missing` and `checkpoint_unsigned`.
+ */
+export type OrgReadsBreakReason =
+  | 'leaf_index_gap'
+  | 'leaf_hash_mismatch'
+  | 'leaf_claim_mismatch'
+  | 'leaf_signature_invalid'
+  | 'leaf_key_unknown'
+  | 'leaf_signature_missing'
+  | 'checkpoint_leaf_count_mismatch'
+  | 'checkpoint_root_mismatch'
+  | 'checkpoint_claim_mismatch'
+  | 'checkpoint_signature_invalid'
+  | 'checkpoint_key_unknown'
+  | 'checkpoint_unsigned'
+  | 'verification_error'
+  | (string & {});
+
+/** One org whose cross-party read log broke in a vault scan. */
+export interface VaultScanBrokenOrg {
+  orgId: string;
+  reason: OrgReadsBreakReason;
+  /** The leaf index or checkpoint tree size the finding localizes to. */
+  at: number;
+}
+
+/**
+ * The cross-party read log (`org_admin_reads` and its signed Merkle
+ * checkpoints), walked whole on a full scan: each leaf against its hash, signed
+ * claim and signature, and each checkpoint against the Merkle root over the
+ * leaves it covers, its signed claim and its signature. A break here fails
+ * `healthy`.
+ */
+export interface VaultScanOrgAdminReads {
+  /** Orgs with at least one leaf or checkpoint. */
+  orgs?: number;
+  leaves?: number;
+  checkpoints?: number;
+  /** Orgs with at least one finding; one finding is reported per org, the first met. */
+  broken?: number;
+  /** Orgs whose leaves this host cannot verify (algorithm not available here). Not in `broken`. */
+  unsupportedAlgorithm?: number;
+  /** Capped at 100 entries. */
+  brokenOrgs?: VaultScanBrokenOrg[];
+  /** True when an org held more leaves than one walk reads; its checkpoints past that point were not checked. */
+  truncated?: boolean;
 }
 
 /** Scan findings, present once `state === 'completed'`, otherwise null. */
@@ -5083,8 +5317,19 @@ export interface VaultScanResult {
   broken: number;
   signatureErrors: number;
   /**
-   * True iff `broken === 0` and `signatureErrors === 0` and `globalChains.broken === 0`.
-   * The single field to branch on; a full scan folds the record-less chains into it.
+   * Record chains this host cannot verify because the key's algorithm is not
+   * available to it (Ed25519 history on a FIPS host). Not in `broken` and not
+   * in `healthy`; listed under `brokenRecords` with reason
+   * `unsupported_algorithm`. Verify them off-host with the offline verifier.
+   * A chain that also breaks at or after that entry is in `broken` instead,
+   * with `firstFinding` naming the unsupported entry.
+   */
+  unsupportedAlgorithm?: number;
+  /**
+   * True iff `broken === 0`, `signatureErrors === 0`, `globalChains.broken === 0`,
+   * `recordsMissingChain === 0` and `orgAdminReads.broken === 0`. The single
+   * field to branch on. It does not fold in `unsupportedAlgorithm`, chains this
+   * host could not check at all.
    */
   healthy: boolean;
   /**
@@ -5101,6 +5346,8 @@ export interface VaultScanResult {
   brokenRecordsTruncated: boolean;
   /** Record-less chain findings. Present on a full scan; absent on a `recordIds`-scoped scan. */
   globalChains?: VaultScanGlobalChains;
+  /** Cross-party read log findings. Present on a full scan; null or absent on a `recordIds`-scoped scan. */
+  orgAdminReads?: VaultScanOrgAdminReads | null;
   /**
    * Checkpoint sweep schedule at the time of the scan. Read it before treating
    * an absent checkpoint as a finding: `lastCheckpointAt` is null on any
@@ -5330,16 +5577,55 @@ export interface ListPeersParams extends ListParams {
   status?: FederationPeerStatusFilter;
 }
 
+/**
+ * Parameters for minting a peering token. The token is bound at mint to the
+ * one hub id it admits and to the local org that peer's records project into;
+ * the handshake refuses any other hub id and takes the org from the token.
+ */
+export interface CreatePeeringTokenParams {
+  /**
+   * The hub id this token admits: the initiating Server's `instanceId` (its
+   * `GET /federation/v1/admin/instance`), which its operator sends you with
+   * its URL and signing key. 409 when a peer is already registered under it.
+   */
+  peerHubId: string;
+  /** The local org the peer's records project into. 404 when it is not a local org. */
+  boundOrgId: string;
+  /** Optional label identifying the intended peer (max 255 chars). */
+  label?: string;
+}
+
 /** A single-use peering token for peer-to-peer federation setup. */
 export interface PeeringToken {
   /** Hand this to the peer operator; it is shown once. */
   peeringToken: string;
   label?: string | null;
+  /** The hub id the token admits, in canonical lowercase. */
+  peerHubId: string;
+  /** The local org the peering will be bound to. */
+  boundOrgId: string;
   createdAt: string;
   expiresAt: string;
   nextSteps?: NextStep[];
 }
 
+
+/**
+ * A JWT signature algorithm a trusted issuer row may be restricted to: the
+ * asymmetric set the Server accepts by default. Symmetric (`HS*`) and `none`
+ * are never accepted, and anything outside this set is a 400.
+ */
+export type TrustedIssuerAlg =
+  | 'RS256'
+  | 'RS384'
+  | 'RS512'
+  | 'PS256'
+  | 'PS384'
+  | 'PS512'
+  | 'ES256'
+  | 'ES384'
+  | 'ES512'
+  | 'EdDSA';
 
 /** Who a trusted issuer's tokens may authenticate as. */
 export type TrustedIssuerAppliesTo = 'agent' | 'principal' | 'admin' | 'any';
@@ -5364,7 +5650,7 @@ export interface TrustedIssuer {
   /** Logical-name → IdP-claim-name map, e.g. `{ scopes: 'groups' }`. */
   claimMapping: Record<string, string>;
   /** Override of the default allowed signature algs; null inherits defaults. */
-  allowedAlgs: string[] | null;
+  allowedAlgs: TrustedIssuerAlg[] | null;
   maxCredentialTtlSeconds: number;
   /**
    * When true, the first `POST /v1/auth/oidc/cert` from a subject this Server
@@ -5417,7 +5703,11 @@ export interface CreateTrustedIssuerParams {
   expectedAzp?: string | null;
   appliesTo?: TrustedIssuerAppliesTo;
   claimMapping?: Record<string, string>;
-  allowedAlgs?: string[] | null;
+  /**
+   * Restrict this row to a non-empty subset of the default algorithms. Omit
+   * or send null for the whole default set.
+   */
+  allowedAlgs?: TrustedIssuerAlg[] | null;
   maxCredentialTtlSeconds?: number;
   /**
    * Let the first token exchange from an unknown subject create the agent.
@@ -5447,7 +5737,11 @@ export interface UpdateTrustedIssuerParams {
   expectedAzp?: string | null;
   appliesTo?: TrustedIssuerAppliesTo;
   claimMapping?: Record<string, string>;
-  allowedAlgs?: string[] | null;
+  /**
+   * Restrict this row to a non-empty subset of the default algorithms. Omit
+   * or send null for the whole default set.
+   */
+  allowedAlgs?: TrustedIssuerAlg[] | null;
   maxCredentialTtlSeconds?: number;
   /**
    * Let the first token exchange from an unknown subject create the agent.
@@ -5553,7 +5847,13 @@ export interface IssueEphemeralCertParams {
    * {@link oidcCertCredential} does the whole exchange for you.
    */
   proofOfPossession: string;
-  /** Target agent identity; defaults from the mapped OIDC claims. */
+  /**
+   * Optional assertion of the agent the cert binds to. The token decides the
+   * agent (a mapped `agent_id` claim, else the agent carrying the token's
+   * `oidcIss`/`oidcSub`, else auto-provisioning); this field never chooses
+   * one. When sent it must equal that agent, or the exchange is refused with
+   * 403 `CERT_AGENT_BINDING_MISMATCH` (also when the token binds to no agent).
+   */
   agentId?: string;
 }
 

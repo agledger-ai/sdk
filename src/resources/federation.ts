@@ -25,8 +25,11 @@ export class FederationResource {
    * Establish a peer relationship with another AGLedger instance.
    *
    * The single-use peering token in the body is what admits the call, so the
-   * route carries no other authentication. The receiver answers with its own
-   * signing key and the hub id the registration is filed under.
+   * route carries no other authentication. It is checked first: an unknown,
+   * consumed or expired token is a 401 before anything else about the request
+   * is looked at. A token minted for a different `peerHubId` is a 422 and is
+   * not consumed. The receiver answers with its own signing key and the hub id
+   * the registration is filed under.
    */
   peerHandshake(
     params: PeerHandshakeParams,
@@ -49,7 +52,11 @@ export class FederationResource {
 
   /**
    * Relay a Settlement Signal (SETTLE / HOLD) to a counterparty peer.
-   * The receiver co-signs the signal for non-repudiation.
+   * The receiver co-signs the signal for non-repudiation. A receiver that
+   * registered the record's type with `coSignRequired: true` refuses a signal
+   * without `counterSignature` with 422, `retryable: false`, reason
+   * `co_sign_required`. The receiver ignores `reason`; see
+   * {@link RelaySignalParams.reason}.
    */
   relaySignal(
     params: RelaySignalParams,

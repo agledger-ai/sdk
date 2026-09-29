@@ -46,18 +46,16 @@ describe('FederationResource (peer-facing)', () => {
       peerUrl: 'https://peer.test',
       signingPublicKey: 'ed25519-pk',
       peeringToken: 'tok-abc',
-      boundOrgId: 'org-1',
     });
     const { url, init } = lastCall(fetch);
     expect(url).toContain('/federation/v1/peer');
-    // The body is exactly these five and the route refuses anything else: no
-    // encryption key and no agent directory ride along any more.
+    // The body is exactly these four and the route refuses anything else. The
+    // org the peering binds to rides on the token, so a boundOrgId here is a 400.
     expect(JSON.parse(init.body as string)).toEqual({
       peerHubId: 'hub-x',
       peerUrl: 'https://peer.test',
       signingPublicKey: 'ed25519-pk',
       peeringToken: 'tok-abc',
-      boundOrgId: 'org-1',
     });
     // peerHubId is the id every admin peer path takes; peerId is receiver-local.
     expect(result.peerHubId).toBe('hub-x');
@@ -171,12 +169,20 @@ describe('FederationAdminResource', () => {
     });
   });
 
-  it('createPeeringToken() posts to /federation/v1/admin/peering-tokens with label', async () => {
-    await client.federationAdmin.createPeeringToken({ label: 'partner-x' });
+  it('createPeeringToken() posts the hub id and org the token is bound to', async () => {
+    await client.federationAdmin.createPeeringToken({
+      peerHubId: '11111111-1111-4111-8111-111111111111',
+      boundOrgId: '22222222-2222-4222-8222-222222222222',
+      label: 'partner-x',
+    });
     const { url, init } = lastCall(fetch);
     expect(url).toContain('/federation/v1/admin/peering-tokens');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(init.body as string)).toEqual({ label: 'partner-x' });
+    expect(JSON.parse(init.body as string)).toEqual({
+      peerHubId: '11111111-1111-4111-8111-111111111111',
+      boundOrgId: '22222222-2222-4222-8222-222222222222',
+      label: 'partner-x',
+    });
   });
 
   it('listPeers() GETs /federation/v1/admin/peers', async () => {

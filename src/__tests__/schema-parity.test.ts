@@ -89,6 +89,7 @@ const ALIASES: Record<string, string> = {
   WebhookDelivery: 'WebhookDelivery',
   EntityReference: 'EntityReference',
   NextStepAction: 'NextStep',
+  NextStepActionCompact: 'NextStepCompact',
   // The error body is a contract like any other, and was the one mapped
   // component nobody checked: `publishers` sat in this snapshot unmodelled by
   // the SDK for a full release cycle, so a caller who hit an ambiguous-publisher
@@ -131,6 +132,13 @@ describe('schema-field parity', () => {
   it('snapshot is loaded', () => {
     expect(snapshot.schemaCount).toBeGreaterThan(0);
     expect(Object.keys(snapshot.schemas).length).toBe(snapshot.schemaCount);
+  });
+
+  it('RecordRowCompact names exactly the RecordRow fields, which the SDK type derives from', () => {
+    // `RecordRowCompact` in types.ts is a mapped type over `RecordRow`, not an
+    // interface this file can parse. That derivation is right only while the
+    // two components carry the same properties, so pin that instead.
+    expect(snapshot.schemas.RecordRowCompact).toEqual(snapshot.schemas.RecordRow);
   });
 
   for (const [apiName, sdkName] of Object.entries(ALIASES)) {

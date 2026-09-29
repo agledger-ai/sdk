@@ -20,6 +20,8 @@ import type {
   RecordAuditExport,
   VerdictStatistics,
   RecordGraph,
+  RecordRowCompact,
+  RecordCompactPage,
 } from '../types.js';
 import { getValidTransitions as getTransitions } from '../record-lifecycle.js';
 
@@ -41,27 +43,64 @@ export class RecordsResource {
   /**
    * Get a Record by ID. Pass `{ integrity: true }` to re-verify the audit chain
    * and cross-check the served row against it (result on {@link RecordRow.integrity}).
+   *
+   * Pass `{ view: 'compact' }` for the {@link RecordRowCompact} form: top-level
+   * nulls left out and `nextSteps` trimmed to the call, for an agent loop that
+   * re-reads a Record it has already seen in full.
    */
-  get(id: string, params?: GetRecordParams, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.get<RecordRow>(
+  get(id: string, params: GetRecordParams & { view: 'compact' }, options?: RequestOptions): Promise<RecordRowCompact>;
+  get(id: string, params?: GetRecordParams & { view?: 'full' }, options?: RequestOptions): Promise<RecordRow>;
+  get(id: string, params?: GetRecordParams, options?: RequestOptions): Promise<RecordRow | RecordRowCompact>;
+  get(id: string, params?: GetRecordParams, options?: RequestOptions): Promise<RecordRow | RecordRowCompact> {
+    return this.http.get<RecordRow | RecordRowCompact>(
       `/v1/records/${id}`,
       params as unknown as Record<string, unknown>,
       options,
     );
   }
 
-  /** List Records with optional filters. */
-  list(params?: ListRecordsParams, options?: RequestOptions): Promise<Page<RecordRow>> {
+  /**
+   * List Records with optional filters. `{ view: 'compact' }` returns
+   * {@link RecordRowCompact} rows.
+   */
+  list(params: ListRecordsParams & { view: 'compact' }, options?: RequestOptions): Promise<RecordCompactPage>;
+  list(params?: ListRecordsParams & { view?: 'full' }, options?: RequestOptions): Promise<Page<RecordRow>>;
+  list(params?: ListRecordsParams, options?: RequestOptions): Promise<Page<RecordRow> | RecordCompactPage>;
+  list(params?: ListRecordsParams, options?: RequestOptions): Promise<Page<RecordRow> | RecordCompactPage> {
     return this.http.getPage<RecordRow>('/v1/records', params as unknown as Record<string, unknown>, options);
   }
 
-  /** Auto-paginating iterator. Yields individual Records across all pages. */
-  listAll(params?: ListRecordsParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<RecordRow> {
-    return this.http.paginate<RecordRow>('/v1/records', params as unknown as Record<string, unknown>, options);
+  /**
+   * Auto-paginating iterator. Yields individual Records across all pages,
+   * {@link RecordRowCompact} rows under `{ view: 'compact' }`.
+   */
+  listAll(
+    params: ListRecordsParams & { view: 'compact' },
+    options?: RequestOptions & AutoPaginateOptions,
+  ): AsyncGenerator<RecordRowCompact>;
+  listAll(
+    params?: ListRecordsParams & { view?: 'full' },
+    options?: RequestOptions & AutoPaginateOptions,
+  ): AsyncGenerator<RecordRow>;
+  listAll(
+    params?: ListRecordsParams,
+    options?: RequestOptions & AutoPaginateOptions,
+  ): AsyncGenerator<RecordRow | RecordRowCompact>;
+  listAll(
+    params?: ListRecordsParams,
+    options?: RequestOptions & AutoPaginateOptions,
+  ): AsyncGenerator<RecordRow | RecordRowCompact> {
+    return this.http.paginate<RecordRow | RecordRowCompact>('/v1/records', params as unknown as Record<string, unknown>, options);
   }
 
-  /** Search Records with advanced filters (status, type, date range, correlationId). */
-  search(params?: SearchRecordsParams, options?: RequestOptions): Promise<Page<RecordRow>> {
+  /**
+   * Search Records with advanced filters (status, type, date range,
+   * correlationId). `{ view: 'compact' }` returns {@link RecordRowCompact} rows.
+   */
+  search(params: SearchRecordsParams & { view: 'compact' }, options?: RequestOptions): Promise<RecordCompactPage>;
+  search(params?: SearchRecordsParams & { view?: 'full' }, options?: RequestOptions): Promise<Page<RecordRow>>;
+  search(params?: SearchRecordsParams, options?: RequestOptions): Promise<Page<RecordRow> | RecordCompactPage>;
+  search(params?: SearchRecordsParams, options?: RequestOptions): Promise<Page<RecordRow> | RecordCompactPage> {
     return this.http.getPage<RecordRow>('/v1/records/search', params as unknown as Record<string, unknown>, options);
   }
 
