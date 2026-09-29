@@ -37,9 +37,15 @@ export interface OidcCertCredentialOptions {
    */
   getOidcToken: () => string | Promise<string>;
   /**
-   * Agent to bind the cert to. Omit to let the Server resolve it from the
-   * trusted issuer's claim mapping, an agent row carrying the token's
-   * `(iss, sub)`, or auto-provisioning.
+   * Optional assertion of the agent the cert binds to. It never chooses the
+   * agent: the token does, through the trusted issuer's `claimMapping.agent_id`,
+   * an agent carrying the token's `oidcIss`/`oidcSub`, or auto-provisioning.
+   * When sent it must equal that agent, so the exchange fails with 403
+   * `CERT_AGENT_BINDING_MISMATCH` rather than binding an agent you did not
+   * expect (also when the token binds to no agent). Read the thrown
+   * {@link OidcExchangeError}'s `recoveryHint` for the binding to make. To bind
+   * an agent, `PATCH /v1/agents/{id}` with `oidcIss`/`oidcSub`, or set
+   * `claimMapping.agent_id` on the trusted issuer.
    */
   agentId?: string;
   /**

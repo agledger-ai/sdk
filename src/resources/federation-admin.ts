@@ -5,6 +5,7 @@ import type {
   FederationPeer,
   ListPeersParams,
   PeeringToken,
+  CreatePeeringTokenParams,
   FederationDlqEntry,
   NextStep,
 } from '../types.js';
@@ -16,9 +17,14 @@ import type {
 export class FederationAdminResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** Create a single-use peering token for peer-to-peer federation setup. */
+  /**
+   * Create a single-use peering token for peer-to-peer federation setup,
+   * bound at mint to the peer's hub id and to the local org its records
+   * project into. Refused with 404 when `boundOrgId` is not a local org and
+   * 409 when a peer is already registered under `peerHubId`.
+   */
   createPeeringToken(
-    params: { label: string },
+    params: CreatePeeringTokenParams,
     options?: RequestOptions,
   ): Promise<PeeringToken> {
     return this.http.post<PeeringToken>('/federation/v1/admin/peering-tokens', params, options);

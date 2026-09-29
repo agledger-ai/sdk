@@ -163,8 +163,13 @@ refused, a repeated token throws `OidcExchangeError` (409) saying so.
 
 The credential generates one Ed25519 key pair in memory and never writes it
 anywhere. Each exchange proves possession of that key, so the cert is bound to
-this process. Pass `agentId` to bind the cert to a specific agent, and
-`refreshFraction` (default `0.5`) to change how far into the cert's lifetime it
+this process. The token decides which agent the cert binds to: the trusted
+issuer's `claimMapping.agent_id`, or the agent carrying the token's
+`oidcIss`/`oidcSub` (set with `client.agents.update()` or in provisioning), or
+auto-provisioning. `agentId` is only an assertion: when it names a different
+agent, or the token binds to none, the exchange throws `OidcExchangeError`
+(403 `CERT_AGENT_BINDING_MISMATCH`) whose `recoveryHint` names the binding to
+make. Pass `refreshFraction` (default `0.5`) to change how far into the cert's lifetime it
 re-exchanges. Concurrent requests share one exchange. A 401 is not always
 about the cert (the Server also refuses an `onBehalfOf` delegation token or a
 body signature with 401), so the client first checks the cert with one
@@ -315,6 +320,24 @@ for await (const record of client.records.listAll({ limit: 500 }, { maxPages: 20
 }
 ```
 
+### Compact reads
+
+An agent loop that re-reads Records it has already seen in full can ask for the
+compact form. `view: 'compact'` works on `records.get`, `list`, `listAll` and
+`search`; the Server leaves out every top-level field whose value is null and
+trims each `nextSteps` entry to `action`, `method` and `href`. The methods
+return `RecordRowCompact` (or `RecordCompactPage`) for it, so a field that can
+be absent is typed optional rather than `| null`:
+
+```typescript
+const compact = await client.records.get(id, { view: 'compact' });
+compact.status;                   // always present
+compact.deadline;                 // string | undefined: absent means it was null
+compact.nextSteps?.[0]?.href;     // the call, without its description
+```
+
+Read once without `view: 'compact'` to get the step descriptions.
+
 ## Error Handling
 
 ```typescript
@@ -329,8 +352,10 @@ try {
     console.log(`Rate limited. Retry after ${err.retryAfter}ms`);
   } else if (err instanceof UnprocessableError) {
     // 422 INVALID_ACTION carries machine-readable corrective guidance.
-    console.log(err.recoveryHint); // "GET /v1/records/{id} and read nextActions..."
-    console.log(err.refreshUrl);   // "/v1/records/rec-123"
+    console.log(err.recoveryHint);   // "GET /v1/records/{id} and read nextActions..."
+    console.log(err.refreshUrl);     // "/v1/records/rec-123"
+    console.log(err.currentState);   // the state the Record was in
+    console.log(err.allowedActions); // what it accepts right now
   } else if (err instanceof AgledgerApiError) {
     console.log(err.status);           // HTTP status
     console.log(err.code);             // Machine-readable code

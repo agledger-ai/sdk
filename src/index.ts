@@ -9,6 +9,7 @@ export type { OidcCertCredential, OidcCertCredentialOptions } from './auth/oidc-
 export type {
   // Next Steps (HATEOAS)
   NextStep,
+  NextStepCompact,
 
   // Client config
   AgledgerClientOptions,
@@ -79,6 +80,9 @@ export type {
   ConstraintInheritanceMode,
   EvidenceType,
   RecordRow,
+  RecordRowCompact,
+  RecordCompactPage,
+  RecordView,
   RecordIntegrity,
   CreateRecordParams,
   UpdateRecordParams,
@@ -285,6 +289,7 @@ export type {
   // Admin: Trusted OIDC issuers & ephemeral certs
   TrustedIssuer,
   TrustedIssuerAppliesTo,
+  TrustedIssuerAlg,
   AutoProvisionScopeProfile,
   CreateTrustedIssuerParams,
   UpdateTrustedIssuerParams,
@@ -370,6 +375,12 @@ export type {
   VaultScanBrokenRecord,
   VaultScanBrokenChain,
   VaultScanGlobalChains,
+  VaultScanBreakReason,
+  VaultScanFirstFinding,
+  VaultScanFirstFindingReason,
+  VaultScanOrgAdminReads,
+  VaultScanBrokenOrg,
+  OrgReadsBreakReason,
   VaultScanSummary,
   VaultScanList,
 
@@ -390,6 +401,7 @@ export type {
   FederationPeerStatusFilter,
   ListPeersParams,
   PeeringToken,
+  CreatePeeringTokenParams,
 
   // Federation: Peer Sync
 

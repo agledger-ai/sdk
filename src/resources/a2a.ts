@@ -17,6 +17,20 @@ export class A2aResource {
   /**
    * Convenience: call a named A2A method with params.
    * Auto-generates JSON-RPC envelope with id.
+   *
+   * A `SendMessage` action and its fields go in a data part of the message,
+   * not on `params` itself; an `action` placed directly on `params` is refused
+   * with `-32602`:
+   *
+   * ```ts
+   * await client.a2a.call('SendMessage', {
+   *   message: {
+   *     role: 'user',
+   *     messageId: crypto.randomUUID(),
+   *     parts: [{ kind: 'data', data: { action: 'get_status', recordId } }],
+   *   },
+   * });
+   * ```
    */
   call(method: string, params?: Record<string, unknown>, options?: RequestOptions): Promise<JsonRpcResponse> {
     return this.dispatch({
