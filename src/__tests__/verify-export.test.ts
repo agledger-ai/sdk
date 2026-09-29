@@ -270,13 +270,23 @@ describe('verifyExport: COSE_Sign1 (format 2.0)', () => {
     expect(result.brokenAt?.code).toBe('CHAIN_SIGNATURE_MISSING_KEY');
   });
 
-  it('flags unsigned entries (engine booted without VAULT_SIGNING_KEY) but keeps chain integrity', () => {
+  it('breaks on an unsigned entry after a signed one: the vault was already signing', () => {
     const kp = makeKeypair();
     const exp = makeExport(kp);
     exp.entries[1]!.integrity.signingKeyId = null;
     const result = verifyExport(exp);
+    expect(result.valid).toBe(false);
+    expect(result.brokenAt?.position).toBe(2);
+    expect(result.brokenAt?.code).toBe('CHAIN_ENTRY_UNSIGNED');
+  });
+
+  it('keeps chain integrity on an all-unsigned chain from an engine that never had a key', () => {
+    const kp = makeKeypair();
+    const exp = makeExport(kp);
+    for (const entry of exp.entries) entry.integrity.signingKeyId = null;
+    const result = verifyExport(exp, { publicKeys: [] });
     expect(result.valid).toBe(true);
-    expect(result.signatureCoverage.skipped).toBe(1);
+    expect(result.signatureCoverage.skipped).toBe(exp.entries.length);
     expect(result.entries[1]!.signature).toBe('skipped');
   });
 
