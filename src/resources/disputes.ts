@@ -13,6 +13,12 @@ import type {
   NextStep,
 } from '../types.js';
 
+/**
+ * Disputes on a Record. The reads (`list`, `get`) need `disputes:read`; the
+ * mutations (`create`, `submitEvidence`, `withdraw`, `resolve`) need
+ * `disputes:write`, which the `agent-full` and `admin-standard` scope profiles
+ * carry and the read-only profiles do not.
+ */
 export class DisputesResource {
   constructor(private readonly http: HttpClient) {}
 
