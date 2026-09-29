@@ -8,7 +8,9 @@ import type {
   Page,
   PeerHandshakeParams,
   PeeringToken,
+  TrustedIssuer,
   RecordCompactPage,
+  RecordFederationStatus,
   RecordRow,
   RecordRowCompact,
   VaultScanBrokenChain,
@@ -63,6 +65,25 @@ describe('record reads under view=compact', () => {
     expectTypeOf<NonNullable<RecordRowCompact['nextSteps']>[number]>().toEqualTypeOf<NextStepCompact>();
     expectTypeOf<NonNullable<RecordCompactPage['nextSteps']>[number]>().toEqualTypeOf<NextStepCompact>();
     expectTypeOf<NextStepCompact>().not.toHaveProperty('description');
+  });
+});
+
+describe('a record received from a federation peer', () => {
+  it('names inbound on the full row and on the compact row', () => {
+    expectTypeOf<'inbound'>().toMatchTypeOf<RecordFederationStatus>();
+    expectTypeOf<RecordRow['federationStatus']>().toEqualTypeOf<RecordFederationStatus | null | undefined>();
+    expectTypeOf<RecordRowCompact['federationStatus']>().toEqualTypeOf<RecordFederationStatus | undefined>();
+    const row: Pick<RecordRow, 'federationStatus'> = { federationStatus: 'inbound' };
+    expect(row.federationStatus).toBe('inbound');
+  });
+});
+
+describe('a trusted issuer reports its JWKS fetches', () => {
+  it('carries the four fetch fields the Server returns', () => {
+    expectTypeOf<TrustedIssuer['jwksLastFetchAt']>().toEqualTypeOf<string | null>();
+    expectTypeOf<TrustedIssuer['jwksLastFetchError']>().toEqualTypeOf<string | null>();
+    expectTypeOf<TrustedIssuer['jwksLastSuccessAt']>().toEqualTypeOf<string | null>();
+    expectTypeOf<'jwks_fetch_blocked'>().toMatchTypeOf<NonNullable<TrustedIssuer['jwksLastFetchOutcome']>>();
   });
 });
 
