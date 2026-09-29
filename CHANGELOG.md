@@ -4,6 +4,39 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.13.0] - 2026-09-28
+
+Reconciled against the API release that follows 1.8.0. Nothing is removed; three request shapes follow Server changes that refuse the old form.
+
+### Changed (the Server refuses the old form)
+
+- **`federationAdmin.createPeeringToken` takes `CreatePeeringTokenParams`**: `peerHubId` (the initiating Server's `instanceId`) and `boundOrgId` (the local org its records project into) are required, and `label` is optional. The Server binds the token to both at mint, answers 404 for an org it does not hold and 409 for a hub id already registered, and the 201 (`PeeringToken`) echoes `peerHubId` and `boundOrgId`.
+- **`PeerHandshakeParams` drops `boundOrgId`.** The token carries the org, and the route refuses unknown fields, so sending it is a 400. A `peerHubId` other than the one the token was minted for is a 422 that leaves the token unconsumed, and an unknown, consumed or expired token is now a 401 checked before anything else.
+- **Scope profiles.** `Scopes.DISPUTES_WRITE` (`disputes:write`) is new: opening a dispute, submitting evidence, withdrawing and resolving need it, and `disputes:read` only reads. `agent-full` and `admin-standard` carry it. `admin-iac` carries `schemas:read`, which `schemas.validateCompletion` now requires. A key minted from the 1.12.0 mirror 403s on every dispute mutation.
+
+### Added
+
+- **`verifyExport` reports an unsigned entry written while the vault was signing.** An entry with no signing key fails with the new `CHAIN_ENTRY_UNSIGNED` when an earlier entry in its chain names a key, or when it was written at or after the earliest activation time among the keys the verifier holds. An unsigned history written before the first key stays reduced coverage, as before. An entry that names a key but carries an all-zero signature now fails `CHAIN_SIGNATURE_INVALID`. Both match the Server's own chain verification. Requires `@agledger/verify-core` 1.6.0.
+- **`view: 'compact'` on `records.get`, `list`, `listAll` and `search`.** The Server leaves out every top-level null and trims each `nextSteps` entry to `action`, `method` and `href`. Those calls resolve to `RecordRowCompact` (or `RecordCompactPage`), derived from `RecordRow` so that each field the full view types `| null` is optional and never null, with `NextStepCompact` steps. Without `view`, or with `view: 'full'`, the methods still resolve to `RecordRow`; a view only known at runtime resolves to the union. New types: `RecordView`, `RecordRowCompact`, `RecordCompactPage`, `NextStepCompact`.
+- **`signature_missing` and `checkpoint_unsigned`** in `AuditChainIntegrityReasonCode`, and `signature_missing` in `AuditChainFailureCode`: an unsigned entry, or checkpoint, where the install already signs.
+- **Vault scan findings.** `VaultScanBrokenRecord` and `VaultScanBrokenChain` carry `firstFinding` (`VaultScanFirstFinding`: an earlier key-window or unsupported-algorithm entry in a chain broken further on), and their `reason` is the open `VaultScanBreakReason`. `VaultScanResult` carries `unsupportedAlgorithm` and `orgAdminReads` (`VaultScanOrgAdminReads`, the cross-party read log walk, with `OrgReadsBreakReason` per broken org); `VaultScanGlobalChains` carries `unsupportedAlgorithm`. The Server has served the last three since 1.8.0.
+- **`AgledgerApiError` forwards `reason`, `currentState`, `allowedActions` and `existingId`** from the error body. `existingId` names the row a 409 `TRUSTED_ISSUER_EXISTS` collided with, and `currentState` carries refusals such as the cert exchange's 422 `scope_claim_admin_only`. `ApiErrorResponse` gains `existingId`.
+- **`VaultSigningKeyRetirement.revokedCertCount`**: the unexpired certs a forced retirement revoked.
+- **`ComplianceExport.format`**: the format the export was created in.
+- **`TrustedIssuerAlg`**: `allowedAlgs` on a trusted issuer and on its create and update is the closed asymmetric set the Server validates (`RS256` to `ES512` and `EdDSA`); anything else is a 400.
+- **`TrustedIssuer` carries `jwksLastFetchAt`, `jwksLastFetchOutcome`, `jwksLastFetchError` and `jwksLastSuccessAt`**, which the Server returns on every read and write of an issuer: when it last fetched the issuer's JWKS, how that went (`ok`, `jwks_fetch_failed`, `jwks_fetch_blocked`), the error if it failed, and when a fetch last succeeded.
+
+### Fixed
+
+- **A record received from a federation peer type-checks.** `RecordRow.federationStatus` was the closed `'pending' | 'delivered' | 'partial' | 'failed'`, and the Server sends `inbound` on every federation-received record. It is the new `RecordFederationStatus`, which names `inbound` and stays open so a status a newer Server adds is not a compile break; `RecordRowCompact` follows. The union is now pinned by the enum-member parity guard, whose absence is how it drifted.
+
+### Documentation
+
+- `oidcCertCredential({ agentId })` and `IssueEphemeralCertParams.agentId` are an assertion, not a choice: the token decides the agent, and a different `agentId`, or any `agentId` on a token that binds no agent, is a 403 `CERT_AGENT_BINDING_MISMATCH` whose `recoveryHint` names the binding to make (`agents.update()` with `oidcIss`/`oidcSub`, or `claimMapping.agent_id` on the trusted issuer).
+- `RelaySignalParams.reason` is ignored by the receiver, and `SettlementSignalSummary.reason` is null on an inbound signal: free text does not cross the federation wire.
+- `a2a.call('SendMessage', ...)` shows the action in a data part of the message; an `action` on `params` is refused with `-32602`.
+- `Webhook.secret` is absent on an `Idempotency-Key` replay of the create.
+
 ## [1.12.0] - 2026-09-21
 
 Reconciled against the API 1.8.0 release (`v1.8.0`, `3948cc68`). It adds OIDC workload identity to the client, and it removes fields and methods the SDK declared that the Server never sent: a sweep of every method's declared return type against the route it calls found them across the admin, federation, discovery and reference surfaces. Each removal below is a type that was wrong on the wire before this release, so code that read one of those fields was reading `undefined`.
