@@ -78,7 +78,11 @@ export class SchemasResource {
     return this.http.get<SchemaRulesResult>(`/v1/schemas/${type}/rules`, params, request);
   }
 
-  /** Dry-run completion validation against a Type's schema. */
+  /**
+   * Dry-run completion validation against a Type's schema. Unlike the schema
+   * reads this is not public: the key needs `schemas:read`, which every scope
+   * profile except `agent-readonly` carries.
+   */
   validateCompletion(type: RecordType, evidence: Record<string, unknown>, options?: SchemaScopeOptions): Promise<SchemaValidationResult> {
     const { request, params } = scope(options);
     return this.http.post<SchemaValidationResult>(`/v1/schemas/${type}/validate`, { evidence }, request, params);

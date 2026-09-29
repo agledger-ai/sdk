@@ -41,8 +41,10 @@ export const Scopes = {
   AGENTS_READ: 'agents:read',
   AGENTS_MANAGE: 'agents:manage',
 
-  // Disputes
+  // Disputes. `disputes:read` views a dispute; `disputes:write` opens one,
+  // adds evidence, withdraws and resolves.
   DISPUTES_READ: 'disputes:read',
+  DISPUTES_WRITE: 'disputes:write',
 
   // Events & drift
   EVENTS_READ: 'events:read',
@@ -108,6 +110,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
       Scopes.COMPLIANCE_WRITE,
       Scopes.EVENTS_READ,
       Scopes.DISPUTES_READ,
+      Scopes.DISPUTES_WRITE,
       Scopes.DRIFT_READ,
       Scopes.SCHEMAS_READ,
       Scopes.SCHEMAS_WRITE,
@@ -127,10 +130,11 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
     name: 'admin-iac',
     description:
       'Infrastructure provisioning: agents, webhooks, keys, schemas. The full own-org schema surface ' +
-      '(register, import, preview, export, lifecycle) rides on schemas:write. Resolves as org-admin; ' +
-      'engine-core and cross-org rows are platform-only and stay out of reach.',
+      '(register, import, preview, export, lifecycle) rides on schemas:write; schemas:read is held for the ' +
+      'completion dry-run (POST /v1/schemas/{type}/validate), so a pipeline that registers a type can test a ' +
+      'payload against it. Resolves as org-admin; engine-core and cross-org rows are platform-only and stay out of reach.',
     allowedRoles: ['admin'],
-    scopes: [Scopes.ADMIN_KEYS, Scopes.AGENTS_MANAGE, Scopes.WEBHOOKS_MANAGE, Scopes.SCHEMAS_WRITE],
+    scopes: [Scopes.ADMIN_KEYS, Scopes.AGENTS_MANAGE, Scopes.WEBHOOKS_MANAGE, Scopes.SCHEMAS_READ, Scopes.SCHEMAS_WRITE],
   },
   'admin-schema': {
     name: 'admin-schema',
@@ -154,6 +158,7 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
       Scopes.COMPLETIONS_WRITE,
       Scopes.AGENTS_READ,
       Scopes.DISPUTES_READ,
+      Scopes.DISPUTES_WRITE,
       Scopes.EVENTS_READ,
       Scopes.SCHEMAS_READ,
       Scopes.AUDIT_READ,
