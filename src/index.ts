@@ -79,6 +79,7 @@ export type {
   EuAiActDomain,
   ConstraintInheritanceMode,
   EvidenceType,
+  RecordFederationStatus,
   RecordRow,
   RecordRowCompact,
   RecordCompactPage,

@@ -1231,8 +1231,11 @@ export interface RecordRow {
   counterSignature?: string | null;
   /** Settlement Signal projected onto the Record (SETTLE/HOLD/RELEASE), or null until a terminal verdict produces one. */
   settlementSignal?: SettlementSignalSummary | null;
-  /** Federation delivery status for this Record's outbound state, or null when not federated. */
-  federationStatus?: 'pending' | 'delivered' | 'partial' | 'failed' | null;
+  /**
+   * Federation delivery status for this Record's outbound state, `inbound` on a
+   * Record received from a peer, or null when not federated.
+   */
+  federationStatus?: RecordFederationStatus | null;
   /** Peer Server IDs this Record has been shared to via federation. */
   sharedToPeers?: string[];
   /** Whether this Record participates in revenue share, or null when not configured. */
@@ -1246,6 +1249,14 @@ export interface RecordRow {
    */
   integrity?: RecordIntegrity;
 }
+
+/**
+ * {@link RecordRow.federationStatus}: the delivery state of a Record's outbound
+ * federation (`pending`, `delivered`, `partial`, `failed`), or `inbound` on a
+ * Record received from a peer. Open, so a status a newer Server adds is not a
+ * compile break.
+ */
+export type RecordFederationStatus = 'pending' | 'delivered' | 'partial' | 'failed' | 'inbound' | (string & {});
 
 /**
  * A {@link NextStep} as served under `view: 'compact'`: the call alone, without
@@ -5682,6 +5693,14 @@ export interface TrustedIssuer {
    * to admit every subject the IdP issues a token for.
    */
   subjectAllowlist: string[] | null;
+  /** When the Server last fetched this issuer's JWKS, or null before the first fetch. */
+  jwksLastFetchAt: string | null;
+  /** How the last JWKS fetch went, or null before the first fetch. */
+  jwksLastFetchOutcome: 'ok' | 'jwks_fetch_failed' | 'jwks_fetch_blocked' | (string & {}) | null;
+  /** The last fetch's error, or null when it succeeded. */
+  jwksLastFetchError: string | null;
+  /** When a JWKS fetch last succeeded, or null if none has. */
+  jwksLastSuccessAt: string | null;
   label: string | null;
   /** False while the row is switched off: its tokens are refused. */
   enabled: boolean;

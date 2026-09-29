@@ -432,7 +432,7 @@
       "url"
     ]
   },
-  "enumCount": 47,
+  "enumCount": 48,
   "enums": {
     "AgentClass": {
       "values": [
@@ -836,6 +836,19 @@
       ],
       "specSites": [
         "paths//v1/audit/org-reads/checkpoints/get/responses/200/content/application/json/schema/properties/checkpointing/properties/source"
+      ]
+    },
+    "RecordFederationStatus": {
+      "values": [
+        "delivered",
+        "failed",
+        "inbound",
+        "partial",
+        "pending"
+      ],
+      "specSites": [
+        "components/schemas/RecordRow/properties/federationStatus",
+        "components/schemas/RecordRowCompact/properties/federationStatus"
       ]
     },
     "RecordStatus": {
