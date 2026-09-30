@@ -21,6 +21,7 @@
     "src/__tests__/api-1_7_0-types.test.ts",
     "src/__tests__/api-1_8_0-types.test.ts",
     "src/__tests__/client-1_13_0-types.test.ts",
+    "src/__tests__/api-2_0_0-types.test.ts",
     "src/__tests__/agent-drift-types.test.ts"
   ],
   "include": ["src"],
