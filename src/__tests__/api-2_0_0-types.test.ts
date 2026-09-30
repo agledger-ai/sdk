@@ -1,6 +1,14 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import type {
   ApiErrorResponse,
+  BatchGetRecordsResult,
+  BulkCreateResult,
+  Dispute,
+  IssueEphemeralCertResult,
+  RecordRow,
+  RecordRowCompact,
+  VerdictResult,
+  WebhookTestResult,
   CursorListParams,
   DisputeProtocolAction,
   DisputeProtocolResult,
@@ -159,5 +167,39 @@ describe('vault key trust and anchors', () => {
   it('a full scan carries the key-registry walk, and ops-summary the write refusal', () => {
     expectTypeOf<VaultScanResult>().toHaveProperty('keyRegistry');
     expectTypeOf<OpsSummary['vault']['chainWrites']['refused']>().toEqualTypeOf<boolean | null>();
+  });
+});
+
+describe('records, verdicts, certs and webhook pings', () => {
+  it('createdByKeyId is null on a federation-received Record', () => {
+    expectTypeOf<RecordRow['createdByKeyId']>().toEqualTypeOf<string | null>();
+    expectTypeOf<RecordRowCompact['createdByKeyId']>().toEqualTypeOf<string | undefined>();
+  });
+
+  it('a verdict names who rendered it and never recommends RELEASE', () => {
+    expectTypeOf<VerdictResult['recommendation']>().toEqualTypeOf<'SETTLE' | 'HOLD'>();
+    expectTypeOf<VerdictResult['reporterRole']>().toEqualTypeOf<'principal' | 'org-admin' | undefined>();
+  });
+
+  it('bulk and batch carry what the Server sends', () => {
+    expectTypeOf<BulkCreateResult['results'][number]['constraintViolations']>().toEqualTypeOf<
+      Record<string, unknown>[] | undefined
+    >();
+    expectTypeOf<BatchGetRecordsResult>().toHaveProperty('nextSteps');
+  });
+
+  it('a cert is always bound to an agent', () => {
+    expectTypeOf<IssueEphemeralCertResult['cert']['agentId']>().toEqualTypeOf<string>();
+  });
+
+  it('a dispute context can be null', () => {
+    expectTypeOf<Dispute['context']>().toEqualTypeOf<string | null | undefined>();
+  });
+
+  it('a ping result drops the httpStatus and latencyMs twins', () => {
+    expectTypeOf<WebhookTestResult>().not.toHaveProperty('httpStatus');
+    expectTypeOf<WebhookTestResult>().not.toHaveProperty('latencyMs');
+    expectTypeOf<WebhookTestResult['statusCode']>().toEqualTypeOf<number>();
+    expectTypeOf<WebhookTestResult['durationMs']>().toEqualTypeOf<number>();
   });
 });
