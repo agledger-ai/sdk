@@ -4330,8 +4330,10 @@ export interface JsonRpcResponse {
 
 /**
  * RFC 9457 problem-details response shape returned by the API on every error
- * (`application/problem+json`). The SDK tolerates absent fields; only `error`
- * and `message` are practically guaranteed.
+ * (`application/problem+json`). The Server always sends `type`, `title`,
+ * `status`, `detail`, `instance`, `retryable`, `error` and `requestId`, and
+ * `detail` is the one human-readable field. They are optional here because a
+ * proxy in front of the Server can answer with a body that is not the Server's.
  */
 export interface ApiErrorResponse {
   // RFC 9457 standard fields
@@ -4344,12 +4346,8 @@ export interface ApiErrorResponse {
   // AGLedger extension fields
   /** Machine-readable error code (e.g., NOT_FOUND, VALIDATION_ERROR, FORBIDDEN). */
   error?: string;
-  /** Human-readable error description. */
-  message?: string;
   /** Unique request identifier for support correlation. */
   requestId?: string;
-  /** Stable code alias: some endpoints set `code`, others set `error`; SDK normalizes. */
-  code?: string;
   /** Whether the client should retry this request. */
   retryable?: boolean;
   /** Seconds to wait before retrying. Present on 429 bodies; the SDK also
@@ -4361,21 +4359,6 @@ export interface ApiErrorResponse {
   errors?: Record<string, unknown>[] | null;
   /** Suggested correction when a typo is detected. */
   suggestion?: string;
-  /**
-   * Documentation link.
-   *
-   * @deprecated No route emits this. The engine's ErrorResponse schema has no
-   * `docUrl` property, so Fastify strips it from every serialized body and the
-   * field is always `undefined`. Read `docs` instead. Kept only so existing
-   * callers still compile.
-   */
-  docUrl?: string;
-  /**
-   * Pointer to the discovery-document section describing the failed scheme,
-   * e.g. `"/llms.txt (Federation Signing Scheme section)"`. Paired with
-   * `signInputTemplate` and `hint` on the federation 401.
-   */
-  docs?: string;
   /** Machine-readable recovery guidance pointing to relevant endpoints. */
   recoveryHint?: string;
   /** Concrete GET URL the agent should re-fetch (set on 422 INVALID_ACTION when the path includes a Record id). */
@@ -4472,6 +4455,10 @@ export interface ApiErrorResponse {
   revisionCount?: number;
   /** Configured `maxRevisions` cap on the Record. */
   maxRevisions?: number;
+  /** Completions the Record had received when the submission cap refused the request. */
+  submissionCount?: number;
+  /** The Record's `maxSubmissions`, set at create and immutable afterwards. */
+  maxSubmissions?: number;
   /** Machine-readable label naming the system action that terminalized the Record (e.g. OVERFLOW_REJECT, TIME_OUT). */
   terminalReason?: string;
   /** Display status immediately before the terminal transition. */
@@ -4489,10 +4476,6 @@ export interface ApiErrorResponse {
    * creating another.
    */
   existingId?: string;
-  /** Byte template the proof-of-possession signature must cover. Present on the federation 401. */
-  signInputTemplate?: string;
-  /** Replacement path for an endpoint retired in a migration. Present on some 404s. */
-  migratedTo?: string;
 }
 
 export interface ValidationErrorDetail {

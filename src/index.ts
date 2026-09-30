@@ -419,7 +419,6 @@ export {
   PermissionError,
   NotFoundError,
   ConflictError,
-  IdempotencyError,
   ValidationError,
   UnprocessableError,
   RateLimitError,

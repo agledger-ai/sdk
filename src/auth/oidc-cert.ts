@@ -152,7 +152,7 @@ export function oidcCertCredential(options: OidcCertCredentialOptions): OidcCert
     if (!response.ok) {
       const errorBody = (scrub(parsed, token) ?? {
         error: 'unknown',
-        message: response.statusText || `HTTP ${response.status}`,
+        detail: response.statusText || `HTTP ${response.status}`,
       }) as ApiErrorResponse;
       if (!errorBody.requestId) errorBody.requestId = response.headers.get('x-request-id') ?? undefined;
       if (response.status === 409) {
@@ -173,7 +173,7 @@ export function oidcCertCredential(options: OidcCertCredentialOptions): OidcCert
     if (typeof certJws !== 'string' || !Number.isFinite(issuedAt) || !Number.isFinite(expiresAt)) {
       throw new OidcExchangeError(response.status, {
         error: 'invalid_exchange_response',
-        message: 'the response carried no certJws or no cert validity window',
+        detail: 'the response carried no certJws or no cert validity window',
       });
     }
     // Measure the refresh point on this machine's clock from the cert's own

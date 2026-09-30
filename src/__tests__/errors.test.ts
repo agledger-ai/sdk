@@ -12,46 +12,46 @@ import {
 describe('AgledgerApiError classifier methods', () => {
   describe('isRetryable()', () => {
     it('returns true for 429', () => {
-      const err = new AgledgerApiError(429, { message: 'Rate limited' });
+      const err = new AgledgerApiError(429, { detail: 'Rate limited' });
       expect(err.isRetryable()).toBe(true);
     });
 
     it('returns true for 500', () => {
-      const err = new AgledgerApiError(500, { message: 'Internal error' });
+      const err = new AgledgerApiError(500, { detail: 'Internal error' });
       expect(err.isRetryable()).toBe(true);
     });
 
     it('returns false for 400', () => {
-      const err = new AgledgerApiError(400, { message: 'Bad request' });
+      const err = new AgledgerApiError(400, { detail: 'Bad request' });
       expect(err.isRetryable()).toBe(false);
     });
 
     it('respects API retryable override', () => {
-      const err = new AgledgerApiError(400, { message: 'Transient', retryable: true });
+      const err = new AgledgerApiError(400, { detail: 'Transient', retryable: true });
       expect(err.isRetryable()).toBe(true);
     });
   });
 
   describe('isInputError()', () => {
     it('returns true for 400', () => {
-      const err = new ValidationError({ message: 'Invalid field' });
+      const err = new ValidationError({ detail: 'Invalid field' });
       expect(err.isInputError()).toBe(true);
     });
 
     it('returns false for 422', () => {
-      const err = new UnprocessableError({ message: 'Wrong state' });
+      const err = new UnprocessableError({ detail: 'Wrong state' });
       expect(err.isInputError()).toBe(false);
     });
   });
 
   describe('isStateError()', () => {
     it('returns true for 422', () => {
-      const err = new UnprocessableError({ message: 'Record is FULFILLED' });
+      const err = new UnprocessableError({ detail: 'Record is FULFILLED' });
       expect(err.isStateError()).toBe(true);
     });
 
     it('returns false for 400', () => {
-      const err = new ValidationError({ message: 'Missing field' });
+      const err = new ValidationError({ detail: 'Missing field' });
       expect(err.isStateError()).toBe(false);
     });
   });
@@ -59,8 +59,8 @@ describe('AgledgerApiError classifier methods', () => {
   describe('recoveryHint and refreshUrl', () => {
     it('forwards recoveryHint and refreshUrl on 422 INVALID_ACTION', () => {
       const err = new UnprocessableError({
-        message: 'Action not allowed',
-        code: 'INVALID_ACTION',
+        detail: 'Action not allowed',
+        error: 'INVALID_ACTION',
         recoveryHint: 'GET /v1/records/{id} and read nextActions',
         refreshUrl: '/v1/records/rec-123',
         currentState: 'CREATED',
@@ -71,7 +71,7 @@ describe('AgledgerApiError classifier methods', () => {
     });
 
     it('leaves recoveryHint undefined when API omits it', () => {
-      const err = new ValidationError({ message: 'Bad input' });
+      const err = new ValidationError({ detail: 'Bad input' });
       expect(err.recoveryHint).toBeUndefined();
       expect(err.refreshUrl).toBeUndefined();
     });
@@ -80,7 +80,7 @@ describe('AgledgerApiError classifier methods', () => {
   describe('refusal fields forwarded verbatim', () => {
     it('forwards reason, currentState, allowedActions and existingId', () => {
       const err = new UnprocessableError({
-        message: 'The scopes this token asks for are admin-only',
+        detail: 'The scopes this token asks for are admin-only',
         currentState: 'scope_claim_admin_only',
         allowedActions: ['fix_the_idp_claim_mapping'],
       });
@@ -88,7 +88,7 @@ describe('AgledgerApiError classifier methods', () => {
       expect(err.allowedActions).toEqual(['fix_the_idp_claim_mapping']);
 
       const conflict = new ConflictError({
-        message: 'A trusted issuer with this URL already exists',
+        detail: 'A trusted issuer with this URL already exists',
         reason: 'TRUSTED_ISSUER_EXISTS',
         existingId: '0199a8f0-0000-7000-8000-000000000001',
       });
@@ -97,7 +97,7 @@ describe('AgledgerApiError classifier methods', () => {
     });
 
     it('leaves them undefined when the body omits them', () => {
-      const err = new ValidationError({ message: 'Bad input' });
+      const err = new ValidationError({ detail: 'Bad input' });
       expect(err.reason).toBeUndefined();
       expect(err.currentState).toBeUndefined();
       expect(err.allowedActions).toBeUndefined();
@@ -108,8 +108,8 @@ describe('AgledgerApiError classifier methods', () => {
   describe('PermissionError missingScopes', () => {
     it('reads missingScopes from RFC 9457 top-level field (v0.21+)', () => {
       const err = new PermissionError({
-        message: 'Missing scope',
-        code: 'INSUFFICIENT_SCOPE',
+        detail: 'Missing scope',
+        error: 'INSUFFICIENT_SCOPE',
         missingScopes: ['records:write'],
       });
       expect(err.missingScopes).toEqual(['records:write']);
@@ -117,8 +117,8 @@ describe('AgledgerApiError classifier methods', () => {
 
     it('falls back to details.missingScopes for older response shapes', () => {
       const err = new PermissionError({
-        message: 'Missing scope',
-        code: 'INSUFFICIENT_SCOPE',
+        detail: 'Missing scope',
+        error: 'INSUFFICIENT_SCOPE',
         details: { missingScopes: ['records:write'] },
       });
       expect(err.missingScopes).toEqual(['records:write']);
@@ -127,50 +127,52 @@ describe('AgledgerApiError classifier methods', () => {
 
   describe('isAuthError()', () => {
     it('returns true for 401', () => {
-      const err = new AuthenticationError({ message: 'Invalid key' });
+      const err = new AuthenticationError({ detail: 'Invalid key' });
       expect(err.isAuthError()).toBe(true);
     });
 
     it('returns true for 403', () => {
-      const err = new PermissionError({ message: 'Missing scope' });
+      const err = new PermissionError({ detail: 'Missing scope' });
       expect(err.isAuthError()).toBe(true);
     });
 
     it('returns false for 400', () => {
-      const err = new ValidationError({ message: 'Bad input' });
+      const err = new ValidationError({ detail: 'Bad input' });
       expect(err.isAuthError()).toBe(false);
     });
 
     it('returns false for 429', () => {
-      const err = new RateLimitError({ message: 'Rate limited' }, 2);
+      const err = new RateLimitError({ detail: 'Rate limited' }, 2);
       expect(err.isAuthError()).toBe(false);
     });
   });
 
-  describe('docUrl', () => {
-    it('forwards docUrl from API body when present', () => {
+  describe('message and code', () => {
+    it('reads message from detail and code from error', () => {
       const err = new AgledgerApiError(422, {
-        message: 'Wrong state',
-        code: 'RECORD_NOT_ACTIVE',
-        docUrl: 'https://www.agledger.ai/docs/errors/RECORD_NOT_ACTIVE',
+        title: 'Unprocessable Entity',
+        detail: 'Record is FULFILLED',
+        error: 'RECORD_NOT_ACTIVE',
       });
-      expect(err.docUrl).toBe('https://www.agledger.ai/docs/errors/RECORD_NOT_ACTIVE');
+      expect(err.message).toBe('Record is FULFILLED');
+      expect(err.code).toBe('RECORD_NOT_ACTIVE');
     });
 
-    it('is undefined when API does not return docUrl', () => {
-      const err = new AgledgerApiError(400, { message: 'Bad', error: 'validation_error' });
-      expect(err.docUrl).toBeUndefined();
+    it('falls back to title when detail is absent', () => {
+      const err = new AgledgerApiError(502, { title: 'Bad Gateway' });
+      expect(err.message).toBe('Bad Gateway');
+      expect(err.code).toBe('unknown');
     });
   });
 
   describe('suggestion', () => {
     it('forwards suggestion from API body when present', () => {
-      const err = new AgledgerApiError(400, { message: 'Bad', suggestion: "Did you mean 'type'?" });
+      const err = new AgledgerApiError(400, { detail: 'Bad', suggestion: "Did you mean 'type'?" });
       expect(err.suggestion).toBe("Did you mean 'type'?");
     });
 
     it('is undefined when API does not return suggestion', () => {
-      const err = new AgledgerApiError(404, { message: 'Not found' });
+      const err = new AgledgerApiError(404, { detail: 'Not found' });
       expect(err.suggestion).toBeUndefined();
     });
   });

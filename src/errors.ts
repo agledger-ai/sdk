@@ -31,19 +31,18 @@ export class ConfigurationError extends AgledgerError {
  * Fields mirror the API error body verbatim; the SDK does not invent content.
  * The API responds with RFC 9457 `application/problem+json`. Standard fields
  * (`type`, `title`, `status`, `detail`, `instance`) are surfaced alongside
- * AGLedger extension fields (`error`, `code`, `requestId`, `retryable`,
- * `docUrl`, `suggestion`, `recoveryHint`, `missingScopes`, `nextSteps`, …).
+ * AGLedger extension fields (`error`, `requestId`, `retryable`, `suggestion`,
+ * `recoveryHint`, `missingScopes`, `nextSteps`, ...). `message` is the body's
+ * `detail`, the one human-readable field, falling back to `title`.
  *
  * Key properties for consumers:
  * - `type`: RFC 9457 problem URI (e.g. `/problems/ambiguous-publisher`). Branch on this, not on prose.
  * - `publishers`: candidate publisher labels on an ambiguous-publisher 422
  * - `pinnedRecords` / `unattributableRecords`: why a schema delete was refused
- * - `docs`: discovery-document pointer. `docUrl` is dead and always undefined.
  * - `status`: HTTP status code
- * - `code`: stable machine-readable error code (from API body `code` or `error`)
+ * - `code`: stable machine-readable error code (the API body's `error`)
  * - `retryable`: API's `retryable` flag, falling back to status-based classification (429/5xx)
  * - `requestId`: correlation ID (from API body or `X-Request-Id` header)
- * - `docUrl`: documentation link, only if the API returned one
  * - `suggestion`: typo-correction hint, only if the API returned one
  * - `recoveryHint`: machine-readable recovery guidance (e.g. on 422 INVALID_ACTION)
  * - `reason` / `currentState` / `allowedActions`: the refusal's reason code, the state it found, and what is allowed now
@@ -64,19 +63,6 @@ export class AgledgerApiError extends AgledgerError {
    * prose. The bulk-create envelope calls the same value `problemType`.
    */
   readonly type?: string;
-
-  /**
-   * Documentation link.
-   *
-   * @deprecated Always `undefined`: no route emits `docUrl`. Read `docs`.
-   */
-  readonly docUrl?: string;
-
-  /**
-   * Pointer to the discovery-document section describing the failed scheme.
-   * Set on the federation 401 alongside `signInputTemplate`.
-   */
-  readonly docs?: string;
 
   /**
    * Candidate publisher labels on a 422 `/problems/ambiguous-publisher`: the
@@ -171,16 +157,14 @@ export class AgledgerApiError extends AgledgerError {
   rawBody?: Uint8Array;
 
   constructor(status: number, body: ApiErrorResponse) {
-    super(body.message || body.detail || body.title || `API error ${status}`);
+    super(body.detail || body.title || `API error ${status}`);
     this.name = 'AgledgerApiError';
     this.status = status;
-    this.code = body.code || body.error || 'unknown';
+    this.code = body.error || 'unknown';
     this.requestId = body.requestId;
     this.details = body.details ?? undefined;
     this.retryable = body.retryable ?? (status === 429 || status >= 500);
     this.type = body.type;
-    this.docUrl = body.docUrl;
-    this.docs = body.docs;
     this.suggestion = body.suggestion;
     this.recoveryHint = body.recoveryHint;
     this.refreshUrl = body.refreshUrl;
@@ -270,17 +254,6 @@ export class ConflictError extends AgledgerApiError {
   constructor(body: ApiErrorResponse) {
     super(409, body);
     this.name = 'ConflictError';
-  }
-}
-
-/**
- * Idempotency key conflict: the same key was used with different parameters.
- * Subclass of AgledgerApiError (typically 409 with a specific error code).
- */
-export class IdempotencyError extends AgledgerApiError {
-  constructor(body: ApiErrorResponse) {
-    super(409, body);
-    this.name = 'IdempotencyError';
   }
 }
 

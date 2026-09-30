@@ -68,7 +68,7 @@ describe('the ambiguous-publisher 422', () => {
         type: '/problems/ambiguous-publisher',
         title: 'Ambiguous publisher',
         error: 'AMBIGUOUS_PUBLISHER',
-        message: 'Type acme-po-v1 is offered by more than one publisher',
+        detail: 'Type acme-po-v1 is offered by more than one publisher',
         publishers: ['acme-corp', 'local'],
         recordType: 'acme-po-v1',
         recoveryHint: 'Re-send with a publisher field naming one of `publishers`.',

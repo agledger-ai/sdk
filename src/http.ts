@@ -17,7 +17,6 @@ import {
   PermissionError,
   NotFoundError,
   ConflictError,
-  IdempotencyError,
   ValidationError,
   UnprocessableError,
   RateLimitError,
@@ -174,7 +173,7 @@ async function readErrorBody(response: Response): Promise<Record<string, unknown
   } catch {
     // Not JSON.
   }
-  return { error: 'unknown', message: response.statusText || `HTTP ${response.status}` };
+  return { error: 'unknown', detail: response.statusText || `HTTP ${response.status}` };
 }
 
 /** Failures getting a token that a later attempt may not repeat. */
@@ -359,7 +358,7 @@ export class HttpClient {
 
         const error = this.mapError(
           response.status,
-          { error: 'binary-error', message: response.statusText || `HTTP ${response.status}` },
+          { error: 'binary-error', detail: response.statusText || `HTTP ${response.status}` },
           response.headers,
         );
         error.rawBody = bytes;
@@ -815,14 +814,8 @@ export class HttpClient {
         return new PermissionError(errorBody);
       case 404:
         return new NotFoundError(errorBody);
-      case 409: {
-        // Idempotency key conflicts get a specific error class
-        const code = errorBody.code ?? errorBody.error;
-        if (code === 'IDEMPOTENCY_CONFLICT' || code === 'idempotency_conflict') {
-          return new IdempotencyError(errorBody);
-        }
+      case 409:
         return new ConflictError(errorBody);
-      }
       case 422:
         return new UnprocessableError(errorBody);
       case 429: {
