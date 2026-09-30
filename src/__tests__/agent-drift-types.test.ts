@@ -111,11 +111,10 @@ describe('operator surfaces', () => {
     expectTypeOf<ListApiKeysParams['neverExpires']>().toEqualTypeOf<boolean | undefined>();
   });
 
-  it('a rotated key reports its own expiry, and there is no keyId on the wire', () => {
+  it('a rotated key reports its own expiry and, since API 2.0, its keyId', () => {
     expectTypeOf<AuthResource['rotateKey']>().returns.resolves.toEqualTypeOf<RotateKeyResult>();
     expectTypeOf<RotateKeyResult['expiresAt']>().toEqualTypeOf<string | null | undefined>();
-    // @ts-expect-error the route never returned keyId
-    expectTypeOf<RotateKeyResult['keyId']>();
+    expectTypeOf<RotateKeyResult['keyId']>().toEqualTypeOf<string | undefined>();
   });
 
   it('trusted issuers can auto-provision agents under a scope ceiling', () => {

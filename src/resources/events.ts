@@ -1,7 +1,7 @@
 import type { HttpClient } from '../http.js';
 import type {
   AgledgerEvent,
-  Page,
+  EventPage,
   ListEventsParams,
   RequestOptions,
   AutoPaginateOptions,
@@ -13,14 +13,18 @@ export class EventsResource {
   /**
    * List events globally. `since` is required and inclusive; pair it with
    * `until` to close the window so consecutive polls compose without overlap.
+   * The page's `visibleBefore` is the exclusive upper bound the walk serves:
+   * send it as the next window's `since` so consecutive windows neither overlap
+   * nor skip an event that committed late.
    * GET /v1/events?since=...&until=...&order=asc|desc
    */
-  list(params: ListEventsParams, options?: RequestOptions): Promise<Page<AgledgerEvent>> {
-    return this.http.getPage<AgledgerEvent>(
+  async list(params: ListEventsParams, options?: RequestOptions): Promise<EventPage> {
+    const { page, envelope } = await this.http.getPageWithEnvelope<AgledgerEvent>(
       '/v1/events',
       params as unknown as Record<string, unknown>,
       options,
     );
+    return typeof envelope.visibleBefore === 'string' ? { ...page, visibleBefore: envelope.visibleBefore } : page;
   }
 
   /** Auto-paginating iterator. Yields individual events across all pages. */

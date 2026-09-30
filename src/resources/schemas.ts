@@ -150,7 +150,7 @@ export class SchemasResource {
   }
 
   /** Check compatibility of new record/completion schemas against an existing Type. */
-  checkCompatibility(type: RecordType, schemas: { recordSchema: Record<string, unknown>; completionSchema?: Record<string, unknown> }, options?: RequestOptions): Promise<SchemaCompatibilityResult> {
+  checkCompatibility(type: RecordType, schemas: { recordSchema: Record<string, unknown>; completionSchema: Record<string, unknown> }, options?: RequestOptions): Promise<SchemaCompatibilityResult> {
     return this.http.post<SchemaCompatibilityResult>(`/v1/schemas/${type}/check-compatibility`, schemas, options);
   }
 

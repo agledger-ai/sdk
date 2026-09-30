@@ -153,6 +153,7 @@ export type {
 
   // Events & Audit
   AgledgerEvent,
+  EventPage,
   EventType,
   ListEventsParams,
 
@@ -264,6 +265,7 @@ export type {
   WebhookDlqEntry,
   WebhookHealthEntry,
   SystemHealth,
+  ConnectedVersion,
   QueueCounts,
   WebhookSigningAlg,
   SetCapabilitiesParams,

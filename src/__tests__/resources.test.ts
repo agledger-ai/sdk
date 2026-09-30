@@ -928,6 +928,12 @@ describe('EventsResource', () => {
     expect(url).toContain('recordId=11111111-2222-3333-4444-555555555555');
     expect(url).toContain('eventType=record.released');
   });
+
+  it('surfaces visibleBefore, the bound to send as the next since', async () => {
+    const { client } = createMockClient({ data: [], hasMore: false, visibleBefore: '2026-01-01T00:05:00.000Z' });
+    const page = await client.events.list({ since: '2026-01-01T00:00:00Z' });
+    expect(page.visibleBefore).toBe('2026-01-01T00:05:00.000Z');
+  });
 });
 
 describe('DriftResource', () => {
