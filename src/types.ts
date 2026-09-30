@@ -251,6 +251,13 @@ export interface BulkCreateResult {
      * until the key expires.
      */
     recoveryHint?: string;
+    /**
+     * The bounds the item broke, as a singleton caller gets them in the RFC
+     * 9457 body: `field`, `parentValue`, `childValue`, `reason`, and
+     * `tolerance` where one applies. Carried for the criteria byte cap, the
+     * reference attributes byte cap, and constraints inherited from the parent.
+     */
+    constraintViolations?: Record<string, unknown>[];
   }>;
   summary: {
     total: number;
@@ -259,6 +266,7 @@ export interface BulkCreateResult {
     /** Items answered as `replayed` (also counted in `succeeded`). */
     replayed?: number;
   };
+  nextSteps?: NextStep[];
 }
 
 
@@ -1027,8 +1035,13 @@ export interface RecordRow {
   performerAgentId: string | null;
   /** Agent ID of the principal. */
   principalAgentId: string;
-  /** API key that created this Record (admin, agent, or platform). The Record's signed chain (`records.getAuditExport()`) names every party that wrote to it. */
-  createdByKeyId: string;
+  /**
+   * API key that created this Record (admin, agent, or platform). Null on a
+   * federation-received Record (`federationStatus: 'inbound'`), which no key on
+   * this Server created. The Record's signed chain (`records.getAuditExport()`)
+   * names every party that wrote to it.
+   */
+  createdByKeyId: string | null;
   /** Record Type, e.g. 'ACH-PROC-v1'. */
   type: RecordType;
   /** Version of the Type schema. */
@@ -1679,6 +1692,7 @@ export interface BatchGetRecordsResult {
    * caller cannot see it. The two are not distinguished.
    */
   notFound?: string[];
+  nextSteps: NextStep[];
 }
 
 /** Per-item options for bulk-create. */
@@ -1869,15 +1883,26 @@ export interface VerdictResult {
   completionId: string;
   /** The principal verdict: same open `Verdict` union as the write side. */
   verdict: Verdict;
-  /** Settlement recommendation to downstream financial systems. */
-  recommendation: SettlementSignal;
+  /**
+   * Settlement recommendation derived from the verdict: `SETTLE` (accept) or
+   * `HOLD` (reject). `RELEASE` exists only on the dispute-overturn
+   * settlement-signal surface, never here.
+   */
+  recommendation: 'SETTLE' | 'HOLD';
   /**
    * Record status after the verdict settled: FULFILLED (accept) or FAILED
    * (reject), same vocabulary as the Record GET. Surfaced inline so
    * the caller learns where the Record landed without a follow-up fetch.
    */
   recordStatus?: RecordStatus;
-  reporterType: string;
+  /** The verdict channel: a principal-side verdict, as opposed to the engine's. */
+  reporterType: 'principal';
+  /**
+   * Who on the principal side rendered it: `principal` when the principal
+   * agent did, `org-admin` when an admin key in the Record's org did on the
+   * principal's behalf. The chain entries' actor is the same key.
+   */
+  reporterRole?: 'principal' | 'org-admin';
   reportedAt: string;
   /** Suggested next API calls after submitting the verdict. */
   nextSteps?: NextStep[];
@@ -1933,7 +1958,7 @@ export interface Dispute {
   initiatedByRole: string;
   initiatedById: string;
   grounds: DisputeGrounds;
-  context?: string;
+  context?: string | null;
   status: DisputeStatus;
   outcome?: string | null;
   resolutionRationale?: string | null;
@@ -2197,8 +2222,7 @@ export interface WebhookTestResult {
   durationMs: number;
   success: boolean;
   deliveryId: string;
-  httpStatus: number;
-  latencyMs: number;
+  nextSteps?: NextStep[];
 }
 
 
@@ -6056,7 +6080,8 @@ export interface EphemeralCert {
   id: string;
   trustedIssuerId: string;
   orgId: string | null;
-  agentId: string | null;
+  /** The agent the cert is bound to. Always set: a token that binds no agent gets no cert. */
+  agentId: string;
   oidcIss: string;
   oidcSub: string;
   publicKeyThumbprint: string;
