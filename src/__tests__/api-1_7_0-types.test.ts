@@ -202,7 +202,7 @@ describe('v1.7.0: the federation dispute ack is an ack', () => {
   it('declares what the receiver sends', () => {
     // Through 1.10.0 this declared a required `received: boolean` the route has
     // never returned, so branching on it read `undefined` typed as `boolean`.
-    expectTypeOf<DisputeProtocolResult['ack']>().toEqualTypeOf<boolean>();
-    expectTypeOf<DisputeProtocolResult['applied']>().toEqualTypeOf<boolean | undefined>();
+    expectTypeOf<DisputeProtocolResult['ack']>().toEqualTypeOf<true>();
+    expectTypeOf<DisputeProtocolResult['applied']>().toEqualTypeOf<boolean>();
   });
 });

@@ -4510,14 +4510,17 @@ export interface SubmitStateTransitionParams {
   state: string;
   type: string;
   idempotencyKey: string;
-  schemaRef?: FederationSchemaRef;
-  principalAgentId?: string;
-  performerAgentId?: string;
+  schemaRef: FederationSchemaRef;
+  principalAgentId: string;
+  performerAgentId: string;
   coSignRequired?: boolean;
   correlationId?: string;
   projectRef?: string;
   externalTaskId?: string;
-  operatingMode?: string;
+  platformRef?: string;
+  operatingMode: OperatingMode;
+  riskClassification?: RiskClassification;
+  euAiActDomain?: EuAiActDomain;
   /** Parent record id on the firing Server (the peer projects the delegation edge). */
   parentRecordId?: string;
   /** Root record id of the delegation tree on the firing Server. */
@@ -4534,7 +4537,7 @@ export interface StateTransitionResult {
   serverSignature: string;
   /** False when the receiving Server acknowledged the transition without applying it; `reason` says why. */
   applied: boolean;
-  reason?: 'peer_unbound' | 'org_deactivated' | 'missing_agent_ids' | 'same_state' | (string & {});
+  reason?: 'peer_unbound' | 'org_deactivated' | 'same_state' | (string & {});
   schemaRef?: FederationSchemaRef;
   nextSteps?: NextStep[];
 }
@@ -4548,27 +4551,22 @@ export interface RelaySignalParams {
   outcomeHash: string;
   validUntil: string;
   idempotencyKey: string;
-  outcome?: FederationVerdict | null;
+  /** The principal's verdict, or null when the signal carries none. Required, so send null explicitly. */
+  outcome: FederationVerdict | null;
   counterSignature?: string;
-  schemaRef?: FederationSchemaRef;
+  schemaRef: FederationSchemaRef;
   /**
    * Machine-readable cause for the signal
    * (`AUTO_SETTLE` / `AUTO_SETTLE_WITHIN_TOLERANCE` / `AUTO_FAIL` /
    * `PRINCIPAL_ACCEPT` / `PRINCIPAL_REJECT` / `DISPUTE_OVERTURNED` / `TIMED_OUT` /
    * `REMEDIATED` / `CANCEL_PRE_WORK` / `CANCEL_IN_PROGRESS` / `OVERFLOW_REJECT` /
    * `ARBITRATION_*` …). `AUTO_SETTLE_WITHIN_TOLERANCE` marks an
-   * auto-settle that cleared only via a non-zero tolerance band. Null on older peers.
+   * auto-settle that cleared only via a non-zero tolerance band. Required;
+   * null when the signal has no machine-readable cause.
    */
-  reasonCode?: string | null;
-  /** ruleIds that failed when a gate evaluation produced this HOLD. Null for non-rule terminals or older peers. */
-  failingRuleIds?: string[] | null;
-  /**
-   * Ignored by the receiver. Peers on API 1.8.0 and earlier send the signal's
-   * free-text reason here, so the field is still accepted, but it is neither
-   * stored nor forwarded: free text does not cross the federation wire, and
-   * `reasonCode` and `failingRuleIds` carry the cause.
-   */
-  reason?: string | null;
+  reasonCode: string | null;
+  /** ruleIds that failed when a gate evaluation produced this HOLD. Required; null for non-rule terminals. */
+  failingRuleIds: string[] | null;
 }
 
 /** Result of a signal relay. */
@@ -4594,7 +4592,7 @@ export interface SubmitCoSignRequestParams {
   validUntil: string;
   idempotencyKey: string;
   outcome?: FederationVerdict | null;
-  schemaRef?: FederationSchemaRef;
+  schemaRef: FederationSchemaRef;
 }
 
 /** Result of a co-sign request. */
@@ -4610,14 +4608,9 @@ export interface CoSignRequestResult {
 /**
  * Dispute-protocol action, lowercase. The route declares a strict enum, so a
  * value outside this set is a 400. Note these are past tense and do not match
- * the `DisputeGrounds` or `DisputeStatus` casing.
- *
- * `escalated` is inbound compatibility only. The tier ladder is gone, so this
- * Server never emits it; it stays accepted for one release so a peer still on
- * the previous version can finish a rolling upgrade, and the receiver projects
- * such a message to `PENDING_RESOLUTION`. Do not send it.
+ * the `DisputeGrounds` or `DisputeStatus` casing. API 2.0 removed `escalated`.
  */
-export type DisputeProtocolAction = 'opened' | 'resolved' | 'withdrawn' | 'escalated';
+export type DisputeProtocolAction = 'opened' | 'resolved' | 'withdrawn';
 
 /** Parameters for submitting a federation dispute-protocol message. */
 export interface SubmitDisputeProtocolParams {
@@ -4632,16 +4625,11 @@ export interface SubmitDisputeProtocolParams {
    */
   disputeStatus: DisputeStatus;
   idempotencyKey: string;
-  /**
-   * Accepted and ignored. The tier ladder is gone: this exists for one release
-   * so a peer still on the previous version can finish a rolling upgrade. Never
-   * emitted, never stored, never read.
-   */
-  tier?: number;
-  grounds?: string;
-  outcome?: string;
+  grounds?: DisputeGrounds;
+  /** The rendered outcome, on `resolved`. The protocol also carries `SPLIT`. */
+  outcome?: DisputeOutcome | 'SPLIT';
   initiatedByRole?: 'principal' | 'performer';
-  schemaRef?: FederationSchemaRef;
+  schemaRef: FederationSchemaRef;
 }
 
 /**
@@ -4650,19 +4638,18 @@ export interface SubmitDisputeProtocolParams {
  */
 export interface DisputeProtocolResult {
   /** The receiver accepted the message. A refusal is a thrown 4xx, never a false here. */
-  ack: boolean;
+  ack: true;
   /** Whether the receiver applied the transition, as opposed to acknowledging a no-op. */
-  applied?: boolean;
+  applied: boolean;
   /** Why the receiver did not apply it, when `applied` is false. */
-  reason?: string | null;
+  reason?: 'peer_unbound' | 'org_deactivated' | 'same_state' | (string & {});
   /** The receiver's signature over the acknowledgement. */
-  serverSignature?: string;
-  serverTimestamp?: string;
+  serverSignature: string;
+  serverTimestamp: string;
   /** The schema the receiver resolved the message against. */
   schemaRef?: FederationSchemaRef;
   /** Suggested next API calls. */
   nextSteps?: NextStep[];
-  [key: string]: unknown;
 }
 
 
@@ -4702,6 +4689,13 @@ export interface PeerHandshakeResult {
   /** Peer status as created (`active`). */
   status: string;
   serverSigningPublicKey: string;
+  /**
+   * The receiving Server's hub id (its `AGLEDGER_INSTANCE_ID`): name it as
+   * `peerHubId` when you mint the reverse peering token on your Server. Null
+   * when the receiver has no UUID instance id, in which case it cannot send you
+   * anything until one is set.
+   */
+  serverHubId?: string | null;
   nextSteps?: NextStep[];
 }
 

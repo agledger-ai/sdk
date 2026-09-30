@@ -110,6 +110,9 @@ describe('FederationResource (peer-facing)', () => {
         version: '1',
         manifestDigest: `sha256:${'0'.repeat(64)}`,
       },
+      principalAgentId: 'agent-p',
+      performerAgentId: 'agent-q',
+      operatingMode: 'cleartext',
       parentRecordId: 'rec-parent',
       rootRecordId: 'rec-root',
       chainDepth: 2,
@@ -123,7 +126,7 @@ describe('FederationResource (peer-facing)', () => {
     });
   });
 
-  it('relaySignal() relays the reason fields', async () => {
+  it('relaySignal() relays the machine-readable cause, and no free text', async () => {
     await client.federation.relaySignal({
       recordId: 'rec-1',
       recommendation: 'HOLD',
@@ -133,14 +136,15 @@ describe('FederationResource (peer-facing)', () => {
       outcome: 'reject',
       reasonCode: 'PRINCIPAL_REJECT',
       failingRuleIds: ['amount.max', 'deadline'],
-      reason: 'over budget',
+      schemaRef: { publisher: 'local', type: 'ACH-TXN-v1', version: '1', manifestDigest: `sha256:${'0'.repeat(64)}` },
     });
     const { init } = lastCall(fetch);
-    expect(JSON.parse(init.body as string)).toMatchObject({
+    const body = JSON.parse(init.body as string);
+    expect(body).toMatchObject({
       reasonCode: 'PRINCIPAL_REJECT',
       failingRuleIds: ['amount.max', 'deadline'],
-      reason: 'over budget',
     });
+    expect(body).not.toHaveProperty('reason');
   });
 
   it('submitCoSignRequest() posts to /federation/v1/co-sign-requests', async () => {

@@ -570,7 +570,6 @@
     },
     "DisputeProtocolAction": {
       "values": [
-        "escalated",
         "opened",
         "resolved",
         "withdrawn"
