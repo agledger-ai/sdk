@@ -22,7 +22,6 @@ export type {
   ListCompletionsParams,
   LimitParams,
   CursorListParams,
-  OffsetListParams,
   Page,
   AutoPaginateOptions,
 

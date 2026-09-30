@@ -3,7 +3,6 @@ import type {
   AgentProfile,
   AgentDirectoryEntry,
   UpdateAgentParams,
-  ListParams,
   Page,
   RequestOptions,
   AutoPaginateOptions,

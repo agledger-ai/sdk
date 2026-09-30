@@ -12,7 +12,7 @@ import type {
   VaultCheckpoint,
   ListVaultCheckpointsParams,
   Page,
-  ListParams,
+  CursorListParams,
   RequestOptions,
 } from '../types.js';
 import { ConfigurationError, PaginationLimitError } from '../errors.js';
@@ -80,7 +80,7 @@ export class ComplianceResource {
   }
 
   /** List compliance records for a Record. */
-  listRecords(recordId: string, params?: ListParams, options?: RequestOptions): Promise<Page<ComplianceRecord>> {
+  listRecords(recordId: string, params?: CursorListParams, options?: RequestOptions): Promise<Page<ComplianceRecord>> {
     return this.http.getPage<ComplianceRecord>(`/v1/records/${recordId}/compliance-records`, params as Record<string, unknown>, options);
   }
 

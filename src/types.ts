@@ -151,13 +151,12 @@ export interface SchemaScopeOptions extends RequestOptions {
 }
 
 
-/** Parameters accepted by all list endpoints. */
 /**
- * Pagination is not uniform across the API: some list endpoints page by cursor,
- * some by offset, and a few accept neither. The querystring rejects unknown
- * properties, so offering a parameter an endpoint does not take is a 400 rather
- * than a no-op. These three narrower shapes exist so each list method advertises
- * only what its own route accepts.
+ * Pagination is not uniform across the API. Most listings page by cursor only
+ * (keyset), a handful also take a numeric `offset`, and a few take neither.
+ * The querystring rejects unknown properties, so offering a parameter an
+ * endpoint does not take is a 400 rather than a no-op. These shapes exist so
+ * each list method advertises only what its own route accepts.
  */
 export interface LimitParams {
   limit?: number;
@@ -169,17 +168,12 @@ export interface CursorListParams extends LimitParams {
 }
 
 /**
- * A list endpoint that pages by numeric offset.
- *
- * @deprecated Every paginated listing the Server publishes now also accepts
- * `cursor`, and offset paging skips or repeats rows on a listing that is being
- * written to while you walk it. Use {@link ListParams} and page by cursor.
+ * A list endpoint that accepts both paging styles: the sub-Record, schema and
+ * federation peer listings. Every other paginated listing is keyset only and
+ * takes {@link CursorListParams}; sending `offset` there is a 400. Offset
+ * paging skips or repeats rows on a listing that is written to while you walk
+ * it, so prefer `cursor` here too.
  */
-export interface OffsetListParams extends LimitParams {
-  offset?: number;
-}
-
-/** A list endpoint that accepts both paging styles. */
 export interface ListParams extends LimitParams {
   offset?: number;
   cursor?: string;
@@ -1536,7 +1530,7 @@ export interface UpdateRecordParams {
   metadata?: Record<string, unknown>;
 }
 
-export interface ListRecordsParams extends ListParams {
+export interface ListRecordsParams extends CursorListParams {
   orgId?: string;
   /** Strict enum server-side: a value outside it is a 400, not an empty page. */
   status?: RecordStatusFilter;
@@ -1593,7 +1587,7 @@ export interface GetRecordParams {
   view?: RecordView;
 }
 
-export interface SearchRecordsParams extends ListParams {
+export interface SearchRecordsParams extends CursorListParams {
   orgId?: string;
   /** Strict enum server-side: a value outside it is a 400, not an empty page. */
   status?: RecordStatusFilter;
@@ -1703,7 +1697,7 @@ export interface BulkCreateRecordItem extends CreateRecordParams {
  * there is no column to filter on. Filter on `ACCEPTED` and inspect
  * `warnings` on the rows.
  */
-export interface ListCompletionsParams extends ListParams {
+export interface ListCompletionsParams extends CursorListParams {
   structuralValidation?: 'ACCEPTED' | 'INVALID';
 }
 
@@ -2001,7 +1995,7 @@ export interface ResolveDisputeParams {
 }
 
 /** Query parameters for the org-wide dispute listing. */
-export interface ListDisputesParams extends ListParams {
+export interface ListDisputesParams extends CursorListParams {
   /** Strict enum server-side: a value outside it is a 400, not an empty page. */
   status?: DisputeStatusFilter;
   recordId?: string;
@@ -2433,7 +2427,7 @@ export type EventType =
   | (string & {});
 
 /** Query parameters for the global event listing (`GET /v1/events`). */
-export interface ListEventsParams extends ListParams {
+export interface ListEventsParams extends CursorListParams {
   /** ISO timestamp: events created at or after this instant (inclusive). Required. */
   since: string;
   /**
@@ -3059,12 +3053,10 @@ export interface OrgAdminRead {
   readAt: string;
 }
 
-/** Pagination for the org-reads checkpoint listing. */
+/** Pagination for the org-reads checkpoint listing. Keyset only. */
 export interface ListOrgReadsCheckpointsParams {
   /** 1..200, default 50. */
   limit?: number;
-  /** Offset-based paging; ignored when `cursor` is set. */
-  offset?: number;
   /** `nextCursor` from the previous page, sent back with the same query parameters. */
   cursor?: string;
 }
@@ -3212,7 +3204,7 @@ export interface AdminImportRecordsResult {
 }
 
 /** Query parameters for `GET /v1/admin/records`. */
-export interface QueryAdminRecordsParams extends ListParams {
+export interface QueryAdminRecordsParams extends CursorListParams {
   orgId?: string;
   /**
    * Strict enum server-side: a value outside it is a 400, not an empty page.
@@ -3654,7 +3646,7 @@ export interface SetOrgConfigParams {
 }
 
 /** Parameters for listing webhooks with optional URL filter. */
-export interface ListWebhooksParams extends ListParams {
+export interface ListWebhooksParams extends CursorListParams {
   /** Filter webhooks by exact URL match. */
   url?: string;
 }
@@ -3673,7 +3665,7 @@ export interface ListWebhooksParams extends ListParams {
  * than a silent slide into the install-wide listing at the same offset. Send
  * the cursor back alongside the same filters that produced it.
  */
-export interface ListApiKeysParams extends ListParams {
+export interface ListApiKeysParams extends CursorListParams {
   /** List one owner's keys. Omit for cross-owner mode (platform keys only). */
   ownerId?: string;
   /** Cross-owner filter: only keys whose owning org matches. */
@@ -4838,7 +4830,7 @@ export interface ReferenceLookupMatch {
 }
 
 /** Parameters for {@link ReferencesResource.lookup}. */
-export interface ReferenceLookupParams extends ListParams {
+export interface ReferenceLookupParams extends CursorListParams {
   system: string;
   refType: string;
   refId: string;

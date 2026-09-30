@@ -137,7 +137,7 @@ describe('v1.6.0: events take a closing bound', () => {
     // a filter missing from this type is a filter the SDK cannot express.
     expectTypeOf<string>().toMatchTypeOf<NonNullable<ListEventsParams['recordId']>>();
     expectTypeOf<EventType>().toMatchTypeOf<NonNullable<ListEventsParams['eventType']>>();
-    expectTypeOf<number>().toMatchTypeOf<NonNullable<ListEventsParams['offset']>>();
+    expectTypeOf<string>().toMatchTypeOf<NonNullable<ListEventsParams['cursor']>>();
   });
 });
 

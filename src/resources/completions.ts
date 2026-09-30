@@ -3,7 +3,6 @@ import type {
   Completion,
   SubmitCompletionParams,
   Page,
-  ListParams,
   ListCompletionsParams,
   RequestOptions,
   AutoPaginateOptions,

@@ -229,8 +229,7 @@
       "bodyFields": [],
       "queryFields": [
         "cursor",
-        "limit",
-        "offset"
+        "limit"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -540,7 +539,6 @@
         "limit",
         "neverExpires",
         "neverUsed",
-        "offset",
         "orgId",
         "ownerId",
         "ownerType",
@@ -731,7 +729,6 @@
         "cursor",
         "from",
         "limit",
-        "offset",
         "order",
         "orgId",
         "sort",
@@ -974,8 +971,7 @@
       "bodyFields": [],
       "queryFields": [
         "cursor",
-        "limit",
-        "offset"
+        "limit"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -1073,7 +1069,6 @@
         "cursor",
         "from",
         "limit",
-        "offset",
         "outcome",
         "to",
         "type"
@@ -1248,8 +1243,7 @@
       "bodyFields": [],
       "queryFields": [
         "cursor",
-        "limit",
-        "offset"
+        "limit"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -1399,7 +1393,6 @@
       "queryFields": [
         "cursor",
         "limit",
-        "offset",
         "orgId",
         "recordId",
         "status"
@@ -1427,7 +1420,6 @@
         "cursor",
         "eventType",
         "limit",
-        "offset",
         "order",
         "recordId",
         "since",
@@ -1484,7 +1476,6 @@
         "hasDispute",
         "imported",
         "limit",
-        "offset",
         "orgId",
         "performerAgentId",
         "role",
@@ -1541,8 +1532,7 @@
       "bodyFields": [],
       "queryFields": [
         "cursor",
-        "limit",
-        "offset"
+        "limit"
       ],
       "pathParams": [
         "id"
@@ -1763,7 +1753,6 @@
       "queryFields": [
         "cursor",
         "limit",
-        "offset",
         "structuralValidation"
       ],
       "pathParams": [
@@ -1814,8 +1803,7 @@
       "bodyFields": [],
       "queryFields": [
         "cursor",
-        "limit",
-        "offset"
+        "limit"
       ],
       "pathParams": [
         "recordId"
@@ -1888,8 +1876,7 @@
       "bodyFields": [],
       "queryFields": [
         "cursor",
-        "limit",
-        "offset"
+        "limit"
       ],
       "pathParams": [],
       "responseCodes": [
@@ -1942,7 +1929,6 @@
         "imported",
         "limit",
         "metadata",
-        "offset",
         "operatingMode",
         "order",
         "orgId",
@@ -1999,7 +1985,6 @@
       "queryFields": [
         "cursor",
         "limit",
-        "offset",
         "refId",
         "refType",
         "system"
@@ -2388,7 +2373,6 @@
       "queryFields": [
         "cursor",
         "limit",
-        "offset",
         "url"
       ],
       "pathParams": [],
@@ -2436,7 +2420,6 @@
       "queryFields": [
         "cursor",
         "limit",
-        "offset",
         "status"
       ],
       "pathParams": [
@@ -2463,8 +2446,7 @@
       "bodyFields": [],
       "queryFields": [
         "cursor",
-        "limit",
-        "offset"
+        "limit"
       ],
       "pathParams": [
         "webhookId"
