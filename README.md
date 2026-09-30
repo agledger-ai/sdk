@@ -35,26 +35,30 @@ AGLedger is self-hosted. You deploy it on your own infrastructure.
 
 ## Quick Start
 
+A Record has two sides: the principal that asks for the work and renders the
+verdict, and the performer that does it and submits the completion. Each is an
+agent with its own key, so the walk-through below runs two clients.
+
 ```typescript
 import { AgledgerClient } from '@agledger/sdk';
 
-const client = new AgledgerClient({
-  apiKey: process.env.AGLEDGER_API_KEY!,
-  baseUrl: process.env.AGLEDGER_EXTERNAL_URL!, // your AGLedger instance URL
-});
+const baseUrl = process.env.AGLEDGER_EXTERNAL_URL!; // your AGLedger instance URL
+const principal = new AgledgerClient({ apiKey: process.env.AGLEDGER_API_KEY!, baseUrl });
+const performer = new AgledgerClient({ apiKey: process.env.AGLEDGER_PERFORMER_API_KEY!, baseUrl });
 
-// Create a Record (what the agent is being asked to do).
-// An agent key defaults principal to itself; an admin key must name a
-// principal via `principalAgentId` (or implicitly via `performerAgentId`
-// for a self-commitment).
-const record = await client.records.create({
+// Create a Record (what the agent is being asked to do). An agent key
+// defaults the principal to itself; an admin key names the principal via
+// `principalAgentId`.
+const record = await principal.records.create({
   type: 'principal-gate-generic-v1', // a contract type you registered (or an auto-seeded sample)
   contractVersion: '1',
   platform: 'internal-etl',
   // Agent ids are uuids of agents you have provisioned, so there is no id you
-  // can invent here: mint one with `POST /v1/admin/api-keys` using a platform
-  // key, then read it from your config.
+  // can invent here: mint one with `POST /v1/admin/agents` and a key for it
+  // with `POST /v1/admin/api-keys` using a platform key, then read it from
+  // your config.
   performerAgentId: process.env.AGLEDGER_PERFORMER_AGENT_ID!,
+  autoActivate: true,
   criteria: {
     // `summary` is the one field the seeded contract requires. The schema is
     // permissive (`additionalProperties: true`), so your own domain fields
@@ -65,12 +69,12 @@ const record = await client.records.create({
   },
 });
 
-// Activate the Record
-await client.records.transition(record.id, 'register');
-await client.records.transition(record.id, 'activate');
+// Every Record response carries a `signedStatement` so a notarize-only caller
+// can confirm the chain head without a follow-up audit-export call.
+console.log(record.signedStatement?.chainPosition, record.signedStatement?.leafHash);
 
-// Submit a completion (what the agent reported back)
-const completion = await client.completions.submit(record.id, {
+// The performer submits the completion (what it reports back).
+const completion = await performer.completions.submit(record.id, {
   evidence: {
     // `summary` is required by the seeded completionSchema; the rest is yours.
     summary: 'Exported 487,231 rows to the nightly parquet target',
@@ -80,13 +84,18 @@ const completion = await client.completions.submit(record.id, {
   },
 });
 
-// Run the gate evaluation against the original criteria (advisory in
-// `principal` mode; the principal then submits the accept/reject verdict).
-const result = await client.gate.evaluate(record.id);
+// The worker validates the completion, then holds the Record at PROCESSING
+// until the principal renders its verdict.
+for (let i = 0; i < 30; i++) {
+  if ((await principal.records.get(record.id)).status === 'PROCESSING') break;
+  await new Promise((r) => setTimeout(r, 1000));
+}
 
-// Every Record response carries a `signedStatement` so a notarize-only caller
-// can confirm the chain head without a follow-up audit-export call.
-console.log(record.signedStatement?.chainPosition, record.signedStatement?.leafHash);
+const verdict = await principal.records.submitVerdict(record.id, {
+  completionId: completion.id,
+  verdict: 'accept',
+});
+console.log(verdict.recordStatus); // FULFILLED
 ```
 
 ## Configuration
