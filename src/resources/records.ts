@@ -5,6 +5,7 @@ import type {
   UpdateRecordParams,
   ListRecordsParams,
   ListParams,
+  CursorListParams,
   GetRecordParams,
   SearchRecordsParams,
   DelegateRecordParams,
@@ -250,7 +251,7 @@ export class RecordsResource {
   }
 
   /** List Records proposed to the authenticated agent (pending acceptance). */
-  listProposals(params?: ListParams, options?: RequestOptions): Promise<Page<RecordRow>> {
+  listProposals(params?: CursorListParams, options?: RequestOptions): Promise<Page<RecordRow>> {
     return this.http.getPage<RecordRow>('/v1/records/agent/proposals', params as Record<string, unknown>, options);
   }
 

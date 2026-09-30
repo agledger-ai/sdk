@@ -1053,11 +1053,11 @@ describe('DiscoveryResource', () => {
 describe('AuditResource', () => {
   it('lists org-reads checkpoints', async () => {
     const { client, fetch } = createMockClient({ data: [] });
-    await client.audit.orgReadsCheckpoints.list({ limit: 10, offset: 20 });
+    await client.audit.orgReadsCheckpoints.list({ limit: 10, cursor: 'c1' });
     const url = fetch.mock.calls[0][0];
     expect(url).toContain('/v1/audit/org-reads/checkpoints');
     expect(url).toContain('limit=10');
-    expect(url).toContain('offset=20');
+    expect(url).toContain('cursor=c1');
   });
 
   it('org-reads checkpoint page carries the sweep schedule and the paging fields', async () => {
@@ -1212,7 +1212,6 @@ describe('AdminResource', () => {
       isActive: false,
       createdBefore: '2026-01-01T00:00:00Z',
       limit: 50,
-      offset: 100,
       cursor: 'b2Zmc2V0OjE1MA==',
     });
     const url = new URL(fetch.mock.calls[0][0]);
@@ -1224,15 +1223,14 @@ describe('AdminResource', () => {
       isActive: 'false',
       createdBefore: '2026-01-01T00:00:00Z',
       limit: '50',
-      offset: '100',
       cursor: 'b2Zmc2V0OjE1MA==',
     });
   });
 
   /**
    * A cursor minted under `ownerId` carries that owner, and the API rejects a
-   * replay that drops it rather than serving the install-wide listing at the
-   * same offset. So the iterator has to resend the filters, not just the cursor.
+   * replay that drops it rather than serving the install-wide listing from
+   * the same position. So the iterator has to resend the filters, not just the cursor.
    */
   it('replays ownerId alongside the cursor when auto-paginating api keys', async () => {
     const pages = [

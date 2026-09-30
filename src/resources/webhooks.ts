@@ -9,7 +9,7 @@ import type {
   DlqRetryResult,
   DlqRetryAllResult,
   Page,
-  ListParams,
+  CursorListParams,
   ListWebhooksParams,
   RequestOptions,
 } from '../types.js';
@@ -87,7 +87,7 @@ export class WebhooksResource {
   /** List delivery attempts for a webhook, optionally filtered by status. */
   listDeliveries(
     webhookId: string,
-    params?: ListParams & { status?: 'PENDING' | 'DELIVERED' | 'FAILED' | 'DEAD_LETTER' },
+    params?: CursorListParams & { status?: 'PENDING' | 'DELIVERED' | 'FAILED' | 'DEAD_LETTER' },
     options?: RequestOptions,
   ): Promise<Page<WebhookDelivery>> {
     return this.http.getPage<WebhookDelivery>(
@@ -100,7 +100,7 @@ export class WebhooksResource {
   /** List dead-letter queue entries for a specific webhook. */
   listDlq(
     webhookId: string,
-    params?: ListParams,
+    params?: CursorListParams,
     options?: RequestOptions,
   ): Promise<Page<WebhookDlqEntry>> {
     return this.http.getPage<WebhookDlqEntry>(

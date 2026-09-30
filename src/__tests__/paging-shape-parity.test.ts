@@ -11,8 +11,8 @@
  *
  * The narrow question here is the paging shape, because that is what the SDK
  * models as shared base interfaces (`LimitParams`, `CursorListParams`,
- * `OffsetListParams`, `ListParams`) and what a route changes when it migrates
- * off numeric offsets. Route-specific filters stay out of it: those are typed
+ * `ListParams`) and what a route changes when it migrates off numeric offsets.
+ * API 2.0 did that to every keyset listing at once. Route-specific filters stay out of it: those are typed
  * one by one on each params interface.
  *
  * The check is source-level because the types are erased at runtime. It reads
@@ -163,10 +163,9 @@ describe('paging-shape parity', () => {
       // The other direction: paging the route takes and the SDK hides. Not a
       // 400, but it is a page the caller cannot walk.
       //
-      // `offset` is exempt: this SDK deprecates offset paging outright, because
-      // it skips or repeats rows on a listing being written to while you walk
-      // it. A route that offers both and a method that exposes only `cursor` is
-      // that deprecation working, not drift.
+      // `offset` is exempt: it skips or repeats rows on a listing being written
+      // to while you walk it, so a method that exposes only `cursor` on a route
+      // that also takes `offset` is a choice, not drift.
       const hidden = PAGING_KEYS.filter(
         (k) => k !== 'offset' && accepted.has(k) && !offered.has(k),
       );

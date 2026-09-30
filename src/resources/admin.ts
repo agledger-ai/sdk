@@ -34,7 +34,6 @@ import type {
   LicenseInstanceInfo,
   LimitParams,
   ListApiKeysParams,
-  ListParams,
   ListTrustedIssuersParams,
   NextStep,
   OpsSummary,
@@ -564,7 +563,7 @@ export class AdminResource {
   }
 
   /** Get health status of all webhooks (delivery stats, circuit breaker states). */
-  getWebhookHealth(params?: ListParams, options?: RequestOptions): Promise<Page<WebhookHealthEntry>> {
+  getWebhookHealth(params?: CursorListParams, options?: RequestOptions): Promise<Page<WebhookHealthEntry>> {
     return this.http.getPage('/v1/admin/webhooks/health', params as Record<string, unknown>, options);
   }
 
