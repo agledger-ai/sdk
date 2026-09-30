@@ -2,15 +2,16 @@
  * Offline verification of an AGLedger record audit export.
  *
  * Thin adapter over `@agledger/verify-core`: the single shared verification
- * core (COSE_Sign1 / RFC 9052 hash-chain walk + Ed25519) that the CLI, MCP
- * server, and `@agledger/verify` also build on. This module maps the SDK's
- * `RecordAuditExport` response type onto the core's structural input and
- * re-exports the result types so `@agledger/sdk/verify` keeps a stable surface.
+ * core (COSE_Sign1 / RFC 9052 hash-chain walk, Ed25519 or ES256, and the
+ * signed key-statement walk) that the CLI, MCP server, and `@agledger/verify`
+ * also build on. This module maps the SDK's `RecordAuditExport` response type
+ * onto the core's structural input and re-exports the option and result types
+ * so `@agledger/sdk/verify` keeps a stable surface.
  *
  * Format version 2.0: each entry carries a canonical COSE_Sign1 (RFC 9052 §4.4,
- * tag 18, EdDSA) envelope over an in-toto v1 Statement payload. The chain links
- * via sha256 of the envelope bytes; the per-entry signature is the COSE
- * signature itself.
+ * tag 18) envelope over an in-toto v1 Statement payload. The chain links via
+ * sha256 of the envelope bytes; the per-entry signature is the COSE signature
+ * itself.
  */
 import { verifyAuditExport } from '@agledger/verify-core';
 import type { VerifyExportOptions, VerifyExportResult } from '@agledger/verify-core';
@@ -20,39 +21,63 @@ export type {
   VerifyExportOptions,
   VerifyExportResult,
   EntryVerificationResult,
-  OutOfBandKeyEntry,
+  SuppliedKeyEntry,
   FailureCode,
   AgentPublicKeyJwk,
+  DistrustedKey,
+  KeyTrustReport,
+  KeyRegistryFinding,
+  KeyRegistryFindingCode,
+  OptionalCheck,
+  CheckApplicability,
 } from '@agledger/verify-core';
 
 /**
  * Verify a record audit export offline.
  *
- * For an independent audit, pass the signing keys you obtained out of band
- * (`options.publicKeys`, from `GET /v1/verification-keys` or
- * `/.well-known/scitt-keys`) rather than trusting the export's embedded keys.
- * `result.keyProvenance` reports how many signatures were checked against
- * out-of-band vs export-embedded keys: `outOfBand > 0` is the only state that
- * proves the chain was checked against keys you trust.
+ * A key the Server publishes, embedded in the export or served by
+ * `GET /v1/verification-keys`, comes from the Server's database, so on its own
+ * it proves only that the chain is consistent with that database. To trust the
+ * keys, pass `trustAnchors`: the SPKI digest (`sha256:<hex>`) of a vault key
+ * you took out of band (the installer prints the first one). The signed key
+ * statements the export carries are then walked from your pin; an entry
+ * signed by a key the walk does not reach fails
+ * `CHAIN_SIGNING_KEY_UNANCHORED`, and a statement that does not hold fails at
+ * position 0 with `KEY_STATEMENT_INVALID`, `KEY_CLOSURE_INVALID` or
+ * `CHAIN_KEY_WINDOW_DRIFT` (listed in `result.keyTrust.findings`).
  *
- * `options.publicKeys` accepts either form: pass the `.data` array from
- * `client.verificationKeys.list()` directly, or a compact `Record<keyId, b64SPKI>`
- * map. The wrong shape throws `TypeError` rather than silently falling back to
+ * Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
+ * `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can
+ * still be true, and it then means the chain verifies against keys nobody
+ * pinned: a key written into the Server's database alone would pass. Read
+ * `valid` together with `keyTrust.status === 'walked'` before calling a chain
+ * trusted. `exportMetadata.anchoredFrom` is the export's own claim of the
+ * Server's key; `keyTrust.anchoredFromPinned` says whether it matches one of
+ * your anchors, and it never counts as an anchor itself.
+ *
+ * `distrustedKeys` mirrors the Server's `VAULT_DISTRUSTED_KEYS`
+ * (`sha256:<hex>`, optionally `@<RFC 3339 instant>`): what such a key signed
+ * from that instant counts for nothing in the walk. It is read only together
+ * with `trustAnchors`.
+ *
+ * `options.publicKeys` accepts the `.data` array from
+ * `client.verificationKeys.list()` (whose `statements` are walked with the
+ * export's) or a compact `Record<keyId, b64SPKI>` map. The wrong shape, or a
+ * malformed anchor or distrusted key, throws `TypeError`. `result.keyProvenance`
+ * counts signatures checked against `supplied` vs export-`embedded` keys: where
+ * a key came from, not whether it is trusted. `requireSuppliedKeys` refuses
  * embedded keys.
  *
- * @example Independent audit using the natural SDK shape
+ * @example Verify against a key you pinned
  * ```ts
  * import { verifyExport } from '@agledger/sdk/verify';
  *
  * const exp = await client.records.getAuditExport('REC_123');
- * const keys = await client.verificationKeys.list();
- *
- * const result = verifyExport(exp, { publicKeys: keys.data });
+ * const result = verifyExport(exp, { trustAnchors: [process.env.AGLEDGER_VAULT_KEY_PIN!] });
  * if (!result.valid) {
  *   console.error(`Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.code}`);
- * }
- * if (result.keyProvenance.outOfBand === 0) {
- *   throw new Error('verdict trusts only export-embedded keys: not an independent audit');
+ * } else if (result.keyTrust.status !== 'walked') {
+ *   console.warn(result.keyTrust.detail);
  * }
  * ```
  *

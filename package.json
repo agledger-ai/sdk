@@ -86,7 +86,7 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "@agledger/verify-core": "^1.6.0",
+    "@agledger/verify-core": "^2.0.0",
     "http-message-signatures": "^1.0.5"
   },
   "devDependencies": {

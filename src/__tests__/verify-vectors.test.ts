@@ -29,6 +29,7 @@ interface ManifestVector {
   options?: {
     keysFile?: string;
     requireKeyId?: string;
+    /** The manifest's name for `requireSuppliedKeys` (API-owned corpus). */
     requireOutOfBandKeys?: boolean;
     /**
      * A JSON array of agent cert public keys (JWKs). Unmapped, a vector that
@@ -52,6 +53,24 @@ function loadJson<T>(relPath: string): T {
 const manifest = loadJson<Manifest>('manifest-export.json');
 const exportVectors = manifest.vectors.filter((v) => v.kind === 'export');
 
+function optionsFor(vector: ManifestVector): VerifyExportOptions {
+  const options: VerifyExportOptions = {};
+  if (vector.options?.keysFile) {
+    options.publicKeys = loadJson<Record<string, string>>(vector.options.keysFile);
+  }
+  if (vector.options?.requireKeyId) options.requireKeyId = vector.options.requireKeyId;
+  if (vector.options?.requireOutOfBandKeys) options.requireSuppliedKeys = true;
+  if (vector.options?.agentKeysFile) {
+    options.agentKeys = loadJson<NonNullable<VerifyExportOptions['agentKeys']>>(
+      vector.options.agentKeysFile,
+    );
+  }
+  return options;
+}
+
+// A digest no statement links to, for vectors whose export names no Server key.
+const STRANGER = `sha256:${'ab'.repeat(32)}`;
+
 describe('verifyExport: shared conformance corpus', () => {
   it('corpus is present', () => {
     expect(exportVectors.length).toBeGreaterThan(0);
@@ -61,22 +80,12 @@ describe('verifyExport: shared conformance corpus', () => {
     const label = `${vector.file} -> ${vector.expect}${vector.failureCode ? ` (${vector.failureCode})` : ''}`;
     it(label, () => {
       const exportData = loadJson<RecordAuditExport>(vector.file);
-
-      const options: VerifyExportOptions = {};
-      if (vector.options?.keysFile) {
-        options.publicKeys = loadJson<Record<string, string>>(vector.options.keysFile);
-      }
-      if (vector.options?.requireKeyId) options.requireKeyId = vector.options.requireKeyId;
-      if (vector.options?.requireOutOfBandKeys) options.requireOutOfBandKeys = true;
-      if (vector.options?.agentKeysFile) {
-        options.agentKeys = loadJson<NonNullable<VerifyExportOptions['agentKeys']>>(
-          vector.options.agentKeysFile,
-        );
-      }
-
-      const result = verifyExport(exportData, options);
+      const result = verifyExport(exportData, optionsFor(vector));
 
       expect(result.valid).toBe(vector.expect === 'pass');
+      // The manifest pins no anchor, so no verdict here is a trusted one.
+      expect(result.keyTrust.status).toBe('no_anchor');
+      expect(result.optionalChecks.key_anchoring).toBe('skipped_no_input');
 
       if (vector.expect === 'fail') {
         expect(result.brokenAt?.code).toBe(vector.failureCode);
@@ -92,4 +101,48 @@ describe('verifyExport: shared conformance corpus', () => {
       }
     });
   }
+});
+
+describe('verifyExport: the same corpus pinned on the key each export names', () => {
+  // With trustAnchors every verdict is unchanged except the one whose key no
+  // signed statement admits: the substituted key passes unpinned (it is
+  // embedded in the export) and fails once the walk runs.
+  const UNANCHORED_WHEN_PINNED: Record<string, { position: number }> = {
+    'export/key-substitution.json': { position: 2 },
+  };
+
+  for (const vector of exportVectors) {
+    const override = vector.expect === 'pass' ? UNANCHORED_WHEN_PINNED[vector.file] : undefined;
+    const label = `${vector.file} pinned -> ${override ? 'fail (CHAIN_SIGNING_KEY_UNANCHORED)' : vector.expect}`;
+    it(label, () => {
+      const exportData = loadJson<RecordAuditExport>(vector.file);
+      const anchor = exportData.exportMetadata.anchoredFrom ?? STRANGER;
+      const result = verifyExport(exportData, { ...optionsFor(vector), trustAnchors: [anchor] });
+
+      if (override) {
+        expect(result.valid).toBe(false);
+        expect(result.brokenAt).toMatchObject({ code: 'CHAIN_SIGNING_KEY_UNANCHORED', position: override.position });
+        return;
+      }
+      expect(result.valid).toBe(vector.expect === 'pass');
+      if (vector.expect === 'fail') expect(result.brokenAt?.code).toBe(vector.failureCode);
+      // An unsupported format is refused before any key is read.
+      if (vector.failureCode !== 'UNSUPPORTED_FORMAT') expect(result.keyTrust.status).toBe('walked');
+      if (vector.expect === 'pass' && result.signatureCoverage.signed > 0) {
+        expect(result.optionalChecks.key_anchoring).toBe('applied');
+      }
+    });
+  }
+
+  it('a distrusted pin anchors nothing', () => {
+    const exportData = loadJson<RecordAuditExport>('export/valid.json');
+    const pin = exportData.exportMetadata.anchoredFrom!;
+    const result = verifyExport(exportData, { trustAnchors: [pin], distrustedKeys: [pin] });
+    expect(result.brokenAt?.code).toBe('CHAIN_SIGNING_KEY_UNANCHORED');
+  });
+
+  it('a malformed anchor throws TypeError naming it', () => {
+    const exportData = loadJson<RecordAuditExport>('export/valid.json');
+    expect(() => verifyExport(exportData, { trustAnchors: ['15d63684'] })).toThrow(/15d63684/);
+  });
 });
