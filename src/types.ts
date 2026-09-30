@@ -2007,16 +2007,13 @@ export interface ListDisputesParams extends CursorListParams {
  * `POST /v1/webhooks` `eventTypes` enum, plus the `*` wildcard. Accepts any
  * string for forward compatibility.
  *
- * This is a SUBSET of {@link EventType}, the `/v1/events` query enum. Seven
- * types are queryable there and rejected here. Three are replay surface that
- * was never subscribable: `record.settled` (a deprecated alias of
- * `record.fulfilled`), `record.released` and `dispute.evidence_window_closed`.
+ * This is a SUBSET of {@link EventType}, the `/v1/events` query enum. Four
+ * types are queryable there and rejected here. Two are replay surface that was
+ * never subscribable: `record.released` and `dispute.evidence_window_closed`.
  * Settlement outcomes reach webhooks as `signal.emitted` / `signal.received`,
- * not as per-variant types. Two are retired: `dispute.escalated` and
- * `record.proposal_counter_proposed` stay queryable so historical events remain
- * readable, and no new one is ever written. Two are engine-internal failure
- * events with no subscription form: `system.cascading_gate_enqueue_failed` and
- * `system.verification_enqueue_failed`. Naming any of the seven in a
+ * not as per-variant types. Two are engine-internal failure events with no
+ * subscription form: `system.cascading_gate_enqueue_failed` and
+ * `system.verification_enqueue_failed`. Naming any of the four in a
  * subscription is a 400.
  */
 export type WebhookEventType =
@@ -2369,19 +2366,22 @@ export interface VerdictStatistics {
 /**
  * Event types queryable on `GET /v1/events` via {@link ListEventsParams.eventType}.
  *
- * A deliberate superset of {@link WebhookEventType}, by seven members: the
- * three replay-only types (`record.settled`, `record.released`,
- * `dispute.evidence_window_closed`), the two retired ones still readable in
- * history (`dispute.escalated`, `record.proposal_counter_proposed`), and the
- * two engine-internal failure events (`system.cascading_gate_enqueue_failed`,
+ * A deliberate superset of {@link WebhookEventType}, by four members: the two
+ * replay-only types (`record.released`, `dispute.evidence_window_closed`) and
+ * the two engine-internal failure events (`system.cascading_gate_enqueue_failed`,
  * `system.verification_enqueue_failed`). There is no `*` member, because the
- * wildcard is a subscription filter and not a type any event carries. Accepts
- * any string for forward compatibility.
+ * wildcard is a subscription filter and not a type any event carries. The enum
+ * is closed on the Server: a type it does not list is a 400 carrying
+ * `allowedValues`. The union accepts any string so a type a newer Server adds
+ * is not a compile break.
+ *
+ * API 2.0 removed `record.settled` (query `record.fulfilled`, the type it was
+ * an alias for, or `signal.emitted` for every settlement-signal variant),
+ * `dispute.escalated` and `record.proposal_counter_proposed`.
  */
 export type EventType =
   | 'agent.reference_added'
   | 'cascading.gate.complete'
-  | 'dispute.escalated'
   | 'dispute.evidence_window_closed'
   | 'dispute.opened'
   | 'dispute.resolved'
@@ -2411,7 +2411,6 @@ export type EventType =
   | 'record.gate_complete'
   | 'record.gate_held'
   | 'record.proposal_accepted'
-  | 'record.proposal_counter_proposed'
   | 'record.proposal_rejected'
   | 'record.proposed'
   | 'record.recorded'
@@ -2419,7 +2418,6 @@ export type EventType =
   | 'record.registered'
   | 'record.released'
   | 'record.revision_requested'
-  | 'record.settled'
   | 'signal.emitted'
   | 'signal.received'
   | 'system.cascading_gate_enqueue_failed'
@@ -2441,8 +2439,8 @@ export interface ListEventsParams extends CursorListParams {
   recordId?: string;
   /**
    * Only events of this type. The `/v1/events` enum is a superset of the
-   * subscribable {@link WebhookEventType} set, so `record.settled`,
-   * `record.released` and `dispute.evidence_window_closed` are queryable here.
+   * subscribable {@link WebhookEventType} set, so `record.released` and
+   * `dispute.evidence_window_closed` are queryable here.
    */
   eventType?: EventType;
   /** Sort order by creation time (default: `asc`). */
@@ -2687,6 +2685,12 @@ export type AuditChainIntegrityReasonCode =
   | 'checkpoint_signature_invalid'
   | 'checkpoint_key_unknown'
   | 'checkpoint_claim_mismatch'
+  /**
+   * The checkpoint names a key the registry holds but no signed key statement
+   * anchors. Same meaning as `signing_key_unanchored`, applied to the
+   * checkpoint that anchors the chain.
+   */
+  | 'checkpoint_key_unanchored'
   | 'payload_drift'
   | 'oidc_actor_drift'
   | 'cert_actor_drift'
@@ -2732,6 +2736,15 @@ export type AuditChainIntegrityReasonCode =
   | 'key_not_yet_active'
   | 'signing_key_unpublished'
   /**
+   * The registry holds a row for the entry's key, and no signed key statement
+   * links it to a key this Server trusts from outside the database (the key a
+   * process signs with, its predecessor, or a configured trust anchor). A key
+   * row and entries signed by it can be written by anything that can write the
+   * database; the statement cannot. An offline verifier reports
+   * `CHAIN_SIGNING_KEY_UNANCHORED`.
+   */
+  | 'signing_key_unanchored'
+  /**
    * The entry is signed under a COSE algorithm this engine build cannot verify.
    * Not a tamper signal: the chain may be intact and simply need a newer
    * verifier. Check `minVerifierVersion` on the key in `/v1/verification-keys`.
@@ -2770,6 +2783,8 @@ export type AuditChainFailureCode =
   | 'key_expired'
   | 'key_not_yet_active'
   | 'signing_key_unpublished'
+  /** See {@link AuditChainIntegrityReasonCode}. */
+  | 'signing_key_unanchored'
   | 'unsupported_algorithm';
 
 export interface AuditChainIntegrityDetail {
@@ -5156,6 +5171,7 @@ export type VaultScanBreakReason =
   | 'signing_key_unknown'
   | 'signature_missing'
   | 'signing_key_unpublished'
+  | 'signing_key_unanchored'
   | 'unsupported_algorithm'
   | 'signing_key_drift'
   | 'key_expired'
@@ -5164,6 +5180,7 @@ export type VaultScanBreakReason =
   | 'checkpoint_hash_mismatch'
   | 'checkpoint_signature_invalid'
   | 'checkpoint_key_unknown'
+  | 'checkpoint_key_unanchored'
   | 'checkpoint_unsigned'
   | 'checkpoint_claim_mismatch'
   | 'schema_chain_missing_for_subjects'
@@ -5240,9 +5257,10 @@ export interface VaultScanGlobalChains {
 
 /**
  * Why the cross-party read log broke for one org. Open, so a code the Server
- * adds later is not a compile break. `leaf_signature_missing` and
- * `checkpoint_unsigned` are the read-log twins of the vault chain's
- * `signature_missing` and `checkpoint_unsigned`.
+ * adds later is not a compile break. `leaf_signature_missing`,
+ * `leaf_key_unanchored`, `checkpoint_unsigned` and `checkpoint_key_unanchored`
+ * are the read-log twins of the vault chain's `signature_missing`,
+ * `signing_key_unanchored`, `checkpoint_unsigned` and `checkpoint_key_unanchored`.
  */
 export type OrgReadsBreakReason =
   | 'leaf_index_gap'
@@ -5250,12 +5268,14 @@ export type OrgReadsBreakReason =
   | 'leaf_claim_mismatch'
   | 'leaf_signature_invalid'
   | 'leaf_key_unknown'
+  | 'leaf_key_unanchored'
   | 'leaf_signature_missing'
   | 'checkpoint_leaf_count_mismatch'
   | 'checkpoint_root_mismatch'
   | 'checkpoint_claim_mismatch'
   | 'checkpoint_signature_invalid'
   | 'checkpoint_key_unknown'
+  | 'checkpoint_key_unanchored'
   | 'checkpoint_unsigned'
   | 'verification_error'
   | (string & {});
@@ -5398,6 +5418,7 @@ export type LicenseValidity =
   | 'instance_mismatch'
   | 'version_too_new'
   | 'marketplace_unreachable'
+  | 'marketplace_refused'
   | (string & {});
 
 /**
