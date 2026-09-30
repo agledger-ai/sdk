@@ -1816,7 +1816,13 @@ export interface Completion {
   }> | null;
   /** Current status of the parent Record (denormalized). */
   recordStatus?: RecordStatus;
-  /** Denormalized gate verdict on the parent Record: accept, reject, or null until the gate evaluates. */
+  /**
+   * The auto gate's verdict on this completion, in the vocabulary of the
+   * Record's `verdict`. Set on the submit response when the gate ran inline
+   * (auto mode, cleartext). Null in principal mode (read the verdict on the
+   * Record), on encrypted Records, when the gate was deferred to the worker,
+   * and on a completion read.
+   */
   verdict?: Verdict | null;
   /** Reason attached to the most recent verdict, or null. */
   lastVerdictReason?: string | null;
