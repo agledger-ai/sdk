@@ -2859,6 +2859,18 @@ export interface RecordAuditExport {
      * stays `skipped_no_input`.
      */
     signingKeyWindows?: Record<string, { activatedAt: string; retiredAt: string | null }>;
+    /**
+     * Map of keyId → the signed statements that admit that key. Walk them from
+     * a key you pinned out of band to decide which keys to trust; the windows
+     * in `signingKeyWindows` are the values they sign. Only anchored keys
+     * appear.
+     */
+    signingKeyStatements?: Record<string, SigningKeyStatement[]>;
+    /**
+     * `sha256:<hex>` of the SPKI of the key the exporting Server signs with, to
+     * compare against a pin taken out of band. Never a substitute for one.
+     */
+    anchoredFrom?: string | null;
   };
   entries: AuditExportEntry[];
   /** How to verify this export offline, step by step. */
@@ -2874,6 +2886,7 @@ export interface RecordAuditExport {
   };
   /** Org-admin cross-party reads only: the chain entry this read appended. */
   recordRead?: RecordReadCompletion;
+  nextSteps?: NextStep[];
 }
 
 /**
@@ -4904,6 +4917,16 @@ export interface VaultSigningKey {
    * leave it null. `GET /health` on each process is the check that answers it.
    */
   lastSignedAt: string | null;
+  /**
+   * Whether the key-trust walk reaches this key. `anchored`: a signed statement
+   * links it to a key this process holds. `unanchored`: nothing signed admits
+   * it, and entries under it break as `signing_key_unanchored`. `undecided`:
+   * the only path runs through a statement signed under an algorithm this host
+   * cannot compute (Ed25519 history on a FIPS host); verify it off-host.
+   */
+  trust?: 'anchored' | 'unanchored' | 'undecided' | (string & {});
+  /** The key whose succession statement admitted this one; null for a genesis key and for an unanchored one. */
+  admittedBy?: string | null;
 }
 
 /** One entry of `VaultSigningKeyRotation.activeKeys`. */
@@ -4941,17 +4964,44 @@ export interface VaultSigningKeyRotation {
  */
 export interface VaultSigningKeyRetirement {
   retiredKeyId: string;
-  /** The published upper bound of this key's window. */
+  /**
+   * SHA-256 (hex) of the retired key's SPKI DER: `sha256:<this>` is its entry
+   * in `VAULT_DISTRUSTED_KEYS` or `VAULT_TRUST_ANCHORS`.
+   */
+  retiredSpkiSha256?: string;
+  /**
+   * The published upper bound of this key's window. When `alreadyRetired` is
+   * true this is the original retirement, which does not move.
+   */
   retiredAt: string;
   /** The last chain entry this key signed before it was retired. */
   lastSignedAt: string | null;
   /**
-   * Unexpired ephemeral certs this key minted that the retirement revoked, in
-   * the same transaction: every one on a forced retirement, since the leaked
-   * half could mint a fresh JWS for any of them; always 0 on an unforced one,
-   * whose certs lapse on their own TTL. Holders mint replacements with
-   * `POST /v1/auth/oidc/cert` (an {@link oidcCertCredential} re-exchanges on
-   * the 401 by itself).
+   * True when the key was already retired before this call. A forced call on
+   * such a key still writes a forced closure (when the trust walk reaches the
+   * key and no forced closure already closes it) and revokes the certs; an
+   * unforced one only signs a retirement no closure signed.
+   */
+  alreadyRetired?: boolean;
+  /**
+   * Keys this process trusted before a forced retirement and no longer does:
+   * every key the trust walk reached before the forced closure and does not
+   * reach after it. Their rows are retired and their certs revoked in the same
+   * transaction. Always empty on an unforced retirement.
+   */
+  unanchoredKeyIds?: string[];
+  /**
+   * SHA-256 (hex) of the closure statement's payload, also named in the
+   * `KEY_ROTATED` chain entry. Null when no closure was written: a key nothing
+   * anchored, or a forced call on a key a forced closure already closes.
+   */
+  closureDigest?: string | null;
+  /**
+   * Unexpired ephemeral certs the retirement revoked, in the same transaction:
+   * on a forced retirement, every one minted by this key or by a key in
+   * `unanchoredKeyIds`; always 0 on an unforced one, whose certs lapse on
+   * their own TTL. Holders mint replacements with `POST /v1/auth/oidc/cert`
+   * (an {@link oidcCertCredential} re-exchanges on the 401 by itself).
    */
   revokedCertCount?: number;
   /** Every key still able to sign. Retiring the only active key is refused. */
@@ -4990,8 +5040,17 @@ export interface VaultAnchorPosture {
 export interface VaultRewindState {
   /** When the evidence was recorded. */
   detectedAt: string;
-  /** What found it. */
-  source: 'anchor_write' | 'anchor_verify' | 'anchor_reconcile' | 'unknown';
+  /**
+   * What found it: `anchor_write` (a create-only anchor write was refused and
+   * the stored payload differed), `anchor_verify` (an anchor key holds two
+   * anchor documents of its position over different chain tips),
+   * `anchor_reconcile` (the bucket holds a position this database does not),
+   * or `acknowledgement_check` (findings that read acknowledged by an
+   * acknowledgement that does not count, recorded again by the acknowledge
+   * route so it covers them). `unknown` only for a row written by something
+   * other than this Server.
+   */
+  source: 'anchor_write' | 'anchor_verify' | 'anchor_reconcile' | 'acknowledgement_check' | 'unknown';
   /** The finding itself, in the shape the source produced it. */
   evidence: Record<string, unknown>;
   /** When an operator acknowledged, or null while writes are refused. */
@@ -5000,12 +5059,49 @@ export interface VaultRewindState {
   acknowledgedBy: string | null;
 }
 
+/**
+ * A rewind finding no acknowledgement covers yet, in
+ * {@link VaultRewindOpenFindings.sample}.
+ */
+export interface VaultRewindOpenFinding {
+  recordId?: string;
+  /** The database's chain head for the record when found (0 when it held nothing). Covered positions are above this. */
+  loPosition?: number;
+  /** The highest anchored position the finding covers. */
+  hiPosition?: number;
+  finding?: 'rewound' | 'missing_locally' | 'fork';
+  /** What found it, in the vocabulary of {@link VaultRewindState.source}. */
+  source?: string;
+  firstSeenAt?: string;
+  /**
+   * Null for a finding no acknowledgement has touched. Set when the finding's
+   * row reads acknowledged and the acknowledgement it names covers nothing
+   * (`reason` says why), so chain writes are refused over it like any open
+   * finding.
+   */
+  acknowledgement?: { epochEntryId: string; reason: string } | null;
+}
+
+/**
+ * The findings the next `admin.vault.rewind.acknowledge()` would cover and sign
+ * into its `RESTORE_EPOCH` entry. Read them before acknowledging: a finding
+ * here that no detection in `state.evidence` or the SIEM stream accounts for
+ * was written to this database by something other than a detection.
+ */
+export interface VaultRewindOpenFindings {
+  count?: number;
+  /** Up to 100 of them, oldest first. */
+  sample?: VaultRewindOpenFinding[];
+}
+
 /** What `GET /v1/admin/vault/rewind` answers. */
 export interface VaultRewindStatus {
   /** True when chain writes are refused right now. */
   blocked: boolean;
   state: VaultRewindState | null;
   posture: VaultAnchorPosture;
+  openFindings?: VaultRewindOpenFindings;
+  nextSteps?: NextStep[];
 }
 
 /** Parameters for `admin.vault.rewind.acknowledge()`. */
@@ -5020,6 +5116,8 @@ export interface VaultRewindAcknowledgement {
   acknowledged: boolean;
   /** The `RESTORE_EPOCH` entry this call appended, or null when none was. */
   epochEntryId: string | null;
+  /** How many findings this call covered, each listed in the `RESTORE_EPOCH` entry. 0 when it was already acknowledged. */
+  coveredFindings?: number;
   state: VaultRewindState | null;
   nextSteps?: NextStep[];
 }
@@ -5029,9 +5127,29 @@ export interface VaultAnchorReconcileFinding {
   recordId: string;
   /** Highest position anchored in the bucket for this key. */
   anchoredPosition: number;
-  /** This database's chain head for the same key, or null when it holds none. */
+  /** This database's chain head for the same key, or null when it holds none. Null on a `fork`, which is about one anchored position, not the head. */
   databasePosition: number | null;
-  finding: 'rewound' | 'missing_locally';
+  finding: 'rewound' | 'missing_locally' | 'fork';
+  /** True when an acknowledged rewind covers this finding, so it does not refuse writes. Unacknowledged findings are listed first. */
+  acknowledged?: boolean;
+  /** True when the anchor this finding rests on is hidden behind a delete marker. */
+  hidden?: boolean;
+  /**
+   * The issuer the anchor was signed for, when it is not this Server's current
+   * `AGLEDGER_EXTERNAL_URL`. Annotation only: the finding refuses writes like
+   * any other until acknowledged or the configuration is fixed. Absent on
+   * acknowledged findings.
+   */
+  signedForIssuer?: string | null;
+}
+
+/** An anchor key hidden behind a delete marker, in {@link VaultAnchorReconcileResult.hiddenAnchors}. */
+export interface VaultHiddenAnchor {
+  recordId: string;
+  chainPosition: number;
+  storedVersions: number;
+  /** Whether the hidden version matches this database, or null when that could not be told. */
+  matchesDatabase: boolean | null;
 }
 
 /** Parameters for `admin.vault.anchors.reconcile()`. */
@@ -5048,8 +5166,17 @@ export interface ReconcileVaultAnchorsParams {
  * short `findings` beside a large `rewound` is the cap, not a disagreement.
  */
 export interface VaultAnchorReconcileResult {
-  /** `disabled` when anchoring is off and nothing was compared. */
-  status: 'disabled' | 'ok' | 'findings';
+  /**
+   * `disabled`: anchoring is off and nothing was compared. `ok`: the whole
+   * prefix was read and nothing is past this database. `incomplete`: nothing
+   * that refuses writes in what was read, but the walk stopped before reading
+   * everything or could not tell whether an acknowledgement covers some
+   * evidence (`truncatedReason` says which). `acknowledged`: there are
+   * findings and an acknowledgement covers every one, so writes are not
+   * refused. `findings`: at least one finding no acknowledgement covers, and
+   * chain writes are now refused.
+   */
+  status: 'disabled' | 'ok' | 'incomplete' | 'acknowledged' | 'findings';
   /** Objects read under this Server's anchor prefix. */
   scannedKeys: number;
   recordsInBucket: number;
@@ -5057,6 +5184,14 @@ export interface VaultAnchorReconcileResult {
   rewound: number;
   /** Records anchored in the bucket that this database holds nothing for. */
   missingLocally: number;
+  /** Anchor keys a delete marker hides. Not a write refusal on its own; `hiddenAnchors` names each one. */
+  hidden?: number;
+  /** Each anchor counted under `hidden`, at most 100. */
+  hiddenAnchors?: VaultHiddenAnchor[];
+  /** Positions anchored twice over different chain tips that no acknowledgement covers. */
+  forked?: number;
+  /** Findings of any kind an acknowledged rewind covers. They do not refuse writes. */
+  acknowledged?: number;
   unverified: number;
   findings: VaultAnchorReconcileFinding[];
   /** True when the walk stopped on its key cap or its time budget. */
@@ -5069,13 +5204,30 @@ export interface VaultAnchorReconcileResult {
   nextSteps?: NextStep[];
 }
 
-/** A vault trust anchor (hash-chain checkpoint). */
+/**
+ * One anchor object in the bucket for a Record (`GET /v1/admin/vault/anchors`).
+ * The listing always returns the complete set; it does not page.
+ */
 export interface VaultAnchor {
-  id: string;
-  chainPosition: number;
-  entryHash: string;
-  previousHash: string | null;
-  createdAt: string;
+  /** Object key in the anchor bucket. */
+  key?: string;
+  /** The chain position this key anchors. */
+  chainPosition?: number;
+  /** When the newest stored version was written. */
+  lastModified?: string | null;
+  /** Size of the newest stored version in bytes. */
+  size?: number | null;
+  /**
+   * Stored versions of this key. More than one means the position was anchored
+   * more than once, which `anchors.verify()` reports as a `fork`. 1 on a store
+   * that does not answer ListObjectVersions.
+   */
+  versions?: number;
+  /**
+   * True when a delete marker hides this key: a plain read answers NoSuchKey
+   * while the stored versions remain. Nothing the Server does deletes an anchor.
+   */
+  hidden?: boolean;
 }
 
 /**
@@ -5094,22 +5246,57 @@ export interface VaultAnchorVerifyRow {
   chainPosition?: number;
   /**
    * True only for `outcome: 'verified'`. Branch on {@link outcome}, not on
-   * this: six distinct situations answer false and only two of them are findings.
+   * this: ten distinct situations answer false, four of them are findings, and
+   * two (`missing_or_hidden`, `s3_error`) compared nothing.
    */
   match?: boolean;
   /**
-   * What the comparison found. `verified`: the anchor matches the database
-   * checkpoint. `tamper`: both exist and the payload hash or the signed
-   * envelope differs, which is the finding this endpoint exists for.
-   * `no_such_key`: the checkpoint exists and its anchor object does not.
+   * What the comparison found. `verified`: the newest anchor document matches
+   * the database checkpoint and no other anchor document of the key commits to
+   * another chain tip. `tamper`: the anchored checkpoint commits to a different
+   * chain tip or its envelope does not verify. `fork`: the key holds two anchor
+   * documents of this position over different chain tips, and chain writes are
+   * refused. `superseded`: a `tamper` or `fork` inside a rewind an operator
+   * already acknowledged, in an anchor written no later than that
+   * acknowledgement; not a finding. `hidden`: a delete marker hides the key and
+   * the store still holds its version; a finding, and not a reason chain writes
+   * stop. `no_such_key`: the checkpoint exists, its anchor object does not, and
+   * no stored version is hidden. `missing_or_hidden`: a plain read answers
+   * NoSuchKey and the versions could not be listed, so which of the two cannot
+   * be told (`versionsNote` says why); verify again once the listing answers.
    * `empty_body`: the object exists and is empty. `s3_error`: the object store
    * could not be read, so nothing was compared. `no_checkpoint`: the record has
    * no checkpoint row at the requested position. `anchoring_disabled`:
    * `VAULT_ANCHOR_ENABLED` is off, so no anchor was ever written.
    */
-  outcome?: 'verified' | 'tamper' | 'no_such_key' | 'empty_body' | 's3_error' | 'no_checkpoint' | 'anchoring_disabled' | (string & {});
+  outcome?:
+    | 'verified'
+    | 'tamper'
+    | 'fork'
+    | 'superseded'
+    | 'hidden'
+    | 'no_such_key'
+    | 'missing_or_hidden'
+    | 'empty_body'
+    | 's3_error'
+    | 'no_checkpoint'
+    | 'anchoring_disabled'
+    | (string & {});
   /** Human-readable expansion of {@link outcome}. */
   detail?: string;
+  /**
+   * How many versions of this anchor key the store holds; more than one means
+   * the position was anchored more than once. Null when the store could not be
+   * asked, which `versionsNote` explains.
+   */
+  storedVersions?: number | null;
+  /** Why `storedVersions` is null. Null itself when the count was read. */
+  versionsNote?: string | null;
+  /**
+   * On `tamper` and `fork`: the issuer the compared anchor was signed for, when
+   * it is not this Server's current `AGLEDGER_EXTERNAL_URL`. Annotation only.
+   */
+  signedForIssuer?: string | null;
 }
 
 /**
@@ -5327,8 +5514,8 @@ export interface VaultScanResult {
   unsupportedAlgorithm?: number;
   /**
    * True iff `broken === 0`, `signatureErrors === 0`, `globalChains.broken === 0`,
-   * `recordsMissingChain === 0` and `orgAdminReads.broken === 0`. The single
-   * field to branch on. It does not fold in `unsupportedAlgorithm`, chains this
+   * `recordsMissingChain === 0`, `orgAdminReads.broken === 0` and
+   * `keyRegistry.findings` is empty. The single field to branch on. It does not fold in `unsupportedAlgorithm`, chains this
    * host could not check at all.
    */
   healthy: boolean;
@@ -5349,6 +5536,12 @@ export interface VaultScanResult {
   /** Cross-party read log findings. Present on a full scan; null or absent on a `recordIds`-scoped scan. */
   orgAdminReads?: VaultScanOrgAdminReads | null;
   /**
+   * The trust walk over the vault key registry and its signed statements, run
+   * fresh from the scanning process's own key. A finding fails `healthy`. Null
+   * on a `recordIds`-scoped scan.
+   */
+  keyRegistry?: VaultScanKeyRegistry | null;
+  /**
    * Checkpoint sweep schedule at the time of the scan. Read it before treating
    * an absent checkpoint as a finding: `lastCheckpointAt` is null on any
    * install whose first sweep has not fired yet.
@@ -5359,6 +5552,36 @@ export interface VaultScanResult {
    */
   checkpointing?: Partial<Omit<VaultCheckpointingSchedule, 'lastCheckpointAt'>>;
   scannedAt: string;
+}
+
+/**
+ * One key-registry finding: `key_statement_invalid` (a statement that does not
+ * verify or touches no anchored key, one its endorser stored after its own
+ * closure, or a genesis or succession that is not its subject's first),
+ * `key_closure_invalid` (a retired key with no signed retirement, or a closure
+ * by an unanchored key), or `key_window_drift` (a registry column that differs
+ * from the value signed for it).
+ */
+export interface VaultScanKeyRegistryFinding {
+  class?: 'key_statement_invalid' | 'key_closure_invalid' | 'key_window_drift' | (string & {});
+  keyId?: string | null;
+  statementId?: string | null;
+  detail?: string;
+}
+
+/** The key-registry trust walk of a full vault scan. */
+export interface VaultScanKeyRegistry {
+  /** Rows in the registry. */
+  keys?: number;
+  /** Rows the walk anchors. */
+  anchored?: number;
+  /**
+   * Rows nothing anchors: a key written through the database alone, or one a
+   * forced retirement left unanchored. Not a finding by itself; every entry
+   * signed under one is a `signing_key_unanchored` break.
+   */
+  unanchoredKeyIds?: string[];
+  findings?: VaultScanKeyRegistryFinding[];
 }
 
 /** Status of an asynchronous vault integrity scan job. */
@@ -5506,11 +5729,38 @@ export interface VerificationKey {
   status: 'active' | 'retired' | (string & {});
   activatedAt: string;
   retiredAt: string | null;
+  /**
+   * The signed key statements that admit this key: a `succession` carries the
+   * predecessor's signature then this key's, a `genesis` is self-signed, and a
+   * `closure` is signed by another key. `activatedAt` and `retiredAt` are the
+   * values these statements sign. Walk them from a key you pinned out of band,
+   * never from this document alone, to decide which keys to trust.
+   */
+  statements: SigningKeyStatement[];
+}
+
+/**
+ * One signed key statement: one or two COSE_Sign1 (RFC 9052, base64, in
+ * signing order) over the same deterministic-CBOR payload, protected-header
+ * `cty` `application/vnd.agledger.key-statement+cbor`.
+ */
+export interface SigningKeyStatement {
+  kind: 'succession' | 'closure' | 'genesis';
+  /** Base64 COSE_Sign1, in signing order. */
+  cose: string[];
 }
 
 /** Response from GET /v1/verification-keys. */
 export interface VerificationKeysResponse {
   data: VerificationKey[];
+  /**
+   * `sha256:<hex>` of the SPKI DER of the key the serving process signs with.
+   * A convenience to compare against a pin you took out of band; it never
+   * substitutes for one. Null on a process that holds no key.
+   */
+  anchoredFrom: string | null;
+  /** Content type of every key statement COSE_Sign1 in `data[].statements`. */
+  keyStatementFormat: 'application/vnd.agledger.key-statement+cbor';
   /** `RFC8949-CDE`: deterministic CBOR per RFC 8949 section 4.2.1. */
   canonicalization: string;
   /** Envelope every chain entry is signed in: `COSE_Sign1`. */
@@ -5963,6 +6213,21 @@ export interface OpsSummary {
       cron: string;
       lastCheckpointAt: string | null;
       workerScheduled: boolean | null;
+    };
+    /**
+     * Whether a detected rewind refuses chain writes on this Server, read from
+     * the database. `refused: true` means record, completion, verdict, schema
+     * and SCITT writes answer 409 `CHAIN_REWIND_DETECTED`, because the external
+     * anchors disagree with the database or an acknowledgement that lifted an
+     * earlier refusal stopped counting. `refused: null` means the state could
+     * not be read. `admin.vault.rewind.get()` has the detail and
+     * `admin.vault.rewind.acknowledge()` lifts it.
+     */
+    chainWrites: {
+      refused: boolean | null;
+      rewindDetectedAt: string | null;
+      /** Findings the next acknowledgement would cover. */
+      openFindings: number | null;
     };
   };
   webhooks: {

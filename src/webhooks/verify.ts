@@ -206,9 +206,10 @@ const RFC9421_COVERED_COMPONENTS = ['content-digest', 'x-agledger-idempotency-ke
  * base64-encoded key (raw 32-byte Ed25519 or SPKI DER, which also carries
  * P-256), or the `data` array from `client.verificationKeys.list()`, in which
  * case the key is resolved by matching the delivery's `keyid` to
- * `VerificationKey.keyId`.
+ * `VerificationKey.keyId`. The key statements are not read here, so a key
+ * list held without them works too.
  */
-export type Rfc9421PublicKey = string | VerificationKey[];
+export type Rfc9421PublicKey = string | Omit<VerificationKey, 'statements'>[];
 
 export interface Rfc9421VerifyOptions {
   /** Max age of the signature's `created` time, in seconds (default/max: 300). */
