@@ -24,11 +24,10 @@ describe('v1.3.4: compliance export row cap', () => {
     expectTypeOf<number>().toMatchTypeOf<ComplianceExport['totalRecords']>();
   });
 
-  it('still models the synchronous-ready status', () => {
-    // v1.3.4 builds the export inline and answers `ready`; `processing`
-    // remains reachable, so waitForExport's poll loop stays correct.
-    expectTypeOf<'ready'>().toMatchTypeOf<ComplianceExport['status']>();
-    expectTypeOf<'processing'>().toMatchTypeOf<ComplianceExport['status']>();
+  it('models the synchronous-ready status', () => {
+    // The Server builds the export inline and answers `ready`; there is no
+    // in-progress state to poll for.
+    expectTypeOf<ComplianceExport['status']>().toEqualTypeOf<'ready'>();
   });
 });
 

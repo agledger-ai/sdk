@@ -402,22 +402,31 @@ export interface SchemaQuickStart {
    * the type registers none.
    */
   tolerance?: Record<string, number> | null;
+  /**
+   * Present on types with a completion phase: the top-level `POST /v1/records`
+   * fields (such as `deadline`) that belong beside `criteria`, not inside it,
+   * each mapped to a description of where it goes and what it does. Names
+   * only, no sample values.
+   */
+  recordFields?: Record<string, string>;
   /** Present only when the type declares a `defaultGateMode`. Include it in the `POST /v1/records` payload. */
   gateMode?: GateMode;
 }
 
 export interface SchemaValidationResult {
   valid: boolean;
+  /** Publisher label of the registration the evidence was validated against. */
+  publisher?: string;
   errors?: Array<{
     keyword: string;
     message: string;
     instancePath?: string;
     schemaPath?: string;
-  }>;
+  }> | null;
+  nextSteps?: NextStep[];
 }
 
 
-/** Known values: ACTIVE, DEPRECATED, DELETED. Accepts any string for forward compatibility. */
 /**
  * Lifecycle status of a registered schema version. Known values: ACTIVE,
  * DISABLED. Accepts any string for forward compatibility.
@@ -555,7 +564,7 @@ export interface SchemaTemplate {
 /** Input for previewing a schema before registration. */
 export interface SchemaPreviewInput {
   type: string;
-  displayName: string;
+  displayName?: string;
   description?: string;
   category?: string;
   /** Default gate mode for records of this type; see {@link RegisterSchemaParams.defaultGateMode}. */
@@ -564,6 +573,33 @@ export interface SchemaPreviewInput {
   completionSchema?: Record<string, unknown>;
   fieldMappings?: SchemaFieldMapping[];
   compatibilityMode?: SchemaCompatibilityMode;
+  /**
+   * Sharing default for records of this type. Omit to inherit the global
+   * `AGLEDGER_DEFAULT_SHARE`; a per-record `share` overrides it. Not part of
+   * the manifest digest.
+   */
+  defaultShare?: boolean;
+  /**
+   * Opt into bilateral co-signed Settlement Signals for records of this type:
+   * before firing a terminal signal, the firing Server obtains the
+   * counterparty's counter-signature. Omit for single-signature signals.
+   */
+  coSignRequired?: boolean;
+  /**
+   * Whether opening a dispute flips `record.status` to DISPUTED while it is in
+   * flight (default true). When false, the dispute is observable only through
+   * `disputeStatus`, `disputeId` and `disputeCount` on the record.
+   */
+  flipRecordStatusOnDispute?: boolean;
+  /** Whether disputes on federated records of this type propagate to peers (default true). */
+  federateDisputes?: boolean;
+  /**
+   * Publisher label. Omit (or pass `local`) for an engine-authored schema. A
+   * non-`local` label is one two federated Servers agree on out of band, so
+   * cross-peer `schemaRef` matching resolves on both sides. The label is part
+   * of the manifest digest.
+   */
+  publisher?: string;
 }
 
 /** Result of a schema preview or validation. */
@@ -572,6 +608,7 @@ export interface SchemaPreviewResult {
   compiled?: Record<string, unknown>;
   errors?: SchemaPreviewError[];
   warnings?: SchemaKeywordWarning[];
+  nextSteps?: NextStep[];
 }
 
 /**
@@ -737,7 +774,7 @@ export interface SchemaImportParams {
 /** Parameters for registering a new custom Type schema. */
 export interface RegisterSchemaParams {
   type: string;
-  displayName: string;
+  displayName?: string;
   description?: string;
   category?: string;
   /**
@@ -751,6 +788,33 @@ export interface RegisterSchemaParams {
   completionSchema?: Record<string, unknown>;
   fieldMappings?: SchemaFieldMapping[];
   compatibilityMode?: SchemaCompatibilityMode;
+  /**
+   * Sharing default for records of this type. Omit to inherit the global
+   * `AGLEDGER_DEFAULT_SHARE`; a per-record `share` overrides it. Not part of
+   * the manifest digest.
+   */
+  defaultShare?: boolean;
+  /**
+   * Opt into bilateral co-signed Settlement Signals for records of this type:
+   * before firing a terminal signal, the firing Server obtains the
+   * counterparty's counter-signature. Omit for single-signature signals.
+   */
+  coSignRequired?: boolean;
+  /**
+   * Whether opening a dispute flips `record.status` to DISPUTED while it is in
+   * flight (default true). When false, the dispute is observable only through
+   * `disputeStatus`, `disputeId` and `disputeCount` on the record.
+   */
+  flipRecordStatusOnDispute?: boolean;
+  /** Whether disputes on federated records of this type propagate to peers (default true). */
+  federateDisputes?: boolean;
+  /**
+   * Publisher label. Omit (or pass `local`) for an engine-authored schema. A
+   * non-`local` label is one two federated Servers agree on out of band, so
+   * cross-peer `schemaRef` matching resolves on both sides. The label is part
+   * of the manifest digest.
+   */
+  publisher?: string;
 }
 
 /** Verification-rule configuration echoed on schema reads and writes. */
@@ -860,6 +924,7 @@ export interface UpdateSchemaVersionParams {
 export interface SchemaCompatibilityResult {
   record: { compatible: boolean; changes: SchemaDiffChange[] };
   completion: { compatible: boolean; changes: SchemaDiffChange[] };
+  nextSteps?: NextStep[];
 }
 
 /** Options for exporting a schema. */
@@ -2471,6 +2536,17 @@ export interface ListEventsParams extends CursorListParams {
   order?: 'asc' | 'desc';
 }
 
+/** A page of {@link AgledgerEvent}s from `GET /v1/events`. */
+export interface EventPage extends Page<AgledgerEvent> {
+  /**
+   * The exclusive upper bound this walk serves: the earlier of `until` and the
+   * instant below which every event has committed, fixed on the first page.
+   * Send it as the next window's `since` so consecutive windows neither
+   * overlap nor skip.
+   */
+  visibleBefore?: string;
+}
+
 export interface AgledgerEvent {
   id: string;
   /** Event type (e.g. `record.created`). Wire field is `type`, not `eventType`. */
@@ -2485,7 +2561,8 @@ export interface AgledgerEvent {
 
 export interface ComplianceExport {
   exportId: string;
-  status: 'processing' | 'ready';
+  /** Always `ready`: the export is assembled synchronously at create time, so there is nothing to poll. */
+  status: 'ready';
   /** The format this export was created in, which `downloadUrl` serves. */
   format?: 'csv' | 'json' | 'html';
   downloadUrl?: string;
@@ -2556,6 +2633,10 @@ export interface AiImpactAssessment {
   humanOversight?: Record<string, unknown>;
   testingResults?: Record<string, unknown>;
   createdAt: string;
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
+  /** Suggested next API calls, on create. */
+  nextSteps?: NextStep[];
 }
 
 export interface CreateAiImpactAssessmentParams {
@@ -2578,6 +2659,10 @@ export interface ComplianceRecord {
   attestedBy: string;
   attestedAt: string;
   createdAt: string;
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
+  /** Suggested next API calls, on create. */
+  nextSteps?: NextStep[];
 }
 
 export interface CreateComplianceRecordParams {
@@ -2678,7 +2763,6 @@ export interface AuditSignatureCoverage {
   total: number;
 }
 
-/** Localizes a chain-integrity failure. Null on a clean chain. */
 /**
  * Why a Record's hash chain failed verification (top-level reason code).
  * The `cert_*` / `agent_signature_invalid` modes were added with OIDC
@@ -3037,6 +3121,8 @@ export interface OrgReadsCheckpoint {
   witnessSignature?: string | null;
   witnessKeyId?: string | null;
   witnessCosignedAt?: string | null;
+  /** Suggested next API calls, on `cosign()`. */
+  nextSteps?: NextStep[];
 }
 
 /**
@@ -3242,6 +3328,8 @@ export interface BackfillImportedRecord {
   recordId: string;
   /** Vault chain position of the `BACKFILL_IMPORT` entry. */
   chainPosition: number;
+  /** Violations this import was allowed past because the org configured the rule as advisory. */
+  advisoryWarnings?: Array<{ rule?: string; message?: string; details?: Record<string, unknown> }>;
 }
 
 export interface AdminImportRecordsResult {
@@ -3291,7 +3379,7 @@ export interface AdminRecordSummary {
 
 
 export type { ApiKeyRole, KeyOwnerType } from './scopes.js';
-import type { ApiKeyRole, KeyOwnerType } from './scopes.js';
+import type { ApiKeyRole, KeyOwnerType, ScopeProfileName } from './scopes.js';
 
 export interface AccountProfile {
   apiKeyId: string;
@@ -3327,15 +3415,37 @@ export interface AccountProfile {
 
 
 export interface HealthResponse {
-  status: 'ok' | (string & {});
+  status: 'ok' | 'degraded' | (string & {});
   version?: string;
   timestamp: string;
+  /**
+   * Whether this process may sign chain entries. `usable` is the healthy state.
+   * `retired`: the key it holds was retired, so it signs nothing; restart it
+   * with the staged `VAULT_SIGNING_KEY`. `unregistered`: its key is not in the
+   * registry yet, and it retries. `signer_unreachable`: the key is in AWS KMS
+   * and KMS is not answering, so it refuses every write. `unanchored`: the
+   * registry already holds keys and no signed statement links this process's
+   * key to them; restart it with `VAULT_SIGNING_KEY_PREVIOUS` naming the key a
+   * running process signs with. `unsigned`: no key is configured (dev and test).
+   */
+  signingKey?: {
+    gate?: 'usable' | 'retired' | 'unregistered' | 'signer_unreachable' | 'unanchored' | 'unsigned' | (string & {});
+    keyId?: string | null;
+  };
 }
 
 export interface StatusComponent {
   name: string;
   status: string;
-  latencyMs?: number;
+  latencyMs?: number | null;
+  /**
+   * On the Database component at `outage`: why the probe did not answer
+   * (`unreachable`, `saturated`, `no_connection`, `pool_exhausted`,
+   * `shutting_down`, `error`). On the Chain writes component at `degraded`:
+   * `chain_rewind_detected`, meaning every chain write answers 409 until an
+   * operator acknowledges with `admin.vault.rewind.acknowledge()`.
+   */
+  reason?: DatabaseProbeFailure | 'chain_rewind_detected';
 }
 
 export interface StatusResponse {
@@ -3802,6 +3912,12 @@ export interface AdminApiKey {
   revocationReason?: string | null;
   /** On a key minted by `POST /v1/auth/keys/rotate`, the key it replaced. */
   rotatedFromKeyId?: string | null;
+  /**
+   * The scope profile `scopes` was resolved from, at mint or by the last PATCH
+   * that set scopes; a rotation carries it to the replacement. Null when the
+   * scopes were named explicitly or the key was minted without a profile.
+   */
+  scopeProfile?: ScopeProfileName | null;
 }
 
 export interface CreateApiKeyParams {
@@ -3983,6 +4099,26 @@ export interface QueueCounts {
 }
 
 /** Response of `GET /v1/admin/system-health`. */
+/** Why the database probe did not answer. See `SystemHealth.database.failure`. */
+type DatabaseProbeFailure =
+  | 'unreachable'
+  | 'saturated'
+  | 'no_connection'
+  | 'pool_exhausted'
+  | 'shutting_down'
+  | 'error'
+  | (string & {});
+
+/** One AGLedger release with connections open on the database. */
+export interface ConnectedVersion {
+  /** The AGLedger version those connections report. */
+  version?: string;
+  /** Backends the database holds for that version, across every API and worker process. */
+  connections?: number;
+  /** When the oldest of those connections was opened, or null when the reading role could not see it. */
+  oldestConnectionAt?: string | null;
+}
+
 export interface SystemHealth {
   /**
    * `degraded` when the database cannot serve, or when anything is dead-lettered
@@ -4005,6 +4141,15 @@ export interface SystemHealth {
     status: 'healthy' | 'degraded' | 'outage' | (string & {});
     /** `SELECT 1` round-trip latency in ms. */
     latencyMs: number | null;
+    /**
+     * Why the probe did not answer on `outage`, null otherwise.
+     * `pool_exhausted`: every connection in this Server's own pool is taken
+     * and requests are waiting. `unreachable`: the database did not answer or
+     * the connection died. `saturated`: the database is at its own connection
+     * limit. `no_connection`: the pool could not get a connection in time while
+     * not full. `shutting_down`: this process is stopping.
+     */
+    failure?: DatabaseProbeFailure | null;
     pool: {
       /** Total connections in the pool. */
       total: number;
@@ -4033,6 +4178,14 @@ export interface SystemHealth {
    * that nothing is parked.
    */
   webhookDeadLetters: number | null;
+  /**
+   * Every AGLedger version with a connection open on this database. More than
+   * one means processes of two releases are serving one schema, as during a
+   * rolling upgrade: a control a release introduces is enforced only by the
+   * processes carrying it. Null means the view could not be read, which is not
+   * the same as nothing being connected.
+   */
+  connectedVersions?: ConnectedVersion[] | null;
   process: {
     /** Resident set size in MB. */
     rssMb: number;
@@ -4141,6 +4294,21 @@ export interface ProvisioningStatus {
    */
   pruneSuppressed?: boolean;
   /**
+   * Entries in the orgs, agents, webhooks and schemas subdirectories that
+   * loaded and applied as declared but that an API door would treat
+   * differently, each prefixed with its file and naming its entry index. A
+   * warning does not suppress prune.
+   */
+  loadWarnings?: string[];
+  /**
+   * Warnings from the last trusted-issuers pass, each prefixed with the file
+   * and naming its entry index: an entry whose OIDC discovery failed, or whose
+   * `jwks_uri` the egress guard refused, and which kept the `jwks_uri` its row
+   * already held while every other declared field applied. Absent under the
+   * same conditions as `trustedIssuersUnchangedSinceLastLoad`.
+   */
+  trustedIssuersWarnings?: string[];
+  /**
    * True when the last reconcile read a `trusted-issuers.yaml` byte-identical
    * to the one it had read before; absent when no pass has run or no such file
    * exists. After a reload that reported no errors and changed nothing, true
@@ -4195,6 +4363,8 @@ export interface ProvisioningReloadResult {
     generated?: ProvisioningGeneratedKey[];
   };
   errors?: Array<{ resource?: string; name?: string; error?: string }>;
+  /** Same as {@link ProvisioningStatus.loadWarnings}, for this reload. */
+  loadWarnings?: string[];
   trustedIssuers?: {
     /** False when the directory has no trusted_issuers file. */
     configured?: boolean;
@@ -4209,6 +4379,13 @@ export interface ProvisioningReloadResult {
       malformed_yaml?: number;
     };
     errors?: string[];
+    /**
+     * Per-entry problems that did not stop the entry applying, each naming its
+     * entry index: OIDC discovery failed, or the egress guard refused the
+     * `jwks_uri`, so the row kept its stored `jwks_uri` while every other
+     * declared field applied.
+     */
+    warnings?: string[];
     loadedAt?: string;
     /**
      * True when the bytes read from `filePath` were identical to the bytes this
@@ -4250,10 +4427,14 @@ export interface SupportBundle {
     database?: {
       status?: 'healthy' | 'degraded' | 'outage' | (string & {});
       latencyMs?: number | null;
+      /** Same as `SystemHealth.database.failure`. */
+      failure?: DatabaseProbeFailure | null;
       pool?: { total?: number; idle?: number; waiting?: number };
     };
     queues?: Record<string, unknown>;
     webhookDeadLetters?: number | null;
+    /** Same as {@link SystemHealth.connectedVersions}. */
+    connectedVersions?: ConnectedVersion[] | null;
     process?: { rssMb?: number; heapUsedMb?: number; heapTotalMb?: number };
     timestamp?: string;
   };
@@ -4782,6 +4963,7 @@ export interface CircuitBreakerResult {
   id: string;
   circuitState: string;
   consecutiveFailures: number;
+  nextSteps?: NextStep[];
 }
 
 
@@ -4829,6 +5011,8 @@ export interface AgentProfile {
   /** When an operator deactivated this agent, or null while it is active. */
   deactivatedAt?: string | null;
   createdAt: string;
+  /** Suggested next API calls, on update. */
+  nextSteps?: NextStep[];
 }
 
 
@@ -4890,6 +5074,8 @@ export interface EntityReferencesResult {
   data: EntityReference[];
   /** Org-admin cross-party reads only: the chain entry this read appended. */
   recordRead?: RecordReadCompletion;
+  /** Suggested next API calls, on the writes. */
+  nextSteps?: NextStep[];
 }
 
 /** A Record's delegation graph (`GET /v1/records/{id}/graph`). */
@@ -4907,7 +5093,6 @@ export interface RecordGraph {
 }
 
 
-/** A vault Ed25519 signing key. */
 /**
  * A row of the admin vault signing-key registry
  * (`GET /v1/admin/vault/signing-keys`).
@@ -5974,6 +6159,8 @@ export interface TrustedIssuer {
   createdAt: string;
   updatedBy: string | null;
   updatedAt: string;
+  /** Suggested next API calls, on create and update. */
+  nextSteps?: NextStep[];
 }
 
 /** Parameters for registering a trusted OIDC issuer. */
@@ -6092,7 +6279,6 @@ export interface EphemeralCert {
   revokedAt: string | null;
 }
 
-/** Parameters for `POST /v1/auth/oidc/cert`: exchange an OIDC token for a cert. */
 /** Options for {@link AuthResource.rotateKey}. */
 export interface RotateKeyParams {
   /**
@@ -6106,6 +6292,16 @@ export interface RotateKeyParams {
 export interface RotateKeyResult {
   /** New API key (plaintext, shown once). Use as the Bearer token. */
   apiKey: string;
+  /**
+   * The new key's id: what `admin.listApiKeys()` lists it under and
+   * `admin.updateApiKey()` takes. The rotated key is its `rotatedFromKeyId`.
+   */
+  keyId?: string;
+  /**
+   * The scope profile carried over from the rotated key with its scopes; null
+   * where those scopes were named explicitly or the rotated key had no profile.
+   */
+  scopeProfile?: ScopeProfileName | null;
   role?: ApiKeyRole | (string & {});
   /** True when the old key was deactivated immediately (no grace window). */
   previousKeyDeactivated?: boolean;
@@ -6121,6 +6317,7 @@ export interface RotateKeyResult {
   nextSteps?: NextStep[];
 }
 
+/** Parameters for `POST /v1/auth/oidc/cert`: exchange an OIDC token for a cert. */
 export interface IssueEphemeralCertParams {
   oidcToken: string;
   /** Caller-generated public key (JWK) the cert will be bound to. */

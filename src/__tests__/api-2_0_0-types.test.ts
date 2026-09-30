@@ -1,6 +1,15 @@
 import { describe, it, expectTypeOf } from 'vitest';
 import type {
+  AdminApiKey,
   ApiErrorResponse,
+  ComplianceExport,
+  EventPage,
+  HealthResponse,
+  RotateKeyResult,
+  SchemaQuickStart,
+  SchemaValidationResult,
+  StatusComponent,
+  SystemHealth,
   BatchGetRecordsResult,
   BulkCreateResult,
   Dispute,
@@ -48,6 +57,7 @@ import type {
 } from '../types.js';
 import type { AgledgerApiError } from '../errors.js';
 import type * as Sdk from '../index.js';
+import type { ComplianceResource } from '../resources/compliance.js';
 
 /**
  * The client surface for API 2.0. Compiled by `tsconfig.typetests.json`, so a
@@ -201,5 +211,36 @@ describe('records, verdicts, certs and webhook pings', () => {
     expectTypeOf<WebhookTestResult>().not.toHaveProperty('latencyMs');
     expectTypeOf<WebhookTestResult['statusCode']>().toEqualTypeOf<number>();
     expectTypeOf<WebhookTestResult['durationMs']>().toEqualTypeOf<number>();
+  });
+});
+
+describe('admin, auth, health, schemas and events', () => {
+  it('a key row and a rotation name the scope profile', () => {
+    expectTypeOf<AdminApiKey['scopeProfile']>().toMatchTypeOf<string | null | undefined>();
+    expectTypeOf<RotateKeyResult['keyId']>().toEqualTypeOf<string | undefined>();
+  });
+
+  it('health names the signing gate, and status the probe failure', () => {
+    expectTypeOf<'unanchored'>().toMatchTypeOf<NonNullable<NonNullable<HealthResponse['signingKey']>['gate']>>();
+    expectTypeOf<'degraded'>().toMatchTypeOf<HealthResponse['status']>();
+    expectTypeOf<StatusComponent['latencyMs']>().toEqualTypeOf<number | null | undefined>();
+    expectTypeOf<'chain_rewind_detected'>().toMatchTypeOf<NonNullable<StatusComponent['reason']>>();
+    expectTypeOf<NonNullable<SystemHealth['connectedVersions']>[number]['connections']>().toEqualTypeOf<
+      number | undefined
+    >();
+  });
+
+  it('schema reads carry recordFields and a validation names its publisher', () => {
+    expectTypeOf<SchemaQuickStart['recordFields']>().toEqualTypeOf<Record<string, string> | undefined>();
+    expectTypeOf<SchemaValidationResult['publisher']>().toEqualTypeOf<string | undefined>();
+  });
+
+  it('a compliance export is always ready, so there is nothing to wait for', () => {
+    expectTypeOf<ComplianceExport['status']>().toEqualTypeOf<'ready'>();
+    expectTypeOf<ComplianceResource>().not.toHaveProperty('waitForExport');
+  });
+
+  it('an event page carries visibleBefore', () => {
+    expectTypeOf<EventPage['visibleBefore']>().toEqualTypeOf<string | undefined>();
   });
 });

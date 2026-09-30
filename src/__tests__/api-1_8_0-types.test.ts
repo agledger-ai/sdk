@@ -57,7 +57,6 @@ describe('v1.8.0: an API key row carries what the Server sends and nothing else'
     expectTypeOf<AdminApiKey>().not.toHaveProperty('environment');
     expectTypeOf<AdminApiKey>().not.toHaveProperty('rateLimitTier');
     expectTypeOf<AdminApiKey>().not.toHaveProperty('prefix');
-    expectTypeOf<AdminApiKey>().not.toHaveProperty('scopeProfile');
   });
 
   it('reports who revoked a key, why, and what it rotated from', () => {

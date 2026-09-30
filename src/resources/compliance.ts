@@ -24,12 +24,12 @@ import { ConfigurationError, PaginationLimitError } from '../errors.js';
 export class ComplianceResource {
   constructor(private readonly http: HttpClient) {}
 
-  /** Start a compliance data export. */
+  /** Create a compliance data export. It is assembled inside this call and comes back `ready`: follow `downloadUrl`. */
   export(params: ExportComplianceParams, options?: RequestOptions): Promise<ComplianceExport> {
     return this.http.post<ComplianceExport>('/v1/compliance/export', params, options);
   }
 
-  /** Check the status of a compliance export. */
+  /** Read a compliance export's metadata. The only lifecycle to check is `expiresAt`. */
   getExportStatus(exportId: string, options?: RequestOptions): Promise<ComplianceExport> {
     return this.http.get<ComplianceExport>(`/v1/compliance/export/${exportId}`, undefined, options);
   }
@@ -37,31 +37,6 @@ export class ComplianceResource {
   /** Download a completed compliance export. */
   downloadExport(exportId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.get(`/v1/compliance/export/${exportId}/download`, undefined, options);
-  }
-
-  /**
-   * Poll until a compliance export is ready or timeout.
-   * Returns the completed export, or throws if it times out.
-   */
-  async waitForExport(
-    exportId: string,
-    opts?: { pollIntervalMs?: number; timeoutMs?: number; signal?: AbortSignal },
-  ): Promise<ComplianceExport> {
-    const interval = opts?.pollIntervalMs ?? 2_000;
-    const timeout = opts?.timeoutMs ?? 120_000;
-    const deadline = Date.now() + timeout;
-
-    while (Date.now() < deadline) {
-      if (opts?.signal?.aborted) {
-        throw new Error('Export wait cancelled');
-      }
-      const result = await this.getExportStatus(exportId);
-      if (result.status === 'ready') return result;
-      const { promise, resolve } = Promise.withResolvers<void>();
-      setTimeout(resolve, interval);
-      await promise;
-    }
-    throw new Error(`Export ${exportId} did not complete within ${timeout}ms`);
   }
 
   /** Create an AI impact assessment for a Record (EU AI Act). */
