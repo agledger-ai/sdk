@@ -199,7 +199,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 401,
-        json: { error: 'unauthorized', message: 'Invalid API key' },
+        json: { error: 'unauthorized', detail: 'Invalid API key' },
       });
       const client = createClient(fetch);
       await expect(client.get('/test')).rejects.toThrow(AuthenticationError);
@@ -209,7 +209,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 403,
-        json: { error: 'forbidden', message: 'Insufficient permissions' },
+        json: { error: 'forbidden', detail: 'Insufficient permissions' },
       });
       const client = createClient(fetch);
       await expect(client.get('/test')).rejects.toThrow(PermissionError);
@@ -221,7 +221,7 @@ describe('HttpClient', () => {
         status: 403,
         json: {
           error: 'INSUFFICIENT_SCOPE',
-          message: "This endpoint requires scope 'agents:manage'.",
+          detail: "This endpoint requires scope 'agents:manage'.",
           details: {
             missingScopes: ['agents:manage'],
             keyScopes: ['records:read', 'records:write'],
@@ -243,7 +243,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 403,
-        json: { error: 'forbidden', message: 'Agent not approved' },
+        json: { error: 'forbidden', detail: 'Agent not approved' },
       });
       const client = createClient(fetch);
       try {
@@ -265,7 +265,7 @@ describe('HttpClient', () => {
         status: 403,
         json: {
           error: 'PLATFORM_REQUIRED',
-          message: 'Action requires platform role.',
+          detail: 'Action requires platform role.',
           recoveryHint: 'Use a platform key or ask your operator.',
           refreshUrl: '/v1/auth/me',
           missingScopes: ['admin:system'],
@@ -284,7 +284,7 @@ describe('HttpClient', () => {
       }
     });
 
-    it('falls back to RFC 9457 detail/title when message is absent', async () => {
+    it('reads message from the RFC 9457 detail', async () => {
       const fetch = mockFetch({
         ok: false,
         status: 403,
@@ -303,7 +303,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 404,
-        json: { error: 'not_found', message: 'Not found' },
+        json: { error: 'not_found', detail: 'Not found' },
       });
       const client = createClient(fetch);
       await expect(client.get('/test')).rejects.toThrow(NotFoundError);
@@ -313,7 +313,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 400,
-        json: { error: 'validation', message: 'Bad request', details: [{ field: 'name', message: 'required' }] },
+        json: { error: 'validation', detail: 'Bad request', details: [{ field: 'name', message: 'required' }] },
       });
       const client = createClient(fetch);
       const err = await client.get('/test').catch((e) => e);
@@ -326,7 +326,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 422,
-        json: { error: 'unprocessable', message: 'Invalid transition' },
+        json: { error: 'unprocessable', detail: 'Invalid transition' },
       });
       const client = createClient(fetch);
       await expect(client.get('/test')).rejects.toThrow(UnprocessableError);
@@ -336,7 +336,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 429,
-        json: { error: 'rate_limit', message: 'Too many requests' },
+        json: { error: 'rate_limit', detail: 'Too many requests' },
         headers: { 'Retry-After': '5' },
       });
       const client = createClient(fetch);
@@ -351,7 +351,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 429,
-        json: { error: 'rate_limit', message: 'Too many requests', retryAfterSeconds: 7 },
+        json: { error: 'rate_limit', detail: 'Too many requests', retryAfterSeconds: 7 },
       });
       const client = createClient(fetch);
       const err = await client.get('/test').catch((e) => e);
@@ -363,7 +363,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 429,
-        json: { error: 'rate_limit', message: 'Too many requests', retryAfterSeconds: 7 },
+        json: { error: 'rate_limit', detail: 'Too many requests', retryAfterSeconds: 7 },
         headers: { 'Retry-After': '3' },
       });
       const client = createClient(fetch);
@@ -375,7 +375,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 400,
-        json: { error: 'validation', message: 'Bad', retryable: false },
+        json: { error: 'validation', detail: 'Bad', retryable: false },
       });
       const client = createClient(fetch);
       const err = await client.get('/test').catch((e) => e);
@@ -386,7 +386,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 500,
-        json: { error: 'server', message: 'Internal error' },
+        json: { error: 'server', detail: 'Internal error' },
       });
       const client = createClient(fetch);
       const err = await client.get('/test').catch((e) => e);
@@ -397,11 +397,11 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 422,
-        json: { error: 'unprocessable', message: 'fail', code: 'MANDATE_NOT_ACTIVE' },
+        json: { error: 'RECORD_NOT_ACTIVE', detail: 'fail' },
       });
       const client = createClient(fetch);
       const err = await client.get('/test').catch((e) => e);
-      expect(err.code).toBe('MANDATE_NOT_ACTIVE');
+      expect(err.code).toBe('RECORD_NOT_ACTIVE');
     });
   });
 
@@ -412,7 +412,7 @@ describe('HttpClient', () => {
           ok: false,
           status: 500,
           statusText: 'Internal Server Error',
-          json: vi.fn().mockResolvedValue({ error: 'server', message: 'fail' }),
+          json: vi.fn().mockResolvedValue({ error: 'server', detail: 'fail' }),
           headers: new Headers(),
         })
         .mockResolvedValueOnce({
@@ -439,7 +439,7 @@ describe('HttpClient', () => {
         .mockResolvedValueOnce({
           ok: false,
           status: 429,
-          json: vi.fn().mockResolvedValue({ error: 'rate_limit', message: 'slow down' }),
+          json: vi.fn().mockResolvedValue({ error: 'rate_limit', detail: 'slow down' }),
           headers: new Headers({ 'Retry-After': '1' }),
         })
         .mockResolvedValueOnce({
@@ -464,7 +464,7 @@ describe('HttpClient', () => {
       const fetch = mockFetch({
         ok: false,
         status: 400,
-        json: { error: 'bad', message: 'nope' },
+        json: { error: 'bad', detail: 'nope' },
       });
       const client = new HttpClient({
         apiKey: 'test',

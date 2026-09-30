@@ -109,10 +109,6 @@ const ALIASES: Record<string, string> = {
  * interface name. Keep this list SHORT and justify every entry.
  */
 const ALLOWED_SDK_ONLY: Record<string, Set<string>> = {
-  // `code` is the SDK's normalized alias for the body's `code` OR `error`.
-  // `docUrl` is dead: no route emits it (the engine schema has no such
-  // property, so Fastify strips it). Kept, deprecated, so callers compile.
-  ApiErrorResponse: new Set(['code', 'docUrl']),
   // `data` is the SDK's own field: the API declares the envelope without it and
   // each route intersects its own `data` array on top.
   Page: new Set(['data']),

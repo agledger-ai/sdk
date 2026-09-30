@@ -74,7 +74,7 @@ describe('completionToContext', () => {
 
 describe('errorToContext', () => {
   it('formats 422 with do-not-retry guidance', () => {
-    const err = new UnprocessableError({ error: 'RECORD_NOT_ACTIVE', message: 'Record is FULFILLED', code: 'RECORD_NOT_ACTIVE' });
+    const err = new UnprocessableError({ error: 'RECORD_NOT_ACTIVE', detail: 'Record is FULFILLED' });
     const ctx = errorToContext(err);
     expect(ctx).toContain('Error 422 [RECORD_NOT_ACTIVE]: Record is FULFILLED');
     expect(ctx).toContain('Do not retry.');
@@ -83,8 +83,7 @@ describe('errorToContext', () => {
   it('appends recoveryHint when 422 carries one', () => {
     const err = new UnprocessableError({
       error: 'INVALID_ACTION',
-      message: 'Action not allowed',
-      code: 'INVALID_ACTION',
+      detail: 'Action not allowed',
       recoveryHint: 'GET /v1/records/{id} and read nextActions',
     });
     const ctx = errorToContext(err);
@@ -92,31 +91,31 @@ describe('errorToContext', () => {
   });
 
   it('formats 429 with retry-after', () => {
-    const err = new RateLimitError({ error: 'RATE_LIMITED', message: 'Rate limited' }, 2);
+    const err = new RateLimitError({ error: 'RATE_LIMITED', detail: 'Rate limited' }, 2);
     const ctx = errorToContext(err);
     expect(ctx).toContain('Retry after 2s.');
   });
 
   it('formats 400 with fix guidance', () => {
-    const err = new ValidationError({ error: 'VALIDATION_ERROR', message: 'Missing field: criteria' });
+    const err = new ValidationError({ error: 'VALIDATION_ERROR', detail: 'Missing field: criteria' });
     const ctx = errorToContext(err);
     expect(ctx).toContain('Fix the request and retry.');
   });
 
   it('formats 403 with auth guidance', () => {
-    const err = new PermissionError({ error: 'FORBIDDEN', message: 'Missing scope' });
+    const err = new PermissionError({ error: 'FORBIDDEN', detail: 'Missing scope' });
     const ctx = errorToContext(err);
     expect(ctx).toContain('Check credentials/scopes.');
   });
 
   it('formats 500 as retryable', () => {
-    const err = new AgledgerApiError(500, { error: 'INTERNAL', message: 'Internal error' });
+    const err = new AgledgerApiError(500, { error: 'INTERNAL', detail: 'Internal error' });
     const ctx = errorToContext(err);
     expect(ctx).toContain('Retryable.');
   });
 
   it('omits code when unknown', () => {
-    const err = new AgledgerApiError(500, { error: '', message: 'Server error' });
+    const err = new AgledgerApiError(500, { error: '', detail: 'Server error' });
     const ctx = errorToContext(err);
     expect(ctx).not.toContain('[unknown]');
   });

@@ -103,7 +103,7 @@ describe('client credential options', () => {
 
   it('does not re-call a function bearer on a 401', async () => {
     const fn = vi.fn(() => 'admin-oidc');
-    const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', message: 'jti already presented' }) });
+    const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', detail: 'jti already presented' }) });
     await expect(client(server.fetch, fn).auth.getMe()).rejects.toBeInstanceOf(AuthenticationError);
     expect(fn).toHaveBeenCalledTimes(1);
   });
@@ -195,7 +195,7 @@ describe('oidcCertCredential', () => {
 
   it('re-exchanges once on a 401 and retries the request once', async () => {
     const server = fakeServer({
-      respond: ({ bearer }) => (bearer === 'cert-1' ? json(401, { error: 'UNAUTHORIZED', message: 'cert expired' }) : json(200, { ok: true })),
+      respond: ({ bearer }) => (bearer === 'cert-1' ? json(401, { error: 'UNAUTHORIZED', detail: 'cert expired' }) : json(200, { ok: true })),
     });
     const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
     await expect(c.auth.getMe()).resolves.toEqual({ ok: true });
@@ -205,7 +205,7 @@ describe('oidcCertCredential', () => {
   });
 
   it('surfaces a second 401 as the authentication error, after exactly one re-exchange', async () => {
-    const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', message: 'scope revoked' }) });
+    const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', detail: 'scope revoked' }) });
     const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
     const err = await c.auth.getMe().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(AuthenticationError);
@@ -278,7 +278,7 @@ describe('oidcCertCredential', () => {
       exchange: () =>
         json(400, {
           error: 'VALIDATION_ERROR',
-          message: `body/oidcToken is not a trusted issuer token: ${token}`,
+          detail: `body/oidcToken is not a trusted issuer token: ${token}`,
           recoveryHint: 'Register the issuer with POST /v1/admin/trusted-issuers.',
           details: [
             { instancePath: '/oidcToken', received: token },
@@ -306,7 +306,7 @@ describe('oidcCertCredential', () => {
 
   describe('a token source that repeats a token', () => {
     const alreadyExchanged = () =>
-      json(409, { error: 'CONFLICT', message: 'This OIDC token id has already been exchanged' });
+      json(409, { error: 'CONFLICT', detail: 'This OIDC token id has already been exchanged' });
 
     it('keeps a still-valid cert when the refresh-point exchange is refused as a reuse', async () => {
       vi.useFakeTimers({ toFake: ['Date'] });
@@ -350,7 +350,7 @@ describe('oidcCertCredential', () => {
     it('fails when the forced re-exchange after a 401 is refused as a reuse', async () => {
       const server = fakeServer({
         exchange: (n) => (n > 1 ? alreadyExchanged() : undefined),
-        respond: () => json(401, { error: 'UNAUTHORIZED', message: 'cert revoked' }),
+        respond: () => json(401, { error: 'UNAUTHORIZED', detail: 'cert revoked' }),
       });
       const c = client(server.fetch, oidcCertCredential({ getOidcToken: () => jwt({ sub: 'workload-a', jti: 'same' }) }));
       const err = (await c.auth.getMe().catch((e: unknown) => e)) as OidcExchangeError;
@@ -361,20 +361,20 @@ describe('oidcCertCredential', () => {
   });
 
   describe('a 401 the cert did not cause', () => {
-    // Bodies as a live 1.8.0 Server answers them. The route refuses; the cert
+    // Bodies as a live Server answers them. The route refuses; the cert
     // is still good, so GET /v1/auth/me with it succeeds.
     const delegation401 = () =>
       json(401, {
         error: 'UNAUTHORIZED',
-        message: 'agledger-on-behalf-of token did not validate against any trusted_issuers row (applies_to in principal, any)',
+        detail: 'agledger-on-behalf-of token did not validate against any trusted_issuers row (applies_to in principal, any)',
       });
     const signature401 = () =>
       json(401, {
         error: 'UNAUTHORIZED',
-        message: 'X-Agent-Signature does not verify against the ephemeral cert public key over the request body hash',
+        detail: 'X-Agent-Signature does not verify against the ephemeral cert public key over the request body hash',
       });
     // Wording the client has never seen: the probe, not the message, decides.
-    const unfamiliar401 = () => json(401, { error: 'UNAUTHORIZED', message: 'some future refusal' });
+    const unfamiliar401 = () => json(401, { error: 'UNAUTHORIZED', detail: 'some future refusal' });
     const probes = (server: ReturnType<typeof fakeServer>) =>
       server.requests.filter((r) => r.url.endsWith('/v1/auth/me')).length;
 
@@ -393,7 +393,7 @@ describe('oidcCertCredential', () => {
           .create({ type: 't', criteria: {} } as never, { onBehalfOf: 'delegation.jws' })
           .catch((e: unknown) => e)) as AuthenticationError;
         expect(err).toBeInstanceOf(AuthenticationError);
-        expect(err.message).toBe(((await refusal().json()) as { message: string }).message);
+        expect(err.message).toBe(((await refusal().json()) as { detail: string }).detail);
         expect(server.exchanges).toHaveLength(1);
         expect(getOidcToken).toHaveBeenCalledTimes(1);
         // The refused create, then one probe with the same cert.
@@ -406,7 +406,7 @@ describe('oidcCertCredential', () => {
       const server = fakeServer({
         respond: ({ bearer }) =>
           bearer === 'cert-1'
-            ? json(401, { error: 'UNAUTHORIZED', message: 'Ephemeral cert has been revoked; mint a fresh one to continue' })
+            ? json(401, { error: 'UNAUTHORIZED', detail: 'Ephemeral cert has been revoked; mint a fresh one to continue' })
             : json(201, { id: 'r' }),
       });
       const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
@@ -417,7 +417,7 @@ describe('oidcCertCredential', () => {
     });
 
     it('probes at most once per request, however many 401s follow', async () => {
-      const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', message: 'no' }) });
+      const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', detail: 'no' }) });
       const c = client(server.fetch, oidcCertCredential({ getOidcToken: tokenSource() }));
       await expect(c.records.create({ type: 't', criteria: {} } as never)).rejects.toBeInstanceOf(AuthenticationError);
       expect(probes(server)).toBe(1);
@@ -426,7 +426,7 @@ describe('oidcCertCredential', () => {
 
     it('never probes on an API-key 401 or a function-bearer 401', async () => {
       for (const auth of [{ apiKey: 'agl_agt_x' }, { bearerToken: () => 'admin-oidc' }]) {
-        const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', message: 'no' }) });
+        const server = fakeServer({ respond: () => json(401, { error: 'UNAUTHORIZED', detail: 'no' }) });
         const c = new AgledgerClient({ baseUrl: BASE, fetch: server.fetch as never, maxRetries: 0, ...auth });
         await expect(c.records.create({ type: 't', criteria: {} } as never)).rejects.toBeInstanceOf(AuthenticationError);
         expect(probes(server)).toBe(0);
@@ -437,9 +437,9 @@ describe('oidcCertCredential', () => {
 
   describe('a failed exchange at the refresh point', () => {
     for (const [label, response] of [
-      ['a 503', () => json(503, { error: 'SERVICE_UNAVAILABLE', message: 'down' })],
-      ['a 429', () => json(429, { error: 'RATE_LIMITED', message: 'slow down' })],
-      ['a 400', () => json(400, { error: 'VALIDATION_ERROR', message: 'bad' })],
+      ['a 503', () => json(503, { error: 'SERVICE_UNAVAILABLE', detail: 'down' })],
+      ['a 429', () => json(429, { error: 'RATE_LIMITED', detail: 'slow down' })],
+      ['a 400', () => json(400, { error: 'VALIDATION_ERROR', detail: 'bad' })],
     ] as const) {
       it(`keeps the still-valid cert on ${label}, and fails only once the cert has expired`, async () => {
         vi.useFakeTimers({ toFake: ['Date'] });

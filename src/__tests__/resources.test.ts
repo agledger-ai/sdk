@@ -447,7 +447,7 @@ describe('DisputesResource', () => {
       status: 422,
       json: vi.fn().mockResolvedValue({
         error: 'INVALID_ACTION',
-        message: 'Dispute is already RESOLVED',
+        detail: 'Dispute is already RESOLVED',
         currentState: 'RESOLVED',
         allowedActions: [],
         recoveryHint: 'Read the dispute; it has already been resolved.',
