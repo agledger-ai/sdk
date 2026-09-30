@@ -448,40 +448,90 @@ never as evidence it was legitimate. Catch it explicitly: on Express 4 or plain
 
 ## Offline Audit Export Verification
 
-Verify a Record's hash-chained, Ed25519-signed audit export without calling the API:
+Verify a Record's hash-chained, signed audit export without calling the API:
 
 ```typescript
 import { verifyExport } from '@agledger/sdk/verify';
 
 const exportData = await client.records.getAuditExport('REC_123');
-const result = verifyExport(exportData);
+const result = verifyExport(exportData, {
+  // The SPKI digest of a vault key you took out of band (see below).
+  trustAnchors: ['sha256:15d63684b387235c47fe3a81e3004b928f4ea535236a2c1b47465ce5fdd7ce0e'],
+});
 
 if (!result.valid) {
   console.error(
     `Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.code}`,
   );
 }
-// { valid: true, verifiedEntries: 12, totalEntries: 12, entries: [...] }
+console.log(result.keyTrust.status); // 'walked'; 'no_anchor' when no trustAnchors were given
 ```
 
 Decodes canonical COSE_Sign1 envelopes (RFC 9052, tag 18), walks the hash
 chain, and verifies the signature over each `Sig_structure` under the algorithm
-the verification key commits to (Ed25519 or ES256). Format 2.0
-(was 1.0 JCS + detached Ed25519). `brokenAt.code` is a canonical SCREAMING_SNAKE
-`FailureCode` (e.g. `CHAIN_HASH_MISMATCH`, `CHAIN_SIGNATURE_INVALID`).
+the verification key commits to (Ed25519 or ES256). `brokenAt.code` is a
+canonical SCREAMING_SNAKE `FailureCode` (e.g. `CHAIN_HASH_MISMATCH`,
+`CHAIN_SIGNATURE_INVALID`).
 
 This is a thin wrapper over [`@agledger/verify-core`](https://www.npmjs.com/package/@agledger/verify-core):
 the same body of logic the CLI `verify` command and the MCP `agledger_verify`
 tool run, so a chain that passes here passes identically in all of them. Single
 CBOR dependency (`cborg`); no network.
 
+### Anchoring keys
+
+The keys an export embeds, and the ones `GET /v1/verification-keys` serves,
+come from the Server's database. A chain that verifies against them is
+consistent with that database, and a key written into the database alone
+would pass. What cannot be written that way is a signed key statement: each
+key is admitted by a statement a key the Server already trusted signed. Pin
+the SPKI digest of a vault key you hold or took out of band (the installer
+prints the first vault key's) as `trustAnchors`, and `verifyExport` walks the
+statements the export carries from it:
+
+- an entry signed by a key the walk does not reach fails
+  `CHAIN_SIGNING_KEY_UNANCHORED`, and each anchored key is held to the window
+  its statements sign;
+- a statement that does not hold fails the result at position 0 with
+  `KEY_STATEMENT_INVALID`, `KEY_CLOSURE_INVALID` or `CHAIN_KEY_WINDOW_DRIFT`,
+  listed in `result.keyTrust.findings`;
+- `distrustedKeys` takes the operator's `VAULT_DISTRUSTED_KEYS` entries
+  (`sha256:<hex>`, optionally `@<RFC 3339 instant>`): what such a key signed
+  from that instant counts for nothing. It is read only with `trustAnchors`.
+
+Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
+`result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can
+still be true; it then says the chain is intact against keys nobody pinned, so
+treat a chain as trusted only when `valid` is true and `keyTrust.status` is
+`'walked'`. The export's `exportMetadata.anchoredFrom` names the Server's own
+key; `keyTrust.anchoredFromPinned` says whether it is one of your anchors, and
+it never counts as one.
+
+```typescript
+import { verifyExport } from '@agledger/sdk/verify';
+
+const exp = await client.records.getAuditExport('REC_123');
+const keys = await client.verificationKeys.list();
+const checked = verifyExport(exp, {
+  publicKeys: keys.data,
+  trustAnchors: ['sha256:15d63684b387235c47fe3a81e3004b928f4ea535236a2c1b47465ce5fdd7ce0e'],
+  distrustedKeys: [],
+});
+
+const { status, anchoredKeyIds, unanchoredKeyIds, findings } = checked.keyTrust;
+console.log(status, anchoredKeyIds, unanchoredKeyIds);
+for (const f of findings) console.log(f.code, f.keyId, f.detail);
+```
+
 The export's embedded `signingPublicKeys` map is used by default. Pass
-`{ publicKeys: {...} }` to supply keys out of band (from `GET /v1/verification-keys`
-or `/.well-known/scitt-keys`) or to add keys that rotated out. Use
-`{ requireKeyId: 'key-id' }` to reject exports signed by an unexpected key, or
-`{ requireOutOfBandKeys: true }` for an independent audit that refuses to trust
-the export's own embedded keys. `result.keyProvenance` reports how many
-signatures were checked against out-of-band vs export-embedded keys.
+`{ publicKeys: ... }` to supply keys yourself, as the `.data` list from
+`client.verificationKeys.list()` (whose `statements` are walked with the
+export's) or a `{ keyId: base64Spki }` map. `result.keyProvenance` counts the
+signatures checked against `supplied` vs export-`embedded` keys, which says
+where a key came from, not whether it is trusted. `{ requireSuppliedKeys: true }`
+refuses the export's embedded keys, and `{ requireKeyId: 'key-id' }` rejects an
+export signed by an unexpected key. A malformed anchor, distrusted key or key
+list throws `TypeError`.
 
 Entries written under an OIDC cert also carry the agent's own signature over
 the request body. Pass the cert's public key as `agentKeys` to re-check it
