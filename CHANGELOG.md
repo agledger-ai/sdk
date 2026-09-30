@@ -61,6 +61,7 @@ Reconciled against API 2.0. The 2.x SDK targets API 2.0 only: every shape the Se
 
 ### Documentation
 
+- The README Quick Start runs the principal and the performer as two clients. It submitted the completion with the principal's key, which the Server refuses with a 403 `WRONG_STRUCTURAL_ROLE`; it now ends with the principal's accept verdict.
 - `Completion.verdict` is the auto gate's verdict on that completion, null in principal mode, on encrypted Records, when the gate was deferred, and on a completion read.
 - From 1.13.0: `oidcCertCredential({ agentId })` and `IssueEphemeralCertParams.agentId` are an assertion, not a choice: the token decides the agent, and a different `agentId`, or any `agentId` on a token that binds no agent, is a 403 `CERT_AGENT_BINDING_MISMATCH` whose `recoveryHint` names the binding to make. (sdk#44)
 - From 1.13.0: `SettlementSignalSummary.reason` is null on an inbound signal: free text does not cross the federation wire.
