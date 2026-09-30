@@ -1,0 +1,442 @@
+{
+ "AgentClass": [
+  "ephemeral",
+  "personal",
+  "system",
+  "team"
+ ],
+ "AuditChainFailureCode": [
+  "agent_signature_invalid",
+  "audit_vault_truncated",
+  "cert_actor_drift",
+  "cert_expired",
+  "cert_missing",
+  "cert_window_drift",
+  "checkpoint_anchor_mismatch",
+  "key_expired",
+  "key_not_yet_active",
+  "oidc_actor_drift",
+  "payload_drift",
+  "payload_hash_mismatch",
+  "previous_hash_mismatch",
+  "signature_invalid",
+  "signature_missing",
+  "signing_key_drift",
+  "signing_key_unanchored",
+  "signing_key_unknown",
+  "signing_key_unpublished",
+  "unsupported_algorithm"
+ ],
+ "AuditChainIntegrityReasonCode": [
+  "agent_signature_invalid",
+  "audit_vault_empty",
+  "audit_vault_row_missing_for_checkpoint",
+  "cert_actor_drift",
+  "cert_expired",
+  "cert_missing",
+  "cert_window_drift",
+  "chain_broken_at",
+  "checkpoint_claim_mismatch",
+  "checkpoint_hash_mismatch",
+  "checkpoint_key_unanchored",
+  "checkpoint_key_unknown",
+  "checkpoint_signature_invalid",
+  "checkpoint_unsigned",
+  "key_expired",
+  "key_not_yet_active",
+  "oidc_actor_drift",
+  "payload_drift",
+  "signature_invalid",
+  "signature_missing",
+  "signing_key_drift",
+  "signing_key_unanchored",
+  "signing_key_unknown",
+  "signing_key_unpublished",
+  "unsupported_algorithm"
+ ],
+ "AutoProvisionScopeProfile": [
+  "agent-full",
+  "agent-performer-only",
+  "agent-readonly"
+ ],
+ "CoSignStatus": [
+  "failed",
+  "not_required",
+  "partial",
+  "pending",
+  "succeeded"
+ ],
+ "ComplianceRecordType": [
+  "affected_persons",
+  "fundamental_rights_impact_assessment",
+  "input_data_quality",
+  "workplace_notification"
+ ],
+ "ConstraintInheritanceMode": [
+  "advisory",
+  "enforced",
+  "none"
+ ],
+ "DisputeGrounds": [
+  "equivalent_item",
+  "fraudulent_completion",
+  "other",
+  "pricing_dispute",
+  "quality_issue",
+  "record_ambiguity",
+  "verdict_disagreement"
+ ],
+ "DisputeOutcome": [
+  "OVERTURNED",
+  "UPHELD"
+ ],
+ "DisputeProtocolAction": [
+  "opened",
+  "resolved",
+  "withdrawn"
+ ],
+ "DisputeStatus": [
+  "EVIDENCE_WINDOW",
+  "PENDING_RESOLUTION",
+  "RESOLVED",
+  "WITHDRAWN"
+ ],
+ "DisputeStatusFilter": [
+  "EVIDENCE_WINDOW",
+  "PENDING_RESOLUTION",
+  "RESOLVED",
+  "WITHDRAWN"
+ ],
+ "EnforcementMode": [
+  "advisory",
+  "enforced",
+  "none"
+ ],
+ "EnforcementSource": [
+  "default",
+  "org"
+ ],
+ "EuAiActDomain": [
+  "biometrics",
+  "critical_infrastructure",
+  "education",
+  "employment",
+  "essential_services",
+  "justice",
+  "law_enforcement",
+  "migration"
+ ],
+ "EuAiActRiskTier": [
+  "high",
+  "limited",
+  "minimal",
+  "unacceptable"
+ ],
+ "EventType": [
+  "agent.reference_added",
+  "cascading.gate.complete",
+  "dispute.evidence_window_closed",
+  "dispute.opened",
+  "dispute.resolved",
+  "dispute.withdrawn",
+  "federation.dispute",
+  "federation.record.state_changed",
+  "federation.settlement.signal",
+  "record.activated",
+  "record.ai_impact_assessment_filed",
+  "record.cancelled",
+  "record.completion_invalid",
+  "record.completion_submitted",
+  "record.compliance_attestation_filed",
+  "record.created",
+  "record.delegated",
+  "record.expired",
+  "record.failed",
+  "record.federation_activated",
+  "record.federation_cancelled",
+  "record.federation_expired",
+  "record.federation_failed",
+  "record.federation_fulfilled",
+  "record.federation_proposal_rejected",
+  "record.federation_recorded",
+  "record.federation_remediated",
+  "record.fulfilled",
+  "record.gate_complete",
+  "record.gate_held",
+  "record.proposal_accepted",
+  "record.proposal_rejected",
+  "record.proposed",
+  "record.recorded",
+  "record.reference_added",
+  "record.registered",
+  "record.released",
+  "record.revision_requested",
+  "signal.emitted",
+  "signal.received",
+  "system.cascading_gate_enqueue_failed",
+  "system.verification_enqueue_failed"
+ ],
+ "EvidenceType": [
+  "communication",
+  "document",
+  "external_lookup",
+  "other",
+  "screenshot"
+ ],
+ "FederationPeerStatus": [
+  "active",
+  "revoked"
+ ],
+ "FederationPeerStatusFilter": [
+  "active",
+  "revoked"
+ ],
+ "FederationSettlementSignal": [
+  "HOLD",
+  "RELEASE",
+  "SETTLE"
+ ],
+ "FederationVerdict": [
+  "accept",
+  "reject"
+ ],
+ "GateMode": [
+  "auto",
+  "principal"
+ ],
+ "LicenseNoticeKind": [
+  "dev-external",
+  "error",
+  "unlicensed"
+ ],
+ "LicenseTier": [
+  "developer",
+  "enterprise",
+  "unlicensed"
+ ],
+ "LicenseValidity": [
+  "instance_mismatch",
+  "invalid_format",
+  "invalid_signature",
+  "lapsed",
+  "marketplace_refused",
+  "marketplace_unreachable",
+  "unlicensed",
+  "valid",
+  "version_too_new"
+ ],
+ "OperatingMode": [
+  "cleartext",
+  "encrypted"
+ ],
+ "OrgReadsBreakReason": [
+  "checkpoint_claim_mismatch",
+  "checkpoint_key_unanchored",
+  "checkpoint_key_unknown",
+  "checkpoint_leaf_count_mismatch",
+  "checkpoint_root_mismatch",
+  "checkpoint_signature_invalid",
+  "checkpoint_unsigned",
+  "leaf_claim_mismatch",
+  "leaf_hash_mismatch",
+  "leaf_index_gap",
+  "leaf_key_unanchored",
+  "leaf_key_unknown",
+  "leaf_signature_invalid",
+  "leaf_signature_missing",
+  "verification_error"
+ ],
+ "OrgReadsCheckpointingSource": [
+  "config",
+  "worker"
+ ],
+ "RecordFederationStatus": [
+  "delivered",
+  "failed",
+  "inbound",
+  "partial",
+  "pending"
+ ],
+ "RecordStatus": [
+  "ACTIVE",
+  "CANCELLED",
+  "CREATED",
+  "DISPUTED",
+  "EXPIRED",
+  "FAILED",
+  "FULFILLED",
+  "PROCESSING",
+  "PROPOSED",
+  "RECORDED",
+  "REJECTED",
+  "REMEDIATED",
+  "REVISION_REQUESTED"
+ ],
+ "RecordStatusFilter": [
+  "ACTIVE",
+  "CANCELLED",
+  "CREATED",
+  "DISPUTED",
+  "EXPIRED",
+  "FAILED",
+  "FULFILLED",
+  "PROCESSING",
+  "PROPOSED",
+  "RECORDED",
+  "REJECTED",
+  "REMEDIATED",
+  "REVISION_REQUESTED"
+ ],
+ "RecordTransitionAction": [
+  "activate",
+  "cancel",
+  "propose",
+  "register"
+ ],
+ "RecordView": [
+  "compact",
+  "full"
+ ],
+ "SchemaCompatibilityMode": [
+  "backward",
+  "forward",
+  "full",
+  "none"
+ ],
+ "SchemaFieldMappingValueType": [
+  "boolean",
+  "datetime",
+  "denomination",
+  "expression",
+  "number",
+  "string"
+ ],
+ "SchemaVersionStatus": [
+  "ACTIVE",
+  "DISABLED"
+ ],
+ "SettlementSignal": [
+  "HOLD",
+  "RELEASE",
+  "SETTLE"
+ ],
+ "StructuralValidation": [
+  "ACCEPTED",
+  "INVALID",
+  "WARNING"
+ ],
+ "TrustedIssuerAlg": [
+  "ES256",
+  "ES384",
+  "ES512",
+  "EdDSA",
+  "PS256",
+  "PS384",
+  "PS512",
+  "RS256",
+  "RS384",
+  "RS512"
+ ],
+ "TrustedIssuerAppliesTo": [
+  "admin",
+  "agent",
+  "any",
+  "principal"
+ ],
+ "VaultCheckpointChain": [
+  "admin",
+  "record",
+  "schema"
+ ],
+ "VaultScanBreakReason": [
+  "agent_signature_invalid",
+  "audit_vault_row_missing_for_checkpoint",
+  "cert_actor_drift",
+  "cert_expired",
+  "cert_missing",
+  "cert_window_drift",
+  "chain_broken_at",
+  "checkpoint_claim_mismatch",
+  "checkpoint_hash_mismatch",
+  "checkpoint_key_unanchored",
+  "checkpoint_key_unknown",
+  "checkpoint_signature_invalid",
+  "checkpoint_unsigned",
+  "key_expired",
+  "key_not_yet_active",
+  "oidc_actor_drift",
+  "payload_drift",
+  "schema_chain_missing_for_subjects",
+  "signature_invalid",
+  "signature_missing",
+  "signing_key_drift",
+  "signing_key_unanchored",
+  "signing_key_unknown",
+  "signing_key_unpublished",
+  "unsupported_algorithm",
+  "verification_error"
+ ],
+ "VaultScanFirstFindingReason": [
+  "key_expired",
+  "key_not_yet_active",
+  "unsupported_algorithm"
+ ],
+ "VaultScanState": [
+  "active",
+  "cancelled",
+  "completed",
+  "created",
+  "failed",
+  "retry"
+ ],
+ "Verdict": [
+  "accept",
+  "reject"
+ ],
+ "WebhookEventType": [
+  "*",
+  "agent.reference_added",
+  "cascading.gate.complete",
+  "dispute.opened",
+  "dispute.resolved",
+  "dispute.withdrawn",
+  "federation.dispute",
+  "federation.record.state_changed",
+  "federation.settlement.signal",
+  "record.activated",
+  "record.ai_impact_assessment_filed",
+  "record.cancelled",
+  "record.completion_invalid",
+  "record.completion_submitted",
+  "record.compliance_attestation_filed",
+  "record.created",
+  "record.delegated",
+  "record.expired",
+  "record.failed",
+  "record.federation_activated",
+  "record.federation_cancelled",
+  "record.federation_expired",
+  "record.federation_failed",
+  "record.federation_fulfilled",
+  "record.federation_proposal_rejected",
+  "record.federation_recorded",
+  "record.federation_remediated",
+  "record.fulfilled",
+  "record.gate_complete",
+  "record.gate_held",
+  "record.proposal_accepted",
+  "record.proposal_rejected",
+  "record.proposed",
+  "record.recorded",
+  "record.reference_added",
+  "record.registered",
+  "record.revision_requested",
+  "signal.emitted",
+  "signal.received"
+ ],
+ "WebhookSigningAlg": [
+  "ecdsa-p256-sha256",
+  "ed25519",
+  "hmac"
+ ]
+}

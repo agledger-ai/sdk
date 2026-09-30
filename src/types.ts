@@ -935,8 +935,12 @@ export interface ExportSchemaOptions {
   publisher?: string;
 }
 
-/** Performer's response to a Record proposal. */
-export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | (string & {});
+/**
+ * Performer's response to a Record proposal. `BYPASSED` means register or
+ * activate ran without the performer accepting; the proposal handshake is
+ * optional, so that is a normal outcome.
+ */
+export type AcceptanceStatus = 'PROPOSED' | 'ACCEPTED' | 'REJECTED' | 'BYPASSED' | (string & {});
 
 /**
  * Co-signature state of a Record or a Settlement Signal. `partial` is a
@@ -1974,10 +1978,6 @@ export interface VerdictResult {
 }
 
 
-export interface RecordStatusSummary {
-  countsByStatus: Record<string, number>;
-  total: number;
-}
 
 
 /**
