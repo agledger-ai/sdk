@@ -922,11 +922,11 @@ describe('EventsResource', () => {
     await client.events.list({
       since: '2026-01-01T00:00:00Z',
       recordId: '11111111-2222-3333-4444-555555555555',
-      eventType: 'record.settled',
+      eventType: 'record.released',
     });
     const url = fetch.mock.calls[0][0];
     expect(url).toContain('recordId=11111111-2222-3333-4444-555555555555');
-    expect(url).toContain('eventType=record.settled');
+    expect(url).toContain('eventType=record.released');
   });
 });
 

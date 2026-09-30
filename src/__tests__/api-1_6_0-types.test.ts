@@ -142,9 +142,8 @@ describe('v1.6.0: events take a closing bound', () => {
 });
 
 describe('v1.6.0: the subscribable set is not the queryable set', () => {
-  it('the three replay-only types are queryable and not subscribable', () => {
+  it('the replay-only types are queryable and not subscribable', () => {
     // `POST /v1/webhooks` 400s on each of these. They typed clean before.
-    expectTypeOf<'record.settled'>().toMatchTypeOf<EventType>();
     expectTypeOf<'record.released'>().toMatchTypeOf<EventType>();
     expectTypeOf<'dispute.evidence_window_closed'>().toMatchTypeOf<EventType>();
   });

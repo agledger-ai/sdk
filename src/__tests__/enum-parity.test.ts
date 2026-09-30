@@ -113,21 +113,19 @@ describe('enum-member parity', () => {
   });
 
   it('keeps the subscribable set apart from the queryable one', () => {
-    // `POST /v1/webhooks` rejects seven types `GET /v1/events` serves, so one
-    // union cannot stand for both. The SDK typed the union of the two as
-    // subscribable, which made three documented values a 400 on create.
+    // `POST /v1/webhooks` rejects four types `GET /v1/events` serves, so one
+    // union cannot stand for both. The SDK once typed the union of the two as
+    // subscribable, which made documented values a 400 on create.
     //
-    // Three are replay surface that was never subscribable, two are retired and
-    // stay queryable so historical events remain readable, and two are
-    // engine-internal failures with no subscription form.
+    // Two are replay surface that was never subscribable, and two are
+    // engine-internal failures with no subscription form. API 2.0 removed the
+    // retired `dispute.escalated`, `record.proposal_counter_proposed` and the
+    // `record.settled` alias from the query enum.
     const subscribable = new Set(unions.WebhookEventType);
     const queryable = new Set(unions.EventType);
     expect([...queryable].filter((v) => !subscribable.has(v)).sort()).toEqual([
-      'dispute.escalated',
       'dispute.evidence_window_closed',
-      'record.proposal_counter_proposed',
       'record.released',
-      'record.settled',
       'system.cascading_gate_enqueue_failed',
       'system.verification_enqueue_failed',
     ]);
