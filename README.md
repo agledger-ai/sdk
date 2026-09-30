@@ -365,7 +365,9 @@ try {
 }
 ```
 
-Error classes: `AuthenticationError`, `PermissionError`, `NotFoundError`, `ValidationError`, `UnprocessableError`, `RateLimitError`, `ConnectionError`, `TimeoutError`, and `OidcExchangeError` for a refused OIDC cert exchange.
+`err.message` is the problem body's `detail`, its one human-readable field. Branch on `err.code` (the body's `error`) or `err.type`, not on the prose.
+
+Error classes: `AuthenticationError`, `PermissionError`, `NotFoundError`, `ConflictError`, `ValidationError`, `UnprocessableError`, `RateLimitError`, `ConnectionError`, `TimeoutError`, and `OidcExchangeError` for a refused OIDC cert exchange.
 
 ## Webhook Verification
 
