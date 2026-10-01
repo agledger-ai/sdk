@@ -4,9 +4,9 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [2.0.0] - 2026-09-30
+## [3.0.0] - 2026-09-30
 
-Reconciled against API 2.0. The 2.x SDK targets API 2.0 only: every shape the Server removed is removed here, with no 1.x fallback. It also carries the 1.13.0 work, which was prepared and never published. Every change below was diffed against the 2.0 OpenAPI document; the SDK's declared return types were compared against each route's response schema, field by field.
+Reconciled against API 2.0. The 3.x SDK targets API 2.0 only (the version is 3.0.0 because npm holds 2.0.0 to 2.5.0 for deprecated pre-production releases): every shape the Server removed is removed here, with no 1.x fallback. It also carries the 1.13.0 work, which was prepared and never published. Every change below was diffed against the 2.0 OpenAPI document; the SDK's declared return types were compared against each route's response schema, field by field.
 
 ### Breaking changes
 
