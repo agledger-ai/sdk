@@ -55,8 +55,10 @@ export class FederationResource {
    * The receiver co-signs the signal for non-repudiation. A receiver that
    * registered the record's type with `coSignRequired: true` refuses a signal
    * without `counterSignature` with 422, `retryable: false`, reason
-   * `co_sign_required`. The receiver ignores `reason`; see
-   * {@link RelaySignalParams.reason}.
+   * `co_sign_required`. The receiver refuses any field `RelaySignalParams`
+   * does not name with a 400, free-text `reason` included: the cause crosses
+   * the wire as `reasonCode` and `failingRuleIds`, both required (null where
+   * there is none).
    */
   relaySignal(
     params: RelaySignalParams,
