@@ -1,5 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type {
@@ -170,42 +170,18 @@ describe('the field unions the enum guard could not see are named now', () => {
 });
 
 /**
- * The runtime half. Everything above is erased, so this is what stops the next
- * type-test file from being written outside the compile that checks it.
+ * `expectTypeOf` is erased at runtime, so a type-test file is checked only if
+ * a compiler reads it. `tsconfig.typetests.json` must cover every test file:
+ * all of `src`, with `src/__tests__` not excluded.
  */
-describe('every type-test file is inside a tsconfig that checks it', () => {
+describe('tsconfig.typetests.json reads every test file', () => {
   const here = dirname(fileURLToPath(import.meta.url));
 
-  /**
-   * Type-test files predating `tsconfig.typetests.json`. Adding them surfaces
-   * pre-existing type errors across five older test files, which is a separate
-   * cleanup. Listed rather than skipped so the debt is visible.
-   */
-  const UNCHECKED = [
-    'v1_3_4-types.test.ts',
-    'vault-scan-globalchains-type.test.ts',
-    'verdict-type.test.ts',
-  ];
-
-  it('accounts for every file that uses expectTypeOf', () => {
+  it('includes src and does not exclude the tests', () => {
     const config = readFileSync(resolve(here, '../../tsconfig.typetests.json'), 'utf8');
-    const files: string[] = JSON.parse(config.replace(/^\s*\/\/.*$/gm, '')).files;
-    const checked = new Set(files.map((f) => f.split('/').pop()));
-
-    const typeTests = readdirSync(here)
-      .filter((name) => name.endsWith('.test.ts'))
-      .filter((name) => readFileSync(resolve(here, name), 'utf8').includes('expectTypeOf'));
-
-    const unaccounted = typeTests.filter((n) => !checked.has(n) && !UNCHECKED.includes(n));
-    expect(
-      unaccounted,
-      'These files assert types that no compiler reads, so a wrong assertion in them ' +
-        'passes silently. Add each to tsconfig.typetests.json "files", or to UNCHECKED ' +
-        `with a reason:\n${unaccounted.join('\n')}`,
-    ).toEqual([]);
-
-    // A file cannot be both compiled and recorded as debt.
-    expect(UNCHECKED.filter((n) => checked.has(n))).toEqual([]);
-    expect(typeTests.length).toBeGreaterThan(0);
+    const parsed = JSON.parse(config.replace(/^\s*\/\/.*$/gm, ''));
+    expect(parsed.files).toBeUndefined();
+    expect(parsed.include).toContain('src');
+    expect(JSON.stringify(parsed.exclude ?? [])).not.toContain('__tests__');
   });
 });

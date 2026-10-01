@@ -1,10 +1,10 @@
 import { describe, it, expectTypeOf } from 'vitest';
-import type { Verdict, SubmitVerdictParams, VerdictResult, RecordResponse } from '../types.js';
+import type { Verdict, SubmitVerdictParams, VerdictResult, RecordRow } from '../types.js';
 
 /**
  * Regression: the exported `Verdict` union is open
  * (`'accept' | 'reject' | (string & {})`) for forward compatibility, and
- * `SubmitVerdictParams.verdict` / `VerdictResult.verdict` / `RecordResponse.verdict`
+ * `SubmitVerdictParams.verdict` / `VerdictResult.verdict` / `RecordRow.verdict`
  * all use that same `Verdict` so generic verdict-routing code composes without
  * an extra narrowing step.
  *
@@ -30,8 +30,8 @@ describe('Verdict union write/read symmetry', () => {
     expectTypeOf<ReadShape>().toMatchTypeOf<Verdict>();
   });
 
-  it('RecordResponse.verdict reads as Verdict | null | undefined', () => {
-    type RecordVerdict = RecordResponse['verdict'];
+  it('RecordRow.verdict reads as Verdict | null | undefined', () => {
+    type RecordVerdict = RecordRow['verdict'];
     expectTypeOf<'accept'>().toMatchTypeOf<RecordVerdict>();
     expectTypeOf<'reject'>().toMatchTypeOf<RecordVerdict>();
     expectTypeOf<null>().toMatchTypeOf<RecordVerdict>();

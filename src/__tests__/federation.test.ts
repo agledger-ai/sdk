@@ -67,16 +67,13 @@ describe('FederationResource (peer-facing)', () => {
   it('submitStateTransition() posts to /federation/v1/state-transitions', async () => {
     await client.federation.submitStateTransition({
       recordId: 'rec-1',
-      gatewayId: 'gw-1',
       state: 'FULFILLED',
       type: 'ACH-TXN-v1',
-      criteriaHash: 'sha256-c',
-      role: 'principal',
-      seq: 1,
       idempotencyKey: 'idem-1',
-      timestamp: '2026-05-21T00:00:00Z',
-      nonce: 'n1',
-      signature: 'sig1',
+      schemaRef: { publisher: 'local', type: 'ACH-TXN-v1', version: '1', manifestDigest: `sha256:${'0'.repeat(64)}` },
+      principalAgentId: 'agent-p',
+      performerAgentId: 'agent-q',
+      operatingMode: 'cleartext',
     });
     const { url } = lastCall(fetch);
     expect(url).toContain('/federation/v1/state-transitions');
@@ -85,14 +82,14 @@ describe('FederationResource (peer-facing)', () => {
   it('relaySignal() posts to /federation/v1/signals', async () => {
     await client.federation.relaySignal({
       recordId: 'rec-1',
-      signal: 'SETTLE',
+      recommendation: 'SETTLE',
       outcomeHash: 'sha256-o',
-      signalSeq: 1,
       validUntil: '2026-05-22T00:00:00Z',
-      performerGatewayId: 'gw-perf',
-      timestamp: '2026-05-21T00:00:00Z',
-      nonce: 'n2',
-      performerSignature: 'sig2',
+      idempotencyKey: 'idem-2',
+      outcome: 'accept',
+      reasonCode: null,
+      failingRuleIds: null,
+      schemaRef: { publisher: 'local', type: 'ACH-TXN-v1', version: '1', manifestDigest: `sha256:${'0'.repeat(64)}` },
     });
     const { url } = lastCall(fetch);
     expect(url).toContain('/federation/v1/signals');
@@ -148,13 +145,30 @@ describe('FederationResource (peer-facing)', () => {
   });
 
   it('submitCoSignRequest() posts to /federation/v1/co-sign-requests', async () => {
-    await client.federation.submitCoSignRequest({ recordId: 'rec-1', payload: 'cbor:...' });
+    await client.federation.submitCoSignRequest({
+      recordId: 'rec-1',
+      recommendation: 'SETTLE',
+      outcomeHash: 'sha256-o',
+      state: 'FULFILLED',
+      performerHubId: 'hub-perf',
+      validUntil: '2026-05-22T00:00:00Z',
+      idempotencyKey: 'idem-3',
+      schemaRef: { publisher: 'local', type: 'ACH-TXN-v1', version: '1', manifestDigest: `sha256:${'0'.repeat(64)}` },
+    });
     const { url } = lastCall(fetch);
     expect(url).toContain('/federation/v1/co-sign-requests');
   });
 
   it('submitDisputeProtocol() posts to /federation/v1/disputes', async () => {
-    await client.federation.submitDisputeProtocol({ recordId: 'rec-1', reason: 'mismatch' });
+    await client.federation.submitDisputeProtocol({
+      recordId: 'rec-1',
+      action: 'opened',
+      disputeId: 'dsp-1',
+      disputeStatus: 'EVIDENCE_WINDOW',
+      idempotencyKey: 'idem-4',
+      grounds: 'other',
+      schemaRef: { publisher: 'local', type: 'ACH-TXN-v1', version: '1', manifestDigest: `sha256:${'0'.repeat(64)}` },
+    });
     const { url } = lastCall(fetch);
     expect(url).toContain('/federation/v1/disputes');
   });
