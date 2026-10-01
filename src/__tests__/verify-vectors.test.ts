@@ -126,8 +126,20 @@ describe('verifyExport: the same corpus pinned on the key each export names', ()
       }
       expect(result.valid).toBe(vector.expect === 'pass');
       if (vector.expect === 'fail') expect(result.brokenAt?.code).toBe(vector.failureCode);
-      // An unsupported format is refused before any key is read.
-      if (vector.failureCode !== 'UNSUPPORTED_FORMAT') expect(result.keyTrust.status).toBe('walked');
+      // An unsupported format is refused before any key is read. Otherwise the
+      // walk ran, and a run that verified no signature under an anchored key
+      // (an unsigned chain, or one that broke before its first signature) is
+      // no_anchored_signature: never a trusted verdict.
+      if (vector.failureCode !== 'UNSUPPORTED_FORMAT') {
+        expect(result.keyTrust.status).toBe(
+          result.signatureCoverage.signed > 0 ? 'walked' : 'no_anchored_signature',
+        );
+      }
+      if (vector.file === 'export/unsigned.json') {
+        expect(result.valid).toBe(true);
+        expect(result.keyTrust.status).toBe('no_anchored_signature');
+        expect(result.keyTrust.detail).toMatch(/not a trusted verdict/);
+      }
       if (vector.expect === 'pass' && result.signatureCoverage.signed > 0) {
         expect(result.optionalChecks.key_anchoring).toBe('applied');
       }
@@ -139,6 +151,12 @@ describe('verifyExport: the same corpus pinned on the key each export names', ()
     const pin = exportData.exportMetadata.anchoredFrom!;
     const result = verifyExport(exportData, { trustAnchors: [pin], distrustedKeys: [pin] });
     expect(result.brokenAt?.code).toBe('CHAIN_SIGNING_KEY_UNANCHORED');
+  });
+
+  it('distrustedKeys without trustAnchors throws TypeError rather than being ignored', () => {
+    const exportData = loadJson<RecordAuditExport>('export/valid.json');
+    const pin = exportData.exportMetadata.anchoredFrom!;
+    expect(() => verifyExport(exportData, { distrustedKeys: [pin] })).toThrow(TypeError);
   });
 
   it('a malformed anchor throws TypeError naming it', () => {
