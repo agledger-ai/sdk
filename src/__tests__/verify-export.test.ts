@@ -333,31 +333,37 @@ describe('verifyExport: COSE_Sign1 (format 2.0)', () => {
 
 
 describe('verifyExport: agent signatures sealed under an OIDC cert', () => {
-  // An unmodified export from a live API 1.8.0 instance: one Record written by
-  // a client whose bearer was oidcCertCredential, with that credential's
-  // public key captured beside it.
-  const fixture = JSON.parse(
-    readFileSync(new URL('./fixtures/agent-signed-export.json', import.meta.url), 'utf8'),
-  ) as { agentPublicKeyJwk: { kty: 'OKP'; crv: 'Ed25519'; x: string }; export: RecordAuditExport };
+  // An unmodified export from a scratch API 2.0.0 instance: one Record walked
+  // through its lifecycle by an agent whose bearer was an ephemeral OIDC cert
+  // and which signed every request body, and the public key that agent sent
+  // at cert exchange. The three gate entries are written by the worker and
+  // carry no agent signature.
+  const LIVE = new URL('./fixtures/live-2.0.0/', import.meta.url);
+  const exported = JSON.parse(readFileSync(new URL('export-cert-lifecycle.json', LIVE), 'utf8')) as RecordAuditExport;
+  const agentKey = (
+    JSON.parse(readFileSync(new URL('agent-cert-key.json', LIVE), 'utf8')) as {
+      publicKeyJwk: { kty: 'OKP'; crv: 'Ed25519'; x: string };
+    }
+  ).publicKeyJwk;
 
-  it('re-checks the body signature against the credential key', () => {
-    const result = verifyExport(fixture.export, { agentKeys: [fixture.agentPublicKeyJwk] });
+  it('re-checks every body signature against the credential key', () => {
+    const result = verifyExport(exported, { agentKeys: [agentKey] });
     expect(result.valid).toBe(true);
-    expect(result.agentSignatures).toEqual({ present: 1, verified: 1 });
+    expect(result.agentSignatures).toEqual({ present: 6, verified: 6 });
     expect(result.optionalChecks.agent_signature).toBe('applied');
   });
 
-  it('counts the signature and leaves it unchecked without the key', () => {
-    const result = verifyExport(fixture.export);
+  it('counts the signatures and leaves them unchecked without the key', () => {
+    const result = verifyExport(exported);
     expect(result.valid).toBe(true);
-    expect(result.agentSignatures).toEqual({ present: 1, verified: 0 });
+    expect(result.agentSignatures).toEqual({ present: 6, verified: 0 });
     expect(result.optionalChecks.agent_signature).toBe('skipped_no_input');
   });
 
   it('checks nothing against a key the entry does not name', () => {
     const { publicKey } = generateKeyPairSync('ed25519');
     const other = publicKey.export({ format: 'jwk' }) as { kty: 'OKP'; crv: 'Ed25519'; x: string };
-    const result = verifyExport(fixture.export, { agentKeys: [other] });
+    const result = verifyExport(exported, { agentKeys: [other] });
     expect(result.valid).toBe(true);
     expect(result.agentSignatures.verified).toBe(0);
     expect(result.optionalChecks.agent_signature).toBe('skipped_no_input');
