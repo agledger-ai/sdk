@@ -86,7 +86,6 @@ function buildEntry(
   return {
     // Current exports are chainPosition-only: no legacy `position`.
     chainPosition: position,
-    timestamp: '2026-04-17T00:00:00Z',
     createdAt: '2026-04-17T00:00:00Z',
     recordId,
     entryType: ENTRY_TYPE,

@@ -368,7 +368,7 @@ describe('CompletionsResource', () => {
 
   it('submits a completion with typed evidence', async () => {
     const { client, fetch } = createMockClient();
-    await client.completions.submit<'ACH-INFRA-v1'>('rec-123', {
+    await client.completions.submit('rec-123', {
       evidence: {
         action: 'deploy_service',
         resource_name: 'api-gateway',
@@ -634,7 +634,7 @@ describe('ComplianceResource', () => {
 
   it('creates AI impact assessment', async () => {
     const { client, fetch } = createMockClient();
-    await client.compliance.createAssessment('rec-123', { riskLevel: 'high', domain: 'healthcare' });
+    await client.compliance.createAssessment('rec-123', { riskLevel: 'high', domain: 'essential_services' });
     expect(fetch.mock.calls[0][0]).toContain('/records/rec-123/ai-impact-assessment');
   });
 
@@ -1240,8 +1240,8 @@ describe('AdminResource', () => {
    */
   it('replays ownerId alongside the cursor when auto-paginating api keys', async () => {
     const pages = [
-      { data: [{ id: 'key-1' }], hasMore: true, nextCursor: 'b2Zmc2V0OjE=' },
-      { data: [{ id: 'key-2' }], hasMore: false, nextCursor: null },
+      { data: [{ keyId: 'key-1' }], hasMore: true, nextCursor: 'b2Zmc2V0OjE=' },
+      { data: [{ keyId: 'key-2' }], hasMore: false, nextCursor: null },
     ];
     const fetch = vi.fn().mockImplementation(() => Promise.resolve({
       ok: true,
@@ -1258,7 +1258,7 @@ describe('AdminResource', () => {
 
     const seen: string[] = [];
     for await (const key of client.admin.listAllApiKeys({ ownerId: 'org-1' })) {
-      seen.push((key as { id: string }).id);
+      seen.push(key.keyId);
     }
 
     expect(seen).toEqual(['key-1', 'key-2']);
@@ -1285,12 +1285,12 @@ describe('AdminResource', () => {
     const { client, fetch } = createMockClient({
       id: 'agt-1', displayName: 'My Agent', createdAt: '2026-01-01T00:00:00Z',
     });
-    const result = await client.admin.createAgent({ name: 'My Agent', displayName: 'My Agent', orgId: 'org-1' });
+    const result = await client.admin.createAgent({ displayName: 'My Agent', orgId: 'org-1' });
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/admin/agents');
     expect(init.method).toBe('POST');
     const body = JSON.parse(init.body);
-    expect(body.name).toBe('My Agent');
+    expect(body.displayName).toBe('My Agent');
     expect(body.orgId).toBe('org-1');
     expect(result.id).toBe('agt-1');
   });
@@ -1370,14 +1370,14 @@ describe('AdminResource', () => {
   });
 
   it('patches org config with PATCH semantics', async () => {
-    const configPayload = { agentApprovalRequired: true, allowSelfApproval: false };
+    const configPayload = { enforcement: { advisoryMode: true } };
     const { client, fetch } = createMockClient(configPayload);
     await client.admin.updateOrgConfig('ent-1', configPayload);
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/admin/orgs/ent-1/config');
     expect(init.method).toBe('PATCH');
     const body = JSON.parse(init.body);
-    expect(body.agentApprovalRequired).toBe(true);
+    expect(body.enforcement.advisoryMode).toBe(true);
   });
 
   it('lists owner-level rate limit exemptions as owner ids', async () => {
@@ -1766,7 +1766,7 @@ describe('SchemasResource', () => {
 
   it('updates a version', async () => {
     const { client, fetch } = createMockClient();
-    await client.schemas.updateVersion('ACH-PROC-v1', 1, { status: 'DEPRECATED' });
+    await client.schemas.updateVersion('ACH-PROC-v1', 1, { compatibilityMode: 'backward' });
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/schemas/ACH-PROC-v1/versions/1');
     expect(init.method).toBe('PATCH');

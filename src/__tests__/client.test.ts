@@ -61,7 +61,6 @@ describe('AgledgerClient', () => {
     const fetch = mockFetch();
     const client = new AgledgerClient({
       apiKey: 'test',
-      baseUrl: 'https://agledger.test',
       baseUrl: 'https://agledger.staging.example.com',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });

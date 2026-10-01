@@ -316,7 +316,7 @@ describe('HttpClient', () => {
         json: { error: 'validation', detail: 'Bad request', details: [{ field: 'name', message: 'required' }] },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e) => e);
+      const err = await client.get('/test').catch((e: unknown) => e) as any;
       expect(err).toBeInstanceOf(ValidationError);
       expect(err.validationErrors).toHaveLength(1);
       expect(err.validationErrors[0].field).toBe('name');
@@ -340,7 +340,7 @@ describe('HttpClient', () => {
         headers: { 'Retry-After': '5' },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e) => e);
+      const err = await client.get('/test').catch((e: unknown) => e) as any;
       expect(err).toBeInstanceOf(RateLimitError);
       expect(err.retryAfter).toBe(5000);
     });
@@ -354,7 +354,7 @@ describe('HttpClient', () => {
         json: { error: 'rate_limit', detail: 'Too many requests', retryAfterSeconds: 7 },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e) => e);
+      const err = await client.get('/test').catch((e: unknown) => e) as any;
       expect(err).toBeInstanceOf(RateLimitError);
       expect(err.retryAfter).toBe(7000);
     });
@@ -367,7 +367,7 @@ describe('HttpClient', () => {
         headers: { 'Retry-After': '3' },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e) => e);
+      const err = await client.get('/test').catch((e: unknown) => e) as any;
       expect(err.retryAfter).toBe(3000);
     });
 
@@ -378,7 +378,7 @@ describe('HttpClient', () => {
         json: { error: 'validation', detail: 'Bad', retryable: false },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e) => e);
+      const err = await client.get('/test').catch((e: unknown) => e) as any;
       expect(err.retryable).toBe(false);
     });
 
@@ -389,7 +389,7 @@ describe('HttpClient', () => {
         json: { error: 'server', detail: 'Internal error' },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e) => e);
+      const err = await client.get('/test').catch((e: unknown) => e) as any;
       expect(err.retryable).toBe(true);
     });
 
@@ -400,7 +400,7 @@ describe('HttpClient', () => {
         json: { error: 'RECORD_NOT_ACTIVE', detail: 'fail' },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e) => e);
+      const err = await client.get('/test').catch((e: unknown) => e) as any;
       expect(err.code).toBe('RECORD_NOT_ACTIVE');
     });
   });

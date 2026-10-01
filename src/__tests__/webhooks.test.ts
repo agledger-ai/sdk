@@ -153,7 +153,7 @@ describe('RFC 9421 (ed25519) Webhook Verification', () => {
   const spkiBase64 = kp.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
   const rawBase64 = Buffer.from(kp.publicKey.export({ format: 'jwk' }).x as string, 'base64url').toString('base64');
   const verificationKeys: VerificationKey[] = [
-    { keyId, algorithm: 'Ed25519', publicKey: spkiBase64, publicKeyRaw: rawBase64, status: 'active', activatedAt: '2026-01-01', retiredAt: null },
+    { keyId, algorithm: 'Ed25519', publicKey: spkiBase64, publicKeyRaw: rawBase64, status: 'active', activatedAt: '2026-01-01', retiredAt: null, statements: [] },
   ];
   const body = '{"type":"signal.emitted","data":{"recordId":"rec-1","signal":"SETTLE"},"timestamp":"2026-05-25T00:00:00Z","id":"evt-9"}';
   const idk = '11111111-2222-3333-4444-555555555555';
@@ -283,7 +283,7 @@ describe('RFC 9421 (ecdsa-p256-sha256) Webhook Verification', () => {
   const keyId = 'f6e5d4c3b2a10897';
   const spkiBase64 = kp.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
   const verificationKeys: VerificationKey[] = [
-    { keyId, algorithm: 'ES256', coseAlgorithm: -7, publicKey: spkiBase64, status: 'active', activatedAt: '2026-08-01', retiredAt: null },
+    { keyId, algorithm: 'ES256', coseAlgorithm: -7, publicKey: spkiBase64, status: 'active', activatedAt: '2026-08-01', retiredAt: null, statements: [] },
   ];
   const body = '{"type":"signal.emitted","data":{"recordId":"rec-2","signal":"SETTLE"},"timestamp":"2026-08-05T00:00:00Z","id":"evt-10"}';
   const idk = '66666666-7777-8888-9999-aaaaaaaaaaaa';
