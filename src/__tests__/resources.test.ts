@@ -1877,7 +1877,7 @@ describe('SchemasResource', () => {
   });
 });
 
-describe('API 1.8.0 client surface', () => {
+describe('fleet capabilities, reference lookups, trusted issuers and rate-limit exemptions', () => {
   it('filters fleet capabilities by type, and still takes options first', async () => {
     const { client, fetch } = createMockClient({ data: [{ agentId: 'a1', displayName: null, contractTypes: ['t1'] }], total: 1 });
     const page = await client.admin.getFleetCapabilities({ type: 't1' });
