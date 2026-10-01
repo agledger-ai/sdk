@@ -26,6 +26,7 @@ export type {
   AgentPublicKeyJwk,
   DistrustedKey,
   KeyTrustReport,
+  KeyTrustStatus,
   KeyRegistryFinding,
   KeyRegistryFindingCode,
   OptionalCheck,
@@ -42,23 +43,28 @@ export type {
  * you took out of band (the installer prints the first one). The signed key
  * statements the export carries are then walked from your pin; an entry
  * signed by a key the walk does not reach fails
- * `CHAIN_SIGNING_KEY_UNANCHORED`, and a statement that does not hold fails at
- * position 0 with `KEY_STATEMENT_INVALID`, `KEY_CLOSURE_INVALID` or
- * `CHAIN_KEY_WINDOW_DRIFT` (listed in `result.keyTrust.findings`).
+ * `CHAIN_SIGNING_KEY_UNANCHORED`, and a statement that does not hold is
+ * `KEY_STATEMENT_INVALID`, `KEY_CLOSURE_INVALID` or `CHAIN_KEY_WINDOW_DRIFT`,
+ * listed in `result.keyTrust.findings`. Those fail the result at position 0
+ * when the chain itself is intact; when it also breaks, `brokenAt` is the
+ * chain failure.
  *
  * Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
  * `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can
  * still be true, and it then means the chain verifies against keys nobody
- * pinned: a key written into the Server's database alone would pass. Read
- * `valid` together with `keyTrust.status === 'walked'` before calling a chain
- * trusted. `exportMetadata.anchoredFrom` is the export's own claim of the
+ * pinned: a key written into the Server's database alone would pass. With
+ * `trustAnchors`, a run in which no signature verified under an anchored key
+ * (an export of unsigned history, say) is `'no_anchored_signature'`, and is no
+ * more trusted. Call a chain trusted only when `valid` is true and
+ * `keyTrust.status === 'walked'`; treat `'no_anchor'` and
+ * `'no_anchored_signature'` alike as unanchored. `exportMetadata.anchoredFrom` is the export's own claim of the
  * Server's key; `keyTrust.anchoredFromPinned` says whether it matches one of
  * your anchors, and it never counts as an anchor itself.
  *
  * `distrustedKeys` mirrors the Server's `VAULT_DISTRUSTED_KEYS`
  * (`sha256:<hex>`, optionally `@<RFC 3339 instant>`): what such a key signed
  * from that instant counts for nothing in the walk. It is read only together
- * with `trustAnchors`.
+ * with `trustAnchors`, and passing it without them throws `TypeError`.
  *
  * `options.publicKeys` accepts the `.data` array from
  * `client.verificationKeys.list()` (whose `statements` are walked with the

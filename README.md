@@ -464,7 +464,7 @@ if (!result.valid) {
     `Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.code}`,
   );
 }
-console.log(result.keyTrust.status); // 'walked'; 'no_anchor' when no trustAnchors were given
+console.log(result.keyTrust.status); // 'walked'; 'no_anchor' or 'no_anchored_signature' when unanchored
 ```
 
 Decodes canonical COSE_Sign1 envelopes (RFC 9052, tag 18), walks the hash
@@ -492,18 +492,23 @@ statements the export carries from it:
 - an entry signed by a key the walk does not reach fails
   `CHAIN_SIGNING_KEY_UNANCHORED`, and each anchored key is held to the window
   its statements sign;
-- a statement that does not hold fails the result at position 0 with
-  `KEY_STATEMENT_INVALID`, `KEY_CLOSURE_INVALID` or `CHAIN_KEY_WINDOW_DRIFT`,
-  listed in `result.keyTrust.findings`;
+- a statement that does not hold is `KEY_STATEMENT_INVALID`,
+  `KEY_CLOSURE_INVALID` or `CHAIN_KEY_WINDOW_DRIFT`, listed in
+  `result.keyTrust.findings`; it fails the result at position 0 when the chain
+  itself is intact, and when the chain also breaks `brokenAt` is the chain
+  failure;
 - `distrustedKeys` takes the operator's `VAULT_DISTRUSTED_KEYS` entries
   (`sha256:<hex>`, optionally `@<RFC 3339 instant>`): what such a key signed
-  from that instant counts for nothing. It is read only with `trustAnchors`.
+  from that instant counts for nothing. It is read only with `trustAnchors`,
+  and passing it without them throws `TypeError`.
 
 Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
 `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can
-still be true; it then says the chain is intact against keys nobody pinned, so
-treat a chain as trusted only when `valid` is true and `keyTrust.status` is
-`'walked'`. The export's `exportMetadata.anchoredFrom` names the Server's own
+still be true; it then says the chain is intact against keys nobody pinned.
+With `trustAnchors`, a run in which no signature verified under an anchored
+key, as for an export of unsigned history, is `'no_anchored_signature'`, and is
+no more trusted. Treat both alike as unanchored, and a chain as trusted only
+when `valid` is true and `keyTrust.status` is `'walked'`. The export's `exportMetadata.anchoredFrom` names the Server's own
 key; `keyTrust.anchoredFromPinned` says whether it is one of your anchors, and
 it never counts as one.
 
