@@ -441,12 +441,22 @@ export class AdminResource {
    * Update an API key: activate or deactivate it, change its scopes, or
    * replace its IP allow-list. The response carries the fields that can
    * change, not the whole key row.
+   *
+   * Revocation is one-way for an admin key: it may set `isActive: false` on
+   * any key it reaches, but `isActive: true` on a revoked key is 403
+   * `PLATFORM_REQUIRED`. Issue a replacement key, or restore it with a
+   * platform credential.
    */
   updateApiKey(keyId: string, params: UpdateApiKeyParams, options?: RequestOptions): Promise<UpdateApiKeyResult> {
     return this.http.patch<UpdateApiKeyResult>(`/v1/admin/api-keys/${keyId}`, params, options);
   }
 
-  /** Enable or disable an API key. Convenience wrapper around updateApiKey. */
+  /**
+   * Disable an API key, or re-enable a revoked one. Convenience wrapper around
+   * updateApiKey. Only a platform credential can re-enable: under an admin key
+   * `toggleApiKey(keyId, true)` on a revoked key is 403 `PLATFORM_REQUIRED`,
+   * so an admin key issues a replacement instead.
+   */
   toggleApiKey(keyId: string, isActive: boolean, options?: RequestOptions): Promise<UpdateApiKeyResult> {
     return this.updateApiKey(keyId, { isActive }, options);
   }

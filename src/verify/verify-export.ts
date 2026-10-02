@@ -28,6 +28,7 @@ export type {
   KeyTrustReport,
   KeyTrustNote,
   KeyTrustStatus,
+  Verdict,
   KeyRegistryFinding,
   KeyRegistryFindingCode,
   OptionalCheck,
@@ -56,20 +57,25 @@ export type {
  * pinned: a key written into the Server's database alone would pass. With
  * `trustAnchors`, a run in which no signature verified under an anchored key
  * (an export of unsigned history, say) is `'no_anchored_signature'`, and is no
- * more trusted. Call a chain trusted only when `valid` is true and
- * `keyTrust.status === 'walked'`; treat `'no_anchor'` and
- * `'no_anchored_signature'` alike as unanchored. `exportMetadata.anchoredFrom` is the export's own claim of the
+ * more trusted. `result.verdict` says it in one word: `'trusted'` only when
+ * `valid` is true and `keyTrust.status === 'walked'`, `'unanchored'` for a
+ * valid result on `'no_anchor'` or `'no_anchored_signature'`, and `'failed'`
+ * otherwise. Read `verdict`, not `valid` alone. `exportMetadata.anchoredFrom` is the export's own claim of the
  * Server's key; `keyTrust.anchoredFromPinned` says whether it matches one of
  * your anchors, and it never counts as an anchor itself.
  *
  * `distrustedKeys` mirrors the Server's `VAULT_DISTRUSTED_KEYS`
  * (`sha256:<hex>`, optionally `@<RFC 3339 instant>`): what such a key signed
  * from that instant counts for nothing in the walk. It is read only together
- * with `trustAnchors`, and passing it without them throws `TypeError`.
+ * with `trustAnchors`, and passing it without them throws `TypeError`, as does
+ * a key both pinned and distrusted (the Server refuses to start with that
+ * pair: pin the successor of a key that leaked). An option this function does
+ * not read throws `TypeError` too, so a misspelt option, or 1.x's
+ * `requireOutOfBandKeys` (now `requireSuppliedKeys`), cannot switch a check off.
  *
- * `options.publicKeys` accepts the `.data` array from
- * `client.verificationKeys.list()` (whose `statements` are walked with the
- * export's) or a compact `Record<keyId, b64SPKI>` map. The wrong shape, or a
+ * `options.publicKeys` accepts the result of `client.verificationKeys.list()`
+ * or its `.data` array (whose `statements` are walked with the export's), or
+ * a compact `Record<keyId, b64SPKI>` map. The wrong shape, or a
  * malformed anchor or distrusted key, throws `TypeError`. `result.keyProvenance`
  * counts signatures checked against `supplied` vs export-`embedded` keys: where
  * a key came from, not whether it is trusted. `requireSuppliedKeys` refuses
@@ -81,9 +87,9 @@ export type {
  *
  * const exp = await client.records.getAuditExport('REC_123');
  * const result = verifyExport(exp, { trustAnchors: [process.env.AGLEDGER_VAULT_KEY_PIN!] });
- * if (!result.valid) {
+ * if (result.verdict === 'failed') {
  *   console.error(`Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.code}`);
- * } else if (result.keyTrust.status !== 'walked') {
+ * } else if (result.verdict === 'unanchored') {
  *   console.warn(result.keyTrust.detail);
  * }
  * ```
