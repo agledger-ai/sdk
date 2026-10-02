@@ -283,6 +283,12 @@ describe('an API key row carries what the Server sends and nothing else', () => 
     expectTypeOf<CreateApiKeyParams>().not.toHaveProperty('environment');
   });
 
+  it('pairs each role with the one owner kind the Server accepts for it', () => {
+    expectTypeOf<{ role: 'admin'; ownerType: 'org'; ownerId: string }>().toExtend<CreateApiKeyParams>();
+    expectTypeOf<{ role: 'admin'; ownerType: 'agent'; ownerId: string }>().not.toExtend<CreateApiKeyParams>();
+    expectTypeOf<{ role: 'agent'; ownerType: 'org'; ownerId: string }>().not.toExtend<CreateApiKeyParams>();
+  });
+
   it('names the key keyId and carries no phantom fields', () => {
     expectTypeOf<AdminApiKey['keyId']>().toEqualTypeOf<string>();
     expectTypeOf<AdminApiKey>().not.toHaveProperty('id');
