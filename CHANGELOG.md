@@ -66,6 +66,7 @@ Reconciled against API 2.0. The 3.x SDK targets API 2.0 only (the version is 3.0
 
 ### Fixed
 
+- **Key statements are walked in write order.** Every API 2.0 export carries each statement's `id` and `createdAt`, and `verifyExport` orders the walk by them (`createdAt`, then `id`) as the Server does, rather than by the instants the statements sign, so `keyTrust.order` is `'written'` and findings name the statement row. A trusted key's later admissions now date its window as the Server's do, and a listed window the walk grades more loosely than the export states is `CHAIN_KEY_WINDOW_DRIFT`.
 - From 1.13.0: **a Record received from a federation peer type-checks.** `RecordRow.federationStatus` is the open `RecordFederationStatus`, which names `inbound`.
 
 ### Documentation
