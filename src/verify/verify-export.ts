@@ -26,6 +26,7 @@ export type {
   AgentPublicKeyJwk,
   DistrustedKey,
   KeyTrustReport,
+  KeyTrustNote,
   KeyTrustStatus,
   KeyRegistryFinding,
   KeyRegistryFindingCode,
