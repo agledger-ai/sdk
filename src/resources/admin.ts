@@ -26,6 +26,7 @@ import type {
   DeactivateAgentParams,
   DeactivateOrgParams,
   DeactivateResult,
+  DlqDiscardResult,
   DlqRetryAllResult,
   DlqRetryResult,
   FleetCapabilitiesParams,
@@ -537,6 +538,15 @@ export class AdminResource {
   /** Retry all dead-letter queue entries. */
   retryAllDlq(options?: RequestOptions): Promise<DlqRetryAllResult> {
     return this.http.post<DlqRetryAllResult>('/v1/admin/webhook-dlq/retry-all', undefined, options);
+  }
+
+  /**
+   * Discard a dead-letter queue entry on any subscription without delivering
+   * it (platform key). This is how an entry whose subscription is inactive is
+   * cleared. The event itself is kept.
+   */
+  discardDlq(dlqId: string, options?: RequestOptions): Promise<DlqDiscardResult> {
+    return this.http.delete<DlqDiscardResult>(`/v1/admin/webhook-dlq/${dlqId}`, undefined, options);
   }
 
   /** Get system health metrics (platform admin). */

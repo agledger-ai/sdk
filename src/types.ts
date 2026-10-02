@@ -1794,7 +1794,19 @@ export type StructuralValidation = 'ACCEPTED' | 'INVALID' | 'WARNING' | (string 
 export interface Completion {
   id: string;
   recordId: string;
-  agentId: string;
+  /**
+   * The agent that submitted it. Null on the completion the engine synthesizes
+   * for a delegation parent when its children's failure rollup is held for the
+   * principal's verdict (`rollupSynthesized: true`); every agent-submitted
+   * completion carries one.
+   */
+  agentId: string | null;
+  /**
+   * True on a completion the engine wrote for a delegation parent from its
+   * children's failure rollup rather than one an agent submitted. A principal
+   * cannot accept it: reject, then revise and resubmit.
+   */
+  rollupSynthesized?: boolean;
   evidence: Record<string, unknown>;
   evidenceHash?: string;
   /** Structural validation result: ACCEPTED, INVALID, or WARNING. */
@@ -3449,9 +3461,23 @@ export interface StatusComponent {
    * (`unreachable`, `saturated`, `no_connection`, `pool_exhausted`,
    * `shutting_down`, `error`). On the Chain writes component at `degraded`:
    * `chain_rewind_detected`, meaning every chain write answers 409 until an
-   * operator acknowledges with `admin.vault.rewind.acknowledge()`.
+   * operator acknowledges with `admin.vault.rewind.acknowledge()`. On Chain
+   * writes at `outage`: `database_unavailable` (the Database component is at
+   * `outage`) or `signing_key_unusable` (this process's vault signing key may
+   * not sign, so every chain write answers 503). On Workers:
+   * `database_unavailable` at `outage`; at `degraded`, `no_worker_connected`
+   * (no worker is attached), `worker_not_consuming` (one is attached but has
+   * stopped taking jobs), `not_checked` (the database could not be asked), or
+   * `error`.
    */
-  reason?: DatabaseProbeFailure | 'chain_rewind_detected';
+  reason?:
+    | DatabaseProbeFailure
+    | 'chain_rewind_detected'
+    | 'database_unavailable'
+    | 'signing_key_unusable'
+    | 'no_worker_connected'
+    | 'worker_not_consuming'
+    | 'not_checked';
 }
 
 export interface StatusResponse {
@@ -3966,7 +3992,7 @@ export interface UpdateApiKeyParams {
 
 /** Result of `PATCH /v1/admin/api-keys/{keyId}`. */
 export interface UpdateApiKeyResult {
-  id?: string;
+  keyId?: string;
   isActive?: boolean;
   scopes?: string[] | null;
   scopeProfile?: string | null;
@@ -4081,6 +4107,11 @@ export interface AdminWebhookDlqEntry {
   errorMessage: string;
   attempts: number;
   createdAt: string;
+  /**
+   * False when the subscription is deleted, disabled or pruned. A retry of the
+   * entry is then refused; discard it with `admin.discardDlq()`.
+   */
+  subscriptionActive?: boolean;
 }
 
 /** Result of retrying one dead-letter entry. */
@@ -4093,7 +4124,36 @@ export interface DlqRetryResult {
 export interface DlqRetryAllResult {
   retried?: number;
   failed?: number;
+  /**
+   * Entries left in place because their subscription is inactive. They cannot
+   * be delivered; discard each with `admin.discardDlq()`.
+   */
+  skippedInactive?: number;
   nextSteps?: NextStep[];
+}
+
+/** Result of discarding one dead-lettered delivery without delivering it. */
+export interface DlqDiscardResult {
+  discarded: boolean;
+  dlqId: string;
+  /** The subscription the entry belonged to. */
+  webhookId: string;
+  nextSteps?: NextStep[];
+}
+
+/** Result of `DELETE /v1/webhooks/{webhookId}`. */
+export interface WebhookDeleteResult {
+  webhookId: string;
+  /** Always false: the subscription is deactivated. */
+  isActive: false;
+  /**
+   * Dead-lettered deliveries this subscription still holds. Each keeps
+   * `admin.systemHealth()` degraded until discarded with
+   * `webhooks.discardDlq()`; a retry is refused. Repeating the delete answers
+   * the current count.
+   */
+  deadLetters: number;
+  nextSteps: NextStep[];
 }
 
 /** Per-queue pg-boss job counts, as reported by the admin ops surfaces. */
@@ -4104,7 +4164,6 @@ export interface QueueCounts {
   failed: number;
 }
 
-/** Response of `GET /v1/admin/system-health`. */
 /** Why the database probe did not answer. See `SystemHealth.database.failure`. */
 type DatabaseProbeFailure =
   | 'unreachable'
@@ -4125,6 +4184,7 @@ export interface ConnectedVersion {
   oldestConnectionAt?: string | null;
 }
 
+/** Response of `GET /v1/admin/system-health`. */
 export interface SystemHealth {
   /**
    * `degraded` when the database cannot serve, or when anything is dead-lettered
@@ -4192,6 +4252,15 @@ export interface SystemHealth {
    * the same as nothing being connected.
    */
   connectedVersions?: ConnectedVersion[] | null;
+  /**
+   * Database connections held by worker processes, read from the role each
+   * AGLedger connection names in its `application_name`. `0` degrades
+   * `status`: nothing is processing the jobs this API enqueues. Null when this
+   * process runs no job queue or `pg_stat_activity` could not be read (which
+   * also degrades `status`). A worker whose `application_name` was overridden
+   * in `DATABASE_URL` is not counted.
+   */
+  workerConnections?: number | null;
   process: {
     /** Resident set size in MB. */
     rssMb: number;
@@ -4441,6 +4510,8 @@ export interface SupportBundle {
     webhookDeadLetters?: number | null;
     /** Same as {@link SystemHealth.connectedVersions}. */
     connectedVersions?: ConnectedVersion[] | null;
+    /** Same as {@link SystemHealth.workerConnections}. */
+    workerConnections?: number | null;
     process?: { rssMb?: number; heapUsedMb?: number; heapTotalMb?: number };
     timestamp?: string;
   };
@@ -5295,6 +5366,30 @@ export interface VaultRewindOpenFinding {
    * finding.
    */
   acknowledgement?: { epochEntryId: string; reason: string } | null;
+  /**
+   * Set when an acknowledgement recorded before this finding holds its
+   * position (the same finding acknowledged earlier and recorded open again,
+   * or a range acknowledged around this fork). That acknowledgement does not
+   * cover it; the next one does. Shown only when a `RESTORE_EPOCH` this Server
+   * signed, verified by the answering process, lists that range; null
+   * otherwise.
+   */
+  previousAcknowledgement?: {
+    /** The `RESTORE_EPOCH` entry the earlier acknowledgement wrote. */
+    epochEntryId: string;
+    acknowledgedAt: string;
+    /** The range the earlier acknowledgement covered, above this position. */
+    loPosition: number;
+    hiPosition: number;
+    /** The operator's note, as that `RESTORE_EPOCH` signs it. */
+    note: string | null;
+    /**
+     * Why this finding is open over it, rendered by the Server from a fixed
+     * cause code: the answering process's signing key gate, why the
+     * acknowledgement stopped counting, or new evidence.
+     */
+    reopenedBecause: string;
+  } | null;
 }
 
 /**
@@ -5960,7 +6055,15 @@ export interface VerificationKey {
  * `cty` `application/vnd.agledger.key-statement+cbor`.
  */
 export interface SigningKeyStatement {
+  /** The statement row's id: the tie-break of the write order. */
+  id: string;
   kind: 'succession' | 'closure' | 'genesis';
+  /**
+   * When the database stored the statement (RFC 3339 UTC, microsecond
+   * precision). The trust walk orders every statement by `createdAt`, then
+   * `id`, never by an instant a statement signs.
+   */
+  createdAt: string;
   /** Base64 COSE_Sign1, in signing order. */
   cose: string[];
 }
@@ -6427,6 +6530,12 @@ export interface OpsSummary {
       bucket: string | null;
       workerEnabled: boolean | null;
       reconciled: boolean | null;
+      /**
+       * The instance id this database carries (`AGLEDGER_INSTANCE_ID` as first
+       * booted). Every anchor object is under `vault-anchors/<instanceId>/` in
+       * the bucket. Null only before any process has booted against it.
+       */
+      instanceId: string | null;
     };
     /**
      * Read-transparency (`org_admin_reads`) checkpoint sweep posture. The sweep
@@ -6443,16 +6552,22 @@ export interface OpsSummary {
       workerScheduled: boolean | null;
     };
     /**
-     * Whether a detected rewind refuses chain writes on this Server, read from
-     * the database. `refused: true` means record, completion, verdict, schema
-     * and SCITT writes answer 409 `CHAIN_REWIND_DETECTED`, because the external
-     * anchors disagree with the database or an acknowledgement that lifted an
-     * earlier refusal stopped counting. `refused: null` means the state could
-     * not be read. `admin.vault.rewind.get()` has the detail and
+     * Whether chain writes (record, completion, verdict, schema and SCITT
+     * writes) are refused on this process, and why. `refusedBecause` lists
+     * every cause in force: `signing_key_unusable` means this process's vault
+     * signing key may not sign (`signingKeyGate` says why) and every chain
+     * write answers 503; `chain_rewind_detected` means every chain write
+     * answers 409 `CHAIN_REWIND_DETECTED`, because the external anchors
+     * disagree with the database or an acknowledgement that lifted an earlier
+     * refusal stopped counting. `refused: null` means the rewind state could
+     * not be read and the signing key refuses nothing.
+     * `admin.vault.rewind.get()` has the rewind detail and
      * `admin.vault.rewind.acknowledge()` lifts it.
      */
     chainWrites: {
       refused: boolean | null;
+      refusedBecause: Array<'signing_key_unusable' | 'chain_rewind_detected'>;
+      signingKeyGate: 'signer_unreachable' | 'unanchored' | 'retired' | null;
       rewindDetectedAt: string | null;
       /** Findings the next acknowledgement would cover. */
       openFindings: number | null;
@@ -6460,6 +6575,12 @@ export interface OpsSummary {
   };
   webhooks: {
     circuitBreakers: { closed: number; half_open: number; open: number };
+    /**
+     * Subscriptions that deliver nothing: deleted, disabled after a 410 or
+     * sustained failures, or pruned by provisioning. Their dead-lettered
+     * deliveries are cleared with `admin.discardDlq()`.
+     */
+    inactive: number;
   };
   /**
    * Audit-log partition runway, one entry per monthly-partitioned table.
