@@ -8,6 +8,8 @@ import type {
   WebhookDlqEntry,
   DlqRetryResult,
   DlqRetryAllResult,
+  DlqDiscardResult,
+  WebhookDeleteResult,
   Page,
   CursorListParams,
   ListWebhooksParams,
@@ -59,9 +61,13 @@ export class WebhooksResource {
     return this.http.patch<Webhook>(`/v1/webhooks/${webhookId}`, params, options);
   }
 
-  /** Deactivate a webhook subscription. */
-  delete(webhookId: string, options?: RequestOptions): Promise<void> {
-    return this.http.delete(`/v1/webhooks/${webhookId}`, undefined, options);
+  /**
+   * Deactivate a webhook subscription. Its dead-lettered deliveries stay in the
+   * DLQ, where a retry is now refused; `deadLetters` counts them and each keeps
+   * system health degraded until discarded with `discardDlq()`.
+   */
+  delete(webhookId: string, options?: RequestOptions): Promise<WebhookDeleteResult> {
+    return this.http.delete<WebhookDeleteResult>(`/v1/webhooks/${webhookId}`, undefined, options);
   }
 
   /** Pause webhook deliveries. The subscription remains active but deliveries are held. */
@@ -118,5 +124,14 @@ export class WebhooksResource {
   /** Retry a single dead-letter queue entry for a specific webhook. */
   retryDlq(webhookId: string, dlqId: string, options?: RequestOptions): Promise<DlqRetryResult> {
     return this.http.post<DlqRetryResult>(`/v1/webhooks/${webhookId}/dlq/${dlqId}/retry`, undefined, options);
+  }
+
+  /**
+   * Discard a dead-letter queue entry without delivering it. On an inactive
+   * subscription this is the only way to clear one. The event itself is kept:
+   * `events.list()` and the record still carry it.
+   */
+  discardDlq(webhookId: string, dlqId: string, options?: RequestOptions): Promise<DlqDiscardResult> {
+    return this.http.delete<DlqDiscardResult>(`/v1/webhooks/${webhookId}/dlq/${dlqId}`, undefined, options);
   }
 }

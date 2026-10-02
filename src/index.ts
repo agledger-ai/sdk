@@ -239,6 +239,8 @@ export type {
   BulkRevokeApiKeysResult,
   CreateAgentResult,
   DlqRetryAllResult,
+  DlqDiscardResult,
+  WebhookDeleteResult,
   DlqRetryResult,
   FleetCapabilitiesParams,
   FleetCapabilityEntry,

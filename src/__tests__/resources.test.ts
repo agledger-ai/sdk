@@ -555,21 +555,21 @@ describe('WebhooksResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/webhooks/wh-123/ping');
   });
 
-  it('deletes a webhook', async () => {
-    const fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 204,
-      json: vi.fn(),
-      headers: new Headers(),
-    });
-    const client = new AgledgerClient({
-      apiKey: 'test',
-      baseUrl: 'https://agledger.test',
-      fetch: fetch as unknown as typeof globalThis.fetch,
-      maxRetries: 0,
-    });
-    await client.webhooks.delete('wh-123');
+  it('deletes a webhook and returns the dead letters it still holds', async () => {
+    const body = { webhookId: 'wh-123', isActive: false, deadLetters: 2, nextSteps: [] };
+    const { client, fetch } = createMockClient(body);
+    const result = await client.webhooks.delete('wh-123');
     expect(fetch.mock.calls[0][1].method).toBe('DELETE');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123');
+    expect(result.deadLetters).toBe(2);
+  });
+
+  it('discards a DLQ entry on one webhook', async () => {
+    const { client, fetch } = createMockClient({ discarded: true, dlqId: 'dlq-1', webhookId: 'wh-123' });
+    const result = await client.webhooks.discardDlq('wh-123', 'dlq-1');
+    expect(fetch.mock.calls[0][1].method).toBe('DELETE');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/webhooks/wh-123/dlq/dlq-1');
+    expect(result.discarded).toBe(true);
   });
 
   it('lists deliveries with status filter', async () => {
@@ -1173,6 +1173,13 @@ describe('AdminResource', () => {
     const { client, fetch } = createMockClient();
     await client.admin.retryDlq('dlq-123');
     expect(fetch.mock.calls[0][0]).toContain('/v1/admin/webhook-dlq/dlq-123/retry');
+  });
+
+  it('discards a DLQ entry on any webhook', async () => {
+    const { client, fetch } = createMockClient({ discarded: true, dlqId: 'dlq-123', webhookId: 'wh-1' });
+    await client.admin.discardDlq('dlq-123');
+    expect(fetch.mock.calls[0][1].method).toBe('DELETE');
+    expect(fetch.mock.calls[0][0]).toContain('/v1/admin/webhook-dlq/dlq-123');
   });
 
   it('gets system health', async () => {
