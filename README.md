@@ -499,7 +499,9 @@ statements the export carries from it:
   failure;
 - `distrustedKeys` takes the operator's `VAULT_DISTRUSTED_KEYS` entries
   (`sha256:<hex>`, optionally `@<RFC 3339 instant>`): what such a key signed
-  from that instant counts for nothing. It is read only with `trustAnchors`,
+  from that instant counts for nothing, and a key statement it signed counts
+  for nothing at any instant, because the write times an export carries are
+  not signed. It is read only with `trustAnchors`,
   and passing it without them throws `TypeError`.
 
 Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
