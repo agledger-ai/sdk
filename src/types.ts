@@ -3952,12 +3952,19 @@ export interface AdminApiKey {
   scopeProfile?: ScopeProfileName | null;
 }
 
-export interface CreateApiKeyParams {
-  /** Role for the key: admin, agent, or platform. */
-  role: ApiKeyRole;
+/**
+ * The role a key acts as and the owner kind that holds it. The role fixes the
+ * owner kind: an admin key is owned by an org (`ownerId` is the org id), an
+ * agent key by an agent, a platform key by the platform. Any other pair is a
+ * 400 whose `recoveryHint` lists the valid ones.
+ */
+export type ApiKeyRoleOwner =
+  | { role: Extract<ApiKeyRole, 'admin'>; ownerType: Extract<KeyOwnerType, 'org'> }
+  | { role: Extract<ApiKeyRole, 'agent'>; ownerType: Extract<KeyOwnerType, 'agent'> }
+  | { role: Extract<ApiKeyRole, 'platform'>; ownerType: Extract<KeyOwnerType, 'platform'> };
+
+export type CreateApiKeyParams = ApiKeyRoleOwner & {
   ownerId: string;
-  /** Owner class. An admin key is owned by an org: `role: 'admin'` + `ownerType: 'org'`. */
-  ownerType: KeyOwnerType;
   /** Human-readable label. */
   label?: string;
   /** Explicit scopes to set on the key. */
@@ -3968,7 +3975,7 @@ export interface CreateApiKeyParams {
   expiresAt?: string;
   /** IP allow-list: addresses or CIDR blocks. Omit for any address. */
   allowedIps?: string[];
-}
+};
 
 /**
  * Parameters for PATCH /v1/admin/api-keys/{keyId}. Status, scopes and the IP

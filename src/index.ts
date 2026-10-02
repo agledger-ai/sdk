@@ -262,6 +262,7 @@ export type {
   DisputesConfig,
   AutoReadjudicateConfig,
   CreateApiKeyParams,
+  ApiKeyRoleOwner,
   UpdateApiKeyParams,
   CreateApiKeyResult,
   WebhookDlqEntry,
