@@ -29,8 +29,7 @@ interface ManifestVector {
   options?: {
     keysFile?: string;
     requireKeyId?: string;
-    /** The manifest's name for `requireSuppliedKeys` (API-owned corpus). */
-    requireOutOfBandKeys?: boolean;
+    requireSuppliedKeys?: boolean;
     /**
      * A JSON array of agent cert public keys (JWKs). Unmapped, a vector that
      * expects `CHAIN_AGENT_SIGNATURE_INVALID` runs with no agent keys, the
@@ -59,7 +58,7 @@ function optionsFor(vector: ManifestVector): VerifyExportOptions {
     options.publicKeys = loadJson<Record<string, string>>(vector.options.keysFile);
   }
   if (vector.options?.requireKeyId) options.requireKeyId = vector.options.requireKeyId;
-  if (vector.options?.requireOutOfBandKeys) options.requireSuppliedKeys = true;
+  if (vector.options?.requireSuppliedKeys) options.requireSuppliedKeys = true;
   if (vector.options?.agentKeysFile) {
     options.agentKeys = loadJson<NonNullable<VerifyExportOptions['agentKeys']>>(
       vector.options.agentKeysFile,
@@ -71,7 +70,17 @@ function optionsFor(vector: ManifestVector): VerifyExportOptions {
 // A digest no statement links to, for vectors whose export names no Server key.
 const STRANGER = `sha256:${'ab'.repeat(32)}`;
 
+// An option this runner does not map runs the vector without it, and a renamed
+// key (requireOutOfBandKeys became requireSuppliedKeys) then passes or fails
+// for the wrong reason. Fail on any key not listed here.
+const MAPPED_OPTIONS = new Set(['keysFile', 'requireKeyId', 'requireSuppliedKeys', 'agentKeysFile']);
+
 describe('verifyExport: shared conformance corpus', () => {
+  it('maps every option the manifest uses', () => {
+    const used = new Set(exportVectors.flatMap((v) => Object.keys(v.options ?? {})));
+    expect([...used].filter((k) => !MAPPED_OPTIONS.has(k))).toEqual([]);
+  });
+
   it('corpus is present', () => {
     expect(exportVectors.length).toBeGreaterThan(0);
   });
