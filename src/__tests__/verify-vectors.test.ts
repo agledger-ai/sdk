@@ -155,11 +155,24 @@ describe('verifyExport: the same corpus pinned on the key each export names', ()
     });
   }
 
-  it('a distrusted pin anchors nothing', () => {
+  it('refuses a key both pinned and distrusted, as the Server refuses to start with it', () => {
     const exportData = loadJson<RecordAuditExport>('export/valid.json');
     const pin = exportData.exportMetadata.anchoredFrom!;
-    const result = verifyExport(exportData, { trustAnchors: [pin], distrustedKeys: [pin] });
-    expect(result.brokenAt?.code).toBe('CHAIN_SIGNING_KEY_UNANCHORED');
+    expect(() => verifyExport(exportData, { trustAnchors: [pin], distrustedKeys: [pin] })).toThrow(/both a trust anchor and a distrusted key/);
+  });
+
+  it('refuses the 1.x requireOutOfBandKeys by name, and any option it does not read', () => {
+    const exportData = loadJson<RecordAuditExport>('export/valid.json');
+    expect(() => verifyExport(exportData, { requireOutOfBandKeys: true } as never)).toThrow(/requireOutOfBandKeys option is now requireSuppliedKeys/);
+    expect(() => verifyExport(exportData, { requireSupliedKeys: true } as never)).toThrow(/unknown option requireSupliedKeys/);
+  });
+
+  it('carries verdict: unanchored without a pin, trusted pinned, failed on a broken chain', () => {
+    const exportData = loadJson<RecordAuditExport>('export/valid.json');
+    const pin = exportData.exportMetadata.anchoredFrom!;
+    expect(verifyExport(exportData).verdict).toBe('unanchored');
+    expect(verifyExport(exportData, { trustAnchors: [pin] }).verdict).toBe('trusted');
+    expect(verifyExport(loadJson<RecordAuditExport>('export/hash-mismatch.json')).verdict).toBe('failed');
   });
 
   it('distrustedKeys without trustAnchors throws TypeError rather than being ignored', () => {
