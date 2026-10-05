@@ -363,7 +363,7 @@ try {
   } else if (err instanceof UnprocessableError) {
     // 422 INVALID_ACTION carries machine-readable corrective guidance.
     console.log(err.recoveryHint);   // "GET /v1/records/{id} and read nextActions..."
-    console.log(err.refreshUrl);     // "/v1/records/rec-123"
+    console.log(err.refreshUrl);     // "/v1/records/<the record id>"
     console.log(err.currentState);   // the state the Record was in
     console.log(err.allowedActions); // what it accepts right now
   } else if (err instanceof AgledgerApiError) {
@@ -454,7 +454,7 @@ Verify a Record's hash-chained, signed audit export without calling the API:
 ```typescript
 import { verifyExport } from '@agledger/sdk/verify';
 
-const exportData = await client.records.getAuditExport('REC_123');
+const exportData = await client.records.getAuditExport(record.id);
 const result = verifyExport(exportData, {
   // The SPKI digest of a vault key you took out of band (see below).
   trustAnchors: ['sha256:15d63684b387235c47fe3a81e3004b928f4ea535236a2c1b47465ce5fdd7ce0e'],
@@ -524,7 +524,7 @@ it never counts as one.
 ```typescript
 import { verifyExport } from '@agledger/sdk/verify';
 
-const exp = await client.records.getAuditExport('REC_123');
+const exp = await client.records.getAuditExport(record.id);
 const keys = await client.verificationKeys.list();
 const checked = verifyExport(exp, {
   publicKeys: keys.data,
@@ -621,10 +621,12 @@ const bundle = await client.records.getAttestationBundle(recordId);
 ## Vault Checkpoints
 
 Per-record signed Merkle anchors are emitted every 6 hours, letting an auditor
-detect audit-vault TRUNCATE / DELETE tampering offline:
+detect audit-vault TRUNCATE / DELETE tampering offline. Listing them takes an
+org admin key; an agent key gets 403 `WRONG_STRUCTURAL_ROLE`:
 
 ```typescript
-const checkpoints = await client.audit.vaultCheckpoints.list({ recordId: 'REC_123' });
+const admin = new AgledgerClient({ apiKey: process.env.AGLEDGER_ADMIN_API_KEY!, baseUrl });
+const checkpoints = await admin.audit.vaultCheckpoints.list({ recordId: record.id });
 ```
 
 ## Record Lifecycle
