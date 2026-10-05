@@ -314,9 +314,11 @@ describe('SDK integration: response shape validation', async () => {
     const row = page.data[0];
     expect(row).toBeDefined();
     expect(typeof row!.keyId).toBe('string');
-    for (const phantom of ['id', 'environment', 'rateLimitTier', 'prefix', 'scopeProfile']) {
+    for (const phantom of ['id', 'environment', 'rateLimitTier', 'prefix']) {
       expect(row, phantom).not.toHaveProperty(phantom);
     }
+    // Served again since API 2.0, null on a key minted with explicit scopes.
+    expect(row).toHaveProperty('scopeProfile');
     expect(row).toHaveProperty('revokedAt');
     expect(row).toHaveProperty('rotatedFromKeyId');
   });

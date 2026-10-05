@@ -258,6 +258,11 @@ export interface BulkCreateResult {
      * reference attributes byte cap, and constraints inherited from the parent.
      */
     constraintViolations?: Record<string, unknown>[];
+    /**
+     * The values the refused field may take, as a singleton caller gets them in
+     * the RFC 9457 body. For an unregistered `type`, the set registered for the org.
+     */
+    allowedValues?: Array<string | number>;
   }>;
   summary: {
     total: number;
@@ -1596,7 +1601,7 @@ export interface CreateRecordParams {
   requestedBy?: string;
   /** Auto-transition to ACTIVE after create (CREATED → register → activate in one request). */
   autoActivate?: boolean;
-  /** Constraint inheritance mode. */
+  /** Constraint inheritance mode. Omit to inherit the org's `enforcement.constraintInheritanceDefault` (`none` unless the org set it). */
   constraintInheritance?: ConstraintInheritanceMode;
   /** Per-field enforcement overrides. */
   enforcementOverrides?: Record<string, unknown>;
@@ -1961,8 +1966,10 @@ export interface SubmitVerdictParams {
   checks?: Record<string, unknown>;
   /** Optional free-text notes explaining the verdict (recorded in the audit trail). */
   notes?: string;
-  /** Reason for the verdict (alias for notes; either is accepted, notes takes precedence). */
+  /** Alias of `notes`. When several are sent, `notes` wins, then `reason`, then `message`. */
   reason?: string;
+  /** Alias of `notes`, as `/accept`, `/reject` and `/revision` name it. Same 4000-character bound. */
+  message?: string;
 }
 
 export interface VerdictResult {
@@ -2875,7 +2882,21 @@ export type AuditChainIntegrityReasonCode =
    * Not a tamper signal: the chain may be intact and simply need a newer
    * verifier. Check `minVerifierVersion` on the key in `/v1/verification-keys`.
    */
-  | 'unsupported_algorithm';
+  | 'unsupported_algorithm'
+  /**
+   * The entry was signed by a key the operator named in `VAULT_DISTRUSTED_KEYS`
+   * before a key this Server trusts retired it. The distrust entry and that
+   * retirement account for it, so a vault scan lists it under
+   * `distrustedEntries` rather than as a break; it is never verified, so the
+   * export still fails.
+   */
+  | 'signing_key_distrusted'
+  /**
+   * Every entry verified, and the signing-key material the export carries does
+   * not verify as a set, so every offline verifier fails the export. A vault
+   * scan's `keyRegistry` block names each finding and its remedy.
+   */
+  | 'signing_key_material_invalid';
 
 /** Specific failure mode inside `chainIntegrityDetail`. */
 export type AuditChainFailure = AuditChainFailureCode | null;
@@ -2911,7 +2932,9 @@ export type AuditChainFailureCode =
   | 'signing_key_unpublished'
   /** See {@link AuditChainIntegrityReasonCode}. */
   | 'signing_key_unanchored'
-  | 'unsupported_algorithm';
+  | 'unsupported_algorithm'
+  /** See {@link AuditChainIntegrityReasonCode}. */
+  | 'signing_key_distrusted';
 
 export interface AuditChainIntegrityDetail {
   brokenAtPosition: number | null;
@@ -3467,18 +3490,35 @@ export interface StatusComponent {
    * not sign, so every chain write answers 503). On Workers:
    * `database_unavailable` at `outage`; at `degraded`, `no_worker_connected`
    * (no worker is attached), `worker_not_consuming` (one is attached but has
-   * stopped taking jobs), `not_checked` (the database could not be asked), or
-   * `error`.
+   * stopped taking jobs), `worker_stalled` (one is attached and publishes no
+   * reason to hold, yet has run nothing from a queue holding a ready job for
+   * over 180s; restart it), `not_checked` (the database could not be asked), or
+   * `error`. `privilege_missing`: on Database at `degraded`, the role this
+   * Server connects as lacks a privilege the engine writes with, so every
+   * request needing it answers 500; on Chain writes at `outage`, the missing
+   * privilege is on `audit_vault`. `admin.getSystemHealth()` names each missing
+   * privilege and the GRANT that restores it.
    */
-  reason?:
-    | DatabaseProbeFailure
-    | 'chain_rewind_detected'
-    | 'database_unavailable'
-    | 'signing_key_unusable'
-    | 'no_worker_connected'
-    | 'worker_not_consuming'
-    | 'not_checked';
+  reason?: StatusComponentReason;
 }
+
+/** The members of {@link StatusComponent.reason}. */
+export type StatusComponentReason =
+  | 'unreachable'
+  | 'saturated'
+  | 'no_connection'
+  | 'pool_exhausted'
+  | 'shutting_down'
+  | 'error'
+  | 'chain_rewind_detected'
+  | 'database_unavailable'
+  | 'signing_key_unusable'
+  | 'privilege_missing'
+  | 'no_worker_connected'
+  | 'worker_not_consuming'
+  | 'worker_stalled'
+  | 'not_checked'
+  | (string & {});
 
 export interface StatusResponse {
   status: 'operational' | 'degraded' | 'outage' | (string & {});
@@ -3901,8 +3941,9 @@ export interface ListApiKeysParams extends CursorListParams {
 
 /**
  * One row of `GET /v1/admin/api-keys`. The key's id is `keyId`: the row has
- * no `id`, `scopeProfile`, `environment`, `rateLimitTier` or `prefix`, and the
- * SDK declared all five through 1.11.0 while the Server never sent them.
+ * no `id`, `environment`, `rateLimitTier` or `prefix`, which the SDK declared
+ * through 1.11.0 while the Server never sent them. `scopeProfile` is served
+ * since API 2.0.
  */
 export interface AdminApiKey {
   keyId: string;
@@ -5689,20 +5730,23 @@ export type VaultScanBreakReason =
   | 'checkpoint_claim_mismatch'
   | 'schema_chain_missing_for_subjects'
   | 'verification_error'
+  | 'signing_key_distrusted'
   | (string & {});
 
 /**
  * The reason on a {@link VaultScanFirstFinding}: a key-window or
- * unsupported-algorithm entry, which does not withhold a checkpoint on its own.
+ * unsupported-algorithm entry, or one a `VAULT_DISTRUSTED_KEYS` key signed that
+ * its distrust entry accounts for (`signing_key_distrusted`). None of these
+ * withholds a checkpoint on its own.
  */
-export type VaultScanFirstFindingReason = 'key_expired' | 'key_not_yet_active' | 'unsupported_algorithm';
+export type VaultScanFirstFindingReason = 'key_expired' | 'key_not_yet_active' | 'unsupported_algorithm' | 'signing_key_distrusted';
 
 /**
  * An earlier finding in a chain the scan reports broken further on. The
  * `reason` and `brokenAt` beside it name the hash, link, drift or signature
  * break that withholds the chain's checkpoint; this names the first entry
- * before it that was outside its key's window or under an algorithm the build
- * cannot verify.
+ * before it that was outside its key's window, under an algorithm the build
+ * cannot verify, or signed by a distrusted key its distrust entry accounts for.
  */
 export interface VaultScanFirstFinding {
   brokenAt: number;
@@ -5715,7 +5759,7 @@ export interface VaultScanBrokenRecord {
   brokenAt: number;
   reason: VaultScanBreakReason;
   expectedEntries?: number;
-  /** An earlier key-window or unsupported-algorithm entry in the same chain, when there was one. */
+  /** An earlier key-window, unsupported-algorithm or accounted-for distrusted entry in the same chain, when there was one. */
   firstFinding?: VaultScanFirstFinding;
 }
 
@@ -5735,7 +5779,7 @@ export interface VaultScanBrokenChain {
    * Server adds later is not a compile break.
    */
   reason: VaultScanBreakReason;
-  /** An earlier key-window or unsupported-algorithm entry in the same chain, when there was one. */
+  /** An earlier key-window, unsupported-algorithm or accounted-for distrusted entry in the same chain, when there was one. */
   firstFinding?: VaultScanFirstFinding;
 }
 
@@ -5757,6 +5801,12 @@ export interface VaultScanGlobalChains {
   /** Capped at 100 entries; `brokenChainsTruncated === true` means more broke. */
   brokenChains: VaultScanBrokenChain[];
   brokenChainsTruncated: boolean;
+  /**
+   * Record-less chains whose only findings are entries a distrusted key signed
+   * that its distrust entry accounts for. Not in `verified` or `broken`; each
+   * entry is in the top-level {@link VaultScanResult.distrustedEntries}.
+   */
+  distrustedSigned?: number;
 }
 
 /**
@@ -5832,8 +5882,12 @@ export interface VaultScanResult {
   /**
    * True iff `broken === 0`, `signatureErrors === 0`, `globalChains.broken === 0`,
    * `recordsMissingChain === 0`, `orgAdminReads.broken === 0` and
-   * `keyRegistry.findings` is empty. The single field to branch on. It does not fold in `unsupportedAlgorithm`, chains this
-   * host could not check at all.
+   * `keyRegistry.findings` is empty: nothing the scan found is unaccounted
+   * for. The single field to branch on. It does not fold in
+   * `unsupportedAlgorithm` (chains this host could not check at all), nor
+   * `distrustedEntries` and `keyRegistry.distrustedStatements` (what a leaked
+   * key signed before a trusted key retired it, which the operator's
+   * `VAULT_DISTRUSTED_KEYS` entry accounts for).
    */
   healthy: boolean;
   /**
@@ -5848,6 +5902,24 @@ export interface VaultScanResult {
   missingChainRecords: string[];
   brokenRecords: VaultScanBrokenRecord[];
   brokenRecordsTruncated: boolean;
+  /**
+   * Record chains whose only findings are entries a `VAULT_DISTRUSTED_KEYS`
+   * key signed before a key this Server trusts retired it
+   * (`signing_key_distrusted`). Accounted for, never verified: not in
+   * `verified`, `broken` or `healthy`. A chain that also carries any other
+   * break is in `broken`.
+   */
+  distrustedSigned?: number;
+  /**
+   * Every chain entry the scan passed that such a key signed before that
+   * retirement, capped at 100; {@link distrustedEntriesTotal} is the full
+   * count. An export of a chain carrying one answers `chainIntegrity: false`
+   * with `signing_key_distrusted`. An entry the key signed after the
+   * retirement, or under a distrusted key no trusted key has retired, keeps
+   * its break instead.
+   */
+  distrustedEntries?: VaultScanDistrustedEntry[];
+  distrustedEntriesTotal?: number;
   /** Record-less chain findings. Present on a full scan; absent on a `recordIds`-scoped scan. */
   globalChains?: VaultScanGlobalChains;
   /** Cross-party read log findings. Present on a full scan; null or absent on a `recordIds`-scoped scan. */
@@ -5875,9 +5947,14 @@ export interface VaultScanResult {
  * One key-registry finding: `key_statement_invalid` (a statement that does not
  * verify or touches no anchored key, one its endorser stored after its own
  * closure, or a genesis or succession that is not its subject's first),
- * `key_closure_invalid` (a retired key with no signed retirement, or a closure
- * by an unanchored key), or `key_window_drift` (a registry column that differs
- * from the value signed for it).
+ * `key_closure_invalid` (a retired key with no signed retirement, a closure by
+ * an unanchored key, or a `VAULT_DISTRUSTED_KEYS` key no trusted key has
+ * retired), or `key_window_drift` (a registry column that differs from the
+ * value signed for it). A finding about the published key material (a
+ * counting closure, or a trusted key's admission, signed by a key no key
+ * surface publishes) makes every audit export answer
+ * `chainIntegrityReason: signing_key_material_invalid`; its `detail` names the
+ * `VAULT_TRUST_ANCHORS` pin or `VAULT_DISTRUSTED_KEYS` entry that clears it.
  */
 export interface VaultScanKeyRegistryFinding {
   class?: 'key_statement_invalid' | 'key_closure_invalid' | 'key_window_drift' | (string & {});
@@ -5899,7 +5976,41 @@ export interface VaultScanKeyRegistry {
    */
   unanchoredKeyIds?: string[];
   findings?: VaultScanKeyRegistryFinding[];
+  /**
+   * Statements a `VAULT_DISTRUSTED_KEYS` key signed that count for nothing and
+   * were stored before a key this Server trusts retired it. Evidence, not
+   * findings, and not folded into `healthy`; one the key stored after that
+   * retirement is a finding. Capped at 100.
+   */
+  distrustedStatements?: VaultScanKeyRegistryFinding[];
 }
+
+/**
+ * A chain entry a distrusted key signed before a trusted key retired it,
+ * listed by a vault scan as accounted for rather than broken.
+ */
+export interface VaultScanDistrustedEntry {
+  chain?: VaultCheckpointChain;
+  recordId?: string | null;
+  orgId?: string | null;
+  position?: number;
+  keyId?: string;
+}
+
+/**
+ * Why a scan that has not started is not being taken, read as `GET /status`
+ * reads its Workers component. `workerHolds` names each connected worker's
+ * reason to hold (`key_unanchored`, `key_retired`, `key_unregistered`,
+ * `signer_unreachable`) under `worker_not_consuming`, and is empty otherwise.
+ * `nextSteps[0]` names the remedy.
+ */
+export interface VaultScanWaitingOn {
+  reason: VaultScanWaitingReason;
+  workerHolds: string[];
+}
+
+/** The members of {@link VaultScanWaitingOn.reason}. */
+export type VaultScanWaitingReason = 'no_worker_connected' | 'worker_not_consuming' | 'worker_stalled';
 
 /** Status of an asynchronous vault integrity scan job. */
 export interface VaultScanJob {
@@ -5910,6 +6021,12 @@ export interface VaultScanJob {
   completedAt?: string | null;
   /** Null until `state === 'completed'`. */
   result?: VaultScanResult | null;
+  /**
+   * Non-null while the scan has not started (`created` or `retry`) and the
+   * attached workers will not take it. Null once a worker takes it, while one
+   * is consuming, or when the attached workers cannot be read.
+   */
+  waitingOn?: VaultScanWaitingOn | null;
   nextSteps?: NextStep[];
 }
 
@@ -6578,6 +6695,31 @@ export interface OpsSummary {
       rewindDetectedAt: string | null;
       /** Findings the next acknowledgement would cover. */
       openFindings: number | null;
+    };
+    /**
+     * The key registry's trust walk as this process holds it. A finding
+     * (`key_statement_invalid`, `key_closure_invalid`, `key_window_drift`)
+     * refuses no write but means an auditor walking the published key
+     * statements grades the affected keys differently from this Server, so it
+     * also appears in `system.degradedReasons`. `admin.vault.scan.run()`
+     * names each finding with its remedy. `findings: null` means the walk could
+     * not be read, or this process does not yet know its own key.
+     */
+    keyRegistry: {
+      findings: number | null;
+    };
+    /**
+     * Whether UPDATE, DELETE and TRUNCATE on the chain tables are revoked from
+     * the role this process connects as. `enforced: false` means that role owns
+     * the tables or is a superuser, so it can rewrite chain entries and tamper
+     * evidence rests on signatures and external anchors alone. `held` lists
+     * each revoked privilege the role still holds as `table.PRIVILEGE`.
+     * `enforced: null` means the privileges could not be read.
+     */
+    appendOnly: {
+      enforced: boolean | null;
+      role: string | null;
+      held: string[];
     };
   };
   webhooks: {

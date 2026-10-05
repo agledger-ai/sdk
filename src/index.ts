@@ -220,6 +220,7 @@ export type {
   // Health & Conformance & Discovery
   HealthResponse,
   StatusComponent,
+  StatusComponentReason,
   StatusResponse,
   ConformanceResponse,
   ScopeProfileInfo,
@@ -368,6 +369,9 @@ export type {
   VaultRewindOpenFindings,
   VaultHiddenAnchor,
   VaultScanKeyRegistry,
+  VaultScanDistrustedEntry,
+  VaultScanWaitingOn,
+  VaultScanWaitingReason,
   VaultScanKeyRegistryFinding,
   SigningKeyStatement,
   VaultRewindState,

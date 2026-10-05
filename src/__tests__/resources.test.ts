@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AgledgerClient } from '../client.js';
 import { ConfigurationError, PaginationLimitError, UnprocessableError } from '../errors.js';
+import type { RecordRow } from '../types.js';
 
 function createMockClient(responseOverride?: unknown) {
   const fetch = vi.fn().mockResolvedValue({
@@ -1755,6 +1756,22 @@ describe('SchemasResource', () => {
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/schemas/ACH-PROC-v1/check-compatibility');
     expect(init.method).toBe('POST');
+  });
+
+  it('reads a Record\'s own validTransitions before the status table', () => {
+    const { client } = createMockClient();
+    const row = { status: 'FAILED', validTransitions: ['REVISION_REQUESTED'] } as unknown as RecordRow;
+    expect(client.records.getValidTransitions(row)).toEqual(['REVISION_REQUESTED']);
+    const bare = { status: 'FAILED' } as unknown as RecordRow;
+    expect(client.records.getValidTransitions(bare)).toEqual(['DISPUTED', 'FULFILLED', 'REVISION_REQUESTED']);
+  });
+
+  it('checks compatibility within the publisher it names', async () => {
+    const { client, fetch } = createMockClient({ compatible: true });
+    await client.schemas.checkCompatibility('ACH-PROC-v1', { recordSchema: {}, completionSchema: {} }, { publisher: 'acme-corp' });
+    const [url, init] = fetch.mock.calls[0];
+    expect(new URL(url).searchParams.get('publisher')).toBe('acme-corp');
+    expect(JSON.parse(init.body)).toEqual({ recordSchema: {}, completionSchema: {} });
   });
 
   it('registers a schema', async () => {

@@ -94,6 +94,14 @@ describe('AgledgerApiError classifier methods', () => {
       });
       expect(conflict.reason).toBe('TRUSTED_ISSUER_EXISTS');
       expect(conflict.existingId).toBe('0199a8f0-0000-7000-8000-000000000001');
+
+      const refused = new UnprocessableError({
+        detail: 'A verdict is refused on a FAILED record',
+        currentState: 'FAILED',
+        allowedActions: [],
+        validTransitions: ['DISPUTED'],
+      });
+      expect(refused.validTransitions).toEqual(['DISPUTED']);
     });
 
     it('leaves them undefined when the body omits them', () => {
@@ -102,6 +110,7 @@ describe('AgledgerApiError classifier methods', () => {
       expect(err.currentState).toBeUndefined();
       expect(err.allowedActions).toBeUndefined();
       expect(err.existingId).toBeUndefined();
+      expect(err.validTransitions).toBeUndefined();
     });
   });
 

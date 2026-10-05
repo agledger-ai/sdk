@@ -46,6 +46,7 @@ export class ConfigurationError extends AgledgerError {
  * - `suggestion`: typo-correction hint, only if the API returned one
  * - `recoveryHint`: machine-readable recovery guidance (e.g. on 422 INVALID_ACTION)
  * - `reason` / `currentState` / `allowedActions`: the refusal's reason code, the state it found, and what is allowed now
+ * - `validTransitions`: targets reachable now, on a 422 refusal (a Record's display states, or a dispute's statuses)
  * - `existingId`: the row a 409 collided with (e.g. TRUSTED_ISSUER_EXISTS)
  * - `refreshUrl`: concrete GET URL to re-fetch state (e.g. on 422 INVALID_ACTION)
  * - `validationErrors`: field-level validation details (for 400/422)
@@ -128,6 +129,13 @@ export class AgledgerApiError extends AgledgerError {
   readonly allowedActions?: string[];
 
   /**
+   * Targets reachable now, forwarded from the body on a 422 refusal: the
+   * display states a Record can reach on a refusal about a Record, or the
+   * dispute's own target statuses on a refused dispute move.
+   */
+  readonly validTransitions?: string[];
+
+  /**
    * ID of the row already holding the unique key this request collided with.
    * Present on 409 `TRUSTED_ISSUER_EXISTS`: read or PATCH that row rather than
    * creating another.
@@ -171,6 +179,7 @@ export class AgledgerApiError extends AgledgerError {
     this.reason = body.reason;
     this.currentState = body.currentState;
     this.allowedActions = body.allowedActions;
+    this.validTransitions = body.validTransitions;
     this.existingId = body.existingId;
     this.publishers = body.publishers;
     this.registryVersion = body.registryVersion;

@@ -111,7 +111,7 @@ describe('unsigned entries and checkpoints are breaks', () => {
     expectTypeOf<VaultScanBrokenRecord['firstFinding']>().toEqualTypeOf<VaultScanFirstFinding | undefined>();
     expectTypeOf<VaultScanBrokenChain['firstFinding']>().toEqualTypeOf<VaultScanFirstFinding | undefined>();
     expectTypeOf<VaultScanFirstFinding['reason']>().toEqualTypeOf<
-      'key_expired' | 'key_not_yet_active' | 'unsupported_algorithm'
+      'key_expired' | 'key_not_yet_active' | 'unsupported_algorithm' | 'signing_key_distrusted'
     >();
     expectTypeOf<VaultScanResult['orgAdminReads']>().toEqualTypeOf<VaultScanOrgAdminReads | null | undefined>();
     expectTypeOf<VaultScanResult['unsupportedAlgorithm']>().toEqualTypeOf<number | undefined>();

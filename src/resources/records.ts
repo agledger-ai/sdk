@@ -287,8 +287,12 @@ export class RecordsResource {
     return this.http.get<VerdictStatistics>('/v1/records/me/verdict-statistics', undefined, options);
   }
 
-  /** Get valid transitions for a Record's current status. Client-side lookup, no API call. */
+  /**
+   * The display statuses this Record can reach now: its own `validTransitions`
+   * as the Server served it, or, on a row read without them, what some Record
+   * at its status can reach (`GET /lifecycle`). No API call.
+   */
   getValidTransitions(record: RecordRow): readonly string[] {
-    return getTransitions(record.status);
+    return record.validTransitions ?? getTransitions(record.status);
   }
 }
