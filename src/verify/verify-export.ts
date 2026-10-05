@@ -68,8 +68,12 @@ export type {
  * (`sha256:<hex>`, optionally `@<RFC 3339 instant>`): what such a key signed
  * from that instant counts for nothing in the walk. It is read only together
  * with `trustAnchors`, and passing it without them throws `TypeError`, as does
- * a key both pinned and distrusted (the Server refuses to start with that
- * pair: pin the successor of a key that leaked). An option this function does
+ * a pinned key distrusted with no instant (the Server refuses to start with
+ * that pair). A pin beside a dated entry for the same key is taken: the pin
+ * vouches for what the key signed before the instant. An export accounts for
+ * nothing a distrusted key signed (`keyTrust.accounted` is always empty here):
+ * such entries and statements fail, as the Server's export grades them; only
+ * a full dump, through `@agledger/verify`, lists them as accounted for. An option this function does
  * not read throws `TypeError` too, so a misspelt option, or 1.x's
  * `requireOutOfBandKeys` (now `requireSuppliedKeys`), cannot switch a check off.
  *

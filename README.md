@@ -501,7 +501,13 @@ statements the export carries from it:
   from that instant counts for nothing, and a key statement it signed counts
   for nothing at any instant, because the write times an export carries are
   not signed. It is read only with `trustAnchors`,
-  and passing it without them throws `TypeError`.
+  and passing it without them throws `TypeError`. A dated entry may sit beside
+  a pin for the same key, as the Server's key-compromise runbook uses it (the
+  pin vouches for what the key signed before the instant); an entry with no
+  instant beside a pin for the same key throws `TypeError`, as the Server
+  refuses to start with that pair. An export accounts for nothing a distrusted
+  key signed: such entries fail here, and only a full dump verified with
+  `@agledger/verify` lists them as accounted for.
 
 Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
 `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can
