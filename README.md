@@ -516,7 +516,18 @@ statements the export carries from it:
   instant beside a pin for the same key throws `TypeError`, as the Server
   refuses to start with that pair. An export accounts for nothing a distrusted
   key signed: such entries fail here, and only a full dump verified with
-  `@agledger/verify` lists them as accounted for.
+  `@agledger/verify` lists them as accounted for;
+- an export lists a key the Server's `VAULT_DISTRUSTED_KEYS` names with
+  `distrustedFrom` in `signingKeyWindows`, and where that instant is earlier
+  than the retirement the key's closures sign, lists the key retired at it. A
+  run not given the same `distrustedKeys` entry still fails
+  `CHAIN_KEY_WINDOW_DRIFT` on that window (`KEY_CLOSURE_INVALID` where no
+  closure retires the key), but the finding names the entry
+  (`distrustedKeys sha256:<hex>@<distrustedFrom>`), and says so when the entry
+  given carries another instant; one at an earlier instant draws no finding on
+  the window and is in `result.keyTrust.notes`, though entries the key signed
+  after that instant still fail. The listing is the Server's unsigned word, so
+  confirm the instant with its operator before passing that entry.
 
 Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
 `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can

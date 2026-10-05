@@ -368,3 +368,53 @@ describe('verifyExport: agent signatures sealed under an OIDC cert', () => {
     expect(result.optionalChecks.agent_signature).toBe('skipped_no_input');
   });
 });
+
+describe('verifyExport: an export after a dated distrust entry', () => {
+  // An unmodified API 2.0.0 export of a record its first key K signed, taken
+  // after the Server retired K with force from its successor F and restarted
+  // with VAULT_DISTRUSTED_KEYS=sha256:<K>@<instant>: signingKeyWindows lists K
+  // retired at that instant, with distrustedFrom, which the RecordAuditExport
+  // type declares and verify-core reads.
+  const load = () =>
+    JSON.parse(
+      readFileSync(new URL('./fixtures/live-2.0.0/export-dated-distrust.json', import.meta.url), 'utf8'),
+    ) as RecordAuditExport;
+  const F = 'sha256:78e7bba47a2dccdb1dbf4f2dc81dc58a5c58735abe480de49d05081d3452aa3a';
+  const K = 'sha256:b649db0ec7c5c0fd921c2cb4d40466d91f4d98252dad2f7c0243851167b2d09e';
+  const FROM = '2026-10-05T23:03:51.537314Z';
+
+  it('carries distrustedFrom on the typed window', () => {
+    expect(load().exportMetadata.signingKeyWindows?.['b649db0ec7c5c0fd']?.distrustedFrom).toBe(FROM);
+  });
+
+  it('pinned on F alone, fails CHAIN_KEY_WINDOW_DRIFT naming the distrustedKeys entry the Server applies', () => {
+    const result = verifyExport(load(), { trustAnchors: [F] });
+    expect(result.verdict).toBe('failed');
+    expect(result.brokenAt).toMatchObject({ position: 0, code: 'CHAIN_KEY_WINDOW_DRIFT' });
+    const advice = `this walk was given no distrust entry for it. If the operator confirms it, give distrustedKeys ${K}@${FROM}.`;
+    expect(result.brokenAt!.detail).toContain(advice);
+    expect(result.keyTrust.findings.map((f) => [f.code, f.keyId])).toEqual([['CHAIN_KEY_WINDOW_DRIFT', 'b649db0ec7c5c0fd']]);
+    expect(result.keyTrust.findings[0]!.detail).toContain(advice);
+  });
+
+  it('pinned on F with that entry, passes trusted with nothing to say', () => {
+    const result = verifyExport(load(), { trustAnchors: [F], distrustedKeys: [`${K}@${FROM}`] });
+    expect(result).toMatchObject({ valid: true, verdict: 'trusted', keyTrust: { findings: [], notes: [] } });
+  });
+
+  it('pinned on F with a later instant for K, fails saying the two entries disagree', () => {
+    const result = verifyExport(load(), { trustAnchors: [F], distrustedKeys: [`${K}@2026-10-05T23:04:00Z`] });
+    expect(result.verdict).toBe('failed');
+    expect(result.brokenAt!.detail).toContain(
+      `the distrust entry given for it (from 2026-10-05T23:04:00.000000Z) and the one the listing says the Server applies (VAULT_DISTRUSTED_KEYS, from ${FROM}) disagree.`,
+    );
+  });
+
+  it('pinned on F with an earlier instant for K, passes with a note', () => {
+    const result = verifyExport(load(), { trustAnchors: [F], distrustedKeys: [`${K}@2026-10-05T23:03:50Z`] });
+    expect(result.verdict).toBe('trusted');
+    expect(result.keyTrust.notes.map((n) => n.detail)).toEqual([
+      `distrustedKeys gives b649db0ec7c5c0fd the instant 2026-10-05T23:03:50.000000Z, and the listing says the Server distrusts it from ${FROM} (distrustedFrom, VAULT_DISTRUSTED_KEYS): the auditor's entry and the one the listing gives disagree, so what the key signed between the two instants is graded differently here than on the Server. Confirm the instant with the Server's operator.`,
+    ]);
+  });
+});

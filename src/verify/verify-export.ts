@@ -73,7 +73,12 @@ export type {
  * vouches for what the key signed before the instant. An export accounts for
  * nothing a distrusted key signed (`keyTrust.accounted` is always empty here):
  * such entries and statements fail, as the Server's export grades them; only
- * a full dump, through `@agledger/verify`, lists them as accounted for. An option this function does
+ * a full dump, through `@agledger/verify`, lists them as accounted for. Where
+ * an export's `signingKeyWindows` lists a key retired at the instant the
+ * Server distrusts it from (`distrustedFrom`), earlier than its signed
+ * retirement, a pinned run not given the same entry fails on that window, and
+ * the finding names the entry (`distrustedKeys sha256:<hex>@<distrustedFrom>`)
+ * to confirm with the Server's operator. An option this function does
  * not read throws `TypeError` too, so a misspelt option, or 1.x's
  * `requireOutOfBandKeys` (now `requireSuppliedKeys`), cannot switch a check off.
  *
