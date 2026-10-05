@@ -3,6 +3,9 @@ import type {
   VaultScanResult,
   VaultScanGlobalChains,
   VaultScanBrokenChain,
+  VaultScanList,
+  VaultScanLastCompleted,
+  VaultScanState,
 } from '../types.js';
 
 /**
@@ -33,5 +36,17 @@ describe('v1.3.3: VaultScanResult.globalChains', () => {
     expectTypeOf<null>().toMatchTypeOf<VaultScanBrokenChain['orgId']>();
     // reason stays open (string) so a server-added failure code is not a compile break.
     expectTypeOf<string>().toMatchTypeOf<VaultScanBrokenChain['reason']>();
+  });
+});
+
+/** The scan-list view's `lastCompleted` carries no `state`; `active` and `recent[]` do. */
+describe('VaultScanList.lastCompleted', () => {
+  it('has no required state and no phantom summary fields', () => {
+    type L = NonNullable<VaultScanList['lastCompleted']>;
+    expectTypeOf<L>().toEqualTypeOf<VaultScanLastCompleted>();
+    expectTypeOf<L>().not.toHaveProperty('state');
+    expectTypeOf<L['jobId']>().toEqualTypeOf<string>();
+    expectTypeOf<NonNullable<VaultScanList['active']>['state']>().toEqualTypeOf<VaultScanState>();
+    expectTypeOf<VaultScanList['recent'][number]['state']>().toEqualTypeOf<VaultScanState>();
   });
 });

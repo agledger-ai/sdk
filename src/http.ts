@@ -165,11 +165,44 @@ async function discardBody(response: Response): Promise<void> {
   }
 }
 
+/**
+ * An `/a2a` HTTP 4xx answers with a JSON-RPC envelope, not a problem body: the
+ * human text and recovery guidance sit in `error.data[0].metadata` (a
+ * `google.rpc.ErrorInfo`), and `error.code` is the numeric JSON-RPC code. Map it
+ * onto the problem-body fields the error classes read, so `code` stays a string
+ * (the ErrorInfo `reason`, the same machine code a REST `error` carries; the
+ * JSON-RPC number as a string when there is none). The raw JSON-RPC error object
+ * stays on `details`.
+ */
+function jsonRpcErrorBody(parsed: Record<string, unknown>): Record<string, unknown> | undefined {
+  const err = parsed.error;
+  if (parsed.jsonrpc !== '2.0' || !err || typeof err !== 'object' || Array.isArray(err)) return undefined;
+  const rpc = err as { code?: unknown; message?: unknown; data?: unknown };
+  const info = Array.isArray(rpc.data) ? (rpc.data[0] as Record<string, unknown> | undefined) : undefined;
+  const reason = typeof info?.reason === 'string' ? info.reason : undefined;
+  const raw = info && typeof info.metadata === 'object' && info.metadata ? (info.metadata as Record<string, unknown>) : {};
+  const text = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+  const message = text(rpc.message);
+  return {
+    error: reason ?? (rpc.code === undefined ? 'unknown' : String(rpc.code)),
+    title: message,
+    detail: text(raw.detail) ?? message,
+    recoveryHint: text(raw.recoveryHint),
+    requestId: text(raw.requestId),
+    // ErrorInfo metadata is a string map, so a boolean arrives as "false".
+    retryable: raw.retryable === 'true' ? true : raw.retryable === 'false' ? false : undefined,
+    details: err as Record<string, unknown>,
+  };
+}
+
 /** An error response's JSON body, or the status line when it has none. */
 async function readErrorBody(response: Response): Promise<Record<string, unknown>> {
   try {
     const parsed = (await response.json()) as unknown;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const body = parsed as Record<string, unknown>;
+      return jsonRpcErrorBody(body) ?? body;
+    }
   } catch {
     // Not JSON.
   }
@@ -373,9 +406,9 @@ export class HttpClient {
         if (err instanceof AgledgerApiError) throw err;
         const cause = err as Error;
         if (cause.name === 'AbortError') {
-          lastError = new TimeoutError(method, url, opts.timeout ?? this.timeout, cause);
+          lastError = new TimeoutError(method, url, opts.timeout ?? this.timeout, cause, idempotencyKey);
         } else {
-          lastError = new ConnectionError(connectionErrorMessage(method, url, cause), cause);
+          lastError = new ConnectionError(connectionErrorMessage(method, url, cause), cause, idempotencyKey);
         }
         continue;
       }
@@ -776,9 +809,9 @@ export class HttpClient {
 
         const cause = err as Error;
         if (cause.name === 'AbortError') {
-          lastError = new TimeoutError(method, url, timeout, cause);
+          lastError = new TimeoutError(method, url, timeout, cause, idempotencyKey);
         } else {
-          lastError = new ConnectionError(connectionErrorMessage(method, url, cause), cause);
+          lastError = new ConnectionError(connectionErrorMessage(method, url, cause), cause, idempotencyKey);
         }
 
         // Retry network errors

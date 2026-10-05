@@ -388,11 +388,18 @@ Webhooks ship in two signing schemes, selected per subscription via `signingAlg`
 ```typescript
 import { verifySignature } from '@agledger/sdk/webhooks';
 
-const isValid = verifySignature(
-  rawBody,                    // Raw request body string
-  req.headers['x-agledger-signature'], // Signature header
-  process.env.WEBHOOK_SECRET!, // Your webhook secret
-);
+// Inside your request handler. Node types a header as `string | string[] |
+// undefined`, so narrow it before verifying; a missing or repeated signature
+// header is a failed delivery.
+const signature = req.headers['x-agledger-signature'];
+const isValid =
+  typeof signature === 'string' &&
+  verifySignature(
+    rawBody,                     // Raw request body string
+    signature,                   // Signature header
+    process.env.WEBHOOK_SECRET!, // Your webhook secret
+  );
+if (!isValid) return res.status(401).end();
 ```
 
 **Asymmetric** (`signingAlg: 'ed25519'` or `'ecdsa-p256-sha256'`) is RFC 9421
