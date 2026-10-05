@@ -298,19 +298,36 @@ export class RateLimitError extends AgledgerApiError {
   }
 }
 
+/**
+ * The request never produced a response: a network failure, or (see
+ * `TimeoutError`) a timeout. The Server may still have applied it.
+ *
+ * `idempotencyKey` is the `Idempotency-Key` header the failed request sent
+ * (generated per call when you passed none; absent on reads). The SDK reuses it
+ * across its own retries. When you retry after this error yourself, pass it back
+ * as the `idempotencyKey` request option so the Server answers the original
+ * write instead of performing a second one.
+ */
 export class ConnectionError extends AgledgerError {
   override readonly cause?: Error;
+  readonly idempotencyKey?: string;
 
-  constructor(message: string, cause?: Error) {
+  constructor(message: string, cause?: Error, idempotencyKey?: string) {
     super(message);
     this.name = 'ConnectionError';
     this.cause = cause;
+    this.idempotencyKey = idempotencyKey;
   }
 }
 
+/**
+ * The request exceeded the timeout on every attempt. A write may have been
+ * applied anyway: retry it with `idempotencyKey` (inherited from
+ * `ConnectionError`) so it cannot be applied twice.
+ */
 export class TimeoutError extends ConnectionError {
-  constructor(method: string, url: string, timeoutMs: number, cause?: Error) {
-    super(`Request timed out after ${timeoutMs}ms: ${method} ${url}`, cause);
+  constructor(method: string, url: string, timeoutMs: number, cause?: Error, idempotencyKey?: string) {
+    super(`Request timed out after ${timeoutMs}ms: ${method} ${url}`, cause, idempotencyKey);
     this.name = 'TimeoutError';
   }
 }

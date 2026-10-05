@@ -397,6 +397,7 @@ export type {
   VaultScanBrokenOrg,
   OrgReadsBreakReason,
   VaultScanSummary,
+  VaultScanLastCompleted,
   VaultScanList,
 
   // Admin: Auth Cache

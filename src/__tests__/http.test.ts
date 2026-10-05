@@ -787,3 +787,72 @@ describe('connection failures name the request and the cause', () => {
     }
   });
 });
+
+describe('/a2a JSON-RPC error envelope', () => {
+  const envelope = {
+    jsonrpc: '2.0',
+    error: {
+      code: -32600,
+      message: 'Validation Error',
+      data: [
+        {
+          '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+          reason: 'VALIDATION_ERROR',
+          domain: 'a2a-protocol.org',
+          metadata: { detail: 'body/params must be object', recoveryHint: 'Send params as an object.', retryable: 'false', requestId: 'req-1' },
+        },
+      ],
+    },
+    id: '1',
+  };
+
+  it('maps ErrorInfo metadata onto the error fields and keeps code a string', async () => {
+    const client = createClient(mockFetch({ ok: false, status: 400, json: envelope }));
+    const err = await client.post('/a2a', {}).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ValidationError);
+    const e = err as ValidationError;
+    expect(e.code).toBe('VALIDATION_ERROR');
+    expect(e.message).toBe('body/params must be object');
+    expect(e.recoveryHint).toBe('Send params as an object.');
+    expect(e.requestId).toBe('req-1');
+    expect(e.retryable).toBe(false);
+    expect(e.details).toEqual(envelope.error);
+  });
+
+  it('falls back to the JSON-RPC code, as a string, when there is no ErrorInfo', async () => {
+    const client = createClient(
+      mockFetch({ ok: false, status: 400, json: { jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id: null } }),
+    );
+    const e = (await client.post('/a2a', {}).catch((x: unknown) => x)) as ValidationError;
+    expect(e.code).toBe('-32600');
+    expect(e.message).toBe('Invalid Request');
+  });
+});
+
+describe('idempotencyKey on the failure that may have applied the write', () => {
+  const aborting = () => {
+    const err = new Error('aborted');
+    err.name = 'AbortError';
+    return vi.fn().mockRejectedValue(err);
+  };
+
+  it('a TimeoutError carries the Idempotency-Key every attempt sent', async () => {
+    const fetch = aborting();
+    const client = createClient(fetch as never, { maxRetries: 1, retryDelay: 1 });
+    const err = (await client.post('/v1/records', {}).catch((e: unknown) => e)) as TimeoutError;
+    expect(err).toBeInstanceOf(TimeoutError);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const sent = fetch.mock.calls.map((c) => c[1].headers['Idempotency-Key']);
+    expect(sent[0]).toBeTruthy();
+    expect(sent[1]).toBe(sent[0]);
+    expect(err.idempotencyKey).toBe(sent[0]);
+  });
+
+  it('a caller-supplied key is the one surfaced, and a read has none', async () => {
+    const client = createClient(aborting() as never);
+    const w = (await client.post('/v1/records', {}, { idempotencyKey: 'mine-1' }).catch((e: unknown) => e)) as TimeoutError;
+    expect(w.idempotencyKey).toBe('mine-1');
+    const r = (await client.get('/v1/records').catch((e: unknown) => e)) as TimeoutError;
+    expect(r.idempotencyKey).toBeUndefined();
+  });
+});

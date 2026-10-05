@@ -613,6 +613,12 @@ export interface SchemaPreviewResult {
   compiled?: Record<string, unknown>;
   errors?: SchemaPreviewError[];
   warnings?: SchemaKeywordWarning[];
+  /**
+   * Present (true) when the body repeats the latest version: `POST /v1/schemas`
+   * then answers 200 with that version and registers nothing, and
+   * `compiled.compatibilityCheck` is null.
+   */
+  unchanged?: boolean;
   nextSteps?: NextStep[];
 }
 
@@ -3007,7 +3013,19 @@ export interface RecordAuditExport {
      * Additive since engine v0.26.x; older exports omit it and that check
      * stays `skipped_no_input`.
      */
-    signingKeyWindows?: Record<string, { activatedAt: string; retiredAt: string | null }>;
+    signingKeyWindows?: Record<
+      string,
+      {
+        activatedAt: string;
+        retiredAt: string | null;
+        /** Present only when the Server's `VAULT_DISTRUSTED_KEYS` names this key: the
+         * instant (RFC 3339 UTC) from which what the key signs counts for nothing.
+         * When it is earlier than the signed retirement, `retiredAt` is this instant
+         * (the window was cut by the distrust entry, not by a signed statement).
+         * Absent on every key the setting does not name. */
+        distrustedFrom?: string;
+      }
+    >;
     /**
      * Map of keyId → the signed statements that admit that key. Walk them from
      * a key you pinned out of band to decide which keys to trust; the windows
@@ -6030,11 +6048,22 @@ export interface VaultScanJob {
   nextSteps?: NextStep[];
 }
 
-/** A vault scan job summary as returned in the scan-list view. */
+/** A vault scan job summary as returned in the scan-list view (`active` and `recent`). The scan's `result` is
+ * not on a summary: read it from `lastCompleted` or the job itself. */
 export interface VaultScanSummary {
   jobId: string;
   state: VaultScanState;
   startedAt?: string | null;
+  completedAt?: string | null;
+}
+
+/**
+ * The `lastCompleted` entry of the scan-list view. Unlike `active` and
+ * `recent[]`, it carries no `state` (it is completed by definition) and no
+ * `startedAt`.
+ */
+export interface VaultScanLastCompleted {
+  jobId: string;
   completedAt?: string | null;
   result?: VaultScanResult | null;
 }
@@ -6042,7 +6071,7 @@ export interface VaultScanSummary {
 /** Response of `GET /v1/admin/vault/scan`: current and recent scan jobs. */
 export interface VaultScanList {
   active: VaultScanSummary | null;
-  lastCompleted: VaultScanSummary | null;
+  lastCompleted: VaultScanLastCompleted | null;
   recent: VaultScanSummary[];
   nextSteps?: NextStep[];
 }
@@ -6163,6 +6192,14 @@ export interface VerificationKey {
   status: 'active' | 'retired' | (string & {});
   activatedAt: string;
   retiredAt: string | null;
+  /**
+   * Present only when the Server's `VAULT_DISTRUSTED_KEYS` names this key: the
+   * instant (RFC 3339 UTC) from which what the key signs counts for nothing.
+   * When it is earlier than the signed retirement, `retiredAt` is this instant
+   * (the window was cut by the distrust entry, not by a signed statement).
+   * Absent on every key the setting does not name.
+   */
+  distrustedFrom?: string;
   /**
    * The signed key statements that admit this key: a `succession` carries the
    * predecessor's signature then this key's, a `genesis` is self-signed, and a
