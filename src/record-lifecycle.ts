@@ -1,32 +1,36 @@
 import type { RecordStatus } from './types.js';
 
 /**
- * Valid state transitions for Records using customer-facing display statuses.
- * The API maps internal states to these display statuses; this table reflects
- * what SDK consumers actually observe.
+ * The display statuses each status can reach on some Record, as the Server's
+ * `GET /lifecycle` serves them: the union over every Type, whatever its
+ * `flipRecordStatusOnDispute`. A given Record can reach fewer (a spent revision
+ * or dispute budget, a passed deadline, a Type that keeps the Record's status
+ * while disputed); its own `validTransitions` is the answer for that Record.
  *
  * Unknown statuses return empty arrays for forward compatibility.
  */
 export const RECORD_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
-  CREATED: ['ACTIVE', 'PROPOSED', 'CANCELLED'],
-  PROPOSED: ['CREATED', 'REJECTED', 'CANCELLED'],
-  ACTIVE: ['PROCESSING', 'EXPIRED', 'CANCELLED'],
-  PROCESSING: ['FULFILLED', 'FAILED', 'REVISION_REQUESTED', 'DISPUTED'],
-  REVISION_REQUESTED: ['PROCESSING', 'EXPIRED', 'CANCELLED'],
-  DISPUTED: ['FULFILLED', 'FAILED'],
-  FULFILLED: [],
-  FAILED: ['REMEDIATED', 'REVISION_REQUESTED'],
-  REMEDIATED: [],
+  CREATED: ['ACTIVE', 'CANCELLED', 'EXPIRED', 'PROPOSED'],
+  PROPOSED: ['CANCELLED', 'CREATED', 'EXPIRED', 'REJECTED'],
+  ACTIVE: ['CANCELLED', 'EXPIRED', 'PROCESSING'],
+  PROCESSING: ['ACTIVE', 'CANCELLED', 'EXPIRED', 'FAILED', 'FULFILLED'],
+  REVISION_REQUESTED: ['ACTIVE', 'CANCELLED', 'EXPIRED', 'PROCESSING'],
+  DISPUTED: ['FAILED', 'FULFILLED', 'REMEDIATED'],
+  FULFILLED: ['DISPUTED'],
+  FAILED: ['DISPUTED', 'FULFILLED', 'REVISION_REQUESTED'],
+  REMEDIATED: ['DISPUTED'],
   EXPIRED: [],
   CANCELLED: [],
   REJECTED: [],
   RECORDED: [],
 };
 
-/** Statuses with no outbound transitions. */
-export const TERMINAL_STATUSES: readonly string[] = Object.entries(RECORD_TRANSITIONS)
-  .filter(([, targets]) => targets.length === 0)
-  .map(([status]) => status);
+/**
+ * Terminal outcomes, as `GET /lifecycle` marks them. FULFILLED and REMEDIATED
+ * are terminal although a dispute can still reopen them, so a terminal status
+ * is not the same as one with no transitions.
+ */
+export const TERMINAL_STATUSES: readonly string[] = ['FULFILLED', 'REMEDIATED', 'EXPIRED', 'CANCELLED', 'REJECTED', 'RECORDED'];
 
 /** Check whether a transition from `current` to `target` is valid. Unknown statuses return false. */
 export function canTransitionTo(current: RecordStatus, target: RecordStatus): boolean {
@@ -35,14 +39,12 @@ export function canTransitionTo(current: RecordStatus, target: RecordStatus): bo
   return targets.includes(target);
 }
 
-/** Get valid next statuses for a given status. Unknown statuses return []. */
+/** The statuses some Record at `status` can reach next. Unknown statuses return []. */
 export function getValidTransitions(status: RecordStatus): readonly string[] {
   return RECORD_TRANSITIONS[status] ?? [];
 }
 
-/** Check whether a status is terminal (no outbound transitions). Unknown statuses return false. */
+/** Check whether a status is a terminal outcome (see {@link TERMINAL_STATUSES}). Unknown statuses return false. */
 export function isTerminalStatus(status: RecordStatus): boolean {
-  const targets = RECORD_TRANSITIONS[status];
-  if (!targets) return false;
-  return targets.length === 0;
+  return TERMINAL_STATUSES.includes(status);
 }

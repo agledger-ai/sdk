@@ -27,7 +27,28 @@ describe('RECORD_TRANSITIONS', () => {
     // auto-resolve waits for the principal to render an outcome, and the
     // Record settles at FULFILLED or FAILED either way.
     expect(Object.keys(RECORD_TRANSITIONS)).not.toContain('PENDING_ARBITRATION');
-    expect(getValidTransitions('DISPUTED')).toEqual(['FULFILLED', 'FAILED']);
+    expect(getValidTransitions('DISPUTED')).toEqual(['FAILED', 'FULFILLED', 'REMEDIATED']);
+  });
+
+  it('is the graph GET /lifecycle serves', () => {
+    // agledger-api 5444a54f, `record.states[s].validTransitions`: the union
+    // over both values of flipRecordStatusOnDispute. A dispute reopens a
+    // terminal outcome, and REMEDIATED is reached only from DISPUTED.
+    expect(RECORD_TRANSITIONS).toEqual({
+      CREATED: ['ACTIVE', 'CANCELLED', 'EXPIRED', 'PROPOSED'],
+      PROPOSED: ['CANCELLED', 'CREATED', 'EXPIRED', 'REJECTED'],
+      ACTIVE: ['CANCELLED', 'EXPIRED', 'PROCESSING'],
+      PROCESSING: ['ACTIVE', 'CANCELLED', 'EXPIRED', 'FAILED', 'FULFILLED'],
+      REVISION_REQUESTED: ['ACTIVE', 'CANCELLED', 'EXPIRED', 'PROCESSING'],
+      DISPUTED: ['FAILED', 'FULFILLED', 'REMEDIATED'],
+      FULFILLED: ['DISPUTED'],
+      FAILED: ['DISPUTED', 'FULFILLED', 'REVISION_REQUESTED'],
+      REMEDIATED: ['DISPUTED'],
+      EXPIRED: [],
+      CANCELLED: [],
+      REJECTED: [],
+      RECORDED: [],
+    });
   });
 });
 
@@ -61,8 +82,10 @@ describe('canTransitionTo', () => {
     expect(canTransitionTo('ACTIVE', 'PROCESSING')).toBe(true);
   });
 
-  it('allows FAILED → REMEDIATED', () => {
-    expect(canTransitionTo('FAILED', 'REMEDIATED')).toBe(true);
+  it('allows FAILED → DISPUTED, and reaches REMEDIATED only through a dispute', () => {
+    expect(canTransitionTo('FAILED', 'DISPUTED')).toBe(true);
+    expect(canTransitionTo('FAILED', 'REMEDIATED')).toBe(false);
+    expect(canTransitionTo('DISPUTED', 'REMEDIATED')).toBe(true);
   });
 
   it('allows FAILED → REVISION_REQUESTED (rework loop)', () => {
@@ -90,11 +113,11 @@ describe('canTransitionTo', () => {
 
 describe('getValidTransitions', () => {
   it('returns transitions for CREATED', () => {
-    expect(getValidTransitions('CREATED')).toEqual(['ACTIVE', 'PROPOSED', 'CANCELLED']);
+    expect(getValidTransitions('CREATED')).toEqual(['ACTIVE', 'CANCELLED', 'EXPIRED', 'PROPOSED']);
   });
 
-  it('returns empty array for terminal statuses', () => {
-    expect(getValidTransitions('FULFILLED')).toEqual([]);
+  it('returns DISPUTED for a terminal outcome a dispute reopens, and nothing for the rest', () => {
+    expect(getValidTransitions('FULFILLED')).toEqual(['DISPUTED']);
     expect(getValidTransitions('REJECTED')).toEqual([]);
     expect(getValidTransitions('RECORDED')).toEqual([]);
   });
@@ -107,6 +130,7 @@ describe('getValidTransitions', () => {
 describe('isTerminalStatus', () => {
   it('returns true for terminal statuses', () => {
     expect(isTerminalStatus('FULFILLED')).toBe(true);
+    expect(isTerminalStatus('REMEDIATED')).toBe(true);
     expect(isTerminalStatus('EXPIRED')).toBe(true);
     expect(isTerminalStatus('CANCELLED')).toBe(true);
     expect(isTerminalStatus('RECORDED')).toBe(true);
