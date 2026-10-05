@@ -155,10 +155,23 @@ describe('verifyExport: the same corpus pinned on the key each export names', ()
     });
   }
 
-  it('refuses a key both pinned and distrusted, as the Server refuses to start with it', () => {
+  it('refuses a pinned key distrusted with no instant, as the Server refuses to start with it', () => {
     const exportData = loadJson<RecordAuditExport>('export/valid.json');
     const pin = exportData.exportMetadata.anchoredFrom!;
-    expect(() => verifyExport(exportData, { trustAnchors: [pin], distrustedKeys: [pin] })).toThrow(/both a trust anchor and a distrusted key/);
+    expect(() => verifyExport(exportData, { trustAnchors: [pin], distrustedKeys: [pin] })).toThrow(/is a trust anchor and a distrusted key with no instant,/);
+  });
+
+  it('takes a pin beside a dated distrust entry for the same key: the pin vouches for what the key signed before the instant', () => {
+    const exportData = loadJson<RecordAuditExport>('export/valid.json');
+    const pin = exportData.exportMetadata.anchoredFrom!;
+    const first = exportData.entries[0]!.createdAt;
+    const after = verifyExport(exportData, { trustAnchors: [pin], distrustedKeys: [`${pin}@2099-01-01T00:00:00Z`] });
+    expect(after.verdict).toBe('trusted');
+    expect(after.keyTrust.accounted).toEqual([]);
+    // An export accounts for nothing: what the key signed from the instant on fails.
+    const before = verifyExport(exportData, { trustAnchors: [pin], distrustedKeys: [`${pin}@${first}`] });
+    expect(before.verdict).toBe('failed');
+    expect(before.brokenAt?.code).toBe('CHAIN_KEY_EXPIRED');
   });
 
   it('refuses the 1.x requireOutOfBandKeys by name, and any option it does not read', () => {
