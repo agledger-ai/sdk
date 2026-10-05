@@ -318,12 +318,12 @@ for await (const record of client.records.listAll({ status: 'ACTIVE' })) {
 
 An unbounded walk runs to the end of the listing. Behind it is a 100-page
 runaway guard, and hitting that guard throws `PaginationLimitError` rather than
-returning a prefix that looks like the whole listing. Raise `limit` so the rows
-arrive in fewer pages, or bound the walk yourself:
+returning a prefix that looks like the whole listing. Raise `limit` (the Server
+takes up to 100) so the rows arrive in fewer pages, or bound the walk yourself:
 
 ```typescript
 // An explicit bound is an intentional stop, so it ends the walk quietly.
-for await (const record of client.records.listAll({ limit: 500 }, { maxPages: 20 })) {
+for await (const record of client.records.listAll({ limit: 100 }, { maxPages: 20 })) {
   console.log(record.id);
 }
 ```
@@ -352,7 +352,9 @@ Read once without `view: 'compact'` to get the step descriptions.
 import { AgledgerApiError, NotFoundError, RateLimitError, UnprocessableError } from '@agledger/sdk';
 
 try {
-  await client.records.get('rec-nonexistent');
+  // A well-formed id that names no Record. A malformed one is a 400
+  // ValidationError, which is never a NotFoundError.
+  await client.records.get('00000000-0000-0000-0000-000000000000');
 } catch (err) {
   if (err instanceof NotFoundError) {
     console.log('Record not found');
