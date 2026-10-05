@@ -89,7 +89,7 @@ export type {
  * ```ts
  * import { verifyExport } from '@agledger/sdk/verify';
  *
- * const exp = await client.records.getAuditExport('REC_123');
+ * const exp = await client.records.getAuditExport(recordId);
  * const result = verifyExport(exp, { trustAnchors: [process.env.AGLEDGER_VAULT_KEY_PIN!] });
  * if (result.verdict === 'failed') {
  *   console.error(`Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.code}`);

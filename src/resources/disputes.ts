@@ -35,7 +35,7 @@ export class DisputesResource {
    *
    * @example
    * ```ts
-   * const dispute = await client.disputes.create('rec-123', {
+   * const dispute = await client.disputes.create(recordId, {
    *   grounds: 'pricing_dispute',
    *   context: 'Invoice amount exceeds agreed tolerance',
    * });
@@ -107,7 +107,7 @@ export class DisputesResource {
    *
    * @example
    * ```ts
-   * await client.disputes.submitEvidence('rec-123', {
+   * await client.disputes.submitEvidence(recordId, {
    *   evidenceType: 'document',
    *   payload: { url: 'https://...', description: 'Invoice copy' },
    * });
