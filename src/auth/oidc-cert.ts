@@ -99,8 +99,10 @@ export class OidcExchangeError extends AgledgerApiError {
  * Because the credential holds the cert's key, it also signs every request
  * body: `X-Agent-Signature-Content-Hash` carries `sha256:<hex>` of the exact
  * bytes sent and `X-Agent-Signature` an Ed25519 signature over it. The Server
- * records the signature in the chain entry for record create, transition and
- * verdict, completion submit, and A2A.
+ * verifies it on every authenticated route and seals it into every chain entry
+ * the request writes. Only this credential sends the headers: the Server
+ * refuses them with 400 under any other credential (an API key, or an
+ * admin or platform OIDC bearer).
  */
 export function oidcCertCredential(options: OidcCertCredentialOptions): OidcCertCredential {
   if (typeof options?.getOidcToken !== 'function') {

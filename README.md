@@ -184,9 +184,8 @@ about the cert (the Server also refuses an `onBehalfOf` delegation token or a
 body signature with 401), so the client first checks the cert with one
 `GET /v1/auth/me`: if that succeeds, the original 401 surfaces as sent. Because the credential
 holds the cert's key, it signs every request body (`X-Agent-Signature` over the
-SHA-256 of the exact bytes sent); the Server records that signature in the
-chain entry for record create, transition and verdict, completion submit, and
-A2A. A refused exchange throws `OidcExchangeError` carrying the Server's
+SHA-256 of the exact bytes sent); the Server verifies that signature on every
+authenticated route and seals it into every chain entry the request writes. A refused exchange throws `OidcExchangeError` carrying the Server's
 `recoveryHint`, with the OIDC token scrubbed from anything that echoed it.
 
 `bearerToken` also takes a plain string or a function. A function is called
