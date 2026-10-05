@@ -83,6 +83,11 @@ import type {
   Webhook,
   WebhookHealthEntry,
   WebhookTestResult,
+  SubmitVerdictParams,
+  VaultScanJob,
+  VaultScanWaitingReason,
+  VaultScanDistrustedEntry,
+  VaultScanFirstFindingReason,
 } from '../types.js';
 import type { AgledgerApiError } from '../errors.js';
 import type { AdminResource } from '../resources/admin.js';
@@ -442,5 +447,37 @@ describe('the vault signing-key registry is typed as the engine sends it', () =>
     expectTypeOf<VaultSigningKeyRotation['status']>().toEqualTypeOf<'staged' | 'already_active'>();
     expectTypeOf<VaultSigningKeyRotation['activeKeys']>().toEqualTypeOf<VaultActiveSigningKey[]>();
     expectTypeOf<VaultActiveSigningKey['lastSignedAt']>().toEqualTypeOf<string | null>();
+  });
+});
+
+describe('the final 2.0 RC: distrusted keys, key material, workers that hold a scan', () => {
+  it('names the distrusted-key and key-material reasons', () => {
+    expectTypeOf<'signing_key_distrusted'>().toMatchTypeOf<AuditChainIntegrityReason>();
+    expectTypeOf<'signing_key_material_invalid'>().toMatchTypeOf<AuditChainIntegrityReason>();
+    expectTypeOf<'signing_key_distrusted'>().toMatchTypeOf<AuditChainFailure>();
+    expectTypeOf<'signing_key_distrusted'>().toMatchTypeOf<VaultScanFirstFindingReason>();
+    // VaultScanBreakReason and StatusComponentReason are open unions, so a
+    // member check here passes for any string; schema-fields.json pins them.
+  });
+
+  it('says why a scan is not being taken, and lists what a distrusted key signed', () => {
+    expectTypeOf<VaultScanJob['waitingOn']>().toEqualTypeOf<
+      { reason: VaultScanWaitingReason; workerHolds: string[] } | null | undefined
+    >();
+    expectTypeOf<VaultScanResult['distrustedEntries']>().toEqualTypeOf<VaultScanDistrustedEntry[] | undefined>();
+    expectTypeOf<VaultScanResult['distrustedSigned']>().toEqualTypeOf<number | undefined>();
+  });
+
+  it('reports the key registry walk and the append-only posture on ops-summary', () => {
+    expectTypeOf<OpsSummary['vault']['keyRegistry']>().toEqualTypeOf<{ findings: number | null }>();
+    expectTypeOf<OpsSummary['vault']['appendOnly']>().toEqualTypeOf<{
+      enforced: boolean | null;
+      role: string | null;
+      held: string[];
+    }>();
+  });
+
+  it('takes message as a verdict rationale alias', () => {
+    expectTypeOf<SubmitVerdictParams['message']>().toEqualTypeOf<string | undefined>();
   });
 });

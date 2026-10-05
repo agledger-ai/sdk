@@ -149,9 +149,16 @@ export class SchemasResource {
     return this.http.post<SchemaPreviewResult>('/v1/schemas/preview', input, options);
   }
 
-  /** Check compatibility of new record/completion schemas against an existing Type. */
-  checkCompatibility(type: RecordType, schemas: { recordSchema: Record<string, unknown>; completionSchema: Record<string, unknown> }, options?: RequestOptions): Promise<SchemaCompatibilityResult> {
-    return this.http.post<SchemaCompatibilityResult>(`/v1/schemas/${type}/check-compatibility`, schemas, options);
+  /**
+   * Dry-run the compatibility check `register()` runs, without registering:
+   * against the latest ACTIVE version of the publisher in your org (or the
+   * engine-wide one when your org has none). The `publisher` option names the
+   * publisher, as `register()`'s `publisher` field does, and defaults to
+   * `local`; a publisher with no version of the type here answers compatible.
+   */
+  checkCompatibility(type: RecordType, schemas: { recordSchema: Record<string, unknown>; completionSchema: Record<string, unknown> }, options?: SchemaScopeOptions): Promise<SchemaCompatibilityResult> {
+    const { request, params } = scope(options);
+    return this.http.post<SchemaCompatibilityResult>(`/v1/schemas/${type}/check-compatibility`, schemas, request, params);
   }
 
   /** Register a new custom Type schema. */
