@@ -228,7 +228,7 @@ function binaryErrorBody(response: Response, bytes: Uint8Array): Record<string, 
       // Not the JSON it was labelled.
     }
   }
-  return { error: 'binary-error', detail: response.statusText || `HTTP ${response.status}` };
+  return { error: 'unknown', detail: response.statusText || `HTTP ${response.status}` };
 }
 
 /** Failures getting a token that a later attempt may not repeat. */

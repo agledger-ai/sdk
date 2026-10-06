@@ -610,7 +610,7 @@ const keys = await client.scitt.keys.list();
 
 Wire format is binary `application/cose`. The Server's own errors here are RFC
 9290 CBOR problem details, left on `AgledgerApiError.rawBody` for you to decode
-(`err.code` is `'binary-error'` and `err.message` the HTTP status text). A
+(`err.code` is `'unknown'` and `err.message` the HTTP status text). A
 request refused before the handler, such as a malformed entry id, is answered
 in JSON and maps like any other error, `code` and `detail` included.
 
