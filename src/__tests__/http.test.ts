@@ -856,3 +856,47 @@ describe('idempotencyKey on the failure that may have applied the write', () => 
     expect(r.idempotencyKey).toBeUndefined();
   });
 });
+
+describe('binary routes: the error body the Server sent', () => {
+  function binaryFetch(status: number, statusText: string, contentType: string, body: Uint8Array) {
+    return vi.fn().mockResolvedValue({
+      ok: false,
+      status,
+      statusText,
+      headers: new Headers({ 'content-type': contentType }),
+      arrayBuffer: vi.fn().mockResolvedValue(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)),
+    });
+  }
+
+  it('reads a JSON problem body, as a malformed path parameter is answered', async () => {
+    const problem = {
+      type: '/problems/validation-error',
+      title: 'Validation Error',
+      status: 400,
+      error: 'VALIDATION_ERROR',
+      detail: 'params/entryId must match format "uuid"',
+    };
+    const bytes = new TextEncoder().encode(JSON.stringify(problem));
+    const fetchFn = binaryFetch(400, 'Bad Request', 'application/problem+json; charset=utf-8', bytes);
+    const err = (await createClient(fetchFn as never)
+      .requestBinary('GET', '/v1/scitt/entries/x')
+      .catch((e: unknown) => e)) as ValidationError;
+    expect(err).toBeInstanceOf(ValidationError);
+    expect(err.code).toBe('VALIDATION_ERROR');
+    expect(err.message).toBe('params/entryId must match format "uuid"');
+    expect(err.type).toBe('/problems/validation-error');
+    expect(err.rawBody).toEqual(bytes);
+  });
+
+  it('leaves a CBOR problem body on rawBody and takes the status text', async () => {
+    const bytes = new Uint8Array([0xa2, 0x20, 0x69, ...new TextEncoder().encode('Not Found'), 0x21, 0x61, 0x78]);
+    const fetchFn = binaryFetch(404, 'Not Found', 'application/concise-problem-details+cbor', bytes);
+    const err = (await createClient(fetchFn as never)
+      .requestBinary('GET', '/v1/scitt/entries/00000000-0000-0000-0000-000000000000')
+      .catch((e: unknown) => e)) as NotFoundError;
+    expect(err).toBeInstanceOf(NotFoundError);
+    expect(err.code).toBe('binary-error');
+    expect(err.message).toBe('Not Found');
+    expect(err.rawBody).toEqual(bytes);
+  });
+});
