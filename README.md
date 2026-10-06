@@ -608,8 +608,11 @@ const keys = await client.scitt.keys.list();
 // COSE_KeySet of the Transparency Service's signing keys
 ```
 
-Wire format is binary `application/cose`. Errors surface as RFC 9290 CBOR
-problem-details on `AgledgerApiError.rawBody`.
+Wire format is binary `application/cose`. The Server's own errors here are RFC
+9290 CBOR problem details, left on `AgledgerApiError.rawBody` for you to decode
+(`err.code` is `'binary-error'` and `err.message` the HTTP status text). A
+request refused before the handler, such as a malformed entry id, is answered
+in JSON and maps like any other error, `code` and `detail` included.
 
 ## Predicate Schemas
 

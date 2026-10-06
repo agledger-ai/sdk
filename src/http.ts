@@ -209,6 +209,28 @@ async function readErrorBody(response: Response): Promise<Record<string, unknown
   return { error: 'unknown', detail: response.statusText || `HTTP ${response.status}` };
 }
 
+/**
+ * The error body of a binary route. Its own errors are CBOR problem details,
+ * left on `rawBody` for the caller to decode, but a request the Server refuses
+ * before the handler (a malformed path parameter) is answered in JSON, and that
+ * body names the code and detail the caller needs.
+ */
+function binaryErrorBody(response: Response, bytes: Uint8Array): Record<string, unknown> {
+  const type = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase();
+  if (type === 'application/json' || type.endsWith('+json')) {
+    try {
+      const parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const body = parsed as Record<string, unknown>;
+        return jsonRpcErrorBody(body) ?? body;
+      }
+    } catch {
+      // Not the JSON it was labelled.
+    }
+  }
+  return { error: 'binary-error', detail: response.statusText || `HTTP ${response.status}` };
+}
+
 /** Failures getting a token that a later attempt may not repeat. */
 function isRetryableAuthFailure(err: unknown): boolean {
   if (err instanceof AgledgerApiError) return err.retryable;
@@ -389,11 +411,7 @@ export class HttpClient {
           continue;
         }
 
-        const error = this.mapError(
-          response.status,
-          { error: 'binary-error', detail: response.statusText || `HTTP ${response.status}` },
-          response.headers,
-        );
+        const error = this.mapError(response.status, binaryErrorBody(response, bytes), response.headers);
         error.rawBody = bytes;
 
         if (response.status === 429 || response.status >= 500) {
