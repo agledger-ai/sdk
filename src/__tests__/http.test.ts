@@ -895,7 +895,7 @@ describe('binary routes: the error body the Server sent', () => {
       .requestBinary('GET', '/v1/scitt/entries/00000000-0000-0000-0000-000000000000')
       .catch((e: unknown) => e)) as NotFoundError;
     expect(err).toBeInstanceOf(NotFoundError);
-    expect(err.code).toBe('binary-error');
+    expect(err.code).toBe('unknown');
     expect(err.message).toBe('Not Found');
     expect(err.rawBody).toEqual(bytes);
   });
