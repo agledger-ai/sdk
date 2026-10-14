@@ -2,6 +2,8 @@
 
 The official TypeScript SDK for [AGLedger](https://agledger.ai): change control for AI agents. Agent memory, approvals, audit trail, and notifications: one API, one signed ledger, self-hosted.
 
+Requires an AGLedger Server 2.0 or later. For a 1.x Server, use `npm i @agledger/sdk@1.12.0`, the last release that supports it.
+
 Two runtime dependencies, each used only by an opt-in entry point: `@agledger/verify-core` (offline chain verification in `@agledger/sdk/verify`, and the signature primitives behind `@agledger/sdk/webhooks`) and `http-message-signatures` (RFC 9421 webhook verification in `@agledger/sdk/webhooks`). The core client uses `fetch` and `node:crypto`, nothing else. TypeScript strict. Requires Node.js 24+ (also runs on Deno and Bun).
 
 **Learn more**
