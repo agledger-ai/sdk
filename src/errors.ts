@@ -1,4 +1,18 @@
-import type { ApiErrorResponse, ValidationErrorDetail } from './types.js';
+import type { ApiErrorResponse, NextStep, ValidationErrorDetail } from './types.js';
+
+/**
+ * One entry of the body's `validationErrors` as a `ValidationErrorDetail`.
+ * The engine writes `field` and `message`; Ajv-shaped entries name the field
+ * as `instancePath` instead. Everything else on the entry is kept.
+ */
+function normalizeValidationError(e: Record<string, unknown>): ValidationErrorDetail {
+  const field = typeof e.field === 'string' ? e.field
+    : typeof e.instancePath === 'string' ? e.instancePath
+    : typeof e.dataPath === 'string' ? e.dataPath
+    : '';
+  const message = typeof e.message === 'string' ? e.message : '';
+  return { ...e, field, message } as ValidationErrorDetail;
+}
 
 /**
  * Base error for all SDK errors (network, timeout, etc.).
@@ -33,7 +47,10 @@ export class ConfigurationError extends AgledgerError {
  * (`type`, `title`, `status`, `detail`, `instance`) are surfaced alongside
  * AGLedger extension fields (`error`, `requestId`, `retryable`, `suggestion`,
  * `recoveryHint`, `missingScopes`, `nextSteps`, ...). `message` is the body's
- * `detail`, the one human-readable field, falling back to `title`.
+ * `detail`, the one human-readable field, falling back to `title`. The parsed
+ * body itself is `body`, so a field this class does not name is still
+ * readable (`err.body.someNewField`); `rawBody` holds the bytes of a
+ * non-JSON (CBOR) body.
  *
  * Key properties for consumers:
  * - `type`: RFC 9457 problem URI (e.g. `/problems/ambiguous-publisher`). Branch on this, not on prose.
@@ -50,6 +67,12 @@ export class ConfigurationError extends AgledgerError {
  * - `existingId`: the row a 409 collided with (e.g. TRUSTED_ISSUER_EXISTS)
  * - `refreshUrl`: concrete GET URL to re-fetch state (e.g. on 422 INVALID_ACTION)
  * - `validationErrors`: field-level validation details (for 400/422)
+ * - `requiredFields` / `optionalFields` / `examplePayload` / `schemaUrl` / `recordType`: the
+ *   rebuild kit a 400 carries when a Record or Completion body failed its schema
+ * - `hint`: the 404's pointer at what to list or create instead
+ * - `attemptedAction` / `attemptedTransition` / `attemptedState`: what a 422 refused
+ * - `retryAfter`: milliseconds the Server or a proxy asked the client to wait, from the
+ *   `Retry-After` header on any status (a 429 body's `retryAfterSeconds` fills it too)
  */
 export class AgledgerApiError extends AgledgerError {
   readonly status: number;
@@ -113,8 +136,14 @@ export class AgledgerApiError extends AgledgerError {
   /**
    * Machine-readable reason code, forwarded from the body. On a 401 OIDC
    * refusal it names the token check that failed (`expired`, `wrong_audience`,
-   * `wrong_azp`, `jti_replayed`, ...); on a 409 it names the conflict
-   * (`TRUSTED_ISSUER_EXISTS`, `AGENT_NAME_IN_USE`, ...).
+   * `wrong_azp`, `jti_replayed`, ...); on a 409 that carries one it names the
+   * conflict: `STATUS_NOT_DISABLED`, `ACCOUNT_DEACTIVATED`,
+   * `RECORDS_REFERENCE_TYPE`, `CONFLICTING_VERSION`, `RESERVED_PUBLISHER_LABEL`,
+   * `PROVISIONING_MANAGED`, `OIDC_JTI_REPLAY`, `ROW_HAS_DEPENDENT_RECORDS`,
+   * `CHAIN_REWIND_DETECTED`, `VAULT_SCAN_IN_FLIGHT`, `AGENT_NAME_IN_USE`,
+   * `TRUSTED_ISSUER_EXISTS` or `KEY_ALREADY_ROTATED`. Not every 409 names one
+   * (a duplicate agent `displayName` answers `error: CONFLICT` with no
+   * `reason` today), so branch on `code` first and on `reason` when present.
    */
   readonly reason?: string;
 
@@ -156,6 +185,103 @@ export class AgledgerApiError extends AgledgerError {
    */
   readonly retryable: boolean;
 
+  /** RFC 9457 `title`: the short name of the problem class. */
+  readonly title?: string;
+  /** RFC 9457 `detail`: the human-readable explanation of this occurrence. Also `message`. */
+  readonly detail?: string;
+  /** RFC 9457 `instance`: the request path this occurrence belongs to. */
+  readonly instance?: string;
+  /** Field-level errors as the body carries them top level (RFC 9457 extension). Prefer {@link validationErrors}. */
+  readonly errors?: Record<string, unknown>[] | null;
+  /**
+   * The 404's pointer at what to do instead of retrying the same id: which
+   * listing to read, or which create to run first.
+   */
+  readonly hint?: string;
+  /** Fields the schema requires, on a 400 that refused a Record or Completion body. */
+  readonly requiredFields?: string[];
+  /** Fields the schema allows beyond the required ones, on the same 400. */
+  readonly optionalFields?: string[];
+  /** A payload that passes the schema the 400 refused against. Rebuild from it rather than from prose. */
+  readonly examplePayload?: Record<string, unknown>;
+  /** Where the schema the 400 validated against is served. */
+  readonly schemaUrl?: string;
+  /** The contract type the 400 validated against. */
+  readonly recordType?: string;
+  /** The action a 422 refused (`transition`, `verdict`, `cancel`, ...). */
+  readonly attemptedAction?: string;
+  /** The transition name a 422 refused. */
+  readonly attemptedTransition?: string;
+  /** The display state a refused transition tried to reach. */
+  readonly attemptedState?: string;
+  /** Values the refused field accepts, when a 400 or 422 can enumerate them. */
+  readonly allowedValues?: unknown[];
+  /** Role labels permitted to take the refused action. */
+  readonly allowedActors?: string[];
+  /** The bounds the request broke (`field`, `parentValue`, `childValue`, `reason`, `tolerance`). */
+  readonly constraintViolations?: Record<string, unknown>[];
+  /** Name of the single constraint a 400 or 422 broke, when it was one. */
+  readonly constraint?: string;
+  /** The JSON type or value a validation error expected. */
+  readonly expected?: string;
+  /** License features the current tier lacks, on a 403 license refusal. */
+  readonly missingFeatures?: string[];
+  /** The license tier in force, beside `requiredTier`, on a 403 license refusal. */
+  readonly currentTier?: string;
+  readonly requiredTier?: string;
+  /** Guided next actions the error body carries. */
+  readonly nextSteps?: NextStep[];
+  /** The Record deadline that had already passed on a system TIME_OUT 422. */
+  readonly deadline?: string;
+  /** The system action that terminalized the Record (`OVERFLOW_REJECT`, `TIME_OUT`, ...). */
+  readonly terminalReason?: string;
+  /** The Record's display status before that system action. */
+  readonly previousStatus?: string;
+  /** Display status of the Record when the request was refused. */
+  readonly currentStatus?: string;
+  /** Display statuses from which a dispute is accepted. */
+  readonly disputeableWhen?: string[];
+  /** Disputes already filed against the Record, beside `maxDisputes`, when the cap refused one more. */
+  readonly disputeCount?: number;
+  readonly maxDisputes?: number;
+  /** The currently open dispute, or null once every prior dispute terminalized. */
+  readonly openDisputeId?: string | null;
+  /** Revisions consumed, beside `maxRevisions`, when the revision cap fired. */
+  readonly revisionCount?: number;
+  readonly maxRevisions?: number;
+  /** Completions received, beside `maxSubmissions`, when the submission cap refused one more. */
+  readonly submissionCount?: number;
+  readonly maxSubmissions?: number;
+  /** The parent Record a refused child write names. */
+  readonly parentRecordId?: string;
+  /** The in-flight job a 409 refused to start a second of. */
+  readonly jobId?: string;
+  /** Publisher label on the conflicting schema row. */
+  readonly publisher?: string;
+  /** Manifest version string on the conflicting schema row. */
+  readonly version?: string;
+  /** Manifest digests on a schema or federation digest conflict. */
+  readonly existingDigest?: string;
+  readonly incomingDigest?: string;
+  readonly localDigest?: string;
+  readonly peerDigest?: string;
+
+  /**
+   * Milliseconds the client was asked to wait before retrying, from the
+   * `Retry-After` header on any status (a load balancer sends one on a 503 as
+   * the Server does on a 429), or from a 429 body's `retryAfterSeconds` when
+   * the header was stripped. `null` when neither was given. The SDK's own
+   * retries wait at least this long.
+   */
+  readonly retryAfter: number | null;
+
+  /**
+   * The error body as the Server sent it, parsed, every field included.
+   * Everything this class names is a typed view onto it; read this for a
+   * field the view does not name yet.
+   */
+  readonly body: ApiErrorResponse;
+
   /**
    * Raw response body bytes for binary endpoints (`application/cose`,
    * `application/concise-problem-details+cbor`). Set by `HttpClient.requestBinary`
@@ -164,15 +290,59 @@ export class AgledgerApiError extends AgledgerError {
    */
   rawBody?: Uint8Array;
 
-  constructor(status: number, body: ApiErrorResponse) {
+  constructor(status: number, body: ApiErrorResponse, retryAfter: number | null = null) {
     super(body.detail || body.title || `API error ${status}`);
     this.name = 'AgledgerApiError';
     this.status = status;
+    this.body = body;
+    this.retryAfter = retryAfter;
     this.code = body.error || 'unknown';
     this.requestId = body.requestId;
     this.details = body.details ?? undefined;
     this.retryable = body.retryable ?? (status === 429 || status >= 500);
     this.type = body.type;
+    this.title = body.title;
+    this.detail = body.detail;
+    this.instance = body.instance;
+    this.errors = body.errors;
+    this.hint = body.hint;
+    this.requiredFields = body.requiredFields;
+    this.optionalFields = body.optionalFields;
+    this.examplePayload = body.examplePayload;
+    this.schemaUrl = body.schemaUrl;
+    this.recordType = body.recordType;
+    this.attemptedAction = body.attemptedAction;
+    this.attemptedTransition = body.attemptedTransition;
+    this.attemptedState = body.attemptedState;
+    this.allowedValues = body.allowedValues;
+    this.allowedActors = body.allowedActors;
+    this.constraintViolations = body.constraintViolations;
+    this.constraint = body.constraint;
+    this.expected = body.expected;
+    this.missingFeatures = body.missingFeatures;
+    this.currentTier = body.currentTier;
+    this.requiredTier = body.requiredTier;
+    this.nextSteps = body.nextSteps;
+    this.deadline = body.deadline;
+    this.terminalReason = body.terminalReason;
+    this.previousStatus = body.previousStatus;
+    this.currentStatus = body.currentStatus;
+    this.disputeableWhen = body.disputeableWhen;
+    this.disputeCount = body.disputeCount;
+    this.maxDisputes = body.maxDisputes;
+    this.openDisputeId = body.openDisputeId;
+    this.revisionCount = body.revisionCount;
+    this.maxRevisions = body.maxRevisions;
+    this.submissionCount = body.submissionCount;
+    this.maxSubmissions = body.maxSubmissions;
+    this.parentRecordId = body.parentRecordId;
+    this.jobId = body.jobId;
+    this.publisher = body.publisher;
+    this.version = body.version;
+    this.existingDigest = body.existingDigest;
+    this.incomingDigest = body.incomingDigest;
+    this.localDigest = body.localDigest;
+    this.peerDigest = body.peerDigest;
     this.suggestion = body.suggestion;
     this.recoveryHint = body.recoveryHint;
     this.refreshUrl = body.refreshUrl;
@@ -207,8 +377,15 @@ export class AgledgerApiError extends AgledgerError {
     return this.status === 401 || this.status === 403;
   }
 
-  /** Field-level validation errors, normalized from various API formats. */
+  /**
+   * Field-level validation errors, normalized from the shapes the API uses:
+   * the top-level `validationErrors` array a schema refusal carries, else
+   * `details` as a list, else Ajv-style `details.errors`.
+   */
   get validationErrors(): ValidationErrorDetail[] {
+    if (Array.isArray(this.body.validationErrors)) {
+      return this.body.validationErrors.map((e) => normalizeValidationError(e));
+    }
     if (!this.details) return [];
     if (Array.isArray(this.details)) return this.details as ValidationErrorDetail[];
     // Handle Ajv-style errors nested under .errors
@@ -224,8 +401,8 @@ export class AgledgerApiError extends AgledgerError {
 }
 
 export class AuthenticationError extends AgledgerApiError {
-  constructor(body: ApiErrorResponse) {
-    super(401, body);
+  constructor(body: ApiErrorResponse, retryAfter: number | null = null) {
+    super(401, body, retryAfter);
     this.name = 'AuthenticationError';
   }
 }
@@ -236,8 +413,8 @@ export class PermissionError extends AgledgerApiError {
   /** Scopes the key has. Null if not included in the response. */
   readonly keyScopes: string[] | null;
 
-  constructor(body: ApiErrorResponse) {
-    super(403, body);
+  constructor(body: ApiErrorResponse, retryAfter: number | null = null) {
+    super(403, body, retryAfter);
     this.name = 'PermissionError';
     // RFC 9457 surfaces missingScopes as a top-level extension field; older
     // bodies nested it under details.
@@ -253,22 +430,22 @@ export class PermissionError extends AgledgerApiError {
 }
 
 export class NotFoundError extends AgledgerApiError {
-  constructor(body: ApiErrorResponse) {
-    super(404, body);
+  constructor(body: ApiErrorResponse, retryAfter: number | null = null) {
+    super(404, body, retryAfter);
     this.name = 'NotFoundError';
   }
 }
 
 export class ConflictError extends AgledgerApiError {
-  constructor(body: ApiErrorResponse) {
-    super(409, body);
+  constructor(body: ApiErrorResponse, retryAfter: number | null = null) {
+    super(409, body, retryAfter);
     this.name = 'ConflictError';
   }
 }
 
 export class ValidationError extends AgledgerApiError {
-  constructor(body: ApiErrorResponse) {
-    super(400, body);
+  constructor(body: ApiErrorResponse, retryAfter: number | null = null) {
+    super(400, body, retryAfter);
     this.name = 'ValidationError';
   }
 }
@@ -282,19 +459,16 @@ export class ValidationError extends AgledgerApiError {
  * `AgledgerApiError` properties.
  */
 export class UnprocessableError extends AgledgerApiError {
-  constructor(body: ApiErrorResponse) {
-    super(422, body);
+  constructor(body: ApiErrorResponse, retryAfter: number | null = null) {
+    super(422, body, retryAfter);
     this.name = 'UnprocessableError';
   }
 }
 
 export class RateLimitError extends AgledgerApiError {
-  readonly retryAfter: number | null;
-
   constructor(body: ApiErrorResponse, retryAfter: number | null) {
-    super(429, body);
+    super(429, body, retryAfter);
     this.name = 'RateLimitError';
-    this.retryAfter = retryAfter;
   }
 }
 

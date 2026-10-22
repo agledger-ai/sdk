@@ -114,6 +114,81 @@ describe('AgledgerApiError classifier methods', () => {
     });
   });
 
+  describe('the whole body is kept', () => {
+    // A raw POST /v1/records with criteria: 5 answers a 400 whose keys are
+    // detail, details, error, errors, examplePayload, instance, recoveryHint,
+    // requestId, requiredFields, retryable, schemaUrl, status, title, type,
+    // validationErrors. The SDK copied a fixed list and dropped the rebuild
+    // kit, title and instance, so a strict caller could not rebuild the body
+    // the recoveryHint told it to.
+    it('surfaces the 400 rebuild kit, title and instance, and keeps the parsed body', () => {
+      const body = {
+        type: '/problems/validation',
+        title: 'Validation failed',
+        status: 400,
+        detail: 'criteria must be an object',
+        instance: '/v1/records',
+        error: 'VALIDATION_ERROR',
+        errors: [{ instancePath: '/criteria', message: 'must be object' }],
+        details: [{ field: 'criteria', message: 'must be object' }],
+        retryable: false,
+        requestId: 'req-1',
+        recoveryHint: 'Fetch schemaUrl and rebuild criteria from examplePayload.',
+        requiredFields: ['criteria'],
+        optionalFields: ['deadline'],
+        examplePayload: { type: 'notarize-generic-v1', criteria: { summary: 'x' } },
+        schemaUrl: '/v1/schemas/notarize-generic-v1',
+        recordType: 'notarize-generic-v1',
+        validationErrors: [{ field: 'criteria', message: 'must be object', keyword: 'type' }],
+        unknownFutureField: { any: 'thing' },
+      };
+      const err = new ValidationError(body);
+      expect(err.title).toBe('Validation failed');
+      expect(err.instance).toBe('/v1/records');
+      expect(err.detail).toBe('criteria must be an object');
+      expect(err.requiredFields).toEqual(['criteria']);
+      expect(err.optionalFields).toEqual(['deadline']);
+      expect(err.examplePayload).toEqual({ type: 'notarize-generic-v1', criteria: { summary: 'x' } });
+      expect(err.schemaUrl).toBe('/v1/schemas/notarize-generic-v1');
+      expect(err.recordType).toBe('notarize-generic-v1');
+      expect(err.errors).toEqual([{ instancePath: '/criteria', message: 'must be object' }]);
+      // The top-level validationErrors array wins over details, and keeps its extras.
+      expect(err.validationErrors).toEqual([{ field: 'criteria', message: 'must be object', keyword: 'type' }]);
+      // A field this class does not name is still readable off the body.
+      expect(err.body).toBe(body);
+      expect((err.body as Record<string, unknown>).unknownFutureField).toEqual({ any: 'thing' });
+    });
+
+    it('surfaces the 404 hint and the 422 attemptedAction', () => {
+      const missing = new (class extends AgledgerApiError {})(404, {
+        error: 'NOT_FOUND',
+        detail: 'No record with that id',
+        hint: 'List records with GET /v1/records, or create one with POST /v1/records.',
+      });
+      expect(missing.hint).toBe('List records with GET /v1/records, or create one with POST /v1/records.');
+
+      const refused = new UnprocessableError({
+        error: 'INVALID_ACTION',
+        detail: 'cancel is refused on a FULFILLED record',
+        attemptedAction: 'cancel',
+        attemptedTransition: 'CANCELLED',
+        attemptedState: 'CANCELLED',
+        currentState: 'FULFILLED',
+        allowedActions: [],
+      });
+      expect(refused.attemptedAction).toBe('cancel');
+      expect(refused.attemptedTransition).toBe('CANCELLED');
+      expect(refused.attemptedState).toBe('CANCELLED');
+    });
+
+    it('carries retryAfter on every class, null when nothing asked for a wait', () => {
+      expect(new ValidationError({ detail: 'x' }).retryAfter).toBeNull();
+      expect(new AuthenticationError({ detail: 'x' }, 2000).retryAfter).toBe(2000);
+      expect(new RateLimitError({ detail: 'x' }, 6000).retryAfter).toBe(6000);
+      expect(new AgledgerApiError(503, { detail: 'x' }, 6000).retryAfter).toBe(6000);
+    });
+  });
+
   describe('PermissionError missingScopes', () => {
     it('reads missingScopes from RFC 9457 top-level field (v0.21+)', () => {
       const err = new PermissionError({

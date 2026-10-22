@@ -361,6 +361,8 @@ export type {
   // Admin: Vault
   VaultActiveSigningKey,
   VaultSigningKey,
+  VaultSigningKeyList,
+  VaultSigner,
   VaultSigningKeyRotation,
   VaultSigningKeyRetirement,
   RetireVaultSigningKeyParams,

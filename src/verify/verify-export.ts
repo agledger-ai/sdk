@@ -24,6 +24,7 @@ export type {
   SuppliedKeyEntry,
   FailureCode,
   AgentPublicKeyJwk,
+  FederationKeyEntry,
   DistrustedKey,
   KeyTrustReport,
   KeyTrustNote,
@@ -50,6 +51,14 @@ export type {
  * listed in `result.keyTrust.findings`. Those fail the result at position 0
  * when the chain itself is intact; when it also breaks, `brokenAt` is the
  * chain failure.
+ *
+ * On a receiving Server's export, FEDERATION_* entries seal each peer message
+ * as the peer signed it (`payload.wire`). Every sealed message is held to its
+ * body hash and to its entry; pass `federationKeys` (`{ [hubId]: key }`, the
+ * peer's Ed25519 federation key as its operator gives it) to also re-verify
+ * the peer's signature, which proves what the peer asserted from this export
+ * alone. `result.federationWire` counts present and verified; a failure is
+ * `CHAIN_FEDERATION_WIRE_INVALID`.
  *
  * Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
  * `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can

@@ -71,6 +71,7 @@ import type {
   VaultScanJob,
   VaultScanList,
   VaultSigningKey,
+  VaultSigningKeyList,
   VaultSigningKeyRetirement,
   VaultSigningKeyRotation,
   VerifyVaultAnchorsParams,
@@ -155,7 +156,7 @@ export class AdminVaultResource {
     };
     this.signingKeys = {
       list: (options?: RequestOptions) =>
-        http.getPage<VaultSigningKey>('/v1/admin/vault/signing-keys', undefined, options),
+        http.get<VaultSigningKeyList>('/v1/admin/vault/signing-keys', undefined, options),
       rotate: (options?: RequestOptions) =>
         http.post<VaultSigningKeyRotation>('/v1/admin/vault/signing-keys/rotate', {}, options),
       retire: (keyId: string, params?: RetireVaultSigningKeyParams, options?: RequestOptions) =>
@@ -195,7 +196,11 @@ export class AdminVaultResource {
   };
 
   readonly signingKeys: {
-    list(options?: RequestOptions): Promise<Page<VaultSigningKey>>;
+    /**
+     * Every key in the registry plus `signer` (local or KMS, and its rate cap).
+     * Not a page: the route carries no cursor.
+     */
+    list(options?: RequestOptions): Promise<VaultSigningKeyList>;
     rotate(options?: RequestOptions): Promise<VaultSigningKeyRotation>;
     /**
      * Retire one key by its `keyId` (the 16-hex fingerprint, not a UUID).

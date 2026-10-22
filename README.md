@@ -15,7 +15,7 @@ Two runtime dependencies, each used only by an opt-in entry point: `@agledger/ve
 
 ## Why AGLedger?
 
-Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the result met expectations. AGLedger provides the accountability record -- what was agreed to, by whom, when, and the delegation of that agreement through other systems.
+Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the result met expectations. AGLedger provides the accountability record: what was agreed to, by whom, when, and the delegation of that agreement through other systems.
 
 - Notarize what was asked and who it was delegated to (Records)
 - Capture what was reported to be done (Completions)
@@ -593,6 +593,15 @@ A sealed signature that does not verify breaks the chain with
 `CHAIN_AGENT_SIGNATURE_INVALID`. Neither the export nor the Server hands out
 cert keys, so without `agentKeys` the check reports `skipped_no_input` and
 `agentSignatures.verified` stays 0.
+
+A Server that peers with another seals each message it accepts from that peer
+on the chain entry it writes for it (`payload.wire` on its `FEDERATION_*`
+entries), as the peer signed it. Every sealed message is held to its body hash
+and to its entry; pass the peer's federation key as `federationKeys`
+(`{ [hubId]: key }`, the key as the peer's operator gives it) to also
+re-verify the peer's signature, which proves what the peer asserted from this
+export alone. `checked.federationWire` counts `present` and `verified`, and a
+sealed message that does not hold fails `CHAIN_FEDERATION_WIRE_INVALID`.
 
 ## SCITT / SCRAPI
 
