@@ -1,5 +1,5 @@
 import type { HttpClient } from '../http.js';
-import type { AgentCard, JsonRpcRequest, JsonRpcResponse, RequestOptions } from '../types.js';
+import type { A2aCancelTaskParams, AgentCard, JsonRpcRequest, JsonRpcResponse, RequestOptions } from '../types.js';
 
 export class A2aResource {
   constructor(private readonly http: HttpClient) {}
@@ -39,5 +39,23 @@ export class A2aResource {
       params,
       id: crypto.randomUUID(),
     }, options);
+  }
+
+  /**
+   * `CancelTask` with its one typed extension: the reason rides in
+   * `metadata["agledger:reason"]`, held to the same cap as the `reason` on
+   * `POST /v1/records/{id}/cancel`, and lands where that one does (the
+   * record's `lastTransitionReason` and the signed state-change entry).
+   * Name the task by `name` (`tasks/<uuid>`), `id` or `taskId`, one of them.
+   *
+   * ```ts
+   * await client.a2a.cancelTask({ id: recordId, reason: 'superseded by a new brief' });
+   * ```
+   */
+  cancelTask(params: A2aCancelTaskParams, options?: RequestOptions): Promise<JsonRpcResponse> {
+    const { reason, ...rest } = params;
+    const body: Record<string, unknown> = { ...rest };
+    if (reason !== undefined) body.metadata = { 'agledger:reason': reason };
+    return this.call('CancelTask', body, options);
   }
 }

@@ -1539,10 +1539,17 @@ describe('AdminResource', () => {
       expect(fetch.mock.calls[0][0]).toContain('/v1/admin/vault/scan/job-1');
     });
 
-    it('lists vault signing keys', async () => {
-      const { client, fetch } = createMockClient([]);
-      await client.admin.vault.signingKeys.list();
+    it('lists vault signing keys with the signer block the route carries', async () => {
+      const served = {
+        data: [{ keyId: 'a1b2c3d4e5f60718', algorithm: 'Ed25519', status: 'active', activatedAt: 'now', retiredAt: null, lastSignedAt: null, trust: 'anchored', admittedBy: null }],
+        total: 1,
+        signer: { backend: 'aws-kms', keyArn: 'arn:aws:kms:us-east-1:1:key/k', maxSignsPerSecond: 50 },
+      };
+      const { client, fetch } = createMockClient(served);
+      const list = await client.admin.vault.signingKeys.list();
       expect(fetch.mock.calls[0][0]).toContain('/v1/admin/vault/signing-keys');
+      expect(list).toEqual(served);
+      expect(list.signer.backend).toBe('aws-kms');
     });
 
     it('rotates the vault signing key', async () => {
@@ -1633,6 +1640,24 @@ describe('A2aResource', () => {
     expect(body.jsonrpc).toBe('2.0');
     expect(body.method).toBe('tasks/send');
     expect(body.id).toBeDefined();
+  });
+
+  it('cancelTask() puts the reason under metadata["agledger:reason"] and nothing else on metadata', async () => {
+    const { client, fetch } = createMockClient();
+    await client.a2a.cancelTask({ id: '0199a8f0-0000-7000-8000-000000000001', reason: 'superseded' });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.method).toBe('CancelTask');
+    expect(body.params).toEqual({
+      id: '0199a8f0-0000-7000-8000-000000000001',
+      metadata: { 'agledger:reason': 'superseded' },
+    });
+  });
+
+  it('cancelTask() without a reason sends no metadata key at all', async () => {
+    const { client, fetch } = createMockClient();
+    await client.a2a.cancelTask({ name: 'tasks/0199a8f0-0000-7000-8000-000000000001' });
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body.params).toEqual({ name: 'tasks/0199a8f0-0000-7000-8000-000000000001' });
   });
 });
 

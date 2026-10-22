@@ -1,4 +1,21 @@
 import { createRequire } from 'node:module';
+
+/**
+ * `Retry-After` as milliseconds: the header's delay-seconds form when it
+ * parses as a non-negative number, else a 429 body's `retryAfterSeconds`,
+ * else null. An HTTP-date, which nothing in front of the engine sends, reads
+ * as null rather than as a wait of NaN.
+ */
+function retryAfterMs(header: string | null, bodySeconds: unknown): number | null {
+  if (header !== null) {
+    const seconds = Number(header.trim());
+    if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  }
+  if (typeof bodySeconds === 'number' && Number.isFinite(bodySeconds) && bodySeconds >= 0) {
+    return Math.round(bodySeconds * 1000);
+  }
+  return null;
+}
 import type {
   AgledgerClientOptions,
   BearerCredential,
@@ -855,44 +872,41 @@ export class HttpClient {
       ...body,
       requestId: (body.requestId as string | undefined) || headers.get('x-request-id') || undefined,
     } as ApiErrorResponse;
+    // Read on every status, not only 429: a load balancer or proxy answers
+    // 503 with a Retry-After of its own, and a retry that ignores it lands
+    // inside the window it named. The header is the primary source; a 429
+    // body also carries `retryAfterSeconds`, which covers a proxy that strips
+    // headers. Only the delay-seconds form is read: the engine and the
+    // proxies in front of it send seconds, never an HTTP-date.
+    const retryAfter = retryAfterMs(headers.get('Retry-After'), errorBody.retryAfterSeconds);
 
     switch (status) {
       case 400:
-        return new ValidationError(errorBody);
+        return new ValidationError(errorBody, retryAfter);
       case 401:
-        return new AuthenticationError(errorBody);
+        return new AuthenticationError(errorBody, retryAfter);
       case 403:
-        return new PermissionError(errorBody);
+        return new PermissionError(errorBody, retryAfter);
       case 404:
-        return new NotFoundError(errorBody);
+        return new NotFoundError(errorBody, retryAfter);
       case 409:
-        return new ConflictError(errorBody);
+        return new ConflictError(errorBody, retryAfter);
       case 422:
-        return new UnprocessableError(errorBody);
-      case 429: {
-        // The header is the primary source, but a 429 body also carries
-        // `retryAfterSeconds`, and a proxy that strips headers used to leave
-        // `retryAfter` null with the answer sitting in the body unread.
-        const retryAfterHeader = headers.get('Retry-After');
-        const headerMs = retryAfterHeader ? parseInt(retryAfterHeader, 10) * 1000 : NaN;
-        const bodySeconds = errorBody.retryAfterSeconds;
-        const retryAfter = Number.isFinite(headerMs)
-          ? headerMs
-          : typeof bodySeconds === 'number'
-            ? bodySeconds * 1000
-            : null;
+        return new UnprocessableError(errorBody, retryAfter);
+      case 429:
         return new RateLimitError(errorBody, retryAfter);
-      }
       default:
-        return new AgledgerApiError(status, errorBody);
+        return new AgledgerApiError(status, errorBody, retryAfter);
     }
   }
 
   private backoff(attempt: number, lastError?: Error): number {
     let delay = Math.min(1000 * Math.pow(2, attempt - 1), MAX_BACKOFF);
 
-    // Honor Retry-After from rate limit errors
-    if (lastError instanceof RateLimitError && lastError.retryAfter) {
+    // Honor Retry-After from any answer that carried one (a 429 from the
+    // engine, a 503 from whatever sits in front of it): the Server's own
+    // statement of when to come back, so wait at least that long.
+    if (lastError instanceof AgledgerApiError && lastError.retryAfter) {
       delay = Math.max(delay, lastError.retryAfter);
     }
 

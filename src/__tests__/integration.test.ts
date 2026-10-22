@@ -246,11 +246,15 @@ describe('SDK integration: response shape validation', async () => {
     expect(page.data.length).toBeGreaterThan(0);
   });
 
-  it('admin.vault.signingKeys.list() returns a Page, not a bare array', async () => {
+  it('admin.vault.signingKeys.list() returns data, total and signer, with no cursor', async () => {
+    // The route is not paginated: it answers {data, total, signer}, and the
+    // page helper used to invent hasMore/nextCursor while dropping signer.
     if (!PLATFORM_KEY) return;
-    const page = await platformClient().admin.vault.signingKeys.list();
-    expect(Array.isArray(page)).toBe(false);
-    assertPage(page, 'admin.vault.signingKeys.list');
+    const list = await platformClient().admin.vault.signingKeys.list();
+    expect(Array.isArray(list.data)).toBe(true);
+    expect(typeof list.total).toBe('number');
+    expect(['local', 'aws-kms']).toContain(list.signer.backend);
+    expect('hasMore' in list).toBe(false);
   });
 
   it('admin.vault.anchors.list() requires recordId and returns a Page', async () => {

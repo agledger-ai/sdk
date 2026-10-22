@@ -263,6 +263,19 @@ export interface BulkCreateResult {
      * the RFC 9457 body. For an unregistered `type`, the set registered for the org.
      */
     allowedValues?: Array<string | number>;
+    /**
+     * The singleton 400's rebuild kit, carried on a refused item exactly as
+     * `POST /v1/records` carries it in its error body: what the schema
+     * refused (`validationErrors`), where the schema is (`schemaUrl`), which
+     * type it is (`recordType`), the fields it needs and allows, and a
+     * payload that passes. Resend the item rebuilt from these.
+     */
+    validationErrors?: Record<string, unknown>[];
+    schemaUrl?: string;
+    recordType?: string;
+    requiredFields?: string[];
+    optionalFields?: string[];
+    examplePayload?: Record<string, unknown>;
   }>;
   summary: {
     total: number;
@@ -416,6 +429,13 @@ export interface SchemaQuickStart {
   recordFields?: Record<string, string>;
   /** Present only when the type declares a `defaultGateMode`. Include it in the `POST /v1/records` payload. */
   gateMode?: GateMode;
+  /**
+   * Schema rules the generated `criteria` and `evidence` could not satisfy
+   * (a `pattern` or `format` the generator has no placeholder for), each as
+   * a JSON pointer plus the rule. Empty or absent when the examples validate
+   * as generated; otherwise edit those fields before sending.
+   */
+  unsatisfied?: string[];
 }
 
 export interface SchemaValidationResult {
@@ -2621,6 +2641,19 @@ export interface ComplianceExport {
    * `X-AGLedger-Export-Total-Records`.
    */
   totalRecords?: number;
+  /**
+   * The read-transparency batch this export left, one manifest and one leaf
+   * per exported record on the org whose records were read, under one
+   * `exportBatchId`. Read it back with `audit.listOrgReads()`; `queryHash` is
+   * the SHA-256 of the canonical filter set, so the same filters leave the
+   * same hash.
+   */
+  bulkExport?: {
+    exportBatchId: string;
+    manifestId: string;
+    recordCount: number;
+    queryHash: string;
+  };
   /** Suggested next API calls. */
   nextSteps?: NextStep[];
 }
@@ -3536,6 +3569,7 @@ export type StatusComponentReason =
   | 'worker_not_consuming'
   | 'worker_stalled'
   | 'not_checked'
+  | 'connections_overcommitted'
   | (string & {});
 
 export interface StatusResponse {
@@ -4327,6 +4361,17 @@ export interface SystemHealth {
    * in `DATABASE_URL` is not counted.
    */
   workerConnections?: number | null;
+  /**
+   * Background migrations the Server runs after boot (a claim index rebuild, a
+   * backfill), counted by state. `null` when the table could not be read.
+   * A non-zero `failed` is why `status` is `degraded` when nothing else is.
+   */
+  backgroundMigrations: {
+    pending: number;
+    inProgress: number;
+    completed: number;
+    failed: number;
+  } | null;
   process: {
     /** Resident set size in MB. */
     rssMb: number;
@@ -4334,6 +4379,8 @@ export interface SystemHealth {
     heapUsedMb: number;
     /** V8 heap total in MB. */
     heapTotalMb: number;
+    /** V8 heap limit in MB: the ceiling `heapTotalMb` can grow to before the process dies. */
+    heapLimitMb: number;
   };
   timestamp: string;
 }
@@ -4675,6 +4722,22 @@ export interface AgentCard {
     name: string;
     description?: string;
   }>;
+}
+
+/**
+ * Params of `a2a.cancelTask()`. Name the task one way: `name` is the v1.0
+ * canonical resource name (`tasks/<uuid>`), `id` and `taskId` the bare task
+ * id (the record id). More than one is refused unless they name the same
+ * task. `reason` is the one metadata key `CancelTask` reads
+ * (`metadata["agledger:reason"]`); any other metadata key is refused with
+ * `-32602`.
+ */
+export interface A2aCancelTaskParams {
+  name?: string;
+  id?: string;
+  taskId?: string;
+  /** Why the task is cancelled; recorded as the record's `lastTransitionReason`. */
+  reason?: string;
 }
 
 export interface JsonRpcRequest {
@@ -5245,6 +5308,32 @@ export interface RecordGraph {
  * their SPKI material, come from the ungated `GET /v1/verification-keys`
  * (`VerificationKey`) instead.
  */
+/**
+ * Which signer this Server holds its vault key in, from
+ * `GET /v1/admin/vault/signing-keys`. `local`: the key material is in the
+ * database, encrypted under the process key. `aws-kms`: the private key never
+ * leaves KMS, `keyArn` names it, and `maxSignsPerSecond` is the rate cap the
+ * operator configured (null means uncapped).
+ */
+export interface VaultSigner {
+  backend: 'local' | 'aws-kms' | (string & {});
+  keyArn: string | null;
+  maxSignsPerSecond: number | null;
+}
+
+/**
+ * Response of `GET /v1/admin/vault/signing-keys`: every key the registry
+ * holds, not a page. The route carries no cursor and `total` is the row
+ * count; `signer` says where the active key lives.
+ */
+export interface VaultSigningKeyList {
+  data: VaultSigningKey[];
+  total: number;
+  signer: VaultSigner;
+  recordRead?: RecordReadCompletion;
+  nextSteps?: NextStep[];
+}
+
 export interface VaultSigningKey {
   /** SHA-256 fingerprint of the public key, 16 hex characters. Not a UUID. */
   keyId: string;
@@ -5979,6 +6068,12 @@ export interface VaultScanKeyRegistryFinding {
   keyId?: string | null;
   statementId?: string | null;
   detail?: string;
+  /**
+   * Whether the finding still stands: the key it names has no retirement a
+   * trusted key signed, so the walk grades entries under it differently from
+   * this Server today. `false` is history the operator already closed.
+   */
+  standing?: boolean;
 }
 
 /** The key-registry trust walk of a full vault scan. */
@@ -6744,6 +6839,13 @@ export interface OpsSummary {
      */
     keyRegistry: {
       findings: number | null;
+      /**
+       * Findings that stand: a finding about a key no trusted key has retired,
+       * so the walk still grades entries under it differently from this
+       * Server. The rest of `findings` are historical. `null` with `findings`
+       * null.
+       */
+      standing: number | null;
     };
     /**
      * Whether UPDATE, DELETE and TRUNCATE on the chain tables are revoked from

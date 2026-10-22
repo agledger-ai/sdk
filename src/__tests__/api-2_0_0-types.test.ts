@@ -62,6 +62,7 @@ import type {
   SubmitDisputeProtocolParams,
   SubmitStateTransitionParams,
   SystemHealth,
+  VaultSigningKeyList,
   TrustedIssuer,
   UpdateApiKeyParams,
   UpdateTrustedIssuerParams,
@@ -262,6 +263,15 @@ describe('admin, auth, health, schemas and events', () => {
     expectTypeOf<'degraded'>().toMatchTypeOf<HealthResponse['status']>();
     expectTypeOf<StatusComponent['latencyMs']>().toEqualTypeOf<number | null | undefined>();
     expectTypeOf<'chain_rewind_detected'>().toMatchTypeOf<NonNullable<StatusComponent['reason']>>();
+    expectTypeOf<SystemHealth['backgroundMigrations']>().toEqualTypeOf<
+      { pending: number; inProgress: number; completed: number; failed: number } | null
+    >();
+    expectTypeOf<SystemHealth['process']['heapLimitMb']>().toEqualTypeOf<number>();
+    expectTypeOf<BulkCreateResult['results'][number]['examplePayload']>().toEqualTypeOf<Record<string, unknown> | undefined>();
+    expectTypeOf<BulkCreateResult['results'][number]['requiredFields']>().toEqualTypeOf<string[] | undefined>();
+    expectTypeOf<BulkCreateResult['results'][number]['schemaUrl']>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<VaultSigningKeyList['signer']['backend']>().toMatchTypeOf<string>();
+    expectTypeOf<VaultSigningKeyList>().not.toHaveProperty('hasMore');
     expectTypeOf<NonNullable<SystemHealth['connectedVersions']>[number]['connections']>().toEqualTypeOf<
       number | undefined
     >();
@@ -269,11 +279,13 @@ describe('admin, auth, health, schemas and events', () => {
 
   it('schema reads carry recordFields and a validation names its publisher', () => {
     expectTypeOf<SchemaQuickStart['recordFields']>().toEqualTypeOf<Record<string, string> | undefined>();
+    expectTypeOf<SchemaQuickStart['unsatisfied']>().toEqualTypeOf<string[] | undefined>();
     expectTypeOf<SchemaValidationResult['publisher']>().toEqualTypeOf<string | undefined>();
   });
 
   it('a compliance export is always ready, so there is nothing to wait for', () => {
     expectTypeOf<ComplianceExport['status']>().toEqualTypeOf<'ready'>();
+    expectTypeOf<NonNullable<ComplianceExport['bulkExport']>['queryHash']>().toEqualTypeOf<string>();
     expectTypeOf<ComplianceResource>().not.toHaveProperty('waitForExport');
   });
 
@@ -469,7 +481,7 @@ describe('the final 2.0 RC: distrusted keys, key material, workers that hold a s
   });
 
   it('reports the key registry walk and the append-only posture on ops-summary', () => {
-    expectTypeOf<OpsSummary['vault']['keyRegistry']>().toEqualTypeOf<{ findings: number | null }>();
+    expectTypeOf<OpsSummary['vault']['keyRegistry']>().toEqualTypeOf<{ findings: number | null; standing: number | null }>();
     expectTypeOf<OpsSummary['vault']['appendOnly']>().toEqualTypeOf<{
       enforced: boolean | null;
       role: string | null;

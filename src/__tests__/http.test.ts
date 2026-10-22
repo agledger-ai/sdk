@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpClient } from '../http.js';
 import {
+  AgledgerApiError,
   AuthenticationError,
   ValidationError,
   NotFoundError,
@@ -458,6 +459,60 @@ describe('HttpClient', () => {
 
       const result = await client.get<{ done: boolean }>('/test');
       expect(result.done).toBe(true);
+    });
+
+    it('waits out a Retry-After on a 503, not only on a 429', async () => {
+      // A proxy in front of the Server answers 503 with retry-after: 6. The
+      // backoff used to read the header only off RateLimitError, so the retry
+      // went out after the 1s exponential step, inside the window it named.
+      const fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 503,
+          json: vi.fn().mockResolvedValue({ error: 'SERVICE_UNAVAILABLE', detail: 'upstream busy' }),
+          headers: new Headers({ 'Retry-After': '6' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: vi.fn().mockResolvedValue({ done: true }),
+          headers: new Headers(),
+        });
+      const waits: number[] = [];
+      const client = new HttpClient({
+        apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
+        fetch: fetch as unknown as typeof globalThis.fetch,
+        maxRetries: 1,
+      });
+      (client as unknown as { sleep: (ms: number) => Promise<void> }).sleep = async (ms: number) => { waits.push(ms); };
+
+      const result = await client.get<{ done: boolean }>('/test');
+      expect(result.done).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(waits).toHaveLength(1);
+      // At least the 6s the header asked for; jitter adds up to 25% on top.
+      expect(waits[0]).toBeGreaterThanOrEqual(6000);
+      expect(waits[0]).toBeLessThanOrEqual(7500);
+    });
+
+    it('exposes retryAfter on a non-429 error that carried the header', async () => {
+      const fetch = mockFetch({
+        ok: false,
+        status: 503,
+        json: { error: 'SERVICE_UNAVAILABLE', detail: 'upstream busy' },
+        headers: { 'Retry-After': '4' },
+      });
+      const client = new HttpClient({
+        apiKey: 'test',
+        baseUrl: TEST_BASE_URL,
+        fetch: fetch as unknown as typeof globalThis.fetch,
+        maxRetries: 0,
+      });
+      const err = await client.get('/test').catch((e: unknown) => e) as AgledgerApiError;
+      expect(err).toBeInstanceOf(AgledgerApiError);
+      expect(err.status).toBe(503);
+      expect(err.retryAfter).toBe(4000);
     });
 
     it('does not retry 4xx errors', async () => {

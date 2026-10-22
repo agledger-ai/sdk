@@ -4,10 +4,20 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.1.0] - 2026-10-22
+
+### Added
+
+- **Every field of an error body is on the error.** `AgledgerApiError` and its subclasses now carry the whole served `ErrorResponse`: the 400 rebuild kit (`requiredFields`, `optionalFields`, `examplePayload`, `schemaUrl`, `recordType`, `validationErrors`), the 404 `hint`, the 422 `attemptedAction` / `attemptedTransition` / `attemptedState`, `title`, `instance`, `allowedValues`, `allowedActors`, `constraintViolations`, the license tier fields, `nextSteps`, the cap counters and digests, and `body`, the parsed body itself, so a field added later is readable without a release. The classes used to copy a fixed list and dropped the rest, so a strict caller could not rebuild the body its `recoveryHint` told it to.
+- **`retryAfter` on every API error, and the SDK waits it out on any status.** A load balancer or proxy answers 503 with a `Retry-After` of its own; the retry backoff read the header only off a 429, so the retry went out after the 1 s step, inside the window the proxy named. The header is read on every status now and the backoff waits at least that long.
+- **`admin.vault.signingKeys.list()` returns what the route sends.** `{ data, total, signer }`, typed `VaultSigningKeyList`: `signer` says whether the vault key is local or in AWS KMS (`keyArn`, `maxSignsPerSecond`). It went through the page helper, which invented `hasMore` and `nextCursor` the route never sends and dropped `signer`.
+- **`a2a.cancelTask()`**, the `CancelTask` call with its one typed extension: `reason` rides in `metadata["agledger:reason"]` and lands as the record's `lastTransitionReason`.
+- **`federationKeys` on `verifyExport`** (`@agledger/sdk/verify`): a receiving Server's `FEDERATION_*` entries seal each peer message as the peer signed it (`payload.wire`); every sealed message is held to its body hash and to its entry, and one from a hub whose federation key is given is also re-verified under it. `result.federationWire` counts them; a failure is `CHAIN_FEDERATION_WIRE_INVALID`. Needs `@agledger/verify-core` 2.1.0.
+- Types the Server now serves: `SystemHealth.backgroundMigrations` and `process.heapLimitMb`, the per-item rebuild kit on `BulkCreateResult.results[]`, `SchemaQuickStart.unsatisfied`, `ComplianceExport.bulkExport`, `connections_overcommitted` on `StatusComponentReason`, `keyRegistry.standing` on the ops summary and `standing` on each scan finding.
 
 ### Changed
 
+- The `reason` doc on errors names the thirteen 409 reason codes the Server can send, and says a 409 does not always carry one.
 - The README says the package needs an AGLedger Server 2.0 or later and names the last release for a 1.x Server (sdk#57).
 
 ## [3.0.0] - 2026-10-05
@@ -106,11 +116,11 @@ Reconciled against API 2.0. The 3.x SDK targets API 2.0 only (the version is 3.0
 
 ## [1.12.0] - 2026-09-21
 
-Reconciled against the API 1.8.0 release (`v1.8.0`, `3948cc68`). It adds OIDC workload identity to the client, and it removes fields and methods the SDK declared that the Server never sent: a sweep of every method's declared return type against the route it calls found them across the admin, federation, discovery and reference surfaces. Each removal below is a type that was wrong on the wire before this release, so code that read one of those fields was reading `undefined`.
+Reconciled against the API 1.8.0 release (`v1.8.0`). It adds OIDC workload identity to the client, and it removes fields and methods the SDK declared that the Server never sent: a sweep of every method's declared return type against the route it calls found them across the admin, federation, discovery and reference surfaces. Each removal below is a type that was wrong on the wire before this release, so code that read one of those fields was reading `undefined`.
 
 ### Added
 
-- **Conformance corpus regenerated from the tagged 1.8.0 engine** (`apiGitSha 3948cc68`, the `v1.8.0` commit), replacing a corpus generated at API 1.3.4. The export slice goes from 23 to 32 vectors and the dump slice from 12 to 18, and the additions cover this release's own work: `export/actor-attribution-mismatch.json` and `dump/chain-actor-attribution-mismatch` both expect `CHAIN_ACTOR_ATTRIBUTION_MISMATCH`, and `export/agent-signature-invalid.json` expects `CHAIN_AGENT_SIGNATURE_INVALID`. The runner now maps the manifest's `agentKeysFile` to the verifier's agent-key input; without it that vector ran with no agent keys, reported `skipped_no_input`, passed, and failed the suite on a check that never executed.
+- **Conformance corpus regenerated from the tagged 1.8.0 engine** (the `v1.8.0` release), replacing a corpus generated at API 1.3.4. The export slice goes from 23 to 32 vectors and the dump slice from 12 to 18, and the additions cover this release's own work: `export/actor-attribution-mismatch.json` and `dump/chain-actor-attribution-mismatch` both expect `CHAIN_ACTOR_ATTRIBUTION_MISMATCH`, and `export/agent-signature-invalid.json` expects `CHAIN_AGENT_SIGNATURE_INVALID`. The runner now maps the manifest's `agentKeysFile` to the verifier's agent-key input; without it that vector ran with no agent keys, reported `skipped_no_input`, passed, and failed the suite on a check that never executed.
 
 - **`bearerToken` and `oidcCertCredential`.** `AgledgerClientOptions` takes `bearerToken` beside `apiKey`, and exactly one of the two is required (`ConfigurationError` otherwise). A string is sent as is. A function is called before every request, retries included, and nothing is cached, which is the form for handing the Server an admin OIDC token from your IdP; when the operator turns on `jtiSingleUse` for that trusted issuer, each token is accepted once, so the function must mint a fresh one per call. A `BearerCredential` is driven by the client: `oidcCertCredential({ getOidcToken, agentId?, refreshFraction? })` exchanges a fresh OIDC token for a short-lived cert (`POST /v1/auth/oidc/cert`), presents the cert as the bearer, re-exchanges once `refreshFraction` (default 0.5) of the cert's lifetime has passed, and re-exchanges and retries once when a request made with the cert is refused with 401. Concurrent requests share one exchange. `getOidcToken` must return a new token (a new `jti`) on every call, since the Server exchanges each token id once; when a source that rotates on its own schedule, such as a projected Kubernetes token file, hands back the token it already exchanged, the credential keeps the current cert while it is valid and asks again shortly after, and once the cert has expired or was refused it throws `OidcExchangeError` (409) naming the reused token. The credential holds one Ed25519 key pair generated in memory and never persisted; the proof of possession is standard base64 over `agledger.oidc.cert.v1\n<sub>`, and `publicKeyJwk` exposes the public half for offline verification.
 - **Request body signing under a cert.** A client using `oidcCertCredential` signs every request body: `X-Agent-Signature-Content-Hash` is `sha256:<hex>` of the exact bytes sent and `X-Agent-Signature` an Ed25519 signature over `agledger.agent.sig.v1\n<hex>`. The Server seals it into the chain entry as `predicate.on_behalf_of.agent_signature` on record create, transition and verdict, completion submit, and A2A. The body is serialized once per request, so every retry sends the bytes that were signed.
@@ -305,7 +315,7 @@ Reconciled against API v1.6.0.
 
 ### Fixed (enum members that could never have worked)
 
-Each of these was reachable from a typed, documented parameter and named values the API has never had. The route declares a strict enum, so sending one is a 400. Reported by agledger-testbed against the 1.9.0 candidate (F-981), which found the first; the rest came out of auditing every union in the file against the served spec.
+Each of these was reachable from a typed, documented parameter and named values the API has never had. The route declares a strict enum, so sending one is a 400. Pre-release validation of the 1.9.0 candidate found the first; the rest came out of auditing every union in the file against the served spec.
 
 - **`DisputeStatus` dropped `OPENED` and `TIER_1_REVIEW`.** Neither exists anywhere in the API. The type reaches three strict-enum query params (`GET /v1/records`, `GET /v1/records/search`, `GET /v1/disputes`), and `SearchRecordsParams.disputeStatus` is new in this release, so it would have shipped a filter that 400s on two of its own documented values. The full set is `EVIDENCE_WINDOW`, `TIER_2_REVIEW`, `ESCALATED`, `TIER_3_ARBITRATION`, `RESOLVED`, `WITHDRAWN`.
 
@@ -325,7 +335,7 @@ Each of these was reachable from a typed, documented parameter and named values 
 
 ### Changed
 
-- **An auto-paginating walk that hits the page ceiling now throws `PaginationLimitError` instead of returning a prefix.** `paginate` stopped at 100 pages and returned, so nothing distinguished "walked the whole listing" from "hit the ceiling": `listAllSubRecords(parent, { limit: 7 })` over 1000 sub-Records yielded 700 rows and reported success. The ceiling is a runaway guard, not a result, and this release makes it say so. A bound you set yourself is an intentional stop and still ends the walk quietly, so `maxPages` and `maxItems` behave exactly as before. To walk a large listing, raise `limit` so the rows arrive in fewer pages, or pass a `maxPages` that fits it. `compliance.streamAll` had the same shape and gets the same treatment, where the stakes are higher: a SIEM feed that stops early and says nothing reads as a quiet window with no events in it. Reported by agledger-testbed against the 1.9.0 candidate (agents#120).
+- **An auto-paginating walk that hits the page ceiling now throws `PaginationLimitError` instead of returning a prefix.** `paginate` stopped at 100 pages and returned, so nothing distinguished "walked the whole listing" from "hit the ceiling": `listAllSubRecords(parent, { limit: 7 })` over 1000 sub-Records yielded 700 rows and reported success. The ceiling is a runaway guard, not a result, and this release makes it say so. A bound you set yourself is an intentional stop and still ends the walk quietly, so `maxPages` and `maxItems` behave exactly as before. To walk a large listing, raise `limit` so the rows arrive in fewer pages, or pass a `maxPages` that fits it. `compliance.streamAll` had the same shape and gets the same treatment, where the stakes are higher: a SIEM feed that stops early and says nothing reads as a quiet window with no events in it. Found in pre-release validation of the 1.9.0 candidate.
 
 ### Added
 
@@ -377,9 +387,9 @@ Removing a parameter is a type-level break, but no working call can depend on on
 
 - **`recoveryHint` on bulk per-item results**, and **`AgledgerApiError.registryVersion`** for the `CONFLICTING_VERSION` 409, which names the registry slot a schema conflict is on.
 
-- **`ListApiKeysParams`, and `admin.listAllApiKeys`.** `admin.listApiKeys` took `limit` and nothing else, so the six filters the route has always accepted (`ownerId`, `orgId`, `ownerType`, `role`, `isActive`, `createdBefore`) were unreachable from the typed method, single-owner mode included. It now pages as well: the API used to slice cross-owner mode in SQL and then report `hasMore: false` with `total` set to the count it had just sliced, so an install with more than 200 keys reported exactly 200 and called itself complete. That envelope is honest as of api#1251, which means a caller reading `data` and stopping now sees the `hasMore: true` it was owed. `listAllApiKeys` walks the whole listing and resends the filters with each cursor, which the single-owner cursor requires: it carries the owner it was minted under, and replaying it without the matching `ownerId` is a 400 rather than a silent slide into the install-wide listing.
+- **`ListApiKeysParams`, and `admin.listAllApiKeys`.** `admin.listApiKeys` took `limit` and nothing else, so the six filters the route has always accepted (`ownerId`, `orgId`, `ownerType`, `role`, `isActive`, `createdBefore`) were unreachable from the typed method, single-owner mode included. It now pages as well: the API used to slice cross-owner mode in SQL and then report `hasMore: false` with `total` set to the count it had just sliced, so an install with more than 200 keys reported exactly 200 and called itself complete. The API now reports that envelope honestly, which means a caller reading `data` and stopping now sees the `hasMore: true` it was owed. `listAllApiKeys` walks the whole listing and resends the filters with each cursor, which the single-owner cursor requires: it carries the owner it was minted under, and replaying it without the matching `ownerId` is a 400 rather than a silent slide into the install-wide listing.
 
-- **`ListSchemasParams` and `ListPeersParams`.** `schemas.list` accepted only `orgId`, so neither the page size nor `includeDisabled` could be set; `federationAdmin.listPeers` took an unnamed inline shape a consumer could not import. Both are named types now, and both gain the `cursor` their route began declaring in api#1251, alongside `compliance.listRecords`.
+- **`ListSchemasParams` and `ListPeersParams`.** `schemas.list` accepted only `orgId`, so neither the page size nor `includeDisabled` could be set; `federationAdmin.listPeers` took an unnamed inline shape a consumer could not import. Both are named types now, and both gain the `cursor` their route now declares, alongside `compliance.listRecords`.
 
 ### Fixed (admin types that did not describe the response)
 
@@ -503,7 +513,7 @@ Pinning `publisher` against a Server older than this API release will be rejecte
 
 ### Fixed
 
-- **A FIPS-locked receiver no longer rejects every legitimate webhook as forged.** The FIPS provider carries no EdDSA, so verifying an ed25519 delivery throws inside `verifyRfc9421`. That throw was caught and returned as `false`, which every documented caller turns into a 401: a receiver rejecting every valid delivery it was sent, reporting each one as a bad signature, with nothing anywhere naming the cause (agents#113, the same defect class the verifier packages carried).
+- **A FIPS-locked receiver no longer rejects every legitimate webhook as forged.** The FIPS provider carries no EdDSA, so verifying an ed25519 delivery throws inside `verifyRfc9421`. That throw was caught and returned as `false`, which every documented caller turns into a 401: a receiver rejecting every valid delivery it was sent, reporting each one as a bad signature, with nothing anywhere naming the cause (the same defect class the verifier packages carried).
 
   `verifyRfc9421` and `constructEventRfc9421` now throw `SignatureAlgorithmUnavailableError` when the host cannot compute the key's algorithm, proven against a fixed known-answer signature rather than inferred from a failed verification of the delivery itself.
 
@@ -519,18 +529,18 @@ Pinning `publisher` against a Server older than this API release will be rejecte
 
 ### Packaging
 
-- **The build no longer emits source maps.** `files` has excluded `dist/**/*.map` since 0.8.14, but the build kept writing them, so every `.js` published since then carried a `//# sourceMappingURL=` comment pointing at a map the tarball does not contain. The maps were dead in the tarball either way: `sources` pointed at `../src/*.ts` with no `sourcesContent`, and `src/` does not ship. A test now fails if the emit is turned back on while `files` still excludes the output (agents#114).
+- **The build no longer emits source maps.** `files` has excluded `dist/**/*.map` since 0.8.14, but the build kept writing them, so every `.js` published since then carried a `//# sourceMappingURL=` comment pointing at a map the tarball does not contain. The maps were dead in the tarball either way: `sources` pointed at `../src/*.ts` with no `sourcesContent`, and `src/` does not ship. A test now fails if the emit is turned back on while `files` still excludes the output.
 
 ## [1.7.0] - 2026-08-07
 
 ### Changed
 
-- **`baseUrl` is now required.** The client used to fall back to `https://agledger.example.com`, a placeholder that resolves nowhere, so `new AgledgerClient({ apiKey })` constructed fine and then failed every call with `ConnectionError: Network error: fetch failed` against a host the caller never named and could only discover by reading `dist/http.js`. Omitting it now throws `ConfigurationError` at construction, where the mistake actually is. Every AGLedger deployment is self-hosted, so there was never a sensible default. The option stays optional in the type (so the thrown message can explain itself rather than the compiler saying nothing), and no working integration can be affected: a client without a base URL could never reach a Server (agents#109).
-- **`ConnectionError` names the request and the underlying cause.** `fetch failed` is undici's generic text for DNS failure, connection refused, and TLS problems alike; the message now carries the method, the full URL, and the cause code (`ENOTFOUND`, `ECONNREFUSED`, …) or the cause message when there is no code (agents#109).
+- **`baseUrl` is now required.** The client used to fall back to `https://agledger.example.com`, a placeholder that resolves nowhere, so `new AgledgerClient({ apiKey })` constructed fine and then failed every call with `ConnectionError: Network error: fetch failed` against a host the caller never named and could only discover by reading `dist/http.js`. Omitting it now throws `ConfigurationError` at construction, where the mistake actually is. Every AGLedger deployment is self-hosted, so there was never a sensible default. The option stays optional in the type (so the thrown message can explain itself rather than the compiler saying nothing), and no working integration can be affected: a client without a base URL could never reach a Server.
+- **`ConnectionError` names the request and the underlying cause.** `fetch failed` is undici's generic text for DNS failure, connection refused, and TLS problems alike; the message now carries the method, the full URL, and the cause code (`ENOTFOUND`, `ECONNREFUSED`, …) or the cause message when there is no code.
 
 ### Changed (via `@agledger/verify-core` 1.3.0)
 
-- **`CHAIN_KEY_NOT_YET_ACTIVE`** is reported by the `/verify` subpath for an entry written BEFORE its signing key activation; `CHAIN_KEY_EXPIRED` now means the retirement side only. Both directions previously reported "expired", sending a consumer to investigate rotation when the real condition is a backdated entry or clock skew. `FailureCode` gains a member, so exhaustive switches need the new case. Verdicts are unchanged (agents#112).
+- **`CHAIN_KEY_NOT_YET_ACTIVE`** is reported by the `/verify` subpath for an entry written BEFORE its signing key activation; `CHAIN_KEY_EXPIRED` now means the retirement side only. Both directions previously reported "expired", sending a consumer to investigate rotation when the real condition is a backdated entry or clock skew. `FailureCode` gains a member, so exhaustive switches need the new case. Verdicts are unchanged.
 
 ### Added
 
@@ -538,7 +548,7 @@ Pinning `publisher` against a Server older than this API release will be rejecte
 
 ### Fixed
 
-- **The README Quick Start could not run.** `performerAgentId: 'agt-123'` failed request validation (agent ids are uuids of agents you provisioned, and there is no id a reader can invent), and the `criteria` shape failed the seeded `principal-gate-generic-v1` schema, which requires `summary`. The completion evidence had the same gap. The example now reads the performer id from the environment and uses shapes that validate against the shipped seed contracts (agents#108).
+- **The README Quick Start could not run.** `performerAgentId: 'agt-123'` failed request validation (agent ids are uuids of agents you provisioned, and there is no id a reader can invent), and the `criteria` shape failed the seeded `principal-gate-generic-v1` schema, which requires `summary`. The completion evidence had the same gap. The example now reads the performer id from the environment and uses shapes that validate against the shipped seed contracts.
 
 ## [1.6.0] - 2026-08-05
 
@@ -557,7 +567,7 @@ Signing-agility wave 2: ES256 verification across the SDK's offline and webhook 
 
 ### Changed
 
-- **Conformance corpus regenerated from engine 1.3.4 @ `ed3369ab`** (export slice, including the ES256 wave: `valid-es256`, `es256-signature-invalid`, `es256-header-alg-mismatch`).
+- **Conformance corpus regenerated from API 1.3.4** (export slice, including the ES256 wave: `valid-es256`, `es256-signature-invalid`, `es256-header-alg-mismatch`).
 
 ## [1.5.0] - 2026-08-05
 
@@ -604,7 +614,7 @@ Docs and tooling. No wire, type, or runtime change.
 
 ### Fixed
 
-- README Quick Start no longer fails at runtime (cross-repo #99). It created a `notarize-generic-v1` record, which terminalizes at RECORDED with no completion phase, then called transition, completion, and gate on it. The flagship example now uses `principal-gate-generic-v1`, which has the completion and verdict phases the walkthrough exercises.
+- README Quick Start no longer fails at runtime. It created a `notarize-generic-v1` record, which terminalizes at RECORDED with no completion phase, then called transition, completion, and gate on it. The flagship example now uses `principal-gate-generic-v1`, which has the completion and verdict phases the walkthrough exercises.
 - Corrected the licensing description (#99): the database is the license line. Every feature and topology, federation and multi-node included, is free on the bundled database; only an external or managed database requires an Enterprise license. The prior text wrongly listed federation and multi-node as gated.
 
 ### Changed
@@ -669,7 +679,7 @@ Semver note: this is a minor, not a major, because the removed/reshaped import s
 
 ### Changed
 
-- Docs only: removed em-dashes from the README prose and the package.json description (cross-repo #98 writing-style sweep). Rewrote each sentence rather than swapping the glyph. No code, type, or runtime change.
+- Docs only: removed em-dashes from the README prose and the package.json description (writing-style sweep). Rewrote each sentence rather than swapping the glyph. No code, type, or runtime change.
 
 ## [1.0.5] - 2026-06-29
 
@@ -791,24 +801,24 @@ A full minor of API field-shape drift had accumulated while the route surface st
 
 ## [0.8.12] - 2026-05-29
 
-Closes [agledger-agents#83 (F-730)](https://github.com/agledger-ai/agledger-agents/issues/83); inherits the export-path binding fix via `@agledger/verify-core@^0.1.3` (F-731).
+Inherits the export-path binding fix via `@agledger/verify-core@^0.1.3`.
 
 ### Fixed
 
-- **`records.getChain()` returned the paginated envelope, not the row array.** The `/chain` endpoint returns `{ data, total, hasMore }`; the SDK cast it as `RecordRow[]` with no runtime validation, so callers got the envelope object instead of the chain. It now unwraps `data` (tolerant of a bare-array shape too). The Python SDK crashed on the identical bug (F-730); TS was silently wrong.
+- **`records.getChain()` returned the paginated envelope, not the row array.** The `/chain` endpoint returns `{ data, total, hasMore }`; the SDK cast it as `RecordRow[]` with no runtime validation, so callers got the envelope object instead of the chain. It now unwraps `data` (tolerant of a bare-array shape too). The Python SDK crashed on the identical bug; TS was silently wrong.
 
 ### Changed
 
-- `/verify` (re-export of `@agledger/verify-core@^0.1.3`) now runs export-path binding-integrity — a denormalised `payload` rewritten while `coseSign1` stays intact fails `CHAIN_PAYLOAD_BINDING_MISMATCH` (F-731) — and reports the `not-checked` signature state when a chain break short-circuits before the signature (F-732).
+- `/verify` (re-export of `@agledger/verify-core@^0.1.3`) now runs export-path binding-integrity — a denormalised `payload` rewritten while `coseSign1` stays intact fails `CHAIN_PAYLOAD_BINDING_MISMATCH` — and reports the `not-checked` signature state when a chain break short-circuits before the signature.
 
 ## [0.8.11] - 2026-05-28
 
-Parity follow-on to the Python SDK 0.8.9 fix wave ([agledger-agents#82 (F-713)](https://github.com/agledger-ai/agledger-agents/issues/82), [#80 (F-710)](https://github.com/agledger-ai/agledger-agents/issues/80)). The Python SDK *crashed* on these (Pydantic validates at runtime); the TS types were silently wrong (structural typing erases at runtime) but yielded `undefined` for renamed fields. Both are now corrected to the live API contract. Verified against the API schemas.
+Parity follow-on to the Python SDK 0.8.9 fix wave. The Python SDK *crashed* on these (Pydantic validates at runtime); the TS types were silently wrong (structural typing erases at runtime) but yielded `undefined` for renamed fields. Both are now corrected to the live API contract. Verified against the API schemas.
 
 ### Fixed
 
 - **Response-type drift** — interfaces corrected to the actual wire shape:
-  - `AuditExportEntry`: `description` → optional `humanReadableLabel` (F-711); added the F-705 actor-display fields (`actorOwnerId`, `actorDisplayName`, `actorOwnerType`); `timestamp` is now the deprecated alias and `createdAt` the canonical.
+  - `AuditExportEntry`: `description` → optional `humanReadableLabel`; added the actor-display fields (`actorOwnerId`, `actorDisplayName`, `actorOwnerType`); `timestamp` is now the deprecated alias and `createdAt` the canonical.
   - `AgledgerEvent`: `eventType` → `type`, `payload` → `data`.
   - `AgentProfile` / `AgentDirectoryEntry`: dropped non-existent `name`/`slug`/`updatedAt`/`isActive`; the engine emits `displayName`.
   - `OrgReadsCheckpoint`: `createdAt` → `checkpointAt`, `sthBytes`/`signature` → `coseSign1Base64` + witness fields. `OrgReadsInclusionProof`: `proof` → `path`, dropped `checkpointId`.
@@ -821,12 +831,10 @@ Parity follow-on to the Python SDK 0.8.9 fix wave ([agledger-agents#82 (F-713)](
 
 ## [0.8.10] - 2026-05-28
 
-Closes [agledger-agents#77 (F-698)](https://github.com/agledger-ai/agledger-agents/issues/77) and [#78 (F-702)](https://github.com/agledger-ai/agledger-agents/issues/78); also lands a [#79 (F-706)](https://github.com/agledger-ai/agledger-agents/issues/79)-class consistency tweak.
-
 ### Fixed
 
-- **F-698 (HIGH, audit-independence)**: `verifyExport({ publicKeys })` now accepts both the compact `Record<keyId, base64SpkiDer>` map AND the natural `VerificationKey[]` shape returned by `client.verificationKeys.list().data`. Previously, passing the array form silently fell through to the export's embedded keys (`keyProvenance.outOfBand === 0` with `valid: true`) — a false independence claim. The fix is in the shared `@agledger/verify-core` 0.1.2; wrong shapes now throw `TypeError` at the boundary (fail-closed). Closes the temporal axis too: `signingKeyWindows` from the export's own (untrusted) metadata no longer overrides activation/retirement windows the auditor supplied on OOB entries.
-- **F-706-class**: `VerificationKeysResponse.hashAlgorithm` is now optional — the engine does not emit it on every build. Previously, the `agledger-python` model crashed Pydantic on `c.verificationKeys.list()`; for consistency the TS type also widens.
+- **Audit independence**: `verifyExport({ publicKeys })` now accepts both the compact `Record<keyId, base64SpkiDer>` map AND the natural `VerificationKey[]` shape returned by `client.verificationKeys.list().data`. Previously, passing the array form silently fell through to the export's embedded keys (`keyProvenance.outOfBand === 0` with `valid: true`) — a false independence claim. The fix is in the shared `@agledger/verify-core` 0.1.2; wrong shapes now throw `TypeError` at the boundary (fail-closed). Closes the temporal axis too: `signingKeyWindows` from the export's own (untrusted) metadata no longer overrides activation/retirement windows the auditor supplied on OOB entries.
+- `VerificationKeysResponse.hashAlgorithm` is now optional — the engine does not emit it on every build. Previously, the `agledger-python` model crashed Pydantic on `c.verificationKeys.list()`; for consistency the TS type also widens.
 
 ### Changed
 
@@ -866,7 +874,7 @@ Verifier consolidation (Pass 1). The `@agledger/sdk/verify` subpath is now a thi
 
 ### Fixed
 
-- **Offline audit verifier rejected valid exports (F-682).** `@agledger/sdk/verify` read the legacy `position` field on each export entry, but current exports (v0.25+) emit `chainPosition`. With `position` absent, every valid export failed with a false `position_gap` on the first entry. The verifier now reads `chainPosition`, falling back to `position` for pre-v0.25 exports. `AuditExportEntry.chainPosition` is now the canonical field; `position` is retained as a deprecated optional alias. Verified end-to-end against a live export. (Same root cause was present in `@agledger/cli` and `@agledger/mcp-server`, fixed in lockstep.)
+- **Offline audit verifier rejected valid exports.** `@agledger/sdk/verify` read the legacy `position` field on each export entry, but current exports (v0.25+) emit `chainPosition`. With `position` absent, every valid export failed with a false `position_gap` on the first entry. The verifier now reads `chainPosition`, falling back to `position` for pre-v0.25 exports. `AuditExportEntry.chainPosition` is now the canonical field; `position` is retained as a deprecated optional alias. Verified end-to-end against a live export. (Same root cause was present in `@agledger/cli` and `@agledger/mcp-server`, fixed in lockstep.)
 
 ## [0.8.5] - 2026-05-27
 
@@ -934,7 +942,7 @@ Tracks AGLedger API v0.25.2. Catches the SDK up with the v0.25.x route surface (
 
 ### Changed
 
-- `VaultScanJob` retyped to match the wire: `status` → `state` (`VaultScanState`: created/active/completed/failed/expired), and `entriesScanned`/`errorsFound` replaced by a structured `result` (`VaultScanResult`). Resolves a long-standing type drift (API F-651).
+- `VaultScanJob` retyped to match the wire: `status` → `state` (`VaultScanState`: created/active/completed/failed/expired), and `entriesScanned`/`errorsFound` replaced by a structured `result` (`VaultScanResult`). Resolves a long-standing type drift.
 
 ### Fixed
 
@@ -1004,7 +1012,7 @@ Tracks AGLedger API v0.24.0. Pre-launch rename sweep — `tenant`/`enterprise` c
 
 ## [0.8.0] - 2026-05-19
 
-Tracks AGLedger API v0.23.0. Major SCITT vocabulary alignment + canonical COSE_Sign1 chain envelope + new SCITT Transparency Service (SCRAPI) surface. Closes cross-repo issue agledger-agents#68.
+Tracks AGLedger API v0.23.0. Major SCITT vocabulary alignment + canonical COSE_Sign1 chain envelope + new SCITT Transparency Service (SCRAPI) surface.
 
 ### Why a 0.8.0 (not a patch)
 
@@ -1091,7 +1099,7 @@ Opt-in SCITT Receipts at `integrity.receipt` on each entry. Emitted only when th
 Patch fix for a wrong-shape annotation in `BulkCreateResult`.
 
 ### Fixed
-- **`BulkCreateResult.results[].status` is now `'created' | 'replayed' | 'error'`** (was `number`). The API has always returned the string token; the TS interface had it typed as `number`, breaking strict consumers. Fixed in parallel with the Python SDK 0.7.3 regression (where the same wrong shape caused a runtime Pydantic validation error). Resolves cross-repo issue agledger-agents#64 (testbed F-526).
+- **`BulkCreateResult.results[].status` is now `'created' | 'replayed' | 'error'`** (was `number`). The API has always returned the string token; the TS interface had it typed as `number`, breaking strict consumers. Fixed in parallel with the Python SDK 0.7.3 regression (where the same wrong shape caused a runtime Pydantic validation error).
 
 ## [0.7.0] - 2026-04-27
 
