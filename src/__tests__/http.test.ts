@@ -26,6 +26,7 @@ function mockFetch(response: {
     status: response.status ?? 200,
     statusText: response.statusText ?? 'OK',
     json: vi.fn().mockResolvedValue(response.json ?? {}),
+    text: vi.fn().mockResolvedValue(JSON.stringify(response.json ?? {})),
     headers: new Headers(response.headers ?? {}),
   });
 }
@@ -909,6 +910,43 @@ describe('idempotencyKey on the failure that may have applied the write', () => 
     expect(w.idempotencyKey).toBe('mine-1');
     const r = (await client.get('/v1/records').catch((e: unknown) => e)) as TimeoutError;
     expect(r.idempotencyKey).toBeUndefined();
+  });
+});
+
+describe('JSON routes: a body that is not JSON', () => {
+  function textFetch(status: number, statusText: string, contentType: string, text: string) {
+    return vi.fn().mockResolvedValue({
+      ok: false,
+      status,
+      statusText,
+      headers: new Headers({ 'content-type': contentType }),
+      text: vi.fn().mockResolvedValue(text),
+    });
+  }
+
+  it("keeps a proxy's HTML error page on rawBody", async () => {
+    const page = '<html>bad gateway</html>';
+    const fetchFn = textFetch(502, 'Bad Gateway', 'text/html', page);
+    const err = (await createClient(fetchFn as never)
+      .get('/v1/records/x')
+      .catch((e: unknown) => e)) as AgledgerApiError;
+    expect(err).toBeInstanceOf(AgledgerApiError);
+    expect(err.status).toBe(502);
+    expect(err.code).toBe('unknown');
+    expect(err.message).toBe('Bad Gateway');
+    expect(new TextDecoder().decode(err.rawBody)).toBe(page);
+  });
+
+  it('leaves rawBody unset on a JSON error body and on an empty one', async () => {
+    const json = textFetch(404, 'Not Found', 'application/problem+json', JSON.stringify({ error: 'NOT_FOUND', detail: 'gone' }));
+    const jsonErr = (await createClient(json as never).get('/v1/records/x').catch((e: unknown) => e)) as AgledgerApiError;
+    expect(jsonErr.code).toBe('NOT_FOUND');
+    expect(jsonErr.rawBody).toBeUndefined();
+
+    const empty = textFetch(503, 'Service Unavailable', 'text/plain', '');
+    const emptyErr = (await createClient(empty as never).get('/v1/records/x').catch((e: unknown) => e)) as AgledgerApiError;
+    expect(emptyErr.message).toBe('Service Unavailable');
+    expect(emptyErr.rawBody).toBeUndefined();
   });
 });
 

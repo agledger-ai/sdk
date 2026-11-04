@@ -212,18 +212,25 @@ function jsonRpcErrorBody(parsed: Record<string, unknown>): Record<string, unkno
   };
 }
 
-/** An error response's JSON body, or the status line when it has none. */
-async function readErrorBody(response: Response): Promise<Record<string, unknown>> {
+/**
+ * An error response's JSON body, or the status line when it has none. A body
+ * that is not a JSON object (a proxy's HTML error page on a JSON route) comes
+ * back as `raw`, so the caller still has what the response said.
+ */
+async function readErrorBody(response: Response): Promise<{ body: Record<string, unknown>; raw?: Uint8Array }> {
+  let text = '';
   try {
-    const parsed = (await response.json()) as unknown;
+    text = await response.text();
+    const parsed = JSON.parse(text) as unknown;
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       const body = parsed as Record<string, unknown>;
-      return jsonRpcErrorBody(body) ?? body;
+      return { body: jsonRpcErrorBody(body) ?? body };
     }
   } catch {
-    // Not JSON.
+    // Not JSON, or the body could not be read.
   }
-  return { error: 'unknown', detail: response.statusText || `HTTP ${response.status}` };
+  const body = { error: 'unknown', detail: response.statusText || `HTTP ${response.status}` };
+  return text ? { body, raw: new TextEncoder().encode(text) } : { body };
 }
 
 /**
@@ -589,7 +596,8 @@ export class HttpClient {
             continue;
           }
 
-          const error = this.mapError(response.status, errorBody, response.headers);
+          const error = this.mapError(response.status, errorBody.body, response.headers);
+          if (errorBody.raw) error.rawBody = errorBody.raw;
           if (response.status === 429 || response.status >= 500) {
             lastError = error;
             continue;
@@ -826,7 +834,8 @@ export class HttpClient {
           continue;
         }
 
-        const error = this.mapError(response.status, errorBody, response.headers);
+        const error = this.mapError(response.status, errorBody.body, response.headers);
+        if (errorBody.raw) error.rawBody = errorBody.raw;
 
         // Retry on 429 and 5xx
         if (response.status === 429 || response.status >= 500) {
