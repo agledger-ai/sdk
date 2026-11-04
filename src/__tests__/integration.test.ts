@@ -13,7 +13,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { AgledgerClient } from '../client.js';
 import { oidcCertCredential } from '../auth/oidc-cert.js';
-import type { Page } from '../types.js';
+import type { Listing, Page } from '../types.js';
 
 const API_URL = process.env['AGLEDGER_TEST_API_URL'] || 'http://localhost:3001';
 const API_KEY = process.env['AGLEDGER_TEST_API_KEY'] || '';
@@ -239,11 +239,20 @@ describe('SDK integration: response shape validation', async () => {
   // and no mocked test could see it because the mocks were written from the
   // same wrong assumption. These assert against the live wire.
 
-  it('discovery.getScopeProfiles() returns a Page, not a bare array', async () => {
-    const page = await client.discovery.getScopeProfiles();
-    expect(Array.isArray(page)).toBe(false);
-    assertPage(page, 'discovery.getScopeProfiles');
-    expect(page.data.length).toBeGreaterThan(0);
+  // Four routes send {data, total} with no cursor. The page helper used to
+  // add hasMore: false and nextCursor: null to each, fields the Server never
+  // sent, so these assert the envelope is the route's own.
+  function assertListing<T>(list: Listing<T>, label: string): void {
+    expect(Array.isArray(list.data), `${label}: data is not an array`).toBe(true);
+    expect(typeof list.total, `${label}: total is not a number`).toBe('number');
+    expect('hasMore' in list, `${label}: invented hasMore`).toBe(false);
+    expect('nextCursor' in list, `${label}: invented nextCursor`).toBe(false);
+  }
+
+  it('discovery.getScopeProfiles() returns data and total, with no cursor', async () => {
+    const list = await client.discovery.getScopeProfiles();
+    assertListing(list, 'discovery.getScopeProfiles');
+    expect(list.data.length).toBeGreaterThan(0);
   });
 
   it('admin.vault.signingKeys.list() returns data, total and signer, with no cursor', async () => {
@@ -257,18 +266,22 @@ describe('SDK integration: response shape validation', async () => {
     expect('hasMore' in list).toBe(false);
   });
 
-  it('admin.vault.anchors.list() requires recordId and returns a Page', async () => {
+  it('admin.vault.anchors.list() requires recordId and returns data and total, with no cursor', async () => {
     if (!PLATFORM_KEY || !createdRecordId) return;
-    const page = await platformClient().admin.vault.anchors.list({ recordId: createdRecordId });
-    expect(Array.isArray(page)).toBe(false);
-    assertPage(page, 'admin.vault.anchors.list');
+    const list = await platformClient().admin.vault.anchors.list({ recordId: createdRecordId });
+    assertListing(list, 'admin.vault.anchors.list');
   });
 
-  it('admin.listRateLimitExemptions() returns a Page, not a bare array', async () => {
+  it('admin.listRateLimitExemptions() returns data and total, with no cursor', async () => {
     if (!PLATFORM_KEY) return;
-    const page = await platformClient().admin.listRateLimitExemptions();
-    expect(Array.isArray(page)).toBe(false);
-    assertPage(page, 'admin.listRateLimitExemptions');
+    const list = await platformClient().admin.listRateLimitExemptions();
+    assertListing(list, 'admin.listRateLimitExemptions');
+  });
+
+  it('admin.getFleetCapabilities() returns data and total, with no cursor', async () => {
+    if ((await client.auth.getMe()).ownerType === 'agent') return;
+    const list = await client.admin.getFleetCapabilities();
+    assertListing(list, 'admin.getFleetCapabilities');
   });
 
   // The SDK typed this as `{ imported: number, recordIds: string[] }` through

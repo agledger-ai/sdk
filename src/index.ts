@@ -23,6 +23,7 @@ export type {
   LimitParams,
   CursorListParams,
   Page,
+  Listing,
   AutoPaginateOptions,
 
   // Batch
