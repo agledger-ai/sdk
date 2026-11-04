@@ -19,6 +19,7 @@ function mockClient(body: unknown, status = 200) {
     ok: status < 400,
     status,
     json: vi.fn().mockResolvedValue(body),
+    text: vi.fn().mockResolvedValue(JSON.stringify(body)),
     headers: new Headers(),
   });
   const client = new AgledgerClient({

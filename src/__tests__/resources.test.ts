@@ -443,16 +443,18 @@ describe('DisputesResource', () => {
   it('raises the already-terminal refusal as UnprocessableError, with its recovery hint', async () => {
     // A dispute already RESOLVED or WITHDRAWN is refused with the state it is
     // in and what is still allowed, so a caller recovers without parsing prose.
+    const refusal = {
+      error: 'INVALID_ACTION',
+      detail: 'Dispute is already RESOLVED',
+      currentState: 'RESOLVED',
+      allowedActions: [],
+      recoveryHint: 'Read the dispute; it has already been resolved.',
+    };
     const fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 422,
-      json: vi.fn().mockResolvedValue({
-        error: 'INVALID_ACTION',
-        detail: 'Dispute is already RESOLVED',
-        currentState: 'RESOLVED',
-        allowedActions: [],
-        recoveryHint: 'Read the dispute; it has already been resolved.',
-      }),
+      json: vi.fn().mockResolvedValue(refusal),
+      text: vi.fn().mockResolvedValue(JSON.stringify(refusal)),
       headers: new Headers(),
     });
     const client = new AgledgerClient({

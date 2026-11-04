@@ -49,8 +49,9 @@ export class ConfigurationError extends AgledgerError {
  * `recoveryHint`, `missingScopes`, `nextSteps`, ...). `message` is the body's
  * `detail`, the one human-readable field, falling back to `title`. The parsed
  * body itself is `body`, so a field this class does not name is still
- * readable (`err.body.someNewField`); `rawBody` holds the bytes of a
- * non-JSON (CBOR) body.
+ * readable (`err.body.someNewField`); `rawBody` holds the bytes of any
+ * body that is not a JSON object: CBOR problem details on a binary route, or
+ * a proxy's HTML error page on a JSON one.
  *
  * Key properties for consumers:
  * - `type`: RFC 9457 problem URI (e.g. `/problems/ambiguous-publisher`). Branch on this, not on prose.
@@ -283,10 +284,12 @@ export class AgledgerApiError extends AgledgerError {
   readonly body: ApiErrorResponse;
 
   /**
-   * Raw response body bytes for binary endpoints (`application/cose`,
-   * `application/concise-problem-details+cbor`). Set by `HttpClient.requestBinary`
-   * when the API returns a 4xx/5xx on a SCITT or attestation endpoint;
-   * customers decode it with `cborg` for SCITT problem-details (RFC 9290).
+   * The response body's bytes, when it was not a JSON object. On a binary
+   * endpoint (`application/cose`, `application/concise-problem-details+cbor`)
+   * every error sets it; decode SCITT problem details (RFC 9290) with `cborg`.
+   * On a JSON route it is set when something in front of the Server answered
+   * instead (a load balancer's 502 page): `new TextDecoder().decode(err.rawBody)`
+   * reads it, and `body` is then only the status line.
    */
   rawBody?: Uint8Array;
 
