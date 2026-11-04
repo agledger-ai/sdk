@@ -600,7 +600,7 @@ entries), as the peer signed it. Every sealed message is held to its body hash
 and to its entry; pass the peer's federation key as `federationKeys`
 (`{ [hubId]: key }`, the key as the peer's operator gives it) to also
 re-verify the peer's signature, which proves what the peer asserted from this
-export alone. `checked.federationWire` counts `present` and `verified`, and a
+export alone. `checked.federationWire` counts `present`, `verified` and `failed`, and a
 sealed message that does not hold fails `CHAIN_FEDERATION_WIRE_INVALID`.
 
 ## SCITT / SCRAPI

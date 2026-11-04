@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **`admin.vault.signingKeys.list()` returns what the route sends.** `{ data, total, signer }`, typed `VaultSigningKeyList`: `signer` says whether the vault key is local or in AWS KMS (`keyArn`, `maxSignsPerSecond`). It went through the page helper, which invented `hasMore` and `nextCursor` the route never sends and dropped `signer`.
 - **Four more lists return what the route sends.** `discovery.getScopeProfiles()`, `admin.listRateLimitExemptions()`, `admin.vault.anchors.list()` and `admin.getFleetCapabilities()` return `{ data, total }` as the new `Listing<T>`, with `nextSteps` and `recordRead` where the route sends them. None of the four routes takes a cursor; the page helper added `hasMore: false` and `nextCursor: null` to each. Code that read `hasMore` off one of them no longer typechecks, and had nothing to read: every row was already in `data`.
 - **`a2a.cancelTask()`**, the `CancelTask` call with its one typed extension: `reason` rides in `metadata["agledger:reason"]` and lands as the record's `lastTransitionReason`.
-- **`federationKeys` on `verifyExport`** (`@agledger/sdk/verify`): a receiving Server's `FEDERATION_*` entries seal each peer message as the peer signed it (`payload.wire`); every sealed message is held to its body hash and to its entry, and one from a hub whose federation key is given is also re-verified under it. `result.federationWire` counts them; a failure is `CHAIN_FEDERATION_WIRE_INVALID`. Needs `@agledger/verify-core` 2.1.0.
+- **`federationKeys` on `verifyExport`** (`@agledger/sdk/verify`): a receiving Server's `FEDERATION_*` entries seal each peer message as the peer signed it (`payload.wire`); every sealed message is held to its body hash and to its entry, and one from a hub whose federation key is given is also re-verified under it. `result.federationWire` counts them (`present`, `verified`, `failed`); a failure is `CHAIN_FEDERATION_WIRE_INVALID`. Needs `@agledger/verify-core` 2.1.0.
 - Types the Server now serves: `SystemHealth.backgroundMigrations` and `process.heapLimitMb`, the per-item rebuild kit on `BulkCreateResult.results[]`, `SchemaQuickStart.unsatisfied`, `ComplianceExport.bulkExport`, `connections_overcommitted` on `StatusComponentReason`, `keyRegistry.standing` on the ops summary and `standing` on each scan finding.
 
 ### Changed
@@ -584,14 +584,14 @@ Tracks API v1.3.4. Type-only; no wire or runtime change. Minor rather than patch
 
 ### Added
 
-- `ComplianceExport.truncated` and `.totalRecords` (API #968/#991). The org-wide export is capped at 10000 rows, newest first. Before this the response carried only `recordCount`, so a truncated export was indistinguishable from a complete one and a compliance packet could silently omit most of the trail. Window with `filters.from` / `filters.to` to cover the rest. On a download the same answer rides the `X-AGLedger-Export-Truncated` and `X-AGLedger-Export-Total-Records` response headers, which are the only carriers for a `csv` download, since the body is raw rows and a notice line would corrupt the parse.
+- `ComplianceExport.truncated` and `.totalRecords`. The org-wide export is capped at 10000 rows, newest first. Before this the response carried only `recordCount`, so a truncated export was indistinguishable from a complete one and a compliance packet could silently omit most of the trail. Window with `filters.from` / `filters.to` to cover the rest. On a download the same answer rides the `X-AGLedger-Export-Truncated` and `X-AGLedger-Export-Total-Records` response headers, which are the only carriers for a `csv` download, since the body is raw rows and a notice line would corrupt the parse.
 - `ComplianceExport.nextSteps`, which the status re-read now returns alongside the create response.
-- `VaultCheckpoint.chain` plus the `VaultCheckpointChain` union (`'record' | 'schema' | 'admin'`, API #995). Three chains are checkpointed by the same signed construction, and **only `chain: 'record'` is keyed by a real record id**. On `'schema'` and `'admin'` the `recordId` is a derived key that resolves to no record, so fetching it 404s by design. Optional, so a pre-1.3.4 server's rows still parse.
+- `VaultCheckpoint.chain` plus the `VaultCheckpointChain` union (`'record' | 'schema' | 'admin'`). Three chains are checkpointed by the same signed construction, and **only `chain: 'record'` is keyed by a real record id**. On `'schema'` and `'admin'` the `recordId` is a derived key that resolves to no record, so fetching it 404s by design. Optional, so a pre-1.3.4 server's rows still parse.
 - `ExpressionHelperDoc`, exported from the package root along with `VaultCheckpointChain`.
 
 ### Changed
 
-- **`MetaSchema.expressionHelpers` is now `Record<string, ExpressionHelperDoc>`, was `string[]`** (API #976). The server replaced the bare list of helper names with per-helper `signature` + `semantics`, so the edge behavior travels with the helper instead of living only in prose. Worth reading before relying on one in a gate rule: `daysBetween` counts whole elapsed 24h periods between UTC instants (floored, order-independent) rather than calendar days, and returns 0 on an unparseable date. Code that iterated the old array needs `Object.keys(...)`.
+- **`MetaSchema.expressionHelpers` is now `Record<string, ExpressionHelperDoc>`, was `string[]`**. The server replaced the bare list of helper names with per-helper `signature` + `semantics`, so the edge behavior travels with the helper instead of living only in prose. Worth reading before relying on one in a gate rule: `daysBetween` counts whole elapsed 24h periods between UTC instants (floored, order-independent) rather than calendar days, and returns 0 on an unparseable date. Code that iterated the old array needs `Object.keys(...)`.
 
 ### Fixed
 
@@ -608,7 +608,7 @@ Tracks API v1.3.3. Type-only; no wire or runtime change.
 
 ### Added
 
-- **`VaultScanResult.globalChains`** (API #949/#952). A full vault scan now walks the record-less chains (the single platform-ops `admin` chain and each org's `schema`-registration chain) and reports them under `result.globalChains` (`total`, `verified`, `broken`, `signatureErrors`, `brokenChains`, `brokenChainsTruncated`). These chains have no `records` row, so the per-record scan cannot see them; a break there now folds into `result.healthy`. The field is optional: a `recordIds`-scoped scan and the list-view summaries omit it. New exported types `VaultScanGlobalChains` and `VaultScanBrokenChain`, whose `reason` stays an open `string` (matching `VaultScanBrokenRecord.reason`) so a server-added failure code is not a compile break.
+- **`VaultScanResult.globalChains`**. A full vault scan now walks the record-less chains (the single platform-ops `admin` chain and each org's `schema`-registration chain) and reports them under `result.globalChains` (`total`, `verified`, `broken`, `signatureErrors`, `brokenChains`, `brokenChainsTruncated`). These chains have no `records` row, so the per-record scan cannot see them; a break there now folds into `result.healthy`. The field is optional: a `recordIds`-scoped scan and the list-view summaries omit it. New exported types `VaultScanGlobalChains` and `VaultScanBrokenChain`, whose `reason` stays an open `string` (matching `VaultScanBrokenRecord.reason`) so a server-added failure code is not a compile break.
 
 ## [1.3.2] - 2026-07-16
 
@@ -617,11 +617,11 @@ Docs and tooling. No wire, type, or runtime change.
 ### Fixed
 
 - README Quick Start no longer fails at runtime. It created a `notarize-generic-v1` record, which terminalizes at RECORDED with no completion phase, then called transition, completion, and gate on it. The flagship example now uses `principal-gate-generic-v1`, which has the completion and verdict phases the walkthrough exercises.
-- Corrected the licensing description (#99): the database is the license line. Every feature and topology, federation and multi-node included, is free on the bundled database; only an external or managed database requires an Enterprise license. The prior text wrongly listed federation and multi-node as gated.
+- Corrected the licensing description: the database is the license line. Every feature and topology, federation and multi-node included, is free on the bundled database; only an external or managed database requires an Enterprise license. The prior text wrongly listed federation and multi-node as gated.
 
 ### Changed
 
-- Removed dead vocabulary and naming history from the README and the npm package description (#99).
+- Removed dead vocabulary and naming history from the README and the npm package description.
 - Refreshed the lockfile to in-range latest (`@agledger/verify-core` 1.0.2, plus dev tooling).
 - Upgraded the TypeScript devDependency to `^7.0.2`. Build, typecheck, tests, and publint/attw all pass under 7.0.2.
 
@@ -640,12 +640,12 @@ Tracks AGLedger API **v1.3.2** (was v1.2.0). Route surface is unchanged (193 rou
 
 ### Added
 
-- **`SignedStatement.signedAt`** (API #877): the signed instant of the head Signed Statement (the CWT `iat` claim sealed in the COSE_Sign1 protected header, second precision). The authoritative timestamp for time-anchored contracts (statutory wait windows, notice clocks); the record's millisecond `createdAt` only approximates it. Nullable.
-- **`VerdictResult.recordStatus`** (API #876): the settled record status (`FULFILLED` on accept, `FAILED` on reject) returned inline on `records.submitVerdict()`, so the outcome is known without a follow-up `records.get()`.
-- **`record.gate_held` webhook event** (API #913): a principal-mode record held at PROCESSING awaiting the verdict emits this event; the payload carries the `completionId` to verdict against plus the engine/rollup advisory. Added to `WebhookEventType`.
-- **`records.getAuditExport(id, { evidence: true })`** (API #870): inlines the completion evidence body at each COMPLETION_SUBMITTED entry (`AuditExportEntry.evidence`) — an UNSIGNED projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON only.
+- **`SignedStatement.signedAt`**: the signed instant of the head Signed Statement (the CWT `iat` claim sealed in the COSE_Sign1 protected header, second precision). The authoritative timestamp for time-anchored contracts (statutory wait windows, notice clocks); the record's millisecond `createdAt` only approximates it. Nullable.
+- **`VerdictResult.recordStatus`**: the settled record status (`FULFILLED` on accept, `FAILED` on reject) returned inline on `records.submitVerdict()`, so the outcome is known without a follow-up `records.get()`.
+- **`record.gate_held` webhook event**: a principal-mode record held at PROCESSING awaiting the verdict emits this event; the payload carries the `completionId` to verdict against plus the engine/rollup advisory. Added to `WebhookEventType`.
+- **`records.getAuditExport(id, { evidence: true })`**: inlines the completion evidence body at each COMPLETION_SUBMITTED entry (`AuditExportEntry.evidence`) — an UNSIGNED projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON only.
 - **`ApiErrorResponse.deadline`** (API v1.3.2): the passed record deadline surfaced on the system TIME_OUT 422, alongside `terminalReason`/`previousStatus`.
-- **`AuditChainIntegrityReason`** gains `signature_invalid`, `signing_key_unknown`, `signing_key_drift` (API #888/#893): the vault now fails closed on per-entry signature verification and surfaces the specific failing invariant.
+- **`AuditChainIntegrityReason`** gains `signature_invalid`, `signing_key_unknown`, `signing_key_drift`: the vault now fails closed on per-entry signature verification and surfaces the specific failing invariant.
 
 ## [1.2.0] - 2026-07-06
 
@@ -655,10 +655,10 @@ Version note: 1.1.0 is skipped because the retired pre-GA release line already p
 
 ### Added
 
-- **Webhook `recordTypes` filter** (API #825): `webhooks.create()` and `webhooks.update()` accept `recordTypes`, and the `Webhook` row carries it back. `["*"]` means all record types (wildcard sentinel); any other array means record-scoped events are delivered ONLY for the listed types (fail-closed). Omit for no filter.
-- **`records.accept(id, message?)`** (API #855): optional acceptance rationale, symmetric with `reject()`. The API stores one rationale field; `reason`/`notes` are wire-level aliases of `message` on all four handshake endpoints (#780).
-- **`SchemaFieldMapping.maxTolerance`** (API #824): per-rule cap on the per-record tolerance. `0` forbids any tolerance (undodgeable threshold gate); a positive value pins the widest band a record may declare; omitted = uncapped. Accepted on `schemas.register()` and `schemas.preview()` mappings and echoed back in `rulesConfig`.
-- **`rulesConfig` echoed on schema writes** (API #855): `schemas.register()`, `schemas.import_()`, `schemas.updateVersion()` and `getVersions()` rows now carry the compiled `rulesConfig`. New exported type `SchemaRulesConfig`; `TypeSchema.rulesConfig` and `SchemaVersionDetail.rulesConfig` are now fully typed (`fieldMappings` was `Record<string, unknown>[]`).
+- **Webhook `recordTypes` filter**: `webhooks.create()` and `webhooks.update()` accept `recordTypes`, and the `Webhook` row carries it back. `["*"]` means all record types (wildcard sentinel); any other array means record-scoped events are delivered ONLY for the listed types (fail-closed). Omit for no filter.
+- **`records.accept(id, message?)`**: optional acceptance rationale, symmetric with `reject()`. The API stores one rationale field; `reason`/`notes` are wire-level aliases of `message` on all four handshake endpoints.
+- **`SchemaFieldMapping.maxTolerance`**: per-rule cap on the per-record tolerance. `0` forbids any tolerance (undodgeable threshold gate); a positive value pins the widest band a record may declare; omitted = uncapped. Accepted on `schemas.register()` and `schemas.preview()` mappings and echoed back in `rulesConfig`.
+- **`rulesConfig` echoed on schema writes**: `schemas.register()`, `schemas.import_()`, `schemas.updateVersion()` and `getVersions()` rows now carry the compiled `rulesConfig`. New exported type `SchemaRulesConfig`; `TypeSchema.rulesConfig` and `SchemaVersionDetail.rulesConfig` are now fully typed (`fieldMappings` was `Record<string, unknown>[]`).
 
 ### Fixed
 
@@ -689,13 +689,13 @@ Tracks AGLedger API **v1.1.0** (was pinned to v1.0.3). Route surface is identica
 
 ### Added
 
-- **`Completion.settlementSignal`** (API #816): the auto-gate's settle/hold/reject decision, surfaced inline on a submitted Completion so the caller learns the outcome without a follow-up `records.get`. Typed `CompletionSettlementSignal` (`recommendation`, `outcome`, `reasonCode`); null when the gate did not render inline (encrypted Records, principal-mode held at PENDING_VERDICT, or skipped).
-- **`schemas.list()` now returns typed catalog rows** (`Page<SchemaListItem>`, was `Page<RecordType>`). The API has always returned row objects (`type`, `version`, `status`, `displayName`, `category`, `description`, `templateUrl`, `publisher`, `orgId`), now including **`defaultGateMode`** (API #817): the lifecycle discriminator that distinguishes a gated type from a notarize-only one from the list row alone.
+- **`Completion.settlementSignal`**: the auto-gate's settle/hold/reject decision, surfaced inline on a submitted Completion so the caller learns the outcome without a follow-up `records.get`. Typed `CompletionSettlementSignal` (`recommendation`, `outcome`, `reasonCode`); null when the gate did not render inline (encrypted Records, principal-mode held at PENDING_VERDICT, or skipped).
+- **`schemas.list()` now returns typed catalog rows** (`Page<SchemaListItem>`, was `Page<RecordType>`). The API has always returned row objects (`type`, `version`, `status`, `displayName`, `category`, `description`, `templateUrl`, `publisher`, `orgId`), now including **`defaultGateMode`**: the lifecycle discriminator that distinguishes a gated type from a notarize-only one from the list row alone.
 - New exported types: `SchemaListItem`, `CompletionSettlementSignal`.
 
 ### Changed
 
-- `reasonCode` docs note the new `AUTO_SETTLE_WITHIN_TOLERANCE` value (API #824): an auto-settle that cleared only via a non-zero tolerance band rather than the base criteria threshold. The field stays `string | null`, so no type change.
+- `reasonCode` docs note the new `AUTO_SETTLE_WITHIN_TOLERANCE` value: an auto-settle that cleared only via a non-zero tolerance band rather than the base criteria threshold. The field stays `string | null`, so no type change.
 - Gate-mode docs no longer say "the rules engine renders the verdict": auto mode auto-settles against the principal's pre-configured predicates; the verdict is always the principal's and AGLedger only holds the signed decision.
 - Licensing section drops the stale dollar figure and points at the pricing page for current terms.
 - Parity snapshot regenerated to `apiVersion 1.1.0`.
@@ -706,10 +706,10 @@ Tracks AGLedger API **v1.0.3** (was pinned to v1.0.0). A full route + field-leve
 
 ### Added
 
-- **`records.get(id, { integrity: true })`** — re-verify the Record's audit chain and cross-check the served row against it (API #732). The result is exposed on the new `RecordRow.integrity` field (typed `RecordIntegrity`: `verified`, `integrityLevel`, `reason`, `entries`, `projectionChecked`, `driftFields`).
-- **`records.list({ actionable: true })`** — the agent-recovery query: every Record whose next action awaits the caller's structural side, across all statuses (API #731). Agent keys only.
-- **`auth.rotateKey({ gracePeriodSeconds })`** — keep the old key valid for an overlap window instead of an immediate hard cutover (API #793).
-- **`compliance.export({ embed })`** — inline cryptographic evidence (currently `signed-statements`) into the export packet so a regulator can verify each claim offline (API #771).
+- **`records.get(id, { integrity: true })`** — re-verify the Record's audit chain and cross-check the served row against it. The result is exposed on the new `RecordRow.integrity` field (typed `RecordIntegrity`: `verified`, `integrityLevel`, `reason`, `entries`, `projectionChecked`, `driftFields`).
+- **`records.list({ actionable: true })`** — the agent-recovery query: every Record whose next action awaits the caller's structural side, across all statuses. Agent keys only.
+- **`auth.rotateKey({ gracePeriodSeconds })`** — keep the old key valid for an overlap window instead of an immediate hard cutover.
+- **`compliance.export({ embed })`** — inline cryptographic evidence (currently `signed-statements`) into the export packet so a regulator can verify each claim offline.
 - New exported types: `RecordIntegrity`, `GetRecordParams`, `RotateKeyParams`.
 
 ### Changed
@@ -745,7 +745,7 @@ General-availability release, tracking AGLedger API **v1.0.0 GA**. No breaking c
 
 - `WebhookEventType`: `record.proposal_counter_proposed`, `record.ai_impact_assessment_filed`, `record.compliance_attestation_filed` — now advertised in the API's subscribable event enum.
 - `DisputeGrounds`: `verdict_disagreement`.
-- `defaultGateMode?: GateMode` on `TypeSchema`, `RegisterSchemaParams`, and `SchemaPreviewInput` — the per-contract-type default gate mode (API #704). Live-validated: registering a type with `defaultGateMode: 'principal'` propagates to a created record's `gateMode`.
+- `defaultGateMode?: GateMode` on `TypeSchema`, `RegisterSchemaParams`, and `SchemaPreviewInput` — the per-contract-type default gate mode. Live-validated: registering a type with `defaultGateMode: 'principal'` propagates to a created record's `gateMode`.
 
 ## [0.8.16] - 2026-06-04
 
@@ -788,7 +788,7 @@ No functional change. First release published from CI with **build provenance** 
 
 A full minor of API field-shape drift had accumulated while the route surface stayed 194/194 in sync. Swept every drifted response/request field across the typed surface:
 
-- **`RecordRow`**: renamed `vaultCompletion` → `signedStatement` (the create-record chain head — previously resolved to `undefined` against a live ≥0.26 Server; closes #87) and `selfCommitment` → `selfPrincipal`; dropped `noOp` (removed API-side). Added 17 fields the API returns: `settlementSignal`, `counterSignature`, `coSignRequired`, `coSignStatus`, `federationStatus`, `disputeId`, `disputeStatus`, `hasDispute`, `hasChildren`, `latestCompletionId`, `terminalReason`, `expiredAt`, `awaitingActor`, `share`, `sharedToPeers`, `source`, `imported`.
+- **`RecordRow`**: renamed `vaultCompletion` → `signedStatement` (the create-record chain head — previously resolved to `undefined` against a live ≥0.26 Server) and `selfCommitment` → `selfPrincipal`; dropped `noOp` (removed API-side). Added 17 fields the API returns: `settlementSignal`, `counterSignature`, `coSignRequired`, `coSignStatus`, `federationStatus`, `disputeId`, `disputeStatus`, `hasDispute`, `hasChildren`, `latestCompletionId`, `terminalReason`, `expiredAt`, `awaitingActor`, `share`, `sharedToPeers`, `source`, `imported`.
 - **Type rename** `VaultCompletion` → `SignedStatement` (drops `signature`, adds `url`). New `SettlementSignalSummary` type for the Record-projected signal.
 - **`Completion`**: added `verdict`, `lastVerdictReason`.
 - **`NextStep`**: added `afterThis`, `workflowLabel`, `workflowStep`, `workflowTotal` (the workflow-progress hints, embedded in nearly every response).

@@ -57,7 +57,7 @@ export type {
  * body hash and to its entry; pass `federationKeys` (`{ [hubId]: key }`, the
  * peer's Ed25519 federation key as its operator gives it) to also re-verify
  * the peer's signature, which proves what the peer asserted from this export
- * alone. `result.federationWire` counts present and verified; a failure is
+ * alone. `result.federationWire` counts present, verified and failed; a failure is
  * `CHAIN_FEDERATION_WIRE_INVALID`.
  *
  * Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
