@@ -40,6 +40,7 @@ import type {
   OpsSummary,
   OrgConfig,
   Page,
+  Listing,
   ProvisioningReloadResult,
   ProvisioningStatus,
   QueryAdminRecordsParams,
@@ -136,7 +137,7 @@ export class AdminVaultResource {
       // querystring), not optional. Typing it optional let `anchors.list()`
       // typecheck and then 400 at runtime.
       list: (params: { recordId: string }, options?: RequestOptions) =>
-        http.getPage<VaultAnchor>('/v1/admin/vault/anchors', params as unknown as Record<string, unknown>, options),
+        http.get<Listing<VaultAnchor>>('/v1/admin/vault/anchors', params as unknown as Record<string, unknown>, options),
       verify: (params: VerifyVaultAnchorsParams, options?: RequestOptions) =>
         http.post<VaultAnchorVerifyResult>('/v1/admin/vault/anchors/verify', params, options),
       reconcile: (params?: ReconcileVaultAnchorsParams, options?: RequestOptions) =>
@@ -179,7 +180,8 @@ export class AdminVaultResource {
   }
 
   readonly anchors: {
-    list(params: { recordId: string }, options?: RequestOptions): Promise<Page<VaultAnchor>>;
+    /** Every anchor in the bucket for one Record. Not a page: the route carries no cursor. */
+    list(params: { recordId: string }, options?: RequestOptions): Promise<Listing<VaultAnchor>>;
     verify(params: VerifyVaultAnchorsParams, options?: RequestOptions): Promise<VaultAnchorVerifyResult>;
     /**
      * Walk the anchor bucket against this database. The counters cover the whole
@@ -382,17 +384,17 @@ export class AdminResource {
    * `{ type }` to list only the agents that declared one type. The route does
    * not page: every row comes back in `data`.
    */
-  getFleetCapabilities(options?: RequestOptions): Promise<Page<FleetCapabilityEntry>>;
+  getFleetCapabilities(options?: RequestOptions): Promise<Listing<FleetCapabilityEntry>>;
   getFleetCapabilities(
     params: FleetCapabilitiesParams,
     options?: RequestOptions,
-  ): Promise<Page<FleetCapabilityEntry>>;
+  ): Promise<Listing<FleetCapabilityEntry>>;
   getFleetCapabilities(
     paramsOrOptions?: FleetCapabilitiesParams | RequestOptions,
     options?: RequestOptions,
-  ): Promise<Page<FleetCapabilityEntry>> {
+  ): Promise<Listing<FleetCapabilityEntry>> {
     const [params, opts] = splitParams<FleetCapabilitiesParams>(paramsOrOptions, options, ['type']);
-    return this.http.getPage<FleetCapabilityEntry>(
+    return this.http.get<Listing<FleetCapabilityEntry>>(
       '/v1/admin/agents/capabilities',
       params as Record<string, unknown> | undefined,
       opts,
@@ -572,9 +574,10 @@ export class AdminResource {
   /**
    * List the owners exempt from rate limiting. Each row is an owner id; check
    * one owner with `(await listRateLimitExemptions()).data.includes(ownerId)`.
+   * Not a page: every exemption comes back in one response.
    */
-  listRateLimitExemptions(options?: RequestOptions): Promise<Page<string>> {
-    return this.http.getPage<string>('/v1/admin/rate-limit-exemptions', undefined, options);
+  listRateLimitExemptions(options?: RequestOptions): Promise<Listing<string>> {
+    return this.http.get<Listing<string>>('/v1/admin/rate-limit-exemptions', undefined, options);
   }
 
   /** Exempt an owner (agent or org id) from rate limiting. Idempotent. */

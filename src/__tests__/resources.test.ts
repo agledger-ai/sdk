@@ -1039,9 +1039,11 @@ describe('AuthResource', () => {
 
 describe('DiscoveryResource', () => {
   it('lists scope profiles', async () => {
-    const { client, fetch } = createMockClient([{ name: 'admin-standard', scopes: [], allowedRoles: ['admin'], description: '' }]);
-    await client.discovery.getScopeProfiles();
+    const body = { data: [{ name: 'admin-standard', scopes: [], allowedRoles: ['admin'], description: '' }], total: 1 };
+    const { client, fetch } = createMockClient(body);
+    const list = await client.discovery.getScopeProfiles();
     expect(fetch.mock.calls[0][0]).toContain('/v1/scope-profiles');
+    expect(list).toEqual(body);
   });
 
   it('gets conformance', async () => {
@@ -1390,8 +1392,8 @@ describe('AdminResource', () => {
 
   it('lists owner-level rate limit exemptions as owner ids', async () => {
     const { client, fetch } = createMockClient({ data: ['ent-1'], total: 1 });
-    const page = await client.admin.listRateLimitExemptions();
-    expect(page.data).toEqual(['ent-1']);
+    const list = await client.admin.listRateLimitExemptions();
+    expect(list).toEqual({ data: ['ent-1'], total: 1 });
     expect(fetch.mock.calls[0][0]).toContain('/v1/admin/rate-limit-exemptions');
     expect(fetch.mock.calls[0][1].method).toBe('GET');
   });
@@ -1510,8 +1512,10 @@ describe('AdminResource', () => {
 
   describe('admin.vault', () => {
     it('lists vault anchors', async () => {
-      const { client, fetch } = createMockClient([]);
-      await client.admin.vault.anchors.list({ recordId: 'rec-1' });
+      const body = { data: [], total: 0, nextSteps: [] };
+      const { client, fetch } = createMockClient(body);
+      const list = await client.admin.vault.anchors.list({ recordId: 'rec-1' });
+      expect(list).toEqual(body);
       const url = fetch.mock.calls[0][0];
       expect(url).toContain('/v1/admin/vault/anchors');
       expect(url).toContain('recordId=rec-1');
@@ -1932,6 +1936,7 @@ describe('fleet capabilities, reference lookups, trusted issuers and rate-limit 
     const page = await client.admin.getFleetCapabilities({ type: 't1' });
     expect(new URL(fetch.mock.calls[0][0]).searchParams.get('type')).toBe('t1');
     expect(page.data[0].contractTypes).toEqual(['t1']);
+    expect('hasMore' in page).toBe(false);
     await client.admin.getFleetCapabilities({ timeout: 1000 });
     expect(new URL(fetch.mock.calls[1][0]).search).toBe('');
   });

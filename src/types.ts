@@ -180,14 +180,27 @@ export interface ListParams extends LimitParams {
 }
 
 /**
- * Unified page type for all list endpoints.
- * Every list method returns `Page<T>`: no exceptions.
+ * One page of a cursor-paginated list endpoint. A route that sends no cursor
+ * returns {@link Listing} instead.
  */
 export interface Page<T> {
   data: T[];
   hasMore: boolean;
   nextCursor?: string | null;
   total?: number;
+  /** Suggested next actions, on the listings that carry guidance. */
+  nextSteps?: NextStep[];
+  /** Org-admin cross-party reads only: the chain entry this read appended. */
+  recordRead?: RecordReadCompletion;
+}
+
+/**
+ * The whole set a list endpoint holds, in one response. The route takes no
+ * cursor and sends no `hasMore`; `total` is the row count.
+ */
+export interface Listing<T> {
+  data: T[];
+  total: number;
   /** Suggested next actions, on the listings that carry guidance. */
   nextSteps?: NextStep[];
   /** Org-admin cross-party reads only: the chain entry this read appended. */

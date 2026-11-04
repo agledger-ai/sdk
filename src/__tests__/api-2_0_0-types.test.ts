@@ -63,6 +63,8 @@ import type {
   SubmitStateTransitionParams,
   SystemHealth,
   VaultSigningKeyList,
+  Listing,
+  ScopeProfileInfo,
   TrustedIssuer,
   UpdateApiKeyParams,
   UpdateTrustedIssuerParams,
@@ -90,6 +92,7 @@ import type {
   VaultScanDistrustedEntry,
   VaultScanFirstFindingReason,
 } from '../types.js';
+import type { AgledgerClient } from '../client.js';
 import type { AgledgerApiError } from '../errors.js';
 import type { AdminResource } from '../resources/admin.js';
 import type * as Sdk from '../index.js';
@@ -272,6 +275,10 @@ describe('admin, auth, health, schemas and events', () => {
     expectTypeOf<BulkCreateResult['results'][number]['schemaUrl']>().toEqualTypeOf<string | undefined>();
     expectTypeOf<VaultSigningKeyList['signer']['backend']>().toMatchTypeOf<string>();
     expectTypeOf<VaultSigningKeyList>().not.toHaveProperty('hasMore');
+    expectTypeOf<Listing<string>>().not.toHaveProperty('hasMore');
+    expectTypeOf<Awaited<ReturnType<AgledgerClient['discovery']['getScopeProfiles']>>>().toEqualTypeOf<Listing<ScopeProfileInfo>>();
+    expectTypeOf<Awaited<ReturnType<AgledgerClient['admin']['listRateLimitExemptions']>>>().toEqualTypeOf<Listing<string>>();
+    expectTypeOf<Awaited<ReturnType<AgledgerClient['admin']['vault']['anchors']['list']>>>().toEqualTypeOf<Listing<VaultAnchor>>();
     expectTypeOf<NonNullable<SystemHealth['connectedVersions']>[number]['connections']>().toEqualTypeOf<
       number | undefined
     >();
