@@ -2,7 +2,7 @@ import type { ApiErrorResponse, NextStep, ValidationErrorDetail } from './types.
 
 /**
  * One entry of the body's `validationErrors` as a `ValidationErrorDetail`.
- * The engine writes `field` and `message`; Ajv-shaped entries name the field
+ * The Server writes `field` and `message`; Ajv-shaped entries name the field
  * as `instancePath` instead. Everything else on the entry is kept.
  */
 function normalizeValidationError(e: Record<string, unknown>): ValidationErrorDetail {
@@ -92,7 +92,7 @@ export class AgledgerApiError extends AgledgerError {
 
   /**
    * Candidate publisher labels on a 422 `/problems/ambiguous-publisher`: the
-   * type is offered by more than one publisher, so the engine refuses to pick.
+   * type is offered by more than one publisher, so the Server refuses to pick.
    * Re-send the request pinned to one of these (`publisher` in the Record
    * create body, or the `publisher` option on a schema read).
    */

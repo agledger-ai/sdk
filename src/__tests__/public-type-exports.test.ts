@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
  * Reachability is transitive. A resource module importing `SystemHealth` gives a
  * consumer no way to name `QueueCounts` if `SystemHealth.queues` is typed with
  * it and `index.ts` never forwards it, and the module's own import list does not
- * mention it. `QueueCounts` reached a release candidate that way, so the closure
+ * mention it. `QueueCounts` went unexported that way once, so the closure
  * below follows type references out of `types.ts` declarations rather than
  * stopping at what the resources name directly.
  */

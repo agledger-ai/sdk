@@ -45,7 +45,7 @@ export class DisputesResource {
     const response = await this.http.post<Record<string, unknown>>(`/v1/records/${recordId}/dispute`, params, options);
     // The 201 is a { dispute, autoReadjudication, nextSteps } envelope. Read
     // the envelope with `client.request()` when the auto-readjudication result
-    // matters: `autoResolved` says whether the engine's re-check already
+    // matters: `autoResolved` says whether the Server's re-check already
     // resolved the dispute, and `reason` says why it did not.
     return (response.dispute ?? response) as Dispute;
   }
@@ -62,7 +62,7 @@ export class DisputesResource {
    * Render the outcome of a dispute. Takes the DISPUTE id, not the Record id:
    * read it from `disputes.list()` or from `RecordRow.disputeId`.
    *
-   * The rendering is the caller's, not the engine's. `OVERTURNED` settles a
+   * The rendering is the caller's, not the Server's. `OVERTURNED` settles a
    * Record that had FAILED at FULFILLED with the verdict re-rendered as accept
    * (one already FULFILLED or REMEDIATED is restored to that terminal) and a
    * RELEASE Settlement Signal follows; `UPHELD` returns the Record to exactly

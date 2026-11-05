@@ -152,7 +152,7 @@ export class SchemasResource {
   /**
    * Dry-run the compatibility check `register()` runs, without registering:
    * against the latest ACTIVE version of the publisher in your org (or the
-   * engine-wide one when your org has none). The `publisher` option names the
+   * Server-wide one when your org has none). The `publisher` option names the
    * publisher, as `register()`'s `publisher` field does, and defaults to
    * `local`; a publisher with no version of the type here answers compatible.
    */

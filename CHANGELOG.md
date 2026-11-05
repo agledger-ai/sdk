@@ -4,6 +4,13 @@ All notable changes to the AGLedger TypeScript SDK will be documented in this fi
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Documentation describes what the caller observes instead of the Server's internals.
+- The README leads the offline verification example with `result.verdict`, and no longer claims Deno and Bun support.
+
 ## [3.1.0] - 2026-11-05
 
 ### Added
@@ -323,7 +330,7 @@ Reconciled against API v1.6.0.
 
 ### Fixed (enum members that could never have worked)
 
-Each of these was reachable from a typed, documented parameter and named values the API has never had. The route declares a strict enum, so sending one is a 400. Pre-release validation of the 1.9.0 candidate found the first; the rest came out of auditing every union in the file against the served spec.
+Each of these was reachable from a typed, documented parameter and named values the API has never had. The route declares a strict enum, so sending one is a 400. The first was found while validating the 1.9.0 release; the rest came out of auditing every union in the file against the served spec.
 
 - **`DisputeStatus` dropped `OPENED` and `TIER_1_REVIEW`.** Neither exists anywhere in the API. The type reaches three strict-enum query params (`GET /v1/records`, `GET /v1/records/search`, `GET /v1/disputes`), and `SearchRecordsParams.disputeStatus` is new in this release, so it would have shipped a filter that 400s on two of its own documented values. The full set is `EVIDENCE_WINDOW`, `TIER_2_REVIEW`, `ESCALATED`, `TIER_3_ARBITRATION`, `RESOLVED`, `WITHDRAWN`.
 
@@ -560,7 +567,7 @@ Pinning `publisher` against a Server older than this API release will be rejecte
 
 ## [1.6.0] - 2026-08-05
 
-Signing-agility wave 2: ES256 verification across the SDK's offline and webhook surfaces. Ed25519 paths are byte-identical to 1.5.0.
+Signing-agility release 2: ES256 verification across the SDK's offline and webhook surfaces. Ed25519 paths are byte-identical to 1.5.0.
 
 ### Added
 
@@ -575,7 +582,7 @@ Signing-agility wave 2: ES256 verification across the SDK's offline and webhook 
 
 ### Changed
 
-- **Conformance corpus regenerated from API 1.3.4** (export slice, including the ES256 wave: `valid-es256`, `es256-signature-invalid`, `es256-header-alg-mismatch`).
+- **Conformance corpus regenerated from API 1.3.4** (export slice, including the ES256 vectors: `valid-es256`, `es256-signature-invalid`, `es256-header-alg-mismatch`).
 
 ## [1.5.0] - 2026-08-05
 
@@ -649,7 +656,7 @@ Tracks AGLedger API **v1.3.2** (was v1.2.0). Route surface is unchanged (193 rou
 - **`SignedStatement.signedAt`**: the signed instant of the head Signed Statement (the CWT `iat` claim sealed in the COSE_Sign1 protected header, second precision). The authoritative timestamp for time-anchored contracts (statutory wait windows, notice clocks); the record's millisecond `createdAt` only approximates it. Nullable.
 - **`VerdictResult.recordStatus`**: the settled record status (`FULFILLED` on accept, `FAILED` on reject) returned inline on `records.submitVerdict()`, so the outcome is known without a follow-up `records.get()`.
 - **`record.gate_held` webhook event**: a principal-mode record held at PROCESSING awaiting the verdict emits this event; the payload carries the `completionId` to verdict against plus the engine/rollup advisory. Added to `WebhookEventType`.
-- **`records.getAuditExport(id, { evidence: true })`**: inlines the completion evidence body at each COMPLETION_SUBMITTED entry (`AuditExportEntry.evidence`) — an UNSIGNED projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON only.
+- **`records.getAuditExport(id, { evidence: true })`**: inlines the completion evidence body at each COMPLETION_SUBMITTED entry (`AuditExportEntry.evidence`); an UNSIGNED projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON only.
 - **`ApiErrorResponse.deadline`** (API v1.3.2): the passed record deadline surfaced on the system TIME_OUT 422, alongside `terminalReason`/`previousStatus`.
 - **`AuditChainIntegrityReason`** gains `signature_invalid`, `signing_key_unknown`, `signing_key_drift`: the vault now fails closed on per-entry signature verification and surfaces the specific failing invariant.
 
@@ -712,23 +719,23 @@ Tracks AGLedger API **v1.0.3** (was pinned to v1.0.0). A full route + field-leve
 
 ### Added
 
-- **`records.get(id, { integrity: true })`** — re-verify the Record's audit chain and cross-check the served row against it. The result is exposed on the new `RecordRow.integrity` field (typed `RecordIntegrity`: `verified`, `integrityLevel`, `reason`, `entries`, `projectionChecked`, `driftFields`).
-- **`records.list({ actionable: true })`** — the agent-recovery query: every Record whose next action awaits the caller's structural side, across all statuses. Agent keys only.
-- **`auth.rotateKey({ gracePeriodSeconds })`** — keep the old key valid for an overlap window instead of an immediate hard cutover.
-- **`compliance.export({ embed })`** — inline cryptographic evidence (currently `signed-statements`) into the export packet so a regulator can verify each claim offline.
+- **`records.get(id, { integrity: true })`**: re-verify the Record's audit chain and cross-check the served row against it. The result is exposed on the new `RecordRow.integrity` field (typed `RecordIntegrity`: `verified`, `integrityLevel`, `reason`, `entries`, `projectionChecked`, `driftFields`).
+- **`records.list({ actionable: true })`**: the agent-recovery query, returning every Record whose next action awaits the caller's structural side, across all statuses. Agent keys only.
+- **`auth.rotateKey({ gracePeriodSeconds })`**: keep the old key valid for an overlap window instead of an immediate hard cutover.
+- **`compliance.export({ embed })`**: inline cryptographic evidence (currently `signed-statements`) into the export packet so a regulator can verify each claim offline.
 - New exported types: `RecordIntegrity`, `GetRecordParams`, `RotateKeyParams`.
 
 ### Changed
 
 - `records.get` signature is now `get(id, params?, options?)` (was `get(id, options?)`) to carry the `integrity` query param. Source-compatible for all existing single-argument call sites.
-- `admin.createOrg()` is documented as **dev/test-only** — `POST /v1/admin/orgs` was dropped from the canonical API spec in v1.0.1 (never registered in production; provision prod orgs via operator `provisioning/` YAML). The route-parity test no longer asserts it as a canonical route.
+- `admin.createOrg()` is documented as **dev/test-only**: `POST /v1/admin/orgs` was dropped from the canonical API spec in v1.0.1 (never registered in production; provision prod orgs via operator `provisioning/` YAML). The route-parity test no longer asserts it as a canonical route.
 - Refreshed runtime-dependency lockfile pins in range: `cborg` 5.1.1 → 5.1.3, `http-message-signatures` 1.0.5 → 1.0.6. No behavior change. `npm audit`: 0 vulnerabilities.
 
 ## [1.0.3] - 2026-06-20
 
 ### Changed
 
-- Bumped `@agledger/verify-core` to `^1.0.0` (now GA at 1.0.0 alongside the API and this SDK). No SDK-surface or behavior changes — the verification core is byte-for-byte identical to the previous 0.1.x line.
+- Bumped `@agledger/verify-core` to `^1.0.0` (now GA at 1.0.0 alongside the API and this SDK). No SDK-surface or behavior changes; the verification core is byte-for-byte identical to the previous 0.1.x line.
 
 ## [1.0.2] - 2026-06-18
 
@@ -745,23 +752,23 @@ Tracks AGLedger API **v1.0.3** (was pinned to v1.0.0). A full route + field-leve
 
 ## [1.0.0] - 2026-06-08
 
-General-availability release, tracking AGLedger API **v1.0.0 GA**. No breaking changes from the 0.8.x line — the `agentId`→`performerAgentId` rename and the COSE_Sign1 chain envelope landed earlier in the 0.8.x series and are unchanged here. Route surface and the field-level parity snapshots are verified identical to API v1.0.0 (194/194 routes, zero drift across tracked models); parity snapshots bumped to `apiVersion 1.0.0`.
+General-availability release, tracking AGLedger API **v1.0.0 GA**. No breaking changes from the 0.8.x line; the `agentId`→`performerAgentId` rename and the COSE_Sign1 chain envelope landed earlier in the 0.8.x series and are unchanged here. Route surface and the field-level parity snapshots are verified identical to API v1.0.0 (194/194 routes, zero drift across tracked models); parity snapshots bumped to `apiVersion 1.0.0`.
 
 ### Added
 
-- `WebhookEventType`: `record.proposal_counter_proposed`, `record.ai_impact_assessment_filed`, `record.compliance_attestation_filed` — now advertised in the API's subscribable event enum.
+- `WebhookEventType`: `record.proposal_counter_proposed`, `record.ai_impact_assessment_filed`, `record.compliance_attestation_filed`; now advertised in the API's subscribable event enum.
 - `DisputeGrounds`: `verdict_disagreement`.
-- `defaultGateMode?: GateMode` on `TypeSchema`, `RegisterSchemaParams`, and `SchemaPreviewInput` — the per-contract-type default gate mode. Live-validated: registering a type with `defaultGateMode: 'principal'` propagates to a created record's `gateMode`.
+- `defaultGateMode?: GateMode` on `TypeSchema`, `RegisterSchemaParams`, and `SchemaPreviewInput`: the per-contract-type default gate mode. Live-validated: registering a type with `defaultGateMode: 'principal'` propagates to a created record's `gateMode`.
 
 ## [0.8.16] - 2026-06-04
 
 ### Fixed
 
-- The SDK version string (`User-Agent` / `X-SDK-Version` telemetry headers) is now derived from `package.json` at runtime instead of a hardcoded literal — it had drifted to a stale value and can no longer fall out of sync. A guard test asserts the emitted header equals the package version.
+- The SDK version string (`User-Agent` / `X-SDK-Version` telemetry headers) is now derived from `package.json` at runtime instead of a hardcoded literal; it had drifted to a stale value and can no longer fall out of sync. A guard test asserts the emitted header equals the package version.
 
 ### Changed
 
-- Parity-test comments (`parity.test.ts`, `schema-parity.test.ts`) corrected to reflect that `routes.json` / `schema-fields.json` are regenerated **manually** from the production OpenAPI and committed — removed dead references to a regeneration workflow/script that do not exist in this repo.
+- Parity-test comments (`parity.test.ts`, `schema-parity.test.ts`) corrected to reflect that `routes.json` / `schema-fields.json` are regenerated **manually** from the production OpenAPI and committed; removed dead references to a regeneration workflow/script that do not exist in this repo.
 
 ### Build
 
@@ -769,11 +776,11 @@ General-availability release, tracking AGLedger API **v1.0.0 GA**. No breaking c
 
 ## [0.8.15] - 2026-06-04
 
-No functional change. First release published from CI with **build provenance** via npm trusted publishing (OIDC) — npm attaches a Sigstore provenance attestation automatically; verify with `npm audit signatures`. A CycloneDX SBOM is attached to the release. This package now lives in its own source-of-truth repo `agledger-ai/sdk` and resolves `@agledger/verify-core@0.1.4`.
+No functional change. First release published from CI with **build provenance** via npm trusted publishing (OIDC). npm attaches a Sigstore provenance attestation automatically; verify with `npm audit signatures`. A CycloneDX SBOM is attached to the release. This package now lives in its own source-of-truth repo `agledger-ai/sdk` and resolves `@agledger/verify-core@0.1.4`.
 
 ## [0.8.14] - 2026-06-02
 
-### Changed — EU AI Act sync to API v0.27.0/v0.27.1 (validated live)
+### Changed: EU AI Act sync to API v0.27.0/v0.27.1 (validated live)
 
 - `RiskClassification` gains `unacceptable` (Article 5 prohibited tier); the AI-impact-assessment `domain` enum is reconciled to the API's Annex III high-risk set. `AiImpactAssessment` / `CreateAiImpactAssessmentParams` typed against the canonical `EuAiActRiskTier` + `EuAiActDomain` taxonomy.
 - `WebhookEventType` reconciled to the API set (37 event types + the `*` wildcard; open literal).
@@ -786,15 +793,15 @@ No functional change. First release published from CI with **build provenance** 
 
 ### Build
 
-- Added a pre-publish package-correctness gate (`publint --strict` + `@arethetypeswrong/cli --pack`, run in `prepublishOnly`) — catches exports-map / dual-resolution defects a `tsc` build can't.
+- Added a pre-publish package-correctness gate (`publint --strict` + `@arethetypeswrong/cli --pack`, run in `prepublishOnly`); catches exports-map / dual-resolution defects a `tsc` build can't.
 
 ## [0.8.13] - 2026-06-02
 
-### Fixed — 0.26.x response/field drift sweep (validated live against API v0.26.5)
+### Fixed: 0.26.x response/field drift sweep (validated live against API v0.26.5)
 
 A full minor of API field-shape drift had accumulated while the route surface stayed 194/194 in sync. Swept every drifted response/request field across the typed surface:
 
-- **`RecordRow`**: renamed `vaultCompletion` → `signedStatement` (the create-record chain head — previously resolved to `undefined` against a live ≥0.26 Server) and `selfCommitment` → `selfPrincipal`; dropped `noOp` (removed API-side). Added 17 fields the API returns: `settlementSignal`, `counterSignature`, `coSignRequired`, `coSignStatus`, `federationStatus`, `disputeId`, `disputeStatus`, `hasDispute`, `hasChildren`, `latestCompletionId`, `terminalReason`, `expiredAt`, `awaitingActor`, `share`, `sharedToPeers`, `source`, `imported`.
+- **`RecordRow`**: renamed `vaultCompletion` → `signedStatement` (the create-record chain head: previously resolved to `undefined` against a live ≥0.26 Server) and `selfCommitment` → `selfPrincipal`; dropped `noOp` (removed API-side). Added 17 fields the API returns: `settlementSignal`, `counterSignature`, `coSignRequired`, `coSignStatus`, `federationStatus`, `disputeId`, `disputeStatus`, `hasDispute`, `hasChildren`, `latestCompletionId`, `terminalReason`, `expiredAt`, `awaitingActor`, `share`, `sharedToPeers`, `source`, `imported`.
 - **Type rename** `VaultCompletion` → `SignedStatement` (drops `signature`, adds `url`). New `SettlementSignalSummary` type for the Record-projected signal.
 - **`Completion`**: added `verdict`, `lastVerdictReason`.
 - **`NextStep`**: added `afterThis`, `workflowLabel`, `workflowStep`, `workflowTotal` (the workflow-progress hints, embedded in nearly every response).
@@ -805,7 +812,7 @@ A full minor of API field-shape drift had accumulated while the route surface st
 
 ### Added
 
-- **Schema-field parity guard** (`schema-fields.json` + `schema-parity.test.ts`) — the field-level analogue of the route manifest. Route-only parity was 194/194 clean while 20+ fields had drifted; this test fails CI the moment the API adds/renames/removes a field a mapped SDK model carries. Regenerated weekly by the `update-route-manifest` workflow.
+- **Schema-field parity guard** (`schema-fields.json` + `schema-parity.test.ts`): the field-level analogue of the route manifest. Route-only parity was 194/194 clean while 20+ fields had drifted; this test fails CI the moment the API adds/renames/removes a field a mapped SDK model carries. Regenerated weekly by the `update-route-manifest` workflow.
 
 ## [0.8.12] - 2026-05-29
 
@@ -817,21 +824,21 @@ Inherits the export-path binding fix via `@agledger/verify-core@^0.1.3`.
 
 ### Changed
 
-- `/verify` (re-export of `@agledger/verify-core@^0.1.3`) now runs export-path binding-integrity — a denormalised `payload` rewritten while `coseSign1` stays intact fails `CHAIN_PAYLOAD_BINDING_MISMATCH` — and reports the `not-checked` signature state when a chain break short-circuits before the signature.
+- `/verify` (re-export of `@agledger/verify-core@^0.1.3`) now runs export-path binding-integrity (a denormalised `payload` rewritten while `coseSign1` stays intact fails `CHAIN_PAYLOAD_BINDING_MISMATCH`) and reports the `not-checked` signature state when a chain break short-circuits before the signature.
 
 ## [0.8.11] - 2026-05-28
 
-Parity follow-on to the Python SDK 0.8.9 fix wave. The Python SDK *crashed* on these (Pydantic validates at runtime); the TS types were silently wrong (structural typing erases at runtime) but yielded `undefined` for renamed fields. Both are now corrected to the live API contract. Verified against the API schemas.
+Parity follow-on to the Python SDK 0.8.9 fixes. The Python SDK *crashed* on these (Pydantic validates at runtime); the TS types were silently wrong (structural typing erases at runtime) but yielded `undefined` for renamed fields. Both are now corrected to the live API contract. Verified against the API schemas.
 
 ### Fixed
 
-- **Response-type drift** — interfaces corrected to the actual wire shape:
+- **Response-type drift**: interfaces corrected to the actual wire shape:
   - `AuditExportEntry`: `description` → optional `humanReadableLabel`; added the actor-display fields (`actorOwnerId`, `actorDisplayName`, `actorOwnerType`); `timestamp` is now the deprecated alias and `createdAt` the canonical.
   - `AgledgerEvent`: `eventType` → `type`, `payload` → `data`.
   - `AgentProfile` / `AgentDirectoryEntry`: dropped non-existent `name`/`slug`/`updatedAt`/`isActive`; the engine emits `displayName`.
   - `OrgReadsCheckpoint`: `createdAt` → `checkpointAt`, `sthBytes`/`signature` → `coseSign1Base64` + witness fields. `OrgReadsInclusionProof`: `proof` → `path`, dropped `checkpointId`.
   - `ReputationScore`: scores are `number | null`; `confidenceLevel` is `number | null`; `formulaVersion` is `number`; lifetime counters (`lifetimeRecords`/`lifetimeVerdicts`/`lifetimeAccepted`/`lifetimeCompletions`/`reversals`) replace the old `total*` names.
-- **Request-param drift** — params the API rejects (`additionalProperties: false`) removed:
+- **Request-param drift**: params the API rejects (`additionalProperties: false`) removed:
   - `CreateRecordParams`: dropped `category` and `proposalMessage`.
   - `records.reject(id, message?)`: sends `message` (the reject route's only accepted key), not `reason`.
   - `webhooks.update()` now takes a dedicated `UpdateWebhookParams` (`url` / `eventTypes` / `isPaused`) instead of `Partial<CreateWebhookParams>`, which leaked the create-only `format` / `signingAlg`.
@@ -841,8 +848,8 @@ Parity follow-on to the Python SDK 0.8.9 fix wave. The Python SDK *crashed* on t
 
 ### Fixed
 
-- **Audit independence**: `verifyExport({ publicKeys })` now accepts both the compact `Record<keyId, base64SpkiDer>` map AND the natural `VerificationKey[]` shape returned by `client.verificationKeys.list().data`. Previously, passing the array form silently fell through to the export's embedded keys (`keyProvenance.outOfBand === 0` with `valid: true`) — a false independence claim. The fix is in the shared `@agledger/verify-core` 0.1.2; wrong shapes now throw `TypeError` at the boundary (fail-closed). Closes the temporal axis too: `signingKeyWindows` from the export's own (untrusted) metadata no longer overrides activation/retirement windows the auditor supplied on OOB entries.
-- `VerificationKeysResponse.hashAlgorithm` is now optional — the engine does not emit it on every build. Previously, the `agledger-python` model crashed Pydantic on `c.verificationKeys.list()`; for consistency the TS type also widens.
+- **Audit independence**: `verifyExport({ publicKeys })` now accepts both the compact `Record<keyId, base64SpkiDer>` map AND the natural `VerificationKey[]` shape returned by `client.verificationKeys.list().data`. Previously, passing the array form silently fell through to the export's embedded keys (`keyProvenance.outOfBand === 0` with `valid: true`); a false independence claim. The fix is in the shared `@agledger/verify-core` 0.1.2; wrong shapes now throw `TypeError` at the boundary (fail-closed). Closes the temporal axis too: `signingKeyWindows` from the export's own (untrusted) metadata no longer overrides activation/retirement windows the auditor supplied on OOB entries.
+- `VerificationKeysResponse.hashAlgorithm` is now optional: the Server does not emit it on every build. Previously, the `agledger-python` model crashed Pydantic on `c.verificationKeys.list()`; for consistency the TS type also widens.
 
 ### Changed
 
@@ -859,13 +866,13 @@ Wire-parity follow-on to the verifier consolidation: the offline export verifier
 
 ## [0.8.8] - 2026-05-27
 
-Verifier consolidation (Pass 1). The `@agledger/sdk/verify` subpath is now a thin re-export of the new shared verification core, `@agledger/verify-core` — the same hash-chain + COSE_Sign1 + Ed25519 body of logic the CLI, the MCP server, and `@agledger/verify` all run. This removes the SDK's private copy of `verify-export.ts` and the duplicated failure taxonomy.
+Verifier consolidation (Pass 1). The `@agledger/sdk/verify` subpath is now a thin re-export of the new shared verification core, `@agledger/verify-core`; the same hash-chain + COSE_Sign1 + Ed25519 body of logic the CLI, the MCP server, and `@agledger/verify` all run. This removes the SDK's private copy of `verify-export.ts` and the duplicated failure taxonomy.
 
-### Changed (BREAKING — `@agledger/sdk/verify` result shape, pre-1.0)
+### Changed (BREAKING: `@agledger/sdk/verify` result shape, pre-1.0)
 
 - Failure reasons are now canonical SCREAMING_SNAKE `FailureCode` values from `@agledger/verify-core`. `brokenAt.reason` is renamed to **`brokenAt.code`**.
-- The result now surfaces **`keyProvenance`** — whether each verified entry's public key came from out-of-band (caller-supplied) keys or was embedded in the export — so auditors can distinguish a self-attesting export from an independently keyed one.
-- The result now surfaces **`optionalChecks`** — the input-gated checks that ran versus were skipped (e.g. OIDC-actor cross-check, temporal key validity).
+- The result now surfaces **`keyProvenance`** (whether each verified entry's public key came from out-of-band (caller-supplied) keys or was embedded in the export) so auditors can distinguish a self-attesting export from an independently keyed one.
+- The result now surfaces **`optionalChecks`**: the input-gated checks that ran versus were skipped (e.g. OIDC-actor cross-check, temporal key validity).
 - New **`requireOutOfBandKeys`** option: when set, the verifier fails closed unless every signature is checked against a caller-supplied (out-of-band) key, rejecting export-embedded keys. For high-assurance audits that must not trust keys carried by the artifact under inspection.
 
 ### Changed
@@ -876,7 +883,7 @@ Verifier consolidation (Pass 1). The `@agledger/sdk/verify` subpath is now a thi
 
 ### Fixed
 
-- **Build hygiene: removed an orphaned compiled file from the published tarball.** The build script was a bare `tsc` with no clean step, so a stale `dist/resources/verification.js` + `.d.ts` (the pre-rename `VerificationResource`, renamed to `GateResource` in 0.8.5) lingered in `dist/` and shipped in the 0.8.5 and 0.8.6 tarballs. It was dead weight — not exposed by the `exports` map and not importable — but present. Added `prebuild: rm -rf dist` (matching `@agledger/cli` and `@agledger/mcp-server`) so renamed/removed source can never leave orphans in a published tarball again. No API or behavior change.
+- **Build hygiene: removed an orphaned compiled file from the published tarball.** The build script was a bare `tsc` with no clean step, so a stale `dist/resources/verification.js` + `.d.ts` (the pre-rename `VerificationResource`, renamed to `GateResource` in 0.8.5) lingered in `dist/` and shipped in the 0.8.5 and 0.8.6 tarballs. It was dead weight (not exposed by the `exports` map and not importable) but present. Added `prebuild: rm -rf dist` (matching `@agledger/cli` and `@agledger/mcp-server`) so renamed/removed source can never leave orphans in a published tarball again. No API or behavior change.
 
 ## [0.8.6] - 2026-05-27
 
@@ -886,13 +893,13 @@ Verifier consolidation (Pass 1). The `@agledger/sdk/verify` subpath is now a thi
 
 ## [0.8.5] - 2026-05-27
 
-Tracks AGLedger API v0.25.5. The API renamed its second pillar **Verify → Gate** and now reserves "verify" exclusively for cryptographic verification. This release renames the gate/verdict surface to match. Cryptographic verify surfaces — `@agledger/sdk/verify`, webhook signature verification (`verifySignature`/`verifyRfc9421`), and `client.verificationKeys` — are **unchanged**.
+Tracks AGLedger API v0.25.5. The API renamed its second pillar **Verify → Gate** and now reserves "verify" exclusively for cryptographic verification. This release renames the gate/verdict surface to match. Cryptographic verify surfaces (`@agledger/sdk/verify`, webhook signature verification (`verifySignature`/`verifyRfc9421`), and `client.verificationKeys`) are **unchanged**.
 
-### Breaking — Verify → Gate
+### Breaking: Verify → Gate
 
 - `client.verification` → **`client.gate`**. `verification.verify()` → **`gate.evaluate()`** (`POST /v1/records/{id}/verify` → `/evaluate`). `verification.getStatus()` now hits `/gate-status` (was `/verification-status`); response field `lastVerifiedAt` → `lastEvaluatedAt`.
 - `records.reportOutcome()` → **`records.submitVerdict()`** (`POST /v1/records/{id}/outcome` → `/verdict`); body field `outcome` → `verdict`; values `PASS`/`FAIL` → `accept`/`reject`; adds optional `notes` / `reason`.
-- Type `VerificationMode` → **`GateMode`** (`'auto' | 'principal'`; `'gated'` removed — `principal` subsumes it). Record field `verificationMode` → `gateMode` on create, search, and `RecordRow`.
+- Type `VerificationMode` → **`GateMode`** (`'auto' | 'principal'`; `'gated'` removed: `principal` subsumes it). Record field `verificationMode` → `gateMode` on create, search, and `RecordRow`.
 - `RecordRow.verificationChecks` → `verdictChecks`; `RecordRow.verificationOutcome` (PASS/FAIL) → `verdict` (accept/reject).
 - Renamed types: `VerificationResult` → `GateEvaluationResult`; `VerificationStatus` → `GateStatus`; `ReportOutcomeParams` → `SubmitVerdictParams`; `OutcomeResult` → `VerdictResult`; `VerificationOutcome` → `Verdict`; `FederationVerificationOutcome` → `FederationVerdict` (PASS/FAIL → accept/reject).
 - `VerdictStatistics` reshaped to `{ agentId, asPrincipal: { data, total }, asPerformer: { data, total } }` carrying `verdictAcceptCount` / `verdictRejectCount` per pair (was a flat `data[]` with `verdictPassCount` / `verdictFailCount`); adds `VerdictStatisticsRow`.
@@ -900,7 +907,7 @@ Tracks AGLedger API v0.25.5. The API renamed its second pillar **Verify → Gate
 
 ### Fixed
 
-- `gate.evaluate()` now always sends a JSON body — the `/evaluate` route requires one, so calling without completion IDs previously returned a 400.
+- `gate.evaluate()` now always sends a JSON body: the `/evaluate` route requires one, so calling without completion IDs previously returned a 400.
 - `VerdictResult` (was `OutcomeResult`) exposes the API's actual `recommendation` field (it was incorrectly typed as `signal`).
 - `User-Agent` / `X-SDK-Version` now report the real package version (was pinned at a stale `0.8.3`).
 
@@ -910,11 +917,11 @@ Tracks AGLedger API v0.25.4. Adds RFC 9421 ed25519 webhook verification (the asy
 
 ### Added
 
-- **`verifyRfc9421()` + `constructEventRfc9421()`** in `@agledger/sdk/webhooks` — verify opt-in ed25519 webhook deliveries (RFC 9421 HTTP Message Signatures signed with the Server vault key) against the published `/v1/verification-keys`, matched by `keyid`. Recomputes the RFC 9530 Content-Digest, reconstructs the signature base, verifies Ed25519, and enforces the `created` replay window (default/max 300s). Closes the gap where only the HMAC path had an SDK helper. New exports: `Rfc9421PublicKey`, `Rfc9421VerifyOptions`.
-- **`Webhook.signingAlg` / `CreateWebhookParams.signingAlg`** (`'hmac' | 'ed25519'`) — select the delivery signing scheme. Settlement-event subscriptions default to `ed25519` when the Server has a vault signing key; requesting `ed25519` without one returns 422.
-- **`VerificationKey.publicKeyRaw`** — base64 of the raw 32-byte Ed25519 key (what RFC 9421 / Standard-Webhooks-style verifiers consume), alongside the SPKI-DER `publicKey`.
-- **`OpsSummary.partitions`** — audit-log partition runway (`table`, `runwayDays`, `defaultRows`) for capacity planning.
-- **`AccountProfile.authType` / `cert` / `oidc`** — introspection for OIDC ephemeral-cert (Mode 2) and OIDC bearer sessions, distinguishing them from long-lived `agl_` keys.
+- **`verifyRfc9421()` + `constructEventRfc9421()`** in `@agledger/sdk/webhooks`: verify opt-in ed25519 webhook deliveries (RFC 9421 HTTP Message Signatures signed with the Server vault key) against the published `/v1/verification-keys`, matched by `keyid`. Recomputes the RFC 9530 Content-Digest, reconstructs the signature base, verifies Ed25519, and enforces the `created` replay window (default/max 300s). Closes the gap where only the HMAC path had an SDK helper. New exports: `Rfc9421PublicKey`, `Rfc9421VerifyOptions`.
+- **`Webhook.signingAlg` / `CreateWebhookParams.signingAlg`** (`'hmac' | 'ed25519'`): select the delivery signing scheme. Settlement-event subscriptions default to `ed25519` when the Server has a vault signing key; requesting `ed25519` without one returns 422.
+- **`VerificationKey.publicKeyRaw`**: base64 of the raw 32-byte Ed25519 key (what RFC 9421 / Standard-Webhooks-style verifiers consume), alongside the SPKI-DER `publicKey`.
+- **`OpsSummary.partitions`**: audit-log partition runway (`table`, `runwayDays`, `defaultRows`) for capacity planning.
+- **`AccountProfile.authType` / `cert` / `oidc`**: introspection for OIDC ephemeral-cert (Mode 2) and OIDC bearer sessions, distinguishing them from long-lived `agl_` keys.
 - **9 webhook event types** reconciled to the API's authoritative set (now 35): added `signal.received`, `federation.dispute`, and the eight `record.federation_*` projected-lifecycle events; removed two values the API never emits (`record.settled`, `record.remediated`).
 
 ### Changed
@@ -931,8 +938,8 @@ Follow-up to 0.8.2 from a full response-schema diff of every route shared betwee
 
 ### Added
 
-- `ConformanceResponse.capabilities` — feature flags including `oidcWorkloadIdentity`, `ephemeralCerts`, `trustedIssuers`, `agentSignatureCoSign` (open-ended).
-- `VerificationKeysResponse.signatureInputTemplate` — canonical signature-input template (v0.25.x).
+- `ConformanceResponse.capabilities`: feature flags including `oidcWorkloadIdentity`, `ephemeralCerts`, `trustedIssuers`, `agentSignatureCoSign` (open-ended).
+- `VerificationKeysResponse.signatureInputTemplate`: canonical signature-input template (v0.25.x).
 
 ## [0.8.2] - 2026-05-25
 
@@ -940,12 +947,12 @@ Tracks AGLedger API v0.25.2. Catches the SDK up with the v0.25.x route surface (
 
 ### Added
 
-- `auth.issueEphemeralCert()` — exchange an OIDC token for a short-lived ephemeral signing cert (`POST /v1/auth/oidc/cert`).
-- `admin.trustedIssuers` sub-resource — `list` / `create` / `get` / `update` / `delete` / `revokeCerts` over `/v1/admin/trusted-issuers` (platform-scoped). New types: `TrustedIssuer`, `TrustedIssuerAppliesTo`, `CreateTrustedIssuerParams`, `UpdateTrustedIssuerParams`, `ListTrustedIssuersParams`, `RevokeTrustedIssuerCertsResult`.
-- `admin.revokeEphemeralCert(certId)` — revoke a single ephemeral cert (`POST /v1/admin/ephemeral-certs/{id}/revoke`). New types: `EphemeralCert`, `IssueEphemeralCertParams`, `IssueEphemeralCertResult`, `RevokeEphemeralCertResult`.
-- `admin.getOpsSummary()` — consolidated ops snapshot (`GET /v1/admin/ops-summary`). New type: `OpsSummary`.
-- `admin.vault.scan.list()` — list current and recent vault scan jobs (`GET /v1/admin/vault/scan`). New types: `VaultScanList`, `VaultScanSummary`.
-- `agents.listPeers()` — federated agents synced from peers (`GET /v1/peer-agents`). New types: `PeerAgent`, `ListPeerAgentsParams`, `PeerAgentsResponse`.
+- `auth.issueEphemeralCert()`: exchange an OIDC token for a short-lived ephemeral signing cert (`POST /v1/auth/oidc/cert`).
+- `admin.trustedIssuers` sub-resource: `list` / `create` / `get` / `update` / `delete` / `revokeCerts` over `/v1/admin/trusted-issuers` (platform-scoped). New types: `TrustedIssuer`, `TrustedIssuerAppliesTo`, `CreateTrustedIssuerParams`, `UpdateTrustedIssuerParams`, `ListTrustedIssuersParams`, `RevokeTrustedIssuerCertsResult`.
+- `admin.revokeEphemeralCert(certId)`: revoke a single ephemeral cert (`POST /v1/admin/ephemeral-certs/{id}/revoke`). New types: `EphemeralCert`, `IssueEphemeralCertParams`, `IssueEphemeralCertResult`, `RevokeEphemeralCertResult`.
+- `admin.getOpsSummary()`: consolidated ops snapshot (`GET /v1/admin/ops-summary`). New type: `OpsSummary`.
+- `admin.vault.scan.list()`: list current and recent vault scan jobs (`GET /v1/admin/vault/scan`). New types: `VaultScanList`, `VaultScanSummary`.
+- `agents.listPeers()`: federated agents synced from peers (`GET /v1/peer-agents`). New types: `PeerAgent`, `ListPeerAgentsParams`, `PeerAgentsResponse`.
 - `scitt.getConfiguration()` (`GET /.well-known/scitt-configuration`, unauthenticated) and `scitt.getCheckpoint()` (`GET /v1/scitt/checkpoint`). New types: `ScittConfiguration`, `ScittCheckpoint`.
 
 ### Changed
@@ -959,46 +966,46 @@ Tracks AGLedger API v0.25.2. Catches the SDK up with the v0.25.x route surface (
 
 ### Removed
 
-- `admin.strings` sub-resource (`listKeys` / `listOverrides` / `getOverride` / `setOverride` / `deleteOverride` / `listDrift`) and types `StringOverride` / `SetStringOverrideParams` — the backing `/v1/admin/strings/*` routes were removed in the API's v0.25 dead-code audit.
+- `admin.strings` sub-resource (`listKeys` / `listOverrides` / `getOverride` / `setOverride` / `deleteOverride` / `listDrift`) and types `StringOverride` / `SetStringOverrideParams`; the backing `/v1/admin/strings/*` routes were removed in the API's v0.25 dead-code audit.
 
 ## [0.8.1] - 2026-05-21
 
-Tracks AGLedger API v0.24.0. Pre-launch rename sweep — `tenant`/`enterprise` collapsed into `org` across paths, types, and methods; record-performer alias `agentId` becomes `performerAgentId`; account-deactivation endpoint split into org + agent variants; federation surface trimmed to v0.24.0 reality (peer servers + consolidated DLQ; gateway/hub-keys/registration removed).
+Tracks AGLedger API v0.24.0. Pre-launch rename sweep: `tenant`/`enterprise` collapsed into `org` across paths, types, and methods; record-performer alias `agentId` becomes `performerAgentId`; account-deactivation endpoint split into org + agent variants; federation surface trimmed to v0.24.0 reality (peer servers + consolidated DLQ; gateway/hub-keys/registration removed).
 
-### Changed (BREAKING — pre-launch, no compat aliases)
+### Changed (BREAKING: pre-launch, no compat aliases)
 
 - Admin resource: `listEnterprises` → `listOrgs`, `createEnterprise` → `createOrg`, `getEnterpriseConfig` → `getOrgConfig`, `updateEnterpriseConfig` → `updateOrgConfig`. `deactivateAccount(id, { accountType })` split into `deactivateOrg(id, params)` + `deactivateAgent(id, params)` (path determines type; `accountType` body field removed).
-- Types renamed: `AdminEnterprise` → `AdminOrg`, `CreateEnterpriseParams` → `CreateOrgParams`, `EnterpriseConfig` → `OrgConfig`, `SetEnterpriseConfigParams` → `SetOrgConfigParams`, `DeactivateAccountParams` → `DeactivateOrgParams` + `DeactivateAgentParams`. `CreateOrgParams` + `CreateAgentParams` shape matches v0.24.0 — `slug`, `email`, `contactEmail` dropped.
+- Types renamed: `AdminEnterprise` → `AdminOrg`, `CreateEnterpriseParams` → `CreateOrgParams`, `EnterpriseConfig` → `OrgConfig`, `SetEnterpriseConfigParams` → `SetOrgConfigParams`, `DeactivateAccountParams` → `DeactivateOrgParams` + `DeactivateAgentParams`. `CreateOrgParams` + `CreateAgentParams` shape matches v0.24.0; `slug`, `email`, `contactEmail` dropped.
 - Audit checkpoints resource: `TenantReadsCheckpointsResource` → `OrgReadsCheckpointsResource`, attribute `audit.tenantReadsCheckpoints` → `audit.orgReadsCheckpoints`. Paths `/v1/audit/tenant-reads/*` → `/v1/audit/org-reads/*`. Types `TenantReadsCheckpoint` / `TenantReadsInclusionProof` → `OrgReadsCheckpoint` / `OrgReadsInclusionProof`.
 - Field rename: `enterpriseId` → `orgId` everywhere it referred to the org/tenant (RecordRow, list/search filters, admin import body, schema export/import options, admin api-key scope).
-- Field rename: record-performer alias `agentId` → `performerAgentId` on RecordRow, create body, list/search filters, webhook event payloads. The `agentId` create-body alias is dropped — no back-compat. `agentId` is still valid in agent-identity contexts (`getAgent(agentId)`, reputation, references).
+- Field rename: record-performer alias `agentId` → `performerAgentId` on RecordRow, create body, list/search filters, webhook event payloads. The `agentId` create-body alias is dropped; no back-compat. `agentId` is still valid in agent-identity contexts (`getAgent(agentId)`, reputation, references).
 - Predicate kind `tenant-read` → `org-read`.
 - LicenseInfo shape updated to match v0.24.0 (`validity` / `tier` / `customerId` / `instanceId` / `licensedThrough` / `licenseId` etc.; removed `plan` / `status` / `maxEnterprises` / `maxAgents` / `expiresAt`).
 - `parentPrincipalEnterpriseMatchesPerformer` → `parentPrincipalOrgMatchesPerformer` on RecordRow.
 
 ### Removed (federation surface trimmed to v0.24.0)
 
-`FederationResource`: `register()`, `heartbeat()`, `registerAgent()`, `listAgents()`, `catchUp()`, `stream()`, `listTypes()`, `getType()`, `publishSchema()`, `confirmSchemaPublish()`, `getRecordCriteria()`, `submitRecordCriteria()`, `broadcastRevocations()`, `rotateKey()`, `revoke()` — backing endpoints retired.
+`FederationResource`: `register()`, `heartbeat()`, `registerAgent()`, `listAgents()`, `catchUp()`, `stream()`, `listTypes()`, `getType()`, `publishSchema()`, `confirmSchemaPublish()`, `getRecordCriteria()`, `submitRecordCriteria()`, `broadcastRevocations()`, `rotateKey()`, `revoke()`; backing endpoints retired.
 
-`FederationAdminResource`: `createRegistrationToken()`, `listGateways()`, `revokeGateway()`, `getHealth()`, `getGatewayStatus()`, `queryRecords()`, `getAuditLog()`, `resetSequence()`, `rotateHubKey()`, `listHubKeys()`, `activateHubKey()`, `expireHubKey()`, `registerPeer()`, `deleteSchemaVersion()`, `listReputationContributions()`, `resetReputation()`, `getRecordCriteriaEncryptionMetadata()` — backing endpoints retired. Old `listDlq()` (outbound-dlq) + `retryDlq()` + `deleteDlq()` replaced by the consolidated DLQ surface below.
+`FederationAdminResource`: `createRegistrationToken()`, `listGateways()`, `revokeGateway()`, `getHealth()`, `getGatewayStatus()`, `queryRecords()`, `getAuditLog()`, `resetSequence()`, `rotateHubKey()`, `listHubKeys()`, `activateHubKey()`, `expireHubKey()`, `registerPeer()`, `deleteSchemaVersion()`, `listReputationContributions()`, `resetReputation()`, `getRecordCriteriaEncryptionMetadata()`; backing endpoints retired. Old `listDlq()` (outbound-dlq) + `retryDlq()` + `deleteDlq()` replaced by the consolidated DLQ surface below.
 
 ### Added
 
-- `FederationResource.peerHandshake()` — `POST /federation/v1/peer` (peer onboarding via single-use peering token).
-- `FederationResource.submitCoSignRequest()` — `POST /federation/v1/co-sign-requests`.
-- `FederationResource.submitDisputeProtocol()` — `POST /federation/v1/disputes`.
-- `FederationAdminResource.listDlq()` — `GET /federation/v1/admin/dlq` (consolidated DLQ).
-- `FederationAdminResource.recoverDlq()` — `POST /federation/v1/admin/dlq/recover`.
-- `FederationAdminResource.getInstance()` — `GET /federation/v1/admin/instance` (this server's federation identity).
-- `FederationAdminResource.deletePeer()` — `DELETE /federation/v1/admin/peers/{hubId}` (cleanup for revoked peers).
+- `FederationResource.peerHandshake()`: `POST /federation/v1/peer` (peer onboarding via single-use peering token).
+- `FederationResource.submitCoSignRequest()`: `POST /federation/v1/co-sign-requests`.
+- `FederationResource.submitDisputeProtocol()`: `POST /federation/v1/disputes`.
+- `FederationAdminResource.listDlq()`: `GET /federation/v1/admin/dlq` (consolidated DLQ).
+- `FederationAdminResource.recoverDlq()`: `POST /federation/v1/admin/dlq/recover`.
+- `FederationAdminResource.getInstance()`: `GET /federation/v1/admin/instance` (this server's federation identity).
+- `FederationAdminResource.deletePeer()`: `DELETE /federation/v1/admin/peers/{hubId}` (cleanup for revoked peers).
 - `FederationAdminResource.createPeeringToken({ label })` now requires `label`.
 - `FederationAdminResource.revokePeer(hubId, { reason })` now requires `reason`.
 
 ### Fixed (post-review sweep)
 
-- **`RecordRow.agentId` (string|null) renamed to `RecordRow.performerAgentId`** to match the v0.24.0 wire shape — the previous field name silently returned null on every v0.24.0 record fetch.
+- **`RecordRow.agentId` (string|null) renamed to `RecordRow.performerAgentId`** to match the v0.24.0 wire shape: the previous field name silently returned null on every v0.24.0 record fetch.
 - **`SearchRecordsParams.agentId` removed.** The v0.24.0 search endpoint only accepts `performerAgentId`; the stale field caused a silent broken filter (API dropped the unknown query and returned unfiltered results).
-- **`CreateOrgParams.name` / `.displayName` made required** (was optional). **`CreateAgentParams.name` / `.displayName` made required.** Matches the v0.24.0 OpenAPI required-fields list — the wider types caused runtime 400s when callers passed only the previously-required fields.
+- **`CreateOrgParams.name` / `.displayName` made required** (was optional). **`CreateAgentParams.name` / `.displayName` made required.** Matches the v0.24.0 OpenAPI required-fields list; the wider types caused runtime 400s when callers passed only the previously-required fields.
 - **Federation request shapes rewritten against v0.24.0 OpenAPI**:
   - `SubmitStateTransitionParams` now declares `recordId, state, type, idempotencyKey` (required) + `schemaRef, principalAgentId, performerAgentId, coSignRequired, correlationId, projectRef, externalTaskId, operatingMode`. Removed v0.21-era fields `gatewayId/criteriaHash/role/seq/timestamp/nonce/signature/performerGatewayId`.
   - `RelaySignalParams` now declares `recordId, recommendation, outcomeHash, validUntil, idempotencyKey` (required) + `outcome, counterSignature, schemaRef`. Removed v0.21-era fields `signal/signalSeq/performerGatewayId/timestamp/nonce/performerSignature`.
@@ -1024,11 +1031,11 @@ Tracks AGLedger API v0.23.0. Major SCITT vocabulary alignment + canonical COSE_S
 
 ### Why a 0.8.0 (not a patch)
 
-Same rationale as the 0.7.0 wave: a wholesale rename ("Receipt" → "Completion") plus a load-bearing crypto-format cutover. Anyone tracking between 0.7.x and 0.8.0 sees real breaking changes — patch-bump would mislead. The 0.x.y track still signals pre-launch.
+Same rationale as the 0.7.0 release: a wholesale rename ("Receipt" → "Completion") plus a load-bearing crypto-format cutover. Anyone tracking between 0.7.x and 0.8.0 sees real breaking changes; patch-bump would mislead. The 0.x.y track still signals pre-launch.
 
-### Changed (BREAKING — Receipt → Completion rename, no compat aliases)
+### Changed (BREAKING: Receipt → Completion rename, no compat aliases)
 
-"Receipt" is now reserved for the SCITT cryptographic Merkle-inclusion-proof concept (RFC 9162 in COSE_Sign1). The performer's evidence submission — the thing that used to be a Receipt — is now a **Completion**.
+"Receipt" is now reserved for the SCITT cryptographic Merkle-inclusion-proof concept (RFC 9162 in COSE_Sign1). The performer's evidence submission (the thing that used to be a Receipt) is now a **Completion**.
 
 - `client.receipts` → `client.completions`
 - `ReceiptsResource` → `CompletionsResource`
@@ -1044,11 +1051,11 @@ Same rationale as the 0.7.0 wave: a wholesale rename ("Receipt" → "Completion"
 - Method `schemas.validateReceipt(...)` → `schemas.validateCompletion(...)`. `verification.verify({ receiptIds })` → `verify({ completionIds })`.
 - Prompt-context helper: `receiptToContext` → `completionToContext`; mock ID prefix in tests `rct-` → `cmp-`.
 
-PRESERVED uses of "Receipt" — these are the SCITT cryptographic concept:
+PRESERVED uses of "Receipt": these are the SCITT cryptographic concept:
 - `AuditExportEntry.integrity.receipt` (optional base64-encoded COSE_Sign1 Receipt carrying an RFC 9162 inclusion proof, opt-in via `?receipts=true` on `getAuditExport`)
 - `CommunicationEvidence.delivery_receipt` (real-world SMS/email delivery receipt, unrelated to AGLedger Receipt)
 
-### Changed (BREAKING — offline verifier: format 1.0 → 2.0)
+### Changed (BREAKING: offline verifier: format 1.0 → 2.0)
 
 The audit-export verifier moved from JCS + detached-Ed25519 to canonical **COSE_Sign1** (RFC 9052, tag 18, EdDSA) over an in-toto v1 Statement payload, deterministically CBOR-encoded per RFC 8949 §4.2.1.
 
@@ -1057,44 +1064,44 @@ The audit-export verifier moved from JCS + detached-Ed25519 to canonical **COSE_
 - Per-entry `integrity` shape on `AuditExportEntry`: dropped `signature`, `signatureAlg`, `hashAlg`; added `coseSign1` (base64-encoded canonical envelope, signature lives inside) and optional `receipt` (SCITT Receipt when `?receipts=true`).
 - `verifyExport()` decodes the COSE_Sign1 envelope, walks the hash chain over envelope bytes (sha256), cross-checks the protected-header chain claim at private label `-65537` against the row columns, and verifies the COSE signature against `Sig_structure = ["Signature1", protected_bstr, h'', payload_bstr]`.
 - New `EntryFailureReason` values: `'cose_decode_failed'`, `'cose_header_mismatch'`. Old `'signature_invalid'` retained but now refers to the COSE signature.
-- New `VerifyExportResult.signatureCoverage` discriminator — distinguishes "hash chain valid + 0/N signed" from "chain valid + N/N signed". Auditors should not conclude "Ed25519-verified" from `chainIntegrity: true` alone — read `signatureCoverage` or the new `RecordAuditExport.integrityLevel`.
-- New `chainIntegrityReason` value: `'payload_drift'` — emitted when the visible `payload` jsonb diverges from the predicate signed in `coseSign1` (a privileged-DBA-bypass tamper of the denormalized view that hash + link checks alone would miss).
-- New `RecordAuditExport.chainIntegrityDetail` — localizes a chain break with `brokenAtPosition`, `expectedPreviousHash`, `actualPreviousHash`, `failure` sub-classification.
-- **The SDK is no longer zero-dependency.** `cborg` is a runtime dependency. The trade is intentional — COSE_Sign1 verification is fundamentally a CBOR operation, and `cborg` is the same lib the engine uses on the write side, which keeps the two implementations byte-compatible.
+- New `VerifyExportResult.signatureCoverage` discriminator, which distinguishes "hash chain valid + 0/N signed" from "chain valid + N/N signed". Auditors should not conclude "Ed25519-verified" from `chainIntegrity: true` alone; read `signatureCoverage` or the new `RecordAuditExport.integrityLevel`.
+- New `chainIntegrityReason` value: `'payload_drift'`: emitted when the visible `payload` jsonb diverges from the predicate signed in `coseSign1` (a privileged-DBA-bypass tamper of the denormalized view that hash + link checks alone would miss).
+- New `RecordAuditExport.chainIntegrityDetail`: localizes a chain break with `brokenAtPosition`, `expectedPreviousHash`, `actualPreviousHash`, `failure` sub-classification.
+- **The SDK is no longer zero-dependency.** `cborg` is a runtime dependency. The trade is intentional: COSE_Sign1 verification is fundamentally a CBOR operation, and `cborg` is the same lib the Server uses on the write side, which keeps the two implementations byte-compatible.
 
-### Added — SCITT Transparency Service surface (`client.scitt`)
+### Added: SCITT Transparency Service surface (`client.scitt`)
 
 Implements `draft-ietf-scitt-scrapi-09`. Binary `application/cose` wire on entries; CBOR `application/cose-key-set` on keys. Errors are `application/concise-problem-details+cbor` per RFC 9290.
 
-- `client.scitt.entries.register(signedStatement)` — POST a tagged COSE_Sign1 Signed Statement, returns a Receipt (COSE_Sign1 carrying RFC 9162 inclusion proof at unprotected label 396). Per SCITT spec, posting the same bytes twice creates two distinct entries.
-- `client.scitt.entries.get(entryId)` — read a Transparent Statement (Signed Statement + Receipt(s) composed at unprotected label 394).
-- `client.scitt.keys.list()` + `client.scitt.keys.get(kid)` — fetch the Transparency Service's COSE_KeySet for offline Receipt verification. Unauthenticated.
+- `client.scitt.entries.register(signedStatement)`: POST a tagged COSE_Sign1 Signed Statement, returns a Receipt (COSE_Sign1 carrying RFC 9162 inclusion proof at unprotected label 396). Per SCITT spec, posting the same bytes twice creates two distinct entries.
+- `client.scitt.entries.get(entryId)`: read a Transparent Statement (Signed Statement + Receipt(s) composed at unprotected label 394).
+- `client.scitt.keys.list()` + `client.scitt.keys.get(kid)`: fetch the Transparency Service's COSE_KeySet for offline Receipt verification. Unauthenticated.
 
 Errors are surfaced as `AgledgerApiError` with the raw CBOR body on the new `rawBody?: Uint8Array` field for caller-side `cborg`-decoding.
 
-### Added — predicate schema discovery (`client.predicates`)
+### Added: predicate schema discovery (`client.predicates`)
 
 Each chain entry is an in-toto v1 Statement; the predicate body shape varies by entry type. The new resource publishes the canonical predicate JSON Schemas.
 
-- `client.predicates.list()` — list available predicate kinds.
-- `client.predicates.get(kind, version = 'v1')` — fetch the JSON Schema for a kind. Known kinds: `record-state`, `settlement-signal`, `vault-checkpoint`, `schema-event`, `tenant-read`, `counter-attestation`, `federation-projection`.
+- `client.predicates.list()`: list available predicate kinds.
+- `client.predicates.get(kind, version = 'v1')`: fetch the JSON Schema for a kind. Known kinds: `record-state`, `settlement-signal`, `vault-checkpoint`, `schema-event`, `tenant-read`, `counter-attestation`, `federation-projection`.
 
-### Added — attestation export on `client.records`
+### Added: attestation export on `client.records`
 
-- `client.records.getAttestation(recordId)` — fetch the chain as `application/cose-sequence` bytes (concatenated tagged COSE_Sign1 messages, each beginning `0xd2 0x84 …`). Cryptographically verifiable end-to-end.
-- `client.records.getAttestationBundle(recordId)` — sigstore-bundle v0.3.2 projection for Rekor / in-toto / sigstore-policy-controller ingest. NOT cryptographically verifiable end-to-end (DSSE inner signature is byte-incompatible with the canonical COSE_Sign1 signature); structural interop only. Verify cryptographically via `getAttestation` instead.
+- `client.records.getAttestation(recordId)`: fetch the chain as `application/cose-sequence` bytes (concatenated tagged COSE_Sign1 messages, each beginning `0xd2 0x84 …`). Cryptographically verifiable end-to-end.
+- `client.records.getAttestationBundle(recordId)`: sigstore-bundle v0.3.2 projection for Rekor / in-toto / sigstore-policy-controller ingest. NOT cryptographically verifiable end-to-end (DSSE inner signature is byte-incompatible with the canonical COSE_Sign1 signature); structural interop only. Verify cryptographically via `getAttestation` instead.
 
-### Added — vault checkpoints on `client.audit`
+### Added: vault checkpoints on `client.audit`
 
-- `client.audit.vaultCheckpoints.list({ recordId, cursor, limit })` — paginated list of per-record 6h signed Merkle anchors that survive `audit_vault TRUNCATE/DELETE`. Pair with `records.getAuditExport()` for offline checkpoint cross-check.
+- `client.audit.vaultCheckpoints.list({ recordId, cursor, limit })`: paginated list of per-record 6h signed Merkle anchors that survive `audit_vault TRUNCATE/DELETE`. Pair with `records.getAuditExport()` for offline checkpoint cross-check.
 
-### Added — `?receipts=true` on `records.getAuditExport`
+### Added: `?receipts=true` on `records.getAuditExport`
 
 Opt-in SCITT Receipts at `integrity.receipt` on each entry. Emitted only when the engine has a `VAULT_SIGNING_KEY`.
 
-### Added — binary I/O on `HttpClient` + `client.request`
+### Added: binary I/O on `HttpClient` + `client.request`
 
-- `requestBinary(method, path, opts)` — full retry / idempotency / abort semantics matching the JSON path. `body` is a `Uint8Array`, response is `Uint8Array`. SCITT errors capture the raw CBOR problem-details bytes on `AgledgerApiError.rawBody`.
+- `requestBinary(method, path, opts)`: full retry / idempotency / abort semantics matching the JSON path. `body` is a `Uint8Array`, response is `Uint8Array`. SCITT errors capture the raw CBOR problem-details bytes on `AgledgerApiError.rawBody`.
 - `AgledgerApiError.rawBody?: Uint8Array` declared as a first-class field (was a monkey-patched property in early development).
 
 ### Internal
@@ -1116,20 +1123,19 @@ pre-launch history: the API renamed every `/v1/mandates/*` route to
 `/v1/records/*` and the data-model concept "Mandate" → "Record" / "Contract
 Type" → "Type". The SDK realigns wholesale.
 
-### Why a 0.7.0 (not a patch) — deviation from "always patch pre-launch"
+### Why a 0.7.0 (not a patch): deviation from "always patch pre-launch"
 
-The internal convention is to patch-bump pre-launch since there are no
-customers. This release breaks that convention because the surface change is
+This release is a minor bump rather than a patch because the surface change is
 too large to silently roll into a patch: every typed method, every URL, and
 ~80 type names move. Anyone tracking the SDK between 0.6.x and 0.7.0 sees a
 real rename, not a touch-up. Patch-bump would mislead. Bump to 0.7.0; the
 0.x.y track itself signals pre-launch.
 
-### Changed (BREAKING — full rename, no compat aliases)
+### Changed (BREAKING: full rename, no compat aliases)
 
 - **`client.mandates` → `client.records`.** `MandatesResource` →
   `RecordsResource`. Every method that referred to "mandate" now refers to
-  "record" — `getSubMandates` → `getSubRecords`, `BatchGetMandatesResult` →
+  "record": `getSubMandates` → `getSubRecords`, `BatchGetMandatesResult` →
   `BatchGetRecordsResult`, `DelegateMandateParams` → `DelegateRecordParams`,
   etc. No deprecated `client.mandates` shim.
 - **Every `/v1/mandates/*` URL → `/v1/records/*`.** Path parameter
@@ -1137,7 +1143,7 @@ real rename, not a touch-up. Patch-bump would mislead. Bump to 0.7.0; the
   `verification`, `disputes`, `compliance`, `references`, `federation`,
   `federationAdmin`, `admin`.
 - **Resource type renames.** `Mandate` → `RecordRow` (named to avoid
-  colliding with TypeScript's built-in `Record<K, V>` utility — the API's
+  colliding with TypeScript's built-in `Record<K, V>` utility: the API's
   OpenAPI schema uses `RecordRow` for the same reason). `MandateStatus` →
   `RecordStatus`, `MandateTransitionAction` → `RecordTransitionAction`,
   `CreateMandateParams` → `CreateRecordParams`, `MandateAuditExport` →
@@ -1173,7 +1179,7 @@ real rename, not a touch-up. Patch-bump would mislead. Bump to 0.7.0; the
 ### Added
 
 - **`RECORDED` status** on `RecordStatus` and `RECORD_TRANSITIONS` (terminal
-  state for notarize-only Types — Records of a Type without a receipt phase
+  state for notarize-only Types: Records of a Type without a receipt phase
   land here at create).
 - **`vaultReceipt`** on every Record response (`{ chainPosition, leafHash,
   previousHash, signature, signingKeyId, signedCheckpointRef }`). Lets a
@@ -1186,24 +1192,24 @@ real rename, not a touch-up. Patch-bump would mislead. Bump to 0.7.0; the
   `commissionAmount`, `revisionCount`, `maxRevisions`, `disputeCount`,
   `maxDisputes`, `pastDeadline`. `acceptanceRespondedAt` and `selfCommitment`
   are now non-optional on the response.
-- **`client.disputes.list()`** — backed by the new tenant-wide
+- **`client.disputes.list()`**: backed by the new tenant-wide
   `GET /v1/disputes` route. Filter by `status` or `recordId`.
-- **`client.audit.tenantReadsCheckpoints.{list, get, cosign, proof}`** —
+- **`client.audit.tenantReadsCheckpoints.{list, get, cosign, proof}`**:
   SCITT-style signed-tree-head surface for tenant-admin cross-party reads.
-- **`client.admin.records.{list, import}`** — `list()` on
+- **`client.admin.records.{list, import}`**: `list()` on
   `GET /v1/admin/records`, plus `import()` on `POST /v1/admin/records/import`
   for atomic backfill of historical Records (per-batch up to 100, terminal
   status whitelist, `BACKFILL_IMPORT` vault stamp). New types
   `BackfillRecord`, `AdminImportRecordsParams`, `AdminImportRecordsResult`,
   `QueryAdminRecordsParams`.
-- **`client.admin.vault.{anchors, scan, signingKeys}`** — sub-namespaces for
+- **`client.admin.vault.{anchors, scan, signingKeys}`**: sub-namespaces for
   the existing vault inspection methods. Old top-level `client.admin.list…` /
-  `verify…` / `start…` calls were dropped (they pointed at the same routes —
+  `verify…` / `start…` calls were dropped (they pointed at the same routes;
   the new structure mirrors the API's `/v1/admin/vault/{anchors,scan,signing-keys}`
   layout).
-- **`client.conformance.run()`** — top-level `GET /v1/conformance` mirror
+- **`client.conformance.run()`**: top-level `GET /v1/conformance` mirror
   alongside the existing `client.discovery.getConformance()`.
-- **`client.records.myVerdictStatistics()`** — agent-only reputation primitive
+- **`client.records.myVerdictStatistics()`**: agent-only reputation primitive
   on `GET /v1/records/me/verdict-statistics`. New `VerdictStatistics` type.
 - **Schema toolkit rename to match API endpoints.** `schemas.metaSchema()`,
   `schemas.blank()`, `schemas.import_()` (underscore avoids the JS reserved
@@ -1232,7 +1238,7 @@ real rename, not a touch-up. Patch-bump would mislead. Bump to 0.7.0; the
   `minimalRecord`, `limits.contractTypeMaxLength` → `typeMaxLength`.
 - `verifyExport()` (offline verifier) now returns `recordId` on
   `VerifyExportResult` (was `mandateId`). Crypto primitives and the canonical
-  hash chain are unchanged — only field names move.
+  hash chain are unchanged: only field names move.
 - `ConformanceResponse.contractTypes` → `types`.
 - Federation key/payload field renames: `mandateCount` → `recordCount` on
   heartbeat / gateway summaries; `contractTypes` → `types` on agent
@@ -1245,7 +1251,7 @@ real rename, not a touch-up. Patch-bump would mislead. Bump to 0.7.0; the
 
 - **No backward-compat aliases.** `client.mandates`, `Mandate`,
   `MandateAuditExport`, `MANDATE_TRANSITIONS`, `mandateToContext`,
-  `Scopes.MANDATES_READ`, etc. are gone — not deprecated, gone. Pre-launch,
+  `Scopes.MANDATES_READ`, etc. are gone: not deprecated, gone. Pre-launch,
   no customers; aliases would carry forward forever.
 - **`events.getAuditChain()`.** The retired `/v1/mandates/{id}/audit` route
   is gone from the API; use `client.records.getAuditExport()` instead (signed,
@@ -1262,12 +1268,12 @@ real rename, not a touch-up. Patch-bump would mislead. Bump to 0.7.0; the
   requires `enterpriseId`/`source`/`records`; tenant-reads checkpoint routes
   exist; admin vault sub-routes exist.
 - Retired-routes regex now flags `/v1/mandates`, `/federation/v1/mandates`,
-  and `/federation/v1/admin/mandates` — any remaining mandate URL would fail
+  and `/federation/v1/admin/mandates`: any remaining mandate URL would fail
   the resource-file scan.
 
 ## [0.6.0] - 2026-04-23
 
-Tracks AGLedger API v0.20.0 — the pre-launch principal-model rewrite. This
+Tracks AGLedger API v0.20.0: the pre-launch principal-model rewrite. This
 release is a breaking realignment of the SDK to the new API surface. No
 migration shims are provided; there are no production customers yet.
 
@@ -1302,14 +1308,14 @@ migration shims are provided; there are no production customers yet.
   `POST /v1/auth/keys/rotate` remain, surfaced on a new `AuthResource`.
 
 ### Added
-- **`AuthResource`** — `client.auth.getMe()` and `client.auth.rotateKey()`.
-- **`DiscoveryResource`** — `client.discovery.getScopeProfiles()`,
+- **`AuthResource`**: `client.auth.getMe()` and `client.auth.rotateKey()`.
+- **`DiscoveryResource`**: `client.discovery.getScopeProfiles()`,
   `getConformance()`, `getLifecycle()`. Backs unauthenticated / onboarding
   probes.
 - Audit-vault `_actor` envelope visibility on `MandateAuditExport` types
   (hash-chained `actor_key_id`, `actor_role`, `actor_owner_id` per state
   change).
-- `agent-performer-only` scope profile — performer that can deliver receipts
+- `agent-performer-only` scope profile: performer that can deliver receipts
   and read mandates but cannot be a principal.
 
 ### Removed
@@ -1322,7 +1328,7 @@ migration shims are provided; there are no production customers yet.
 - Trust-level types (`TrustLevel`, `AgentVerificationMethod`, `verifiedAt`).
 
 ### Parity test
-- The hand-curated `SDK_METHODS` table is gone — replaced by a smaller set of
+- The hand-curated `SDK_METHODS` table is gone: replaced by a smaller set of
   invariant checks (critical routes present, retired routes absent,
   resource-file prose doesn't mention retired paths or the `ach_*` prefix).
   Exhaustive per-method coverage is enforced by `resources.test.ts` and

@@ -125,7 +125,7 @@ export interface RequestOptions {
    * work done on behalf of a person or another party. Sent as the
    * `AGLedger-On-Behalf-Of` header beside your own credential, never instead
    * of it. Accepted on record create, transition and verdict, completion
-   * submit, and A2A; the engine validates it against a trusted issuer whose
+   * submit, and A2A; the Server validates it against a trusted issuer whose
    * `appliesTo` is `principal` or `any` and seals the delegation into the
    * signed chain entry.
    */
@@ -140,7 +140,7 @@ export interface RequestOptions {
  * scope.
  *
  * A bare `type` names a schema only while one publisher offers it. Once two do
- * (an imported peer manifest alongside a local registration), the engine
+ * (an imported peer manifest alongside a local registration), the Server
  * refuses with 422 `/problems/ambiguous-publisher` and lists the candidates on
  * `AgledgerApiError.publishers` rather than picking. Pass `publisher` to pin
  * one. Single-publisher orgs never need it.
@@ -338,7 +338,7 @@ export interface SchemaListItem {
   status?: 'ACTIVE' | 'DISABLED' | (string & {});
   /** Human-readable name, or null. */
   displayName?: string | null;
-  /** Customer-defined taxonomy label (no engine semantics), or null. */
+  /** Customer-defined taxonomy label (no Server semantics), or null. */
   category?: string | null;
   /** Truncated preview of the per-type description (full text on `schemas.get(type)`), or null. */
   description?: string | null;
@@ -367,7 +367,7 @@ export interface TypeSchema {
   status?: SchemaVersionStatus;
   /**
    * Publisher label of the registration that answered this read. `local` for
-   * engine-authored types, anything else for file-imported ones.
+   * Server-authored types, anything else for file-imported ones.
    *
    * This is how a publisher-pinned read confirms which registration replied.
    * Pin with the `publisher` option; an unpinned read of a type two publishers
@@ -379,7 +379,7 @@ export interface TypeSchema {
   manifestDigest?: string;
   /** How this row was authored. Federation digest-echo treats both identically. */
   trustClass?: 'local' | 'imported' | (string & {});
-  /** Whether this engine exposes the schema to federated peer hubs. Row-only metadata, not in the canonical manifest. */
+  /** Whether this Server exposes the schema to federated peer hubs. Row-only metadata, not in the canonical manifest. */
   federatable?: boolean;
   /**
    * V1 sharing default for Records of this type. `null` inherits the global
@@ -390,7 +390,7 @@ export interface TypeSchema {
   defaultShare?: boolean | null;
   /**
    * Default gate mode for records of this type when the create payload omits
-   * `gateMode`. `auto` (engine default) auto-settles against the principal's
+   * `gateMode`. `auto` (Server default) auto-settles against the principal's
    * pre-configured predicates; `principal` forces a principal-held verdict. An
    * explicit per-record `gateMode` always wins. Row-only metadata, not
    * canonicalized into the manifest digest.
@@ -632,7 +632,7 @@ export interface SchemaPreviewInput {
   /** Whether disputes on federated records of this type propagate to peers (default true). */
   federateDisputes?: boolean;
   /**
-   * Publisher label. Omit (or pass `local`) for an engine-authored schema. A
+   * Publisher label. Omit (or pass `local`) for an Server-authored schema. A
    * non-`local` label is one two federated Servers agree on out of band, so
    * cross-peer `schemaRef` matching resolves on both sides. The label is part
    * of the manifest digest.
@@ -720,7 +720,7 @@ export interface SchemaExportResult {
   /**
    * Publisher label of the registration this artifact was exported from. Pin
    * the export with the `publisher` option on a type two publishers offer;
-   * without it the engine emits both registrations, and their `versions`
+   * without it the Server emits both registrations, and their `versions`
    * entries can collide on the same number.
    */
   publisher?: string;
@@ -782,7 +782,7 @@ export interface SchemaManifest {
   category?: string;
   compatibility?: SchemaCompatibilityMode;
   deprecation?: { since?: string; replacedBy?: string } | null;
-  /** Advisory documentation only; the engine never reads this field. */
+  /** Advisory documentation only; the Server never reads this field. */
   previousVersion?: string | null;
   fieldMappings?: Record<string, unknown>[];
   tolerances?: Record<string, unknown>;
@@ -810,7 +810,7 @@ export interface SchemaImportParams {
    * nothing is written. Omit to import without the check.
    */
   manifestDigest?: string;
-  /** Whether this engine exposes the schema to federated peer hubs. Default true. */
+  /** Whether this Server exposes the schema to federated peer hubs. Default true. */
   federatable?: boolean;
   /** V1 sharing default for records of this type. Omit to inherit the global default. */
   defaultShare?: boolean;
@@ -829,7 +829,7 @@ export interface RegisterSchemaParams {
   category?: string;
   /**
    * Default gate mode applied to records of this type when the create payload
-   * omits `gateMode`. Omit for the engine default (`auto`). Set `principal` so
+   * omits `gateMode`. Omit for the Server default (`auto`). Set `principal` so
    * records created from the quickStart cannot silently auto-settle. An explicit
    * per-record `gateMode` always wins.
    */
@@ -859,7 +859,7 @@ export interface RegisterSchemaParams {
   /** Whether disputes on federated records of this type propagate to peers (default true). */
   federateDisputes?: boolean;
   /**
-   * Publisher label. Omit (or pass `local`) for an engine-authored schema. A
+   * Publisher label. Omit (or pass `local`) for an Server-authored schema. A
    * non-`local` label is one two federated Servers agree on out of band, so
    * cross-peer `schemaRef` matching resolves on both sides. The label is part
    * of the manifest digest.
@@ -1049,7 +1049,7 @@ export type RecordTransitionAction =
 export type OperatingMode = 'cleartext' | 'encrypted';
 /**
  * Gate mode. Known values: `auto` (the gate evaluates the principal's
- * pre-configured predicates and auto-settles) or `principal` (the engine runs an
+ * pre-configured predicates and auto-settles) or `principal` (the Server runs an
  * advisory pass when rules exist, then the principal renders accept/reject).
  * Either way the verdict is the principal's; AGLedger holds the signed decision
  * and never renders it. Accepts any string for forward compatibility.
@@ -1063,8 +1063,8 @@ export type GateMode = 'auto' | 'principal' | (string & {});
 export type EuAiActRiskTier = 'unacceptable' | 'high' | 'limited' | 'minimal';
 
 /**
- * Record-column risk classification: the canonical {@link EuAiActRiskTier} set
- * plus the notary sentinel `unclassified` (nothing asserted yet, the
+ * A Record's risk classification: the canonical {@link EuAiActRiskTier} set
+ * plus the ledger's sentinel value `unclassified` (nothing asserted yet, the
  * create-time default).
  */
 export type RiskClassification = EuAiActRiskTier | 'unclassified';
@@ -1114,7 +1114,7 @@ export interface SignedStatement {
    * only approximates it. Null if the envelope fails to decode.
    */
   signedAt?: string | null;
-  /** Most recent signed checkpoint covering this chain position, or null until the next 6h sweep. */
+  /** Most recent signed checkpoint covering this chain position, or null until the next scheduled checkpoint. */
   signedCheckpointRef: string | null;
   /** Relative URL to the COSE_Sign1 attestation stream for this Record. */
   url: string;
@@ -1129,7 +1129,7 @@ export interface RecordReadCompletion {
   leafIndex: number;
   /** Hex sha256 of the canonical chain entry. */
   leafHash: string;
-  /** Most recent signed checkpoint that includes this leaf, or null until the next 6h sweep covers it. */
+  /** Most recent signed checkpoint that includes this leaf, or null until a scheduled checkpoint covers it. */
   signedCheckpointRef: string | null;
 }
 
@@ -1188,7 +1188,7 @@ export interface RecordRow {
   operatingMode?: OperatingMode;
   /**
    * Gate mode: auto (auto-settles against the principal's pre-configured
-   * predicates), or principal (engine advisory pass, then the principal renders
+   * predicates), or principal (Server advisory pass, then the principal renders
    * accept/reject). Null on a notarize-only Record (status `RECORDED`), which
    * has no gate.
    */
@@ -1281,12 +1281,12 @@ export interface RecordRow {
   advisoryWarnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
   /**
    * Publisher label of the registration this Record binds to. With `type` and
-   * `contractVersion` it names exactly which schema the Record was judged
+   * `contractVersion` it names exactly which schema the Record was validated
    * against, which `type` alone cannot once two publishers offer the same type.
    * Present whether or not `publisher` was pinned on create, so a
    * single-publisher org reads its one label (usually `local`).
    *
-   * `null` means the engine never validated this Record against a local
+   * `null` means the Server never validated this Record against a local
    * registration, which leaves exactly one case: federation-received Records,
    * where the originator ran the gate against its own registration. Read
    * `null` as "ask the originator", not as "the schema is missing here".
@@ -1302,7 +1302,7 @@ export interface RecordRow {
    * offer. Follow it verbatim; do not rebuild it from `type`.
    *
    * `null` on a federation-received Record whose schema this Server does not
-   * hold, matching `publisher`. The engine returns null rather than a link
+   * hold, matching `publisher`. The Server returns null rather than a link
    * that lies: a receiver-scoped path would 404 where the type is absent, and
    * where the receiver happens to hold the same type name it would answer with
    * its own unrelated registration, whose requirements can differ. Read `null`
@@ -1583,7 +1583,7 @@ export interface CreateRecordParams {
    * Only needed when two publishers offer the same type in the org (an imported
    * peer manifest alongside a local registration); that case is refused with
    * 422 `/problems/ambiguous-publisher` and the candidate labels on
-   * `AgledgerApiError.publishers` rather than the engine picking one. Re-send
+   * `AgledgerApiError.publishers` rather than the Server picking one. Re-send
    * with one of those labels. `schemas.list()` carries `publisher` on every row.
    */
   publisher?: string;
@@ -1611,7 +1611,7 @@ export interface CreateRecordParams {
   maxRevisions?: number;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
-  /** Gate mode: auto (default; auto-settles against the principal's pre-configured predicates), or principal (engine advisory pass, then the principal renders accept/reject). */
+  /** Gate mode: auto (default; auto-settles against the principal's pre-configured predicates), or principal (Server advisory pass, then the principal renders accept/reject). */
   gateMode?: GateMode;
   /** EU AI Act risk classification. */
   riskClassification?: RiskClassification;
@@ -1857,14 +1857,14 @@ export interface Completion {
   id: string;
   recordId: string;
   /**
-   * The agent that submitted it. Null on the completion the engine synthesizes
+   * The agent that submitted it. Null on the completion the Server synthesizes
    * for a delegation parent when its children's failure rollup is held for the
    * principal's verdict (`rollupSynthesized: true`); every agent-submitted
    * completion carries one.
    */
   agentId: string | null;
   /**
-   * True on a completion the engine wrote for a delegation parent from its
+   * True on a completion the Server wrote for a delegation parent from its
    * children's failure rollup rather than one an agent submitted. A principal
    * cannot accept it: reject, then revise and resubmit.
    */
@@ -1894,8 +1894,8 @@ export interface Completion {
    * The auto gate's verdict on this completion, in the vocabulary of the
    * Record's `verdict`. Set on the submit response when the gate ran inline
    * (auto mode, cleartext). Null in principal mode (read the verdict on the
-   * Record), on encrypted Records, when the gate was deferred to the worker,
-   * and on a completion read.
+   * Record), on encrypted Records, when the gate had not finished by the time the
+   * response was sent, and on a completion read.
    */
   verdict?: Verdict | null;
   /** Reason attached to the most recent verdict, or null. */
@@ -1926,7 +1926,7 @@ export interface Completion {
 export interface CompletionSettlementSignal {
   /** The gate decision in GET /v1/records vocabulary: SETTLE, HOLD, or RELEASE. */
   recommendation: 'SETTLE' | 'HOLD' | 'RELEASE';
-  /** Engine verdict that drove the recommendation. */
+  /** Server verdict that drove the recommendation. */
   outcome: 'accept' | 'reject';
   /**
    * Discriminator code (same as the settlement webhook), e.g. `AUTO_SETTLE`, or
@@ -1979,8 +1979,8 @@ export interface GateStatus {
    */
   phase1Status: 'pending' | 'passed' | 'failed' | 'not_applicable';
   /**
-   * Semantic (rules-engine) evaluation phase. In `principal` gate mode this
-   * reflects whichever verdict row is most recent, engine-advisory or
+   * Semantic (rules) evaluation phase. In `principal` gate mode this
+   * reflects whichever verdict row is most recent, Server-advisory or
    * principal-rendered, so {@link verdict} is the unambiguous accept/reject.
    * `superseded` means the latest evaluation row is no longer the decision that
    * stands: a dispute resolved OVERTURNED re-renders `verdict` and writes no
@@ -2000,7 +2000,7 @@ export interface GateStatus {
    * federation projection.
    */
   recommendation?: 'SETTLE' | 'HOLD' | 'RELEASE' | null;
-  /** Whether the engine renders the verdict or a principal does. Null on a notarize-only Record, which has no gate. */
+  /** Whether the Server renders the verdict or a principal does. Null on a notarize-only Record, which has no gate. */
   gateMode?: 'auto' | 'principal' | null;
   /** Who rendered the standing verdict, or null when none has been. */
   reporterType?: 'system' | 'principal' | 'accessor' | null;
@@ -2046,7 +2046,7 @@ export interface VerdictResult {
    * the caller learns where the Record landed without a follow-up fetch.
    */
   recordStatus?: RecordStatus;
-  /** The verdict channel: a principal-side verdict, as opposed to the engine's. */
+  /** The verdict channel: a principal-side verdict, as opposed to the Server's. */
   reporterType: 'principal';
   /**
    * Who on the principal side rendered it: `principal` when the principal
@@ -2070,7 +2070,7 @@ export interface VerdictResult {
  *
  * This is the full set the Server serves, and the set every dispute-status
  * filter validates against. The tier ladder (`TIER_2_REVIEW`, `ESCALATED`,
- * `TIER_3_ARBITRATION`) is gone: a dispute the engine does not auto-resolve
+ * `TIER_3_ARBITRATION`) is gone: a dispute the Server does not auto-resolve
  * waits at `PENDING_RESOLUTION` for the principal to render an outcome. The
  * three query params that take this type declare a strict enum, so a retired
  * value is a 400.
@@ -2183,7 +2183,7 @@ export interface ListDisputesParams extends CursorListParams {
  * types are queryable there and rejected here. Two are replay surface that was
  * never subscribable: `record.released` and `dispute.evidence_window_closed`.
  * Settlement outcomes reach webhooks as `signal.emitted` / `signal.received`,
- * not as per-variant types. Two are engine-internal failure events with no
+ * not as per-variant types. Two are Server-internal failure events with no
  * subscription form: `system.cascading_gate_enqueue_failed` and
  * `system.verification_enqueue_failed`. Naming any of the four in a
  * subscription is a 400.
@@ -2200,7 +2200,7 @@ export type WebhookEventType =
   | 'record.completion_invalid'
   | 'record.gate_complete'
   // Principal-mode record held at PROCESSING awaiting the principal verdict;
-  // payload carries the `completionId` to verdict against plus the engine/rollup
+  // payload carries the `completionId` to verdict against plus the Server/rollup
   // advisory result.
   | 'record.gate_held'
   | 'record.fulfilled'
@@ -2318,7 +2318,7 @@ export interface CreateWebhookParams {
    * subscription that lists a settlement event (`signal.emitted`/
    * `signal.received`/`federation.settlement.signal`) defaults to `ed25519`
    * when the Server has a vault signing key. Requesting `ed25519` on a Server
-   * without `VAULT_SIGNING_KEY` returns 422. A FIPS-mode Server signs under
+   * without a signing key configured returns 422. A FIPS-mode Server signs under
    * `ecdsa-p256-sha256` instead; request whichever the Server advertises in
    * `capabilities.signingAlgorithms` on `GET /v1/conformance`.
    */
@@ -2410,7 +2410,7 @@ export interface DriftBucket {
   /**
    * Gate verdicts rendered on this agent's records: the final verdict on each
    * completion, so a principal-gated record counts the principal's verdict and
-   * not the engine's structural pass before it. Zero for a notarize-only agent.
+   * not the Server's structural pass before it. Zero for a notarize-only agent.
    */
   verdicts: number;
   accepted: number;
@@ -2539,7 +2539,7 @@ export interface VerdictStatistics {
  *
  * A deliberate superset of {@link WebhookEventType}, by four members: the two
  * replay-only types (`record.released`, `dispute.evidence_window_closed`) and
- * the two engine-internal failure events (`system.cascading_gate_enqueue_failed`,
+ * the two Server-internal failure events (`system.cascading_gate_enqueue_failed`,
  * `system.verification_enqueue_failed`). There is no `*` member, because the
  * wildcard is a subscription filter and not a type any event carries. The enum
  * is closed on the Server: a type it does not list is a 400 carrying
@@ -2793,10 +2793,10 @@ export interface AuditExportEntry {
   /** OIDC subject (stable user id at the IdP), paired with `actorOidcIss`. */
   actorOidcSub?: string | null;
   /**
-   * `true` iff the engine synthesized `actorOidcIss/Sub` (admin OIDC / WIF
+   * `true` iff the Server synthesized `actorOidcIss/Sub` (admin OIDC / WIF
    * path) rather than them riding in a delegated `on_behalf_of` claim. Input
    * for the offline verifier's OIDC-actor cross-check; without it that check
-   * stays `skipped_no_input`. Engine ≥ v0.26.x.
+   * stays `skipped_no_input`. Servers from v0.26.x.
    */
   actorOidcSynthesized?: boolean;
   entryType: string;
@@ -2804,7 +2804,7 @@ export interface AuditExportEntry {
    * Auditor-readable label for `entryType` (e.g. RECORD_STATE_CHANGE →
    * "Record state transitioned"). Display PROJECTION, NOT signature-covered;
    * the canonical machine-readable name stays in `entryType`. Replaced the
-   * pre-launch `description` placeholder (engine v0.26.x+).
+   * pre-launch `description` placeholder (Server v0.26.x+).
    */
   humanReadableLabel?: string;
   payload: Record<string, unknown>;
@@ -2830,12 +2830,12 @@ export interface AuditExportEntry {
      */
     coseSign1: string;
     signingKeyId: string | null;
-    /** Engine-side per-entry validity at export time. Cross-checked offline. */
+    /** Server-side per-entry validity at export time. Cross-checked offline. */
     valid: boolean;
     /**
      * Optional base64-encoded SCITT Receipt (COSE_Sign1 per
      * draft-ietf-cose-merkle-tree-proofs-18) for this leaf. Present only when
-     * `?receipts=true` AND the engine has a `VAULT_SIGNING_KEY`. Carries the
+     * `?receipts=true` AND the Server has a signing key configured. Carries the
      * per-record Merkle root signed at issuance + an RFC 9162 inclusion proof
      * at unprotected label 396.
      */
@@ -2849,7 +2849,7 @@ export interface AuditExportEntry {
  * signed; read this to tell hash-chain-only from hash-chain-and-signatures apart.
  */
 export interface AuditSignatureCoverage {
-  /** Entries written by an engine with VAULT_SIGNING_KEY. */
+  /** Entries written by a Server with a signing key configured. */
   signed: number;
   /**
    * Entries with signing_key_id IS NULL. Only entries written before the
@@ -2902,9 +2902,9 @@ export type AuditChainIntegrityReasonCode =
   | 'cert_expired'
   | 'cert_missing'
   /**
-   * The cert row's `expires_at` is no longer the instant the entry sealed in
-   * `predicate.on_behalf_of.cert.expires_at` (API 1.8.0). The column is
-   * written once at issuance, so a divergence is an out-of-band edit.
+   * The certificate's recorded expiry no longer matches the instant sealed in
+   * `predicate.on_behalf_of.cert.expires_at` (API 1.8.0). That value is fixed
+   * at issuance, so a divergence means the stored record was altered.
    */
   | 'cert_window_drift'
   | 'agent_signature_invalid'
@@ -2912,8 +2912,8 @@ export type AuditChainIntegrityReasonCode =
   // verification. `signature_invalid` = a COSE_Sign1 signature did not verify
   // against its resolved key; `signing_key_unknown` = the entry names a
   // signing_key_id the key registry cannot resolve; `signing_key_drift` = the
-  // denormalized signing_key_id column names a different key than the
-  // signature-covered kid in the entry's protected header.
+  // key recorded alongside the entry differs from the signature-covered kid
+  // in the entry's protected header.
   | 'signature_invalid'
   | 'signing_key_unknown'
   | 'signing_key_drift'
@@ -2950,14 +2950,14 @@ export type AuditChainIntegrityReasonCode =
    */
   | 'signing_key_unanchored'
   /**
-   * The entry is signed under a COSE algorithm this engine build cannot verify.
+   * The entry is signed under a COSE algorithm this Server build cannot verify.
    * Not a tamper signal: the chain may be intact and simply need a newer
    * verifier. Check `minVerifierVersion` on the key in `/v1/verification-keys`.
    */
   | 'unsupported_algorithm'
   /**
-   * The entry was signed by a key the operator named in `VAULT_DISTRUSTED_KEYS`
-   * before a key this Server trusts retired it. The distrust entry and that
+   * The entry was signed by a key the operator listed as distrusted on the Server
+   * (its `VAULT_DISTRUSTED_KEYS` setting) before a key this Server trusts retired it. The distrust entry and that
    * retirement account for it, so a vault scan lists it under
    * `distrustedEntries` rather than as a break; it is never verified, so the
    * export still fails.
@@ -3076,7 +3076,7 @@ export interface RecordAuditExport {
      * verifier's temporal key-validity check (`@agledger/sdk/verify`): an entry
      * written before its signing key's activation fails `CHAIN_KEY_NOT_YET_ACTIVE`,
      * and one written after retirement fails `CHAIN_KEY_EXPIRED`.
-     * Additive since engine v0.26.x; older exports omit it and that check
+     * Additive since Server v0.26.x; older exports omit it and that check
      * stays `skipped_no_input`.
      */
     signingKeyWindows?: Record<
@@ -3163,7 +3163,7 @@ export interface ListVaultCheckpointsParams {
 }
 
 /**
- * A page of vault checkpoints plus the sweep schedule the engine returns
+ * A page of vault checkpoints plus the sweep schedule the Server returns
  * alongside it. The schedule is what distinguishes "this install has not
  * checkpointed yet" from "checkpoints are missing", so it travels with the
  * page rather than requiring a second call.
@@ -3271,7 +3271,7 @@ export type OrgReadsCheckpointingSource = 'worker' | 'config' | (string & {});
  * schedule has no anchoring posture.
  */
 export interface OrgReadsCheckpointingSchedule {
-  /** Cron the sweep runs on, in UTC. Fixed cadence; there is no env knob. */
+  /** Schedule the Server runs the sweep on, as a cron expression in UTC. */
   cron: string;
   /** Cadence in minutes derived from `cron`. Null when the schedule is not a fixed interval. */
   intervalMinutes: number | null;
@@ -3279,12 +3279,12 @@ export interface OrgReadsCheckpointingSchedule {
   nextRunAt: string | null;
   /** Newest checkpoint in the caller's org; null until the first sweep lands one. */
   lastCheckpointAt: string | null;
-  /** `worker` when read from the schedule the worker registered, `config` when this process fell back to its own defaults. */
+  /** `worker` when the Server read the live schedule, `config` when it fell back to its configured default. */
   source: OrgReadsCheckpointingSource;
 }
 
 /**
- * A page of org-reads checkpoints plus the sweep schedule the engine returns
+ * A page of org-reads checkpoints plus the sweep schedule the Server returns
  * alongside it. The schedule always travels with the page, so an empty `data`
  * can be read against the cadence that produced it rather than requiring a
  * second call.
@@ -3473,7 +3473,7 @@ export interface QueryAdminRecordsParams extends CursorListParams {
   orgId?: string;
   /**
    * Strict enum server-side: a value outside it is a 400, not an empty page.
-   * The engine dropped `PENDING_ARBITRATION` in API 1.7.0.
+   * The Server dropped `PENDING_ARBITRATION` in API 1.7.0.
    */
   status?: RecordStatusFilter;
   type?: string;
@@ -3545,13 +3545,15 @@ export interface HealthResponse {
   timestamp: string;
   /**
    * Whether this process may sign chain entries. `usable` is the healthy state.
-   * `retired`: the key it holds was retired, so it signs nothing; restart it
-   * with the staged `VAULT_SIGNING_KEY`. `unregistered`: its key is not in the
-   * registry yet, and it retries. `signer_unreachable`: the key is in AWS KMS
-   * and KMS is not answering, so it refuses every write. `unanchored`: the
-   * registry already holds keys and no signed statement links this process's
-   * key to them; restart it with `VAULT_SIGNING_KEY_PREVIOUS` naming the key a
-   * running process signs with. `unsigned`: no key is configured (dev and test).
+   * `retired`: the key it holds was retired, so it signs nothing until the
+   * operator supplies a current key. `unregistered`: its key is not in the
+   * registry yet, and it retries. `signer_unreachable`: the signing service
+   * holding the key is not answering, so the Server refuses every write.
+   * `unanchored`: the registry already holds keys and no signed statement links
+   * this process's key to them, so it signs nothing until the operator
+   * corrects the key configuration. `unsigned`: no key is configured (dev and
+   * test). Operators act on these states as described in the Server's
+   * documentation at https://agledger.ai/docs.
    */
   signingKey?: {
     gate?: 'usable' | 'retired' | 'unregistered' | 'signer_unreachable' | 'unanchored' | 'unsigned' | (string & {});
@@ -3573,15 +3575,16 @@ export interface StatusComponent {
    * `outage`) or `signing_key_unusable` (this process's vault signing key may
    * not sign, so every chain write answers 503). On Workers:
    * `database_unavailable` at `outage`; at `degraded`, `no_worker_connected`
-   * (no worker is attached), `worker_not_consuming` (one is attached but has
-   * stopped taking jobs), `worker_stalled` (one is attached and publishes no
-   * reason to hold, yet has run nothing from a queue holding a ready job for
-   * over 180s; restart it), `not_checked` (the database could not be asked), or
-   * `error`. `privilege_missing`: on Database at `degraded`, the role this
-   * Server connects as lacks a privilege the engine writes with, so every
-   * request needing it answers 500; on Chain writes at `outage`, the missing
-   * privilege is on `audit_vault`. `admin.getSystemHealth()` names each missing
-   * privilege and the GRANT that restores it.
+   * (no background processor is attached), `worker_not_consuming` (one is
+   * attached but has stopped taking jobs), `worker_stalled` (one is attached
+   * and reports no reason to hold, yet has made no progress on queued work for
+   * an extended period), `not_checked` (the database could not be asked), or
+   * `error`. `privilege_missing`: on Database at `degraded`, the database
+   * account the Server uses lacks a permission it needs, so every request
+   * needing it answers 500; on Chain writes at `outage`, the missing
+   * permission is on the chain store. `admin.getSystemHealth()` names each
+   * missing permission; the Server's documentation at https://agledger.ai/docs
+   * says how an operator restores it.
    */
   reason?: StatusComponentReason;
 }
@@ -3616,7 +3619,7 @@ export interface StatusResponse {
 export interface ConformanceResponse {
   /**
    * Feature capability flags: which features are wired on this install.
-   * The set grows as the engine gains capabilities; read flags defensively
+   * The set grows as the Server gains capabilities; read flags defensively
    * via the open-ended index signature rather than assuming a fixed shape.
    */
   capabilities?: {
@@ -3627,7 +3630,7 @@ export interface ConformanceResponse {
     ed25519Signatures?: boolean;
     /**
      * Signature algorithms this build can sign chain envelopes with, e.g.
-     * `['Ed25519']`. The engine derives `ed25519Signatures` from this same
+     * `['Ed25519']`. The Server derives `ed25519Signatures` from this same
      * registry, so the two cannot disagree. A non-default algorithm also
      * requires the server's boot-time opt-in; per-key algorithm resolution
      * for verification lives on `GET /v1/verification-keys`.
@@ -3852,12 +3855,12 @@ export interface CreateAgentParams {
 /** How an enforcement rule is applied: skip it, warn on it, or block on it. */
 export type EnforcementMode = 'none' | 'advisory' | 'enforced';
 
-/** Whether a resolved enforcement value came from the org or from the engine default. */
+/** Whether a resolved enforcement value came from the org or from the Server default. */
 export type EnforcementSource = 'org' | 'default';
 
 /**
  * The enforcement knobs, fully resolved. Every field is present: read
- * {@link OrgConfig.enforcementSource} to tell an org override from an engine
+ * {@link OrgConfig.enforcementSource} to tell an org override from a Server
  * default, and {@link OrgConfig.config}`.enforcement` for the overrides alone.
  */
 export interface EnforcementSettings {
@@ -3926,7 +3929,7 @@ export interface DisputesConfig {
 
 /**
  * The org config document: only what an operator explicitly set. A key absent
- * here is a key running on its engine default. Read {@link OrgConfig.enforcement}
+ * here is a key running on its Server default. Read {@link OrgConfig.enforcement}
  * for the values actually in force.
  */
 export interface OrgConfigDocument {
@@ -3941,11 +3944,11 @@ export interface OrgConfig {
   id?: string;
   /** What the operator explicitly stored, not what is in force. */
   config?: OrgConfigDocument;
-  /** The enforcement values actually in force, org overrides resolved over engine defaults. */
+  /** The enforcement values actually in force, org overrides resolved over Server defaults. */
   enforcement?: EnforcementSettings;
-  /** Per field, whether the resolved value came from the org or from the engine default. */
+  /** Per field, whether the resolved value came from the org or from the Server default. */
   enforcementSource?: Record<keyof EnforcementSettings, EnforcementSource>;
-  /** The engine defaults, which is where a cleared override lands. */
+  /** The Server defaults, which is where a cleared override lands. */
   enforcementDefaults?: EnforcementSettings;
   nextSteps?: NextStep[];
   [key: string]: unknown;
@@ -3956,7 +3959,7 @@ export interface OrgConfig {
  *
  * Only provided fields are updated, key by key: a key you omit keeps whatever
  * it had. Send a key as `null` to drop that override and return the key to its
- * engine default, or send a whole block as `null` to drop every override in it
+ * Server default, or send a whole block as `null` to drop every override in it
  * at once.
  */
 export interface SetOrgConfigParams {
@@ -4294,7 +4297,7 @@ export interface WebhookDeleteResult {
   nextSteps: NextStep[];
 }
 
-/** Per-queue pg-boss job counts, as reported by the admin ops surfaces. */
+/** Per-queue job counts, as reported by the admin ops surfaces. */
 export interface QueueCounts {
   waiting: number;
   active: number;
@@ -4326,7 +4329,7 @@ export interface ConnectedVersion {
 export interface SystemHealth {
   /**
    * `degraded` when the database cannot serve, or when anything is dead-lettered
-   * (a pg-boss `*-dlq` queue holding work, or rows in the webhook dead-letter
+   * (a dead-letter job queue holding work, or rows in the webhook dead-letter
    * table). Failure counts on live queues deliberately do not move it: those are
    * retries still in flight. Read {@link SystemHealth.degradedReasons} for what
    * moved it rather than fanning out across the drill-down endpoints.
@@ -4374,7 +4377,7 @@ export interface SystemHealth {
    * Deliveries parked in the webhook dead-letter table. Not an entry in
    * {@link SystemHealth.queues} because it is not a queue: a permanently failed
    * delivery (SSRF refusal, 410, 4xx, an undecryptable secret) never reaches the
-   * pg-boss dead-letter queue, so that queue reads ~0 whatever is parked.
+   * job dead-letter queue, so that queue reads ~0 whatever is parked.
    * Non-zero degrades `status`; recover from `GET /v1/admin/webhook-dlq`.
    *
    * `null` means the table could not be counted, which also degrades `status`:
@@ -4392,11 +4395,10 @@ export interface SystemHealth {
   connectedVersions?: ConnectedVersion[] | null;
   /**
    * Database connections held by worker processes, read from the role each
-   * AGLedger connection names in its `application_name`. `0` degrades
-   * `status`: nothing is processing the jobs this API enqueues. Null when this
-   * process runs no job queue or `pg_stat_activity` could not be read (which
-   * also degrades `status`). A worker whose `application_name` was overridden
-   * in `DATABASE_URL` is not counted.
+   * AGLedger connection reports about itself. `0` degrades `status`: nothing
+   * is processing the jobs this API enqueues. Null when this process runs no
+   * job queue or the connection list could not be read (which also degrades
+   * `status`). A worker that does not identify itself is not counted.
    */
   workerConnections?: number | null;
   /**
@@ -4702,7 +4704,7 @@ export interface ScopeProfileInfo {
 export interface LifecycleState {
   validTransitions: string[];
   /**
-   * Actions the display status accepts, as the union across the engine states
+   * Actions the display status accepts, as the union across the Server states
    * it covers: a specific record may accept a subset. Absent on the dispute
    * machine.
    */
@@ -4977,7 +4979,7 @@ export type FederationSettlementSignal = 'SETTLE' | 'HOLD' | 'RELEASE';
  * can resolve the contract type without a shared registry.
  */
 export interface FederationSchemaRef {
-  /** Publisher label (`local` for engine-authored, free-form coordination label otherwise). */
+  /** Publisher label (`local` for Server-authored, free-form coordination label otherwise). */
   publisher: string;
   type: string;
   /** Dotted numeric version, e.g. `1` or `1.2`. */
@@ -5354,9 +5356,9 @@ export interface RecordGraph {
  */
 /**
  * Which signer this Server holds its vault key in, from
- * `GET /v1/admin/vault/signing-keys`. `local`: the key material is in the
- * database, encrypted under the process key. `aws-kms`: the private key never
- * leaves KMS, `keyArn` names it, and `maxSignsPerSecond` is the rate cap the
+ * `GET /v1/admin/vault/signing-keys`. `local`: the Server holds the key material
+ * itself, encrypted. `aws-kms`: the private key never leaves the external key
+ * service, `keyArn` names it, and `maxSignsPerSecond` is the rate cap the
  * operator configured (null means uncapped).
  */
 export interface VaultSigner {
@@ -5776,7 +5778,7 @@ export interface VaultAnchorVerifyRow {
    * `empty_body`: the object exists and is empty. `s3_error`: the object store
    * could not be read, so nothing was compared. `no_checkpoint`: the record has
    * no checkpoint row at the requested position. `anchoring_disabled`:
-   * `VAULT_ANCHOR_ENABLED` is off, so no anchor was ever written.
+   * anchoring is turned off on the Server, so no anchor was ever written.
    */
   outcome?:
     | 'verified'
@@ -5809,12 +5811,11 @@ export interface VaultAnchorVerifyRow {
 }
 
 /**
- * pg-boss job state for an asynchronous vault integrity scan.
+ * Job state for an asynchronous vault integrity scan.
  *
- * Open-ended on purpose: the queue owns this vocabulary and has already
- * changed it once (`expired` is no longer emitted; `cancelled` and `retry`
- * arrived with the pg-boss exclusive-policy work). Branch on `completed` and
- * `failed`, and treat anything else as still running.
+ * Open-ended on purpose: the job queue owns this vocabulary and may extend it.
+ * Branch on `completed` and `failed`, and treat anything else as still
+ * running.
  */
 export type VaultScanState =
   | 'created'
@@ -5834,7 +5835,7 @@ export type VaultScanState =
  * throughout that window. Read this before concluding checkpoints are missing.
  */
 export interface VaultCheckpointingSchedule {
-  /** Cron expression the sweep runs on, in UTC. */
+  /** Schedule the Server runs the checkpoint sweep on, as a cron expression in UTC. */
   cron: string;
   /** Cadence in minutes derived from `cron`. Null when the schedule is not a fixed interval. */
   intervalMinutes: number | null;
@@ -5842,7 +5843,7 @@ export interface VaultCheckpointingSchedule {
   nextRunAt: string | null;
   /** ISO 8601 timestamp of the most recent checkpoint, or null before the first sweep. */
   lastCheckpointAt: string | null;
-  /** Where the schedule was read from: the running `worker`, or static `config`. */
+  /** Where the Server read the schedule from: `worker` (the live schedule) or `config` (its configured default). */
   source: 'worker' | 'config' | (string & {});
   /** Whether checkpoint anchoring is enabled at all. */
   anchoringEnabled: boolean;
@@ -6087,7 +6088,7 @@ export interface VaultScanResult {
    * install whose first sweep has not fired yet.
    *
    * Omits `lastCheckpointAt`, which only the checkpoint list carries. Every
-   * member is optional here: the engine marks none of them required on the
+   * member is optional here: the Server marks none of them required on the
    * scan envelope, unlike the checkpoint list where all six are.
    */
   checkpointing?: Partial<Omit<VaultCheckpointingSchedule, 'lastCheckpointAt'>>;
@@ -6100,7 +6101,7 @@ export interface VaultScanResult {
  * closure, or a genesis or succession that is not its subject's first),
  * `key_closure_invalid` (a retired key with no signed retirement, a closure by
  * an unanchored key, or a `VAULT_DISTRUSTED_KEYS` key no trusted key has
- * retired), or `key_window_drift` (a registry column that differs from the
+ * retired), or `key_window_drift` (a stored registry value that differs from the
  * value signed for it). A finding about the published key material (a
  * counting closure, or a trusted key's admission, signed by a key no key
  * surface publishes) makes every audit export answer
@@ -6172,7 +6173,7 @@ export type VaultScanWaitingReason = 'no_worker_connected' | 'worker_not_consumi
 /** Status of an asynchronous vault integrity scan job. */
 export interface VaultScanJob {
   jobId: string;
-  /** pg-boss job state: created → active → completed/failed/expired. */
+  /** Job state: created → active → completed or failed (`cancelled` and `retry` also occur). */
   state: VaultScanState;
   startedAt?: string | null;
   completedAt?: string | null;
@@ -6889,11 +6890,12 @@ export interface OpsSummary {
      * checkpoints exist only in the application database.
      *
      * `enabled`, `bucket`, and `intervalMinutes` reflect the API process's own
-     * config; `workerEnabled` is the observed posture of the worker that runs
-     * the sweep. When `reconciled` is false the two disagree (env drift between
-     * the API and worker services) and the worker is authoritative for whether
-     * anchoring really happens. Null `workerEnabled`/`reconciled` means the
-     * worker posture could not be determined.
+     * config; `workerEnabled` is the observed posture of the background
+     * processor that runs the sweep. When `reconciled` is false the two
+     * disagree (a configuration mismatch between the Server's services) and the
+     * background processor is authoritative for whether anchoring really
+     * happens. Null `workerEnabled`/`reconciled` means that posture could not
+     * be determined.
      */
     anchoring: {
       enabled: boolean;
@@ -6910,13 +6912,14 @@ export interface OpsSummary {
       instanceId: string | null;
     };
     /**
-     * Read-transparency (`org_admin_reads`) checkpoint sweep posture. The sweep
-     * runs in the worker on a fixed cron; there is no env knob.
+     * Read-transparency checkpoint sweep posture. The sweep
+     * runs on a schedule the Server sets.
      *
      * Platform-wide, unlike the per-org block on
      * `GET /v1/audit/org-reads/checkpoints`: `lastCheckpointAt` is the newest
      * checkpoint across all orgs, null until the first sweep lands one.
-     * `workerScheduled: null` means the worker posture could not be determined.
+     * `workerScheduled: null` means the background processor's posture could
+     * not be determined.
      */
     orgReadsCheckpoints: {
       cron: string;
@@ -6964,12 +6967,12 @@ export interface OpsSummary {
       standing: number | null;
     };
     /**
-     * Whether UPDATE, DELETE and TRUNCATE on the chain tables are revoked from
-     * the role this process connects as. `enforced: false` means that role owns
-     * the tables or is a superuser, so it can rewrite chain entries and tamper
-     * evidence rests on signatures and external anchors alone. `held` lists
-     * each revoked privilege the role still holds as `table.PRIVILEGE`.
-     * `enforced: null` means the privileges could not be read.
+     * Whether the database account this process uses is barred from changing
+     * or removing chain entries. `enforced: false` means that account could
+     * rewrite chain entries, so tamper evidence rests on signatures and
+     * external anchors alone. `held` lists each permission that account still
+     * holds, as `table.PRIVILEGE`. `enforced: null` means the permissions
+     * could not be read.
      */
     appendOnly: {
       enforced: boolean | null;

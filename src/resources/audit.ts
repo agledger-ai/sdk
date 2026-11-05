@@ -18,7 +18,7 @@ import type {
 /**
  * Org-admin reads checkpoint surface: SCITT-style signed tree heads
  * (`/v1/audit/org-reads/checkpoints/*`). Each cross-party admin read is
- * logged into a per-org Merkle log and periodically anchored.
+ * logged into a per-org Merkle log and periodically anchored on a schedule the Server sets.
  */
 export class OrgReadsCheckpointsResource {
   constructor(private readonly http: HttpClient) {}
@@ -26,9 +26,9 @@ export class OrgReadsCheckpointsResource {
   /**
    * List recent signed checkpoints for the calling org, newest first.
    *
-   * The result carries `checkpointing`, the sweep schedule. The sweep is
-   * time-driven, so an empty `data` with `lastCheckpointAt: null` is a log
-   * whose first sweep has not fired, not a missing checkpoint. Compare against
+   * The result carries `checkpointing`, the checkpoint schedule. Checkpoints
+   * are written periodically, so an empty `data` with `lastCheckpointAt: null`
+   * is a log whose first checkpoint has not been written, not a missing one. Compare against
    * {@link listReads}, which lists the leaves the checkpoints cover: nothing
    * there means nothing has been logged.
    */
@@ -48,8 +48,8 @@ export class OrgReadsCheckpointsResource {
    * in `leafIndex` order. One row per qualifying cross-party admin read.
    *
    * Read it alongside {@link list}: an empty listing here means no qualifying
-   * read has been logged, while rows here with no checkpoint mean the sweep has
-   * not run over them yet. Verify one row against a checkpoint with
+   * read has been logged, while rows here with no checkpoint mean no checkpoint
+   * has covered them yet. Verify one row against a checkpoint with
    * {@link OrgReadsCheckpointsResource.proof}, passing its `leafIndex`.
    */
   listReads(
@@ -100,8 +100,8 @@ export class OrgReadsCheckpointsResource {
 }
 
 /**
- * Vault checkpoint surface: per-record 6h signed Merkle anchors that survive
- * audit_vault TRUNCATE/DELETE. Pair with `records.getAuditExport()` to
+ * Vault checkpoint surface: per-record signed Merkle anchors, written
+ * periodically, that survive removed or rewritten chain entries. Pair with `records.getAuditExport()` to
  * cross-check the live chain against checkpoint anchors offline.
  */
 export class VaultCheckpointsResource {
@@ -110,8 +110,8 @@ export class VaultCheckpointsResource {
   /**
    * List vault checkpoints (optionally filtered to one record).
    *
-   * The result carries `checkpointing`, the sweep schedule. An empty `data`
-   * with `lastCheckpointAt: null` means the first sweep has not fired yet,
+   * The result carries `checkpointing`, the checkpoint schedule. An empty `data`
+   * with `lastCheckpointAt: null` means the first checkpoint has not been written yet,
    * which is the normal state of a fresh install and not a missing anchor.
    */
   async list(
@@ -134,8 +134,8 @@ export class VaultCheckpointsResource {
  *
  * - `orgReadsCheckpoints`: SCITT-style cross-party read proofs (one per
  *   org-admin cross-party read).
- * - `vaultCheckpoints`: per-record 6h signed Merkle anchors used to detect
- *   audit_vault truncation / out-of-band tampering offline.
+ * - `vaultCheckpoints`: per-record signed Merkle anchors, written
+ *   periodically, used to detect removed or rewritten chain entries offline.
  */
 export class AuditResource {
   readonly orgReadsCheckpoints: OrgReadsCheckpointsResource;

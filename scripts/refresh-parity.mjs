@@ -11,7 +11,7 @@
  * writing anything (wire it into CI against a known-good spec).
  *
  *   node scripts/refresh-parity.mjs --url http://localhost:3001/openapi.json
- *   node scripts/refresh-parity.mjs --spec ../agledger-api/openapi.json
+ *   node scripts/refresh-parity.mjs --spec <path-to-server>/openapi.json
  *   node scripts/refresh-parity.mjs --spec <path> --check   # exit 1 on drift
  *
  * The snapshots stay committed: they record which API version the SDK was last
