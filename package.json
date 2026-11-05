@@ -65,9 +65,6 @@
     "sdk",
     "ai-agent",
     "ai-governance",
-    "ai-safety",
-    "compliance",
-    "eu-ai-act",
     "mcp",
     "model-context-protocol"
   ],
