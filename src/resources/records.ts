@@ -205,9 +205,10 @@ export class RecordsResource {
    * into the canonical payload; the hash chain covers it.
    *
    * Pass `{ evidence: true }` to inline the completion evidence body at each
-   * COMPLETION_SUBMITTED entry's `evidence` field: an UNSIGNED
-   * projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON
-   * only. `{ receipts: true }` adds a SCITT Receipt per entry when the engine
+   * COMPLETION_SUBMITTED entry's `evidence` field, and the filed payload at
+   * each DISPUTE_EVIDENCE entry's: an UNSIGNED projection the chain binds by
+   * hash via `payload.evidenceHash` or `payload.payloadHash`, which
+   * `verifyExport` (`@agledger/sdk/verify`) re-checks. JSON/NDJSON only. `{ receipts: true }` adds a SCITT Receipt per entry when the engine
    * has a `VAULT_SIGNING_KEY`.
    */
   getAuditExport(

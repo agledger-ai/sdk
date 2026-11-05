@@ -63,9 +63,15 @@ export type {
  * entries from before the change seal the earlier key: give the list form an
  * entry's `history` (the peer's `discovery.getFederationKeys()`, read from the
  * peer) beside the key you pinned, and every key the history links to it
- * through successions both keys signed is trusted inside its window.
- * `federationWire.afterRetirement` counts messages under a key the peer had
- * retired before the receiver took them.
+ * through successions both keys signed is trusted inside its window, each
+ * message placed by its signed `wire.timestamp`. `federationWire.afterRetirement`
+ * counts messages the peer signed under a key it had already retired.
+ *
+ * On an export taken with `?evidence=true` (`records.getAuditExport(id, { evidence: true })`),
+ * each inlined evidence body is re-bound to the `payload.evidenceHash` or
+ * `payload.payloadHash` its entry signs (SHA-256 over RFC 8785); an edited body
+ * fails `CHAIN_EVIDENCE_BINDING_MISMATCH`. `result.evidenceBinding` counts
+ * them; an encrypted-mode completion is `clientHashed`, not re-bound.
  *
  * Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
  * `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can

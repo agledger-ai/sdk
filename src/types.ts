@@ -2809,12 +2809,14 @@ export interface AuditExportEntry {
   humanReadableLabel?: string;
   payload: Record<string, unknown>;
   /**
-   * Completion evidence body, present only when the export was fetched with
-   * `?evidence=true` AND this is a COMPLETION_SUBMITTED entry.
-   * UNSIGNED projection, bound to the chain by hash only: recompute SHA-256
-   * over the RFC 8785 (JCS) canonicalization of this object and compare against
-   * `payload.evidenceHash`. Encrypted-mode records inline the stored ciphertext
-   * envelope; their `evidenceHash` is client-supplied over the cleartext.
+   * Present only when the export was fetched with `?evidence=true`: the
+   * completion evidence body on a COMPLETION_SUBMITTED entry, or the filed
+   * payload on a DISPUTE_EVIDENCE entry. UNSIGNED projection, bound to the
+   * chain by hash only: SHA-256 over the RFC 8785 (JCS) canonicalization of
+   * this object is `payload.evidenceHash` (completion) or `payload.payloadHash`
+   * (dispute evidence), which `verifyExport` checks. Encrypted-mode records
+   * inline the stored ciphertext envelope; their `evidenceHash` is
+   * client-supplied over the cleartext.
    */
   evidence?: Record<string, unknown>;
   integrity: {
