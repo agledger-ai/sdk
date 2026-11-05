@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, expectTypeOf } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { generateKeyPairSync, hash, sign, type KeyObject } from 'node:crypto';
 import { encode as cborEncode, rfc8949EncodeOptions } from 'cborg';
-import { verifyExport } from '../verify/verify-export.js';
-import type { RecordAuditExport, AuditExportEntry } from '../types.js';
+import { verifyExport, type FederationKeyHistoryDocument } from '../verify/verify-export.js';
+import type { RecordAuditExport, AuditExportEntry, FederationKeyHistory } from '../types.js';
 
 /**
  * Minimal COSE_Sign1 envelope builder. Mirrors the engine-side encoder's
@@ -416,5 +416,30 @@ describe('verifyExport: an export after a dated distrust entry', () => {
     expect(result.keyTrust.notes.map((n) => n.detail)).toEqual([
       `distrustedKeys gives b649db0ec7c5c0fd the instant 2026-10-05T23:03:50.000000Z, and the listing says the Server distrusts it from ${FROM} (distrustedFrom, VAULT_DISTRUSTED_KEYS): the auditor's entry and the one the listing gives disagree, so what the key signed between the two instants is graded differently here than on the Server. Confirm the instant with the Server's operator.`,
     ]);
+  });
+});
+
+describe('verifyExport with a peer federation key history', () => {
+  // Served by a real Server rotated through three federation keys.
+  const history = JSON.parse(
+    readFileSync(new URL('./fixtures/federation-key-history/succession.json', import.meta.url), 'utf8'),
+  ) as FederationKeyHistory;
+  const newest = (JSON.parse(history.statements[2]!.payload) as { subject: { publicKey: string } }).subject.publicKey;
+  const exported = JSON.parse(
+    readFileSync(new URL('./fixtures/live-2.0.0/export-cert-lifecycle.json', import.meta.url), 'utf8'),
+  ) as RecordAuditExport;
+
+  it('takes discovery.getFederationKeys() output as the history, unchanged', () => {
+    expectTypeOf<FederationKeyHistory>().toMatchTypeOf<FederationKeyHistoryDocument>();
+    const r = verifyExport(exported, { federationKeys: [{ hubId: history.hubId!, publicKey: newest, history }] });
+    expect(r.federationWire).toEqual({ present: 0, verified: 0, failed: 0, afterRetirement: 0 });
+  });
+
+  it('refuses a history that was altered', () => {
+    const altered = structuredClone(history);
+    altered.statements[1]!.payload = altered.statements[1]!.payload.replace('04:22:03', '04:21:03');
+    expect(() => verifyExport(exported, { federationKeys: [{ hubId: history.hubId!, publicKey: newest, history: altered }] })).toThrow(
+      /does not hold/,
+    );
   });
 });

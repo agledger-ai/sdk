@@ -25,6 +25,7 @@ export type {
   FailureCode,
   AgentPublicKeyJwk,
   FederationKeyEntry,
+  FederationKeyHistoryDocument,
   DistrustedKey,
   KeyTrustReport,
   KeyTrustNote,
@@ -58,7 +59,13 @@ export type {
  * peer's Ed25519 federation key as its operator gives it) to also re-verify
  * the peer's signature, which proves what the peer asserted from this export
  * alone. `result.federationWire` counts present, verified and failed; a failure is
- * `CHAIN_FEDERATION_WIRE_INVALID`.
+ * `CHAIN_FEDERATION_WIRE_INVALID`. After a peer changes its federation key,
+ * entries from before the change seal the earlier key: give the list form an
+ * entry's `history` (the peer's `discovery.getFederationKeys()`, read from the
+ * peer) beside the key you pinned, and every key the history links to it
+ * through successions both keys signed is trusted inside its window.
+ * `federationWire.afterRetirement` counts messages under a key the peer had
+ * retired before the receiver took them.
  *
  * Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
  * `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can
