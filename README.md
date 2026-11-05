@@ -15,7 +15,7 @@ Two runtime dependencies, each used only by an opt-in entry point: `@agledger/ve
 
 ## Why AGLedger?
 
-Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the principal accepted the result. AGLedger records that decision; it does not judge the result itself. AGLedger provides the accountability record: what was agreed to, by whom, when, and the delegation of that agreement through other systems.
+Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the principal accepted the result. The principal makes that decision, and AGLedger records it in a signed, hash-chained ledger: the accountability record of what was agreed to, by whom, when, and the delegation of that agreement through other systems.
 
 - Notarize what was asked and who it was delegated to (Records)
 - Capture what was reported to be done (Completions)
@@ -93,8 +93,8 @@ for (let i = 0; i < 30; i++) {
   await new Promise((r) => setTimeout(r, 1000));
 }
 
-// The principal decides whether to accept. AGLedger records the verdict and
-// does not inspect the evidence.
+// The principal decides whether to accept, and AGLedger records the verdict
+// beside the evidence it was given.
 const verdict = await principal.records.submitVerdict(record.id, {
   completionId: completion.id,
   verdict: 'accept',
