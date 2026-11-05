@@ -79,10 +79,10 @@ console.log(record.signedStatement?.chainPosition, record.signedStatement?.leafH
 const completion = await performer.completions.submit(record.id, {
   evidence: {
     // `summary` is required by the seeded completionSchema; the rest is yours.
-    summary: 'Exported 487,231 rows to the nightly parquet target',
+    summary: 'Exported 512,408 rows to the nightly parquet target',
     deliverable: '/data/exports/2026-03-10.parquet',
     deliverable_type: 'file_ref',
-    row_count: 487_231,
+    row_count: 512_408,
   },
 });
 
@@ -93,6 +93,8 @@ for (let i = 0; i < 30; i++) {
   await new Promise((r) => setTimeout(r, 1000));
 }
 
+// The principal decides whether to accept. AGLedger records the verdict and
+// does not inspect the evidence.
 const verdict = await principal.records.submitVerdict(record.id, {
   completionId: completion.id,
   verdict: 'accept',
@@ -121,8 +123,8 @@ const client = new AgledgerClient({
 });
 ```
 
-The client reads no environment variables. To keep the URL and key out of
-source, read them yourself and pass them in:
+Pass the URL and key to the client as options. To keep them out of source,
+read them from your environment and pass them in:
 
 ```typescript
 const client = new AgledgerClient({
@@ -612,16 +614,9 @@ on the chain entry it writes for it (`payload.wire` on its `FEDERATION_*`
 entries), as the peer signed it. Every sealed message is held to its body hash
 and to its entry; pass the peer's federation key as `federationKeys`
 (`{ [hubId]: key }`, the key as the peer's operator gives it) to also
-re-verify the peer's signature, which checks the peer's signature over what it asserted, from this
+re-verify the peer's signature over what it asserted, from this
 export alone. `checked.federationWire` counts `present`, `verified` and `failed`, and a
 sealed message that does not hold fails `CHAIN_FEDERATION_WIRE_INVALID`.
-
-## What verification does not prove
-
-- **That the work was good or true.** AGLedger records what was asked, what was submitted and the principal's verdict. It does not inspect deliverable content, and a pass says nothing about it.
-- **That nothing is missing at the ends.** The chain is checked from its first entry to its last. Entries removed from the end, or an export or dump withheld whole, show up only against a signed checkpoint or a copy you already hold.
-- **That a trusted key was never misused.** Anchoring proves each signing key links back to a key you pinned. Whoever holds a trusted key's private half can sign entries that verify. A compromise is accounted for after the fact by distrusting the key (`distrustedKeys`) from the instant it leaked.
-- **Anything, without a trust anchor.** An unanchored pass shows only that the export agrees with the keys it carries itself.
 
 ## SCITT / SCRAPI
 
