@@ -416,6 +416,9 @@ export type {
 
   // Federation: Peers
   FederationPeer,
+  FederationKeyHistory,
+  FederationKeyHistoryKey,
+  FederationKeyStatement,
   FederationPeerStatus,
   FederationPeerStatusFilter,
   ListPeersParams,

@@ -72,6 +72,7 @@ export class ConfigurationError extends AgledgerError {
  *   rebuild kit a 400 carries when a Record or Completion body failed its schema
  * - `hint`: the 404's pointer at what to list or create instead
  * - `attemptedAction` / `attemptedTransition` / `attemptedState`: what a 422 refused
+ * - `inapplicableFields`: the fields a 422 `notarize_only_field` refused on a notarize-only create
  * - `retryAfter`: milliseconds the Server or a proxy asked the client to wait, from the
  *   `Retry-After` header on any status (a 429 body's `retryAfterSeconds` fills it too)
  */
@@ -223,6 +224,8 @@ export class AgledgerApiError extends AgledgerError {
   readonly constraintViolations?: Record<string, unknown>[];
   /** Name of the single constraint a 400 or 422 broke, when it was one. */
   readonly constraint?: string;
+  /** Fields a 422 `notarize_only_field` refused: drop them and re-send the create. */
+  readonly inapplicableFields?: string[];
   /** The JSON type or value a validation error expected. */
   readonly expected?: string;
   /** License features the current tier lacks, on a 403 license refusal. */
@@ -321,6 +324,7 @@ export class AgledgerApiError extends AgledgerError {
     this.allowedActors = body.allowedActors;
     this.constraintViolations = body.constraintViolations;
     this.constraint = body.constraint;
+    this.inapplicableFields = body.inapplicableFields;
     this.expected = body.expected;
     this.missingFeatures = body.missingFeatures;
     this.currentTier = body.currentTier;

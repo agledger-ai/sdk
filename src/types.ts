@@ -745,18 +745,12 @@ export interface SchemaExportVersion {
 }
 
 /**
- * A third-party schema manifest for `POST /v1/schemas/import`
- * (DESIGN-SCHEMA-CATALOG.md §4). The manifest is JCS-canonicalized and
- * SHA-256 hashed server-side; the digest persists on the subject row so
- * federation peers can verify schema equality by digest, not name. The API
- * rejects unknown manifest keys (`additionalProperties: false`).
- */
-/**
  * Response of `schemas.getManifest()`: this Server's registration of a type,
  * shaped exactly as `schemas.import_()` accepts it.
  *
  * The bytes are JCS-canonicalized before hashing, so `manifestDigest` matches
- * what a peer computes on import. Mirror a schema by handing both to the peer.
+ * what a peer computes on import. Mirror a schema by passing the whole response
+ * to the peer's `import_()`, which sends the digest for the Server to check.
  */
 export interface SchemaManifestExport {
   manifest: SchemaManifest;
@@ -765,6 +759,12 @@ export interface SchemaManifestExport {
   nextSteps?: NextStep[];
 }
 
+/**
+ * A third-party schema manifest for `POST /v1/schemas/import`. The manifest is
+ * JCS-canonicalized and SHA-256 hashed server-side; the digest persists on the
+ * subject row so federation peers can verify schema equality by digest, not
+ * name. The API rejects unknown manifest keys (`additionalProperties: false`).
+ */
 export interface SchemaManifest {
   /** Envelope version (currently `"1.0"`). */
   manifestVersion: string;
@@ -804,6 +804,12 @@ export interface ListSchemasParams extends ListParams {
 export interface SchemaImportParams {
   /** Override target org (platform keys only). */
   orgId?: string;
+  /**
+   * `sha256:<hex>` digest the manifest must hash to (JCS-canonicalized), as
+   * `schemas.getManifest()` returns it. A mismatch is refused with 400 and
+   * nothing is written. Omit to import without the check.
+   */
+  manifestDigest?: string;
   /** Whether this engine exposes the schema to federated peer hubs. Default true. */
   federatable?: boolean;
   /** V1 sharing default for records of this type. Omit to inherit the global default. */
@@ -927,6 +933,13 @@ export interface SchemaVersionDetail {
   manifestDigest?: string;
   /** `local` for `POST /v1/schemas`; `imported` for `POST /v1/schemas/import`. */
   trustClass?: 'local' | 'imported';
+  /**
+   * On `schemas.versions()` rows: true on the version a create that omits
+   * `contractVersion` binds under this row's `publisher` (the highest the org
+   * registered, whatever its status, or the highest platform-scoped one when
+   * the org has none).
+   */
+  current?: boolean;
   federatable?: boolean;
   defaultShare?: boolean | null;
   defaultGateMode?: GateMode | null;
@@ -1173,8 +1186,13 @@ export interface RecordRow {
   deadline?: string | null;
   /** Operating mode: cleartext (default) or encrypted. */
   operatingMode?: OperatingMode;
-  /** Gate mode: auto (auto-settles against the principal's pre-configured predicates), or principal (engine advisory pass, then the principal renders accept/reject). */
-  gateMode?: GateMode;
+  /**
+   * Gate mode: auto (auto-settles against the principal's pre-configured
+   * predicates), or principal (engine advisory pass, then the principal renders
+   * accept/reject). Null on a notarize-only Record (status `RECORDED`), which
+   * has no gate.
+   */
+  gateMode?: GateMode | null;
   /** EU AI Act risk classification. */
   riskClassification?: RiskClassification;
   /** EU AI Act high-risk domain (only when riskClassification=high). */
@@ -1231,12 +1249,12 @@ export interface RecordRow {
   maxSubmissions: number | null;
   /** Number of revisions consumed by RESUBMIT_COMPLETION calls. */
   revisionCount?: number;
-  /** Maximum revisions allowed before OVERFLOW_REJECT (default 3). */
-  maxRevisions?: number;
+  /** Maximum revisions allowed before OVERFLOW_REJECT (default 3). Null on a notarize-only Record, which takes no completion to revise. */
+  maxRevisions?: number | null;
   /** Number of disputes opened against this Record. */
   disputeCount?: number;
-  /** Maximum disputes allowed (default 1 in v1). */
-  maxDisputes?: number;
+  /** Maximum disputes allowed (default 1). Null on a notarize-only Record. */
+  maxDisputes?: number | null;
   /** True iff a deadline is set AND has passed. */
   pastDeadline?: boolean;
   /** Optimistic concurrency version. */
@@ -1982,8 +2000,8 @@ export interface GateStatus {
    * federation projection.
    */
   recommendation?: 'SETTLE' | 'HOLD' | 'RELEASE' | null;
-  /** Whether the engine renders the verdict or a principal does. */
-  gateMode?: 'auto' | 'principal';
+  /** Whether the engine renders the verdict or a principal does. Null on a notarize-only Record, which has no gate. */
+  gateMode?: 'auto' | 'principal' | null;
   /** Who rendered the standing verdict, or null when none has been. */
   reporterType?: 'system' | 'principal' | 'accessor' | null;
   /** Org-admin cross-party reads only: the chain entry this read appended. */
@@ -3634,6 +3652,11 @@ export interface ConformanceResponse {
     ephemeralCerts?: boolean;
     trustedIssuers?: boolean;
     agentSignatureCoSign?: boolean;
+    /**
+     * This Server can complete a federation handshake (instance id and
+     * federation signing key configured). Says nothing about peers.
+     */
+    federation?: boolean;
     [key: string]: boolean | string[] | undefined;
   };
   /** Number of registered contract types in this org. */
@@ -4829,6 +4852,12 @@ export interface ApiErrorResponse {
   allowedActors?: string[];
   /** Reason code for 409 conflicts. */
   reason?: string;
+  /**
+   * The request fields a 422 `reason: notarize_only_field` refused (`deadline`,
+   * `gateMode`, `maxSubmissions`, `maxRevisions`): fields only a Type with a
+   * completion phase gives meaning. Drop them and re-send.
+   */
+  inapplicableFields?: string[];
   /**
    * The Record deadline that had already passed when the request was refused,
    * on the system TIME_OUT 422 (API v1.3.2). Pairs with `terminalReason` /
@@ -6394,6 +6423,15 @@ export interface FederationPeer {
   status: FederationPeerStatus;
   createdAt: string;
   /**
+   * The peer's federation public key this Server holds (base64 SPKI DER),
+   * registered by the handshake. Inbound messages from the peer verify under
+   * it while the row is active, and it is the `wire.senderPublicKey` a
+   * receipt seals on this Server's chain. A row keeps one key for its life:
+   * a peer key change is revoke, delete and a new handshake. Sent by a
+   * Server 2.2 or later.
+   */
+  signingPublicKey?: string;
+  /**
    * Failed delivery attempts since the last success, reset to 0 on a 2xx. Not
    * purely a reachability count: a peer that answers and rejects the payload
    * counts here too, because the message did not get through either way.
@@ -6407,6 +6445,69 @@ export interface FederationPeer {
   lastDeliveryAt?: string | null;
   /** Why the most recent delivery attempt failed, cleared on the next success. */
   lastDeliveryError?: string | null;
+}
+
+/** One federation signing key in {@link FederationKeyHistory}, with the window its statements sign. */
+export interface FederationKeyHistoryKey {
+  /** Base64 SPKI DER of the Ed25519 key, the form a sealed `senderPublicKey` takes. */
+  publicKey: string;
+  /** Lowercase hex SHA-256 of the SPKI DER. */
+  spkiSha256: string;
+  /** First 16 hex characters of `spkiSha256`. */
+  keyId: string;
+  /**
+   * When the key took over (RFC 3339, microseconds). Null on a key whose
+   * genesis names no predecessor: it may have signed before its history began.
+   */
+  activatedAt: string | null;
+  /** When the next key took over. Null on the newest key. */
+  retiredAt: string | null;
+  status: 'active' | 'retired' | (string & {});
+  /**
+   * True when the newest key reaches this one through successions each signed
+   * by both keys. False behind a genesis that names its predecessor without the
+   * predecessor's signature: check such a key against one you pinned.
+   */
+  linked: boolean;
+  /** The statement in `statements` that admits the key. Null for a key named only as a predecessor. */
+  statementId: string | null;
+}
+
+/** A signed statement linking federation keys in {@link FederationKeyHistory}. */
+export interface FederationKeyStatement {
+  id: string;
+  kind: 'genesis' | 'succession' | (string & {});
+  /**
+   * The RFC 8785 (JCS) bytes the signatures cover: `typ`, `hubId`, `subject`
+   * `{publicKey, spkiSha256, activatedAt}` and, except on a first key,
+   * `predecessor` `{publicKey, spkiSha256, retiredAt}`.
+   */
+  payload: string;
+  /** Hex Ed25519 signature under `subject.publicKey`, over `statementDomain + ":" + payload`. */
+  subjectSignature: string;
+  /** Hex Ed25519 signature under `predecessor.publicKey` on a succession; null on a genesis. */
+  predecessorSignature: string | null;
+  createdAt: string;
+}
+
+/**
+ * `GET /.well-known/agledger-federation-keys.json`: the federation signing keys
+ * a Server has held, each with its validity window, and the signed statements
+ * linking them. A receiver uses it to verify an entry sealed under the
+ * publisher's earlier key: pick the key whose window covers the entry's receipt
+ * time, then walk successions from it to a key you pinned for that Server.
+ */
+export interface FederationKeyHistory {
+  /** This Server's instance id. Null while federation is not configured. */
+  hubId: string | null;
+  /** `sha256:<hex>` of the serving process's federation key, where the walk starts. Null while not configured. */
+  anchoredFrom: string | null;
+  /** The prefix every statement signature signs (`agledger.federation.key-statement.v1`). */
+  statementDomain: string;
+  /** Newest first. */
+  keys: FederationKeyHistoryKey[];
+  /** In write order. */
+  statements: FederationKeyStatement[];
 }
 
 /** Parameters for listing known peer servers (`GET /federation/v1/admin/peers`). */

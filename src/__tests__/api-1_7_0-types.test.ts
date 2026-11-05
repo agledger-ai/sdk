@@ -151,7 +151,7 @@ describe('v1.7.0: gate-status carries the decision, not just the phases', () => 
 
   it('carries the verdict, the recommendation, the mode and the reporter', () => {
     expectTypeOf<'RELEASE'>().toMatchTypeOf<NonNullable<GateStatus['recommendation']>>();
-    expectTypeOf<GateStatus['gateMode']>().toEqualTypeOf<'auto' | 'principal' | undefined>();
+    expectTypeOf<GateStatus['gateMode']>().toEqualTypeOf<'auto' | 'principal' | null | undefined>();
     expectTypeOf<'accessor'>().toMatchTypeOf<NonNullable<GateStatus['reporterType']>>();
     expectTypeOf<null>().toMatchTypeOf<GateStatus['verdict']>();
   });
