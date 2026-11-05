@@ -279,8 +279,8 @@ describe('SDK integration: response shape validation', async () => {
   });
 
   it('admin.getFleetCapabilities() returns data and total, with no cursor', async () => {
-    if ((await client.auth.getMe()).ownerType === 'agent') return;
-    const list = await client.admin.getFleetCapabilities();
+    if (!PLATFORM_KEY) return;
+    const list = await platformClient().admin.getFleetCapabilities();
     assertListing(list, 'admin.getFleetCapabilities');
   });
 
