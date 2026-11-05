@@ -2266,8 +2266,7 @@ export interface Webhook {
   /**
    * Delivery signing scheme. `hmac` (shared secret, default) or `ed25519`
    * (RFC 9421 HTTP Message Signatures signed with the Server vault key,
-   * verifiable against /v1/verification-keys: non-repudiation, no shared
-   * secret). Verify ed25519 deliveries with `verifyRfc9421` from
+   * verifiable against /v1/verification-keys, with no shared secret). Verify ed25519 deliveries with `verifyRfc9421` from
    * `@agledger/sdk/webhooks`.
    *
    * `ecdsa-p256-sha256` is the FIPS-mode counterpart of `ed25519`: same RFC

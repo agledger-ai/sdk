@@ -52,7 +52,7 @@ export class FederationResource {
 
   /**
    * Relay a Settlement Signal (SETTLE / HOLD) to a counterparty peer.
-   * The receiver co-signs the signal for non-repudiation. A receiver that
+   * The receiver co-signs the signal, so both Servers' signatures cover it. A receiver that
    * registered the record's type with `coSignRequired: true` refuses a signal
    * without `counterSignature` with 422, `retryable: false`, reason
    * `co_sign_required`. The receiver refuses any field `RelaySignalParams`
