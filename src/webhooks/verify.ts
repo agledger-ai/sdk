@@ -188,7 +188,8 @@ export function verifySignature(
 // vault key). Deliveries are signed with the Server vault key as RFC 9421 HTTP
 // Message Signatures; the receiver verifies against the published public key at
 // GET /v1/verification-keys (matched by the `keyid` parameter) and holds no
-// secret: non-repudiation for the Settlement Signal hop. This is distinct from
+// secret, so it can check the Server's signature on a Settlement Signal on its
+// own. This is distinct from
 // the HMAC path above. The verification algorithm is dispatched from the
 // resolved key's type, never from the attacker-writable `alg` parameter; `alg`
 // is asserted against the key via the `algs` allowlist.
