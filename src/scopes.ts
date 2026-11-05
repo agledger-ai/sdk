@@ -63,7 +63,7 @@ export const Scopes = {
 
 export type Scope = (typeof Scopes)[keyof typeof Scopes];
 
-/** Scope profile definition (mirrors the API's SCOPE_PROFILES entry). */
+/** Scope profile definition (mirrors an entry of the Server's scope profiles). */
 export interface ScopeProfile {
   name: string;
   description: string;
@@ -73,7 +73,7 @@ export interface ScopeProfile {
 }
 
 /**
- * Pre-defined scope profiles: one-to-one with agledger-api's SCOPE_PROFILES.
+ * Pre-defined scope profiles: one-to-one with the Server's scope profiles (`GET /v1/scope-profiles`).
  *
  * Admin profiles require role='admin'; agent profiles require role='agent'.
  * Platform keys bypass scope profiles entirely.

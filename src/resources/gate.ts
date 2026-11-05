@@ -8,7 +8,7 @@ export class GateResource {
    * Trigger an on-demand gate evaluation for a Record, optionally scoped to
    * specific completion IDs. In `principal` mode this produces an advisory
    * result the principal can review before submitting their verdict; in `auto`
-   * mode the engine verdict is already final.
+   * mode the Server verdict is already final.
    */
   evaluate(recordId: string, completionIds?: string[], options?: RequestOptions): Promise<GateEvaluationResult> {
     return this.http.post<GateEvaluationResult>(

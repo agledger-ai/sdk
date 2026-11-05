@@ -29,12 +29,10 @@ import type { CompletionsResource } from '../resources/completions.js';
 /**
  * API v1.7.0 client-facing deltas.
  *
- * The wave that carried the 1.7.0 client sync was prepared against an untagged
- * API commit, and the tag landed sixteen commits later. Everything below is a
- * delta between those two specs, so none of it was covered by the round that
- * validated the wave. Two of them are 400s rather than missing fields: three
- * admin listings dropped `offset`, and the status filters became strict enums
- * over sets that had just lost a member.
+ * These types pin the shapes that changed in the Server's 1.7.0 spec. Two of
+ * the changes are 400s rather than missing fields: three admin listings
+ * dropped `offset`, and the status filters became strict enums over sets that
+ * had just lost a member.
  *
  * Type-only, so vitest running this file proves nothing on its own. What checks
  * it is `npm run typecheck`, which compiles this file through
@@ -65,7 +63,7 @@ describe('v1.7.0: a Settlement Signal answers which peer did what', () => {
 
 describe('v1.7.0: status filters are closed, the statuses they filter on are not', () => {
   /**
-   * The distinction the testbed round asked for. A response union stays open so
+   * The distinction that matters here. A response union stays open so
    * a status the Server ADDS still types; a filter is the other direction, and
    * the querystring is a strict enum server-side. `PENDING_ARBITRATION` is the
    * case that pays for it: 1.7.0 removed it, and against an open filter union a

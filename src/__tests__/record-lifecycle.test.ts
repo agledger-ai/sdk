@@ -31,7 +31,7 @@ describe('RECORD_TRANSITIONS', () => {
   });
 
   it('is the graph GET /lifecycle serves', () => {
-    // agledger-api 5444a54f, `record.states[s].validTransitions`: the union
+    // Server 2.0.0, `record.states[s].validTransitions`: the union
     // over both values of flipRecordStatusOnDispute. A dispute reopens a
     // terminal outcome, and REMEDIATED is reached only from DISPUTED.
     expect(RECORD_TRANSITIONS).toEqual({

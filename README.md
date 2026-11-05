@@ -4,7 +4,7 @@ The official TypeScript SDK for [AGLedger](https://agledger.ai): change control 
 
 Requires an AGLedger Server 2.0 or later. For a 1.x Server, use `npm i @agledger/sdk@1.12.0`, the last release that supports it.
 
-Two runtime dependencies, each used only by an opt-in entry point: `@agledger/verify-core` (offline chain verification in `@agledger/sdk/verify`, and the signature primitives behind `@agledger/sdk/webhooks`) and `http-message-signatures` (RFC 9421 webhook verification in `@agledger/sdk/webhooks`). The core client uses `fetch` and `node:crypto`, nothing else. TypeScript strict. Requires Node.js 24+ (also runs on Deno and Bun).
+Two runtime dependencies, each used only by an opt-in entry point: `@agledger/verify-core` (offline chain verification in `@agledger/sdk/verify`, and the signature primitives behind `@agledger/sdk/webhooks`) and `http-message-signatures` (RFC 9421 webhook verification in `@agledger/sdk/webhooks`). The core client uses `fetch` and `node:crypto`, nothing else. TypeScript strict. Requires Node.js 24+.
 
 **Learn more**
 
@@ -15,7 +15,7 @@ Two runtime dependencies, each used only by an opt-in entry point: `@agledger/ve
 
 ## Why AGLedger?
 
-Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the result met expectations. AGLedger provides the accountability record: what was agreed to, by whom, when, and the delegation of that agreement through other systems.
+Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the principal accepted the result. AGLedger records that decision; it does not judge the result itself. AGLedger provides the accountability record: what was agreed to, by whom, when, and the delegation of that agreement through other systems.
 
 - Notarize what was asked and who it was delegated to (Records)
 - Capture what was reported to be done (Completions)
@@ -86,7 +86,7 @@ const completion = await performer.completions.submit(record.id, {
   },
 });
 
-// The worker validates the completion, then holds the Record at PROCESSING
+// The Server validates the completion, then holds the Record at PROCESSING
 // until the principal renders its verdict.
 for (let i = 0; i < 30; i++) {
   if ((await principal.records.get(record.id)).status === 'PROCESSING') break;
@@ -289,7 +289,7 @@ try {
 
 Branch on `err.type`, not on the message. Schema reads take the same pin (`client.schemas.get('acme-po-v1', { publisher: 'acme-corp' })`), and `client.schemas.list()` returns one row per (publisher, type) so you can choose before reading.
 
-Every Record reports the binding the engine used, whether or not you pinned it:
+Every Record reports the binding the Server used, whether or not you pinned it:
 
 ```typescript
 const record = await client.records.get(id);
@@ -297,7 +297,7 @@ record.publisher;  // 'acme-corp', or null (see below)
 record.schemaUrl;  // '/v1/schemas/acme-po-v1?publisher=acme-corp'. Follow it verbatim.
 ```
 
-`publisher` is `null` on Records the engine never validated against a local registration: federation-received ones (the originator ran the gate against its own registration) and ones backfilled through admin import. Read that as "ask the originator", not as "the schema is missing here".
+`publisher` is `null` on Records the Server never validated against a local registration: federation-received ones (the originator ran the gate against its own registration) and ones backfilled through admin import. Read that as "ask the originator", not as "the schema is missing here".
 
 Single-publisher orgs, which is nearly every install, never pass `publisher` and read their one label (usually `local`) back.
 
@@ -469,13 +469,18 @@ const result = verifyExport(exportData, {
   trustAnchors: ['sha256:15d63684b387235c47fe3a81e3004b928f4ea535236a2c1b47465ce5fdd7ce0e'],
 });
 
-if (!result.valid) {
+if (result.verdict === 'failed' && result.brokenAt) {
   console.error(
-    `Broken at position ${result.brokenAt?.position}: ${result.brokenAt?.code}`,
+    `Broken at position ${result.brokenAt.position}: ${result.brokenAt.code}`,
   );
 }
+console.log(result.verdict); // 'trusted'; 'unanchored' without trustAnchors; 'failed' on a break
 console.log(result.keyTrust.status); // 'walked'; 'no_anchor' or 'no_anchored_signature' when unanchored
 ```
+
+Read `result.verdict` (`'trusted'`, `'unanchored'` or `'failed'`) rather than
+`result.valid` alone: a valid result with no `trustAnchors` is `'unanchored'`,
+which is not a trusted verdict.
 
 Decodes canonical COSE_Sign1 envelopes (RFC 9052, tag 18), walks the hash
 chain, and verifies the signature over each `Sig_structure` under the algorithm
@@ -507,13 +512,14 @@ statements the export carries from it:
   `result.keyTrust.findings`; it fails the result at position 0 when the chain
   itself is intact, and when the chain also breaks `brokenAt` is the chain
   failure;
-- `distrustedKeys` takes the operator's `VAULT_DISTRUSTED_KEYS` entries
+- `distrustedKeys` takes the same entries the operator sets in the Server's
+  `VAULT_DISTRUSTED_KEYS`
   (`sha256:<hex>`, optionally `@<RFC 3339 instant>`): what such a key signed
   from that instant counts for nothing, and a key statement it signed counts
   for nothing at any instant, because the write times an export carries are
   not signed. It is read only with `trustAnchors`,
   and passing it without them throws `TypeError`. A dated entry may sit beside
-  a pin for the same key, as the Server's key-compromise runbook uses it (the
+  a pin for the same key, as a key-compromise response uses it (the
   pin vouches for what the key signed before the instant); an entry with no
   instant beside a pin for the same key throws `TypeError`, as the Server
   refuses to start with that pair. An export accounts for nothing a distrusted
@@ -537,7 +543,7 @@ still be true; it then says the chain is intact against keys nobody pinned.
 With `trustAnchors`, a run in which no signature verified under an anchored
 key, as for an export of unsigned history, is `'no_anchored_signature'`, and is
 no more trusted. Treat both alike as unanchored, and a chain as trusted only
-when `valid` is true and `keyTrust.status` is `'walked'`. The export's `exportMetadata.anchoredFrom` names the Server's own
+when `verdict` is `'trusted'` (`valid` is true and `keyTrust.status` is `'walked'`). The export's `exportMetadata.anchoredFrom` names the Server's own
 key; `keyTrust.anchoredFromPinned` says whether it is one of your anchors, and
 it never counts as one.
 
@@ -652,8 +658,8 @@ const bundle = await client.records.getAttestationBundle(recordId);
 
 ## Vault Checkpoints
 
-Per-record signed Merkle anchors are emitted every 6 hours, letting an auditor
-detect audit-vault TRUNCATE / DELETE tampering offline. Listing them takes an
+The Server periodically writes per-record signed Merkle anchors, letting an
+auditor detect removed or rewritten chain entries offline. Listing them takes an
 org admin key; an agent key gets 403 `WRONG_STRUCTURAL_ROLE`:
 
 ```typescript
