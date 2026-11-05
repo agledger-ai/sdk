@@ -15,7 +15,7 @@ Two runtime dependencies, each used only by an opt-in entry point: `@agledger/ve
 
 ## Why AGLedger?
 
-Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the principal accepted the result. The principal makes that decision, and AGLedger records it in a signed, hash-chained ledger: the accountability record of what was agreed to, by whom, when, and the delegation of that agreement through other systems.
+Enterprises deploying AI agents need to know what each agent was asked to do, what it actually did, and whether the result was accepted. Acceptance is yours to decide: a principal or its agent renders the verdict, or the Gate applies the rules you registered on the contract type. AGLedger holds the criteria, the evidence and the verdict in a signed, hash-chained ledger: the accountability record of what was agreed to, by whom, when, and the delegation of that agreement through other systems.
 
 - Notarize what was asked and who it was delegated to (Records)
 - Capture what was reported to be done (Completions)
@@ -93,8 +93,8 @@ for (let i = 0; i < 30; i++) {
   await new Promise((r) => setTimeout(r, 1000));
 }
 
-// The principal decides whether to accept, and AGLedger records the verdict
-// beside the evidence it was given.
+// The principal renders the verdict (in `auto` gate mode, the Gate applies the
+// rules registered on the type instead). AGLedger signs it into the record.
 const verdict = await principal.records.submitVerdict(record.id, {
   completionId: completion.id,
   verdict: 'accept',
