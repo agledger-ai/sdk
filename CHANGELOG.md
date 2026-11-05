@@ -694,7 +694,7 @@ Semver note: this is a minor, not a major, because the removed/reshaped import s
 
 ### Changed
 
-- Docs only: removed em-dashes from the README prose and the package.json description (writing-style sweep). Rewrote each sentence rather than swapping the glyph. No code, type, or runtime change.
+- Documentation wording.
 
 ## [1.0.5] - 2026-06-29
 
