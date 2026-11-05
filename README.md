@@ -44,7 +44,7 @@ agent with its own key, so the walk-through below runs two clients.
 ```typescript
 import { AgledgerClient } from '@agledger/sdk';
 
-const baseUrl = process.env.AGLEDGER_EXTERNAL_URL!; // your AGLedger instance URL
+const baseUrl = process.env.AGLEDGER_API_URL!; // your AGLedger instance URL
 const principal = new AgledgerClient({ apiKey: process.env.AGLEDGER_API_KEY!, baseUrl });
 const performer = new AgledgerClient({ apiKey: process.env.AGLEDGER_PERFORMER_API_KEY!, baseUrl });
 
@@ -121,12 +121,17 @@ const client = new AgledgerClient({
 });
 ```
 
-Set `AGLEDGER_EXTERNAL_URL` in your environment to avoid hardcoding the URL:
+The client reads no environment variables. To keep the URL and key out of
+source, read them yourself and pass them in:
 
-```bash
-export AGLEDGER_API_KEY=agl_agt_...
-export AGLEDGER_EXTERNAL_URL=https://agledger.internal.example.com
+```typescript
+const client = new AgledgerClient({
+  apiKey: process.env.AGLEDGER_API_KEY!,
+  baseUrl: process.env.AGLEDGER_API_URL!,
+});
 ```
+
+The examples below use `client` for a client built this way.
 
 ## OIDC workload identity
 
@@ -143,7 +148,7 @@ it is still valid), and re-exchanges once if the Server refuses the cert with
 import { AgledgerClient, oidcCertCredential } from '@agledger/sdk';
 
 const client = new AgledgerClient({
-  baseUrl: process.env.AGLEDGER_EXTERNAL_URL!,
+  baseUrl: process.env.AGLEDGER_API_URL!,
   bearerToken: oidcCertCredential({
     // Called on every exchange, and must return a fresh token each time: the
     // Server accepts each token id once. Here, your IdP's token endpoint.
@@ -199,7 +204,7 @@ IdP directly:
 import { AgledgerClient } from '@agledger/sdk';
 
 const admin = new AgledgerClient({
-  baseUrl: process.env.AGLEDGER_EXTERNAL_URL!,
+  baseUrl: process.env.AGLEDGER_API_URL!,
   // Called before every request; the client caches nothing.
   bearerToken: async () => (await fetch(process.env.ADMIN_OIDC_TOKEN_URL!)).text(),
 });
@@ -213,7 +218,7 @@ reusable either way.
 
 ## Features
 
-- **Stripe-style client** with resource sub-clients (`client.records`, `client.completions`, etc.)
+- **Resource-oriented client** with sub-clients (`client.records`, `client.completions`, etc.)
 - **Automatic retries** with exponential backoff + jitter for 429/5xx errors
 - **API keys or OIDC workload identity**: `oidcCertCredential` exchanges your IdP's token for a short-lived cert, refreshes it, and signs request bodies
 - **Idempotency keys** auto-generated for all mutating requests, plus per-item `idempotencyKey` on bulk-create for replay-safe high-volume ingest
@@ -240,7 +245,7 @@ reusable either way.
 | `client.compliance` | Compliance exports, EU AI Act assessments, SIEM stream |
 | `client.audit` | Org-admin reads checkpoints (SCITT-style signed tree heads) |
 | `client.auth` | `GET /v1/auth/me` + key rotation |
-| `client.discovery` | Unauthenticated metadata: `getScopeProfiles()`, protocol conformance (`getConformance()`), `getLifecycle()` |
+| `client.discovery` | Unauthenticated metadata: `getScopeProfiles()`, protocol conformance (`getConformance()`), `getLifecycle()`, and the Server's federation key history (`getFederationKeys()`, needs a Server 2.2 or later) |
 | `client.health` | Instance health and status |
 | `client.admin` | Admin operations (org + agent + API-key provisioning, vault, DLQ, system health, plus `admin.records.{list, import}` and `admin.vault.{anchors, scan, signingKeys}`) |
 | `client.a2a` | A2A Protocol support (AgentCard, JSON-RPC 2.0) |
@@ -264,7 +269,7 @@ Every new org is auto-seeded (best-effort, idempotent) with four **editable** sa
 | `terminal-outcome-v1` | Auto-gate child of the two-record pattern (gate on `terminalState`) |
 | `delegated-workflow-v1` | Delegation-chain root; notarize-only, multi-agent via `parentRecordId` |
 
-The canonical set for your org is always `client.schemas.list()` (empty on a fresh install if the samples were deleted). Register and manage your own Types via the Schema Development Toolkit (`client.schemas.register()`, `preview()`, `import_()`, `exportSchema()`, `disable()`/`enable()`).
+The canonical set for your org is always `client.schemas.list()` (empty on a fresh install if the samples were deleted). Register and manage your own Types via the Schema Development Toolkit (`client.schemas.register()`, `preview()`, `import_()`, `exportSchema()`, `disable()`/`enable()`). `import_()` accepts a peer's whole `getManifest()` response and sends its `manifestDigest`, so the Server refuses a manifest that does not hash to it. Needs a Server 2.2 or later.
 
 ### When two publishers offer the same Type
 
@@ -406,8 +411,8 @@ if (!isValid) return res.status(401).end();
 
 **Asymmetric** (`signingAlg: 'ed25519'` or `'ecdsa-p256-sha256'`) is RFC 9421
 HTTP Message Signatures signed with the Server's vault key. The receiver holds
-no secret and verifies against the Server's published public key, giving
-non-repudiation for the Settlement Signal hop. Settlement-event subscriptions
+no secret and verifies against the Server's published public key, so the
+receiver can verify the Server's signature without holding a shared secret. Settlement-event subscriptions
 default to this when the Server has a vault signing key. The wire `alg`
 reflects the Server's active key; `verifyRfc9421` handles both.
 
@@ -458,7 +463,8 @@ never as evidence it was legitimate. Catch it explicitly: on Express 4 or plain
 
 ## Offline Audit Export Verification
 
-Verify a Record's hash-chained, signed audit export without calling the API:
+Verify a Record's hash-chained, signed audit export without calling the API. The
+examples here use `client` from Configuration and `record` from the Quick Start.
 
 ```typescript
 import { verifyExport } from '@agledger/sdk/verify';
@@ -498,8 +504,9 @@ CBOR dependency (`cborg`); no network.
 The keys an export embeds, and the ones `GET /v1/verification-keys` serves,
 come from the Server's database. A chain that verifies against them is
 consistent with that database, and a key written into the database alone
-would pass. What cannot be written that way is a signed key statement: each
-key is admitted by a statement a key the Server already trusted signed. Pin
+would pass. What a database write alone cannot produce is a signed key statement: each
+key is admitted by a statement a key the Server already trusted signed, unless
+the writer also holds the private half of a key you trust. Pin
 the SPKI digest of a vault key you hold or took out of band (the installer
 prints the first vault key's) as `trustAnchors`, and `verifyExport` walks the
 statements the export carries from it:
@@ -584,7 +591,7 @@ import { verifyExport } from '@agledger/sdk/verify';
 const credential = oidcCertCredential({
   getOidcToken: async () => (await fetch(process.env.OIDC_TOKEN_URL!)).text(),
 });
-const agent = new AgledgerClient({ baseUrl: process.env.AGLEDGER_EXTERNAL_URL!, bearerToken: credential });
+const agent = new AgledgerClient({ baseUrl: process.env.AGLEDGER_API_URL!, bearerToken: credential });
 const written = await agent.records.create({
   type: 'notarize-generic-v1',
   criteria: { summary: 'Rotated the staging database credentials' },
@@ -605,9 +612,16 @@ on the chain entry it writes for it (`payload.wire` on its `FEDERATION_*`
 entries), as the peer signed it. Every sealed message is held to its body hash
 and to its entry; pass the peer's federation key as `federationKeys`
 (`{ [hubId]: key }`, the key as the peer's operator gives it) to also
-re-verify the peer's signature, which proves what the peer asserted from this
+re-verify the peer's signature, which checks the peer's signature over what it asserted, from this
 export alone. `checked.federationWire` counts `present`, `verified` and `failed`, and a
 sealed message that does not hold fails `CHAIN_FEDERATION_WIRE_INVALID`.
+
+## What verification does not prove
+
+- **That the work was good or true.** AGLedger records what was asked, what was submitted and the principal's verdict. It does not inspect deliverable content, and a pass says nothing about it.
+- **That nothing is missing at the ends.** The chain is checked from its first entry to its last. Entries removed from the end, or an export or dump withheld whole, show up only against a signed checkpoint or a copy you already hold.
+- **That a trusted key was never misused.** Anchoring proves each signing key links back to a key you pinned. Whoever holds a trusted key's private half can sign entries that verify. A compromise is accounted for after the fact by distrusting the key (`distrustedKeys`) from the instant it leaked.
+- **Anything, without a trust anchor.** An unanchored pass shows only that the export agrees with the keys it carries itself.
 
 ## SCITT / SCRAPI
 
@@ -663,8 +677,13 @@ auditor detect removed or rewritten chain entries offline. Listing them takes an
 org admin key; an agent key gets 403 `WRONG_STRUCTURAL_ROLE`:
 
 ```typescript
+import { AgledgerClient } from '@agledger/sdk';
+
+const baseUrl = process.env.AGLEDGER_API_URL!;
+const recordId = process.argv[2]!; // the id of a Record
+
 const admin = new AgledgerClient({ apiKey: process.env.AGLEDGER_ADMIN_API_KEY!, baseUrl });
-const checkpoints = await admin.audit.vaultCheckpoints.list({ recordId: record.id });
+const checkpoints = await admin.audit.vaultCheckpoints.list({ recordId });
 ```
 
 ## Record Lifecycle
@@ -684,7 +703,7 @@ that did not declare a completion phase land here at create.
 
 ## API Documentation
 
-API documentation is available at your instance's `/docs` endpoint (Swagger UI).
+The Server serves its OpenAPI document at `/openapi.json`. The interactive docs (Swagger UI) are at `/docs` when the operator enables them.
 
 ## Licensing
 
