@@ -12,6 +12,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { AgledgerClient } from '../client.js';
+import { AgledgerApiError } from '../errors.js';
 import { oidcCertCredential } from '../auth/oidc-cert.js';
 import type { Listing, Page } from '../types.js';
 
@@ -51,12 +52,17 @@ describe('SDK integration: response shape validation', async () => {
    * reports the agent as `ownerId` + `ownerType: 'agent'`; an admin key owns an
    * org, so fall back to the agent key when one is configured.
    */
-  async function resolveAgentId(): Promise<string | undefined> {
-    const me = await client.auth.getMe();
-    if (me.ownerType === 'agent') return me.ownerId;
-    if (!AGENT_KEY) return undefined;
-    const agentMe = await new AgledgerClient({ apiKey: AGENT_KEY, baseUrl: API_URL }).auth.getMe();
-    return agentMe.ownerType === 'agent' ? agentMe.ownerId : undefined;
+  // Cached: `/v1/auth/me` is rate-capped per key, and most tests need the id.
+  let agentId: Promise<string | undefined> | undefined;
+  function resolveAgentId(): Promise<string | undefined> {
+    agentId ??= (async () => {
+      const me = await client.auth.getMe();
+      if (me.ownerType === 'agent') return me.ownerId;
+      if (!AGENT_KEY) return undefined;
+      const agentMe = await new AgledgerClient({ apiKey: AGENT_KEY, baseUrl: API_URL }).auth.getMe();
+      return agentMe.ownerType === 'agent' ? agentMe.ownerId : undefined;
+    })();
+    return agentId;
   }
 
   // --- Helper: assert Page<T> shape ---
@@ -143,6 +149,69 @@ describe('SDK integration: response shape validation', async () => {
     const cancelled = await client.records.cancel(record.id, 'integration test cleanup');
     expect(cancelled.status).toBe('CANCELLED');
     createdRecordId = undefined;
+  });
+
+  // A notarize-only Record has no gate and no completion phase, so the Server
+  // sends its gate mode and caps as null rather than leaving them out.
+  it('a notarize-only Record reads gateMode, maxRevisions and maxDisputes as null', async () => {
+    const principalId = await resolveAgentId();
+    if (!principalId) return;
+    const record = await client.records.create({
+      principalAgentId: principalId,
+      type: 'notarize-generic-v1',
+      criteria: { summary: 'integration-test notarize-only record' },
+    });
+    expect(record.status).toBe('RECORDED');
+    const fetched = await client.records.get(record.id);
+    expect(fetched.gateMode).toBeNull();
+    expect(fetched.maxRevisions).toBeNull();
+    expect(fetched.maxDisputes).toBeNull();
+    expect((await client.gate.getStatus(record.id)).gateMode).toBeNull();
+  });
+
+  it('a notarize-only create carrying a gate field is refused with inapplicableFields', async () => {
+    const principalId = await resolveAgentId();
+    if (!principalId) return;
+    const err = await client.records
+      .create({
+        principalAgentId: principalId,
+        type: 'notarize-generic-v1',
+        criteria: { summary: 'integration-test refused notarize-only record' },
+        maxRevisions: 2,
+      })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(AgledgerApiError);
+    expect((err as AgledgerApiError).inapplicableFields).toContain('maxRevisions');
+  });
+
+  it('schemas.import_() takes a getManifest() response whole, and the Server checks its digest', async () => {
+    // getManifest() refuses the reserved `local` publisher, so import a fresh
+    // third-party manifest first and round-trip that.
+    const type = `itest-import-${Date.now()}`;
+    const manifest = {
+      manifestVersion: '1.0',
+      publisher: 'itest',
+      type,
+      version: '1.0.0',
+      recordSchema: { type: 'object', properties: { summary: { type: 'string' } }, required: ['summary'] },
+    };
+    const first = await client.schemas.import_(manifest);
+    const exported = await client.schemas.getManifest(type, { publisher: 'itest' });
+    expect(exported.manifestDigest).toBe(first.manifestDigest);
+    const again = await client.schemas.import_(exported);
+    expect(again.manifestDigest).toBe(exported.manifestDigest);
+    const wrong = await client.schemas
+      .import_({ ...exported, manifestDigest: 'sha256:' + '0'.repeat(64) })
+      .catch((e: unknown) => e);
+    expect(wrong).toBeInstanceOf(AgledgerApiError);
+    expect((wrong as AgledgerApiError).status).toBe(400);
+  });
+
+  it('discovery.getFederationKeys() returns the key history document', async () => {
+    const history = await client.discovery.getFederationKeys();
+    expect(typeof history.statementDomain).toBe('string');
+    expect(Array.isArray(history.keys)).toBe(true);
+    expect(Array.isArray(history.statements)).toBe(true);
   });
 
   // --- Completions (agent-side) ---

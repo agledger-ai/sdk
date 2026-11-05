@@ -1054,6 +1054,12 @@ describe('DiscoveryResource', () => {
     expect(fetch.mock.calls[0][0]).toContain('/v1/conformance');
   });
 
+  it('gets the federation key history from its well-known path', async () => {
+    const { client, fetch } = createMockClient();
+    await client.discovery.getFederationKeys();
+    expect(fetch.mock.calls[0][0]).toMatch(/\/\.well-known\/agledger-federation-keys\.json$/);
+  });
+
   it('gets lifecycle', async () => {
     const { client, fetch } = createMockClient();
     await client.discovery.getLifecycle();
@@ -1870,6 +1876,25 @@ describe('SchemasResource', () => {
     const body = JSON.parse(init.body);
     expect(body.manifest).toEqual(manifest);
     expect(body.defaultGateMode).toBe('principal');
+  });
+
+  it('import_() takes a getManifest() response whole and sends its digest for the Server to check', async () => {
+    const { client, fetch } = createMockClient();
+    const manifest = {
+      manifestVersion: '1.0',
+      publisher: 'acme',
+      type: 'acme-po-v1',
+      version: '1.0',
+      recordSchema: { type: 'object' },
+    };
+    const exported = {
+      manifest,
+      manifestDigest: 'sha256:' + 'a'.repeat(64),
+      nextSteps: [{ action: 'import', method: 'POST' as const, href: '/v1/schemas/import', description: 'x' }],
+    };
+    await client.schemas.import_(exported);
+    const body = JSON.parse(fetch.mock.calls[0][1].body);
+    expect(body).toEqual({ manifest, manifestDigest: exported.manifestDigest });
   });
 
   it('registers a schema with expression field mapping', async () => {

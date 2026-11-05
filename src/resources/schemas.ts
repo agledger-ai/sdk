@@ -194,13 +194,26 @@ export class SchemasResource {
   }
 
   /**
-   * Import a third-party schema manifest (DESIGN-SCHEMA-CATALOG.md §4).
+   * Import a third-party schema manifest. Pass the bare manifest, or a peer's
+   * whole `schemas.getManifest()` response: its `manifestDigest` is sent with
+   * it, and the Server refuses the import with 400 before writing anything when
+   * the manifest does not hash to that digest (`params.manifestDigest` wins
+   * when both are given).
+   *
    * Idempotent on full-tuple match (publisher, type, version, org, digest):
    * re-posting the same manifest returns the existing row (HTTP 200 instead
    * of 201). Posting the same publisher/type/version with different bytes is
    * a 409. Requires the `schemas:admin` scope.
    */
-  import_(manifest: SchemaManifest, params?: SchemaImportParams, options?: RequestOptions): Promise<SchemaVersionDetail> {
-    return this.http.post<SchemaVersionDetail>('/v1/schemas/import', { manifest, ...params }, options);
+  import_(
+    source: SchemaManifest | SchemaManifestExport,
+    params?: SchemaImportParams,
+    options?: RequestOptions,
+  ): Promise<SchemaVersionDetail> {
+    const body: Record<string, unknown> =
+      'manifest' in source
+        ? { manifest: source.manifest, manifestDigest: source.manifestDigest }
+        : { manifest: source };
+    return this.http.post<SchemaVersionDetail>('/v1/schemas/import', { ...body, ...params }, options);
   }
 }
