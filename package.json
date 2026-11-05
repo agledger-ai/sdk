@@ -39,6 +39,7 @@
   "scripts": {
     "prebuild": "rm -rf dist *.tsbuildinfo",
     "build": "tsc",
+    "prepack": "npm run build",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.typetests.json",
     "typecheck:types": "tsc -p tsconfig.typetests.json",
     "test": "vitest run",
