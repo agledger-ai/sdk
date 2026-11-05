@@ -543,9 +543,8 @@ export interface MetaSchema {
   /**
    * Helper functions callable inside an expression, keyed by name.
    *
-   * API v1.3.4 replaced the bare `string[]` of names with per-helper
-   * signature + semantics, so the edge behavior travels with the helper
-   * instead of living only in prose.
+   * Each entry carries the helper's signature and semantics, so the edge
+   * behavior travels with the helper.
    */
   expressionHelpers?: Record<string, ExpressionHelperDoc>;
   expressionLimits?: {
@@ -969,9 +968,8 @@ export interface SchemaVersionDetail {
  * Parameters for updating a schema version.
  *
  * `compatibilityMode` is the only field the route accepts and it is required:
- * the body declares `additionalProperties: false`, so the `status` this
- * interface used to offer was rejected outright rather than deprecating
- * anything.
+ * the body declares `additionalProperties: false`, so this
+ * interface offers no `status`.
  */
 export interface UpdateSchemaVersionParams {
   compatibilityMode: SchemaCompatibilityMode;
@@ -1011,8 +1009,8 @@ export type CoSignStatus = 'not_required' | 'pending' | 'succeeded' | 'partial' 
  * {@link RecordStatus} stays open because the Server may ADD a status and a
  * response carrying one should still type. A filter is the other direction:
  * the querystring is a strict enum server-side, so a value outside this set is
- * a 400 rather than an empty page. `PENDING_ARBITRATION` was removed in API
- * 1.7.0 and is the reason this distinction is drawn.
+ * a 400 rather than an empty page. A status the Server does not report is
+ * not in this set.
  */
 export type RecordStatusFilter =
   | 'CREATED'
@@ -1971,8 +1969,7 @@ export interface GateStatus {
    * Structural validation phase: the completion shape against the type's
    * `completionSchema`. `not_applicable` when the record reached a terminal
    * state without a completion, so none is coming: a notarize-only type, a
-   * delegation parent an earlier release settled from its children's rollup
-   * (children can fail a parent but no longer settle one), a record cancelled
+   * record cancelled
    * or timed out before evidence landed.
    *
    * Agents driving settle/hold should key on {@link verdict} instead.
@@ -2657,9 +2654,8 @@ export interface ComplianceExport {
   recordCount?: number;
   /**
    * True when the filters matched more than the 10000-row export cap, so the
-   * export holds only the newest 10000 rows (API v1.3.4). Window
-   * with `filters.from` / `filters.to` to cover the rest. Exports created
-   * before this field existed report `false`.
+   * export holds only the newest 10000 rows. Window
+   * with `filters.from` / `filters.to` to cover the rest.
    *
    * On a download, the same answer rides the `X-AGLedger-Export-Truncated`
    * response header, which is the only carrier for a `csv` download: the body
@@ -2988,9 +2984,8 @@ export type AuditChainFailureCode =
   | 'cert_window_drift'
   | 'agent_signature_invalid'
   /**
-   * Per-entry signature failures. These reached `chainIntegrityDetail.failure`
-   * with the v1.3.2 fail-closed verification work but were never mirrored here,
-   * so the SDK narrowed the union tighter than the wire. Same meanings as on
+   * Per-entry signature failures. These can appear in `chainIntegrityDetail.failure`.
+   * Same meanings as on
    * {@link AuditChainIntegrityReason}.
    */
   | 'signature_invalid'
@@ -3038,9 +3033,9 @@ export interface RecordAuditExport {
    * "Ed25519-verified" from chainIntegrity alone; read this.
    */
   integrityLevel?: 'hash_chain_only' | 'hash_chain_partial_signatures' | 'hash_chain_and_signatures' | 'invalid';
-  /** `2.0` since the COSE_Sign1 cutover. */
+  /** `2.0`: the COSE_Sign1 export format. */
   exportFormatVersion?: string;
-  /** `RFC8949-CDE` since 2.0: deterministic CBOR per RFC 8949 §4.2.1. */
+  /** `RFC8949-CDE`: deterministic CBOR per RFC 8949 §4.2.1. */
   canonicalization?: string;
   signingPublicKey?: string | null;
   signingPublicKeys?: Record<string, string>;
@@ -3061,7 +3056,7 @@ export interface RecordAuditExport {
     integrityLevel?: 'hash_chain_only' | 'hash_chain_partial_signatures' | 'hash_chain_and_signatures' | 'invalid';
     /** `2.0` since the COSE_Sign1 cutover. */
     exportFormatVersion: string;
-    /** `RFC8949-CDE` since 2.0: deterministic CBOR per RFC 8949 §4.2.1. */
+    /** `RFC8949-CDE`: deterministic CBOR per RFC 8949 §4.2.1. */
     canonicalization: string;
     /** Active signing key at export time (SPKI DER base64). */
     signingPublicKey: string | null;
@@ -3473,7 +3468,6 @@ export interface QueryAdminRecordsParams extends CursorListParams {
   orgId?: string;
   /**
    * Strict enum server-side: a value outside it is a 400, not an empty page.
-   * The Server dropped `PENDING_ARBITRATION` in API 1.7.0.
    */
   status?: RecordStatusFilter;
   type?: string;
@@ -3512,8 +3506,7 @@ export interface AccountProfile {
   /**
    * Owner of the key. When `ownerType === 'agent'` this IS the agent id; when
    * it is `'org'` this is the org id. There is no separate `agentId` field:
-   * one was declared here through 1.7.0 and `/v1/auth/me` has never returned
-   * it, so reading it always yielded `undefined`.
+   * `/v1/auth/me` returns no such field.
    */
   ownerId: string;
   ownerType: KeyOwnerType | (string & {});
@@ -4034,9 +4027,8 @@ export interface ListApiKeysParams extends CursorListParams {
 
 /**
  * One row of `GET /v1/admin/api-keys`. The key's id is `keyId`: the row has
- * no `id`, `environment`, `rateLimitTier` or `prefix`, which the SDK declared
- * through 1.11.0 while the Server never sent them. `scopeProfile` is served
- * since API 2.0.
+ * no `id`, `environment`, `rateLimitTier` or `prefix`. `scopeProfile` is served
+ * by Server 2.0 and later.
  */
 export interface AdminApiKey {
   keyId: string;

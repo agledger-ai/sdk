@@ -291,8 +291,8 @@ export class AdminResource {
   /**
    * List all orgs on the platform.
    *
-   * Cursor-paged only: the route dropped `offset` in API 1.7.0 and the
-   * querystring refuses unknown properties, so sending one is a 400.
+   * Cursor-paged only: the route takes no `offset` and the querystring
+   * refuses unknown properties, so sending one is a 400.
    */
   listOrgs(params?: AdminListOrgsParams, options?: RequestOptions): Promise<Page<AdminOrg>> {
     return this.http.getPage<AdminOrg>('/v1/admin/orgs', params as Record<string, unknown>, options);
@@ -302,8 +302,7 @@ export class AdminResource {
    * Create a new org. Returns the org resource (flat object).
    *
    * Dev/test only: `POST /v1/admin/orgs` is not registered in a production
-   * deployment (dropped from the canonical OpenAPI spec in API v1.0.1) and 404s
-   * there. Provision production orgs via the operator `provisioning/` YAML.
+   * deployment and 404s there. Provision production orgs via the operator `provisioning/` YAML.
    */
   createOrg(params: CreateOrgParams, options?: RequestOptions): Promise<AdminOrg> {
     return this.http.post<AdminOrg>('/v1/admin/orgs', params, options);
@@ -312,8 +311,8 @@ export class AdminResource {
   /**
    * List all registered agents on the platform.
    *
-   * Cursor-paged only: the route dropped `offset` in API 1.7.0 and the
-   * querystring refuses unknown properties, so sending one is a 400.
+   * Cursor-paged only: the route takes no `offset` and the querystring
+   * refuses unknown properties, so sending one is a 400.
    *
    * Deactivated agents are always included and there is no flag to exclude
    * them. `agents.list({ includeDeactivated })` is the org-scoped listing that
@@ -539,8 +538,8 @@ export class AdminResource {
   /**
    * List webhook dead-letter queue entries.
    *
-   * Cursor-paged only: the route dropped `offset` in API 1.7.0 and the
-   * querystring refuses unknown properties, so sending one is a 400. The
+   * Cursor-paged only: the route takes no `offset` and the querystring
+   * refuses unknown properties, so sending one is a 400. The
    * per-webhook listing `webhooks.listDlq()` still takes both.
    */
   listDlq(params?: CursorListParams, options?: RequestOptions): Promise<Page<AdminWebhookDlqEntry>> {
