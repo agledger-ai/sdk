@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-11-18
+
 ### Added
 
 - **Checkpoint key windows on an audit export.** `AuditChainIntegrityReasonCode` adds `checkpoint_key_expired` and `checkpoint_key_not_yet_active` (a vault checkpoint whose signature verifies, written after its key's `retiredAt` or before its `activatedAt`) and `checkpoint_accounted_run_exceeded` (more than 1000 checkpoints a `VAULT_DISTRUSTED_KEYS` entry accounts for sit above the newest one it does not). The union is closed, so an exhaustive `switch` over it needs the three new cases. An AGLedger Server later than 2.2.0 sends them.
@@ -17,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 
+- **`verifyExport` (`@agledger/sdk/verify`) runs on `@agledger/verify-core` 2.2.0.** A sealed federation message is placed in its key's window with 300 seconds allowed at each edge, as the Server's receiver guidance gives it: one signed within that of a key change was failed or counted in `federationWire.afterRetirement`, and now verifies on the key it names. A signed payload string that begins with U+FEFF no longer fails `CHAIN_PAYLOAD_BINDING_MISMATCH` against its row.
 - **`RelaySignalParams.reasonCode` is the closed set a Server stamps**: `AUTO_FAIL`, `AUTO_SETTLE`, `AUTO_SETTLE_WITHIN_TOLERANCE`, `DISPUTE_OVERTURNED`, `PRINCIPAL_ACCEPT`, `PRINCIPAL_REJECT`, or null. An AGLedger Server later than 2.2.0 refuses any other value with a 400, and code passing a plain `string` no longer typechecks. The docs on `relaySignal()` state the bounds the receiver enforces: `failingRuleIds` at most 220 ids of at most 100 characters, `counterSignature` exactly 128 lowercase hex characters, `validUntil` within the 24-hour signal window, and an opaque 404 for a record the receiving Server created.
 - Each scope profile's `description` in `ScopeProfiles` is the text an AGLedger Server later than 2.2.0 serves. Scopes and roles are unchanged.
 - Documentation describes what the caller observes instead of the Server's internals.
