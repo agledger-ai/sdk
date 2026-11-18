@@ -25,7 +25,7 @@ export interface RateLimitInfo {
   limit: number;
   /** Remaining requests in current window */
   remaining: number;
-  /** Unix timestamp (seconds) when the window resets */
+  /** Seconds until the current window resets (the `x-ratelimit-reset` header), not a timestamp */
   reset: number;
 }
 
@@ -655,18 +655,32 @@ export interface SchemaPreviewResult {
 }
 
 /**
- * A keyword in a submitted schema that the validator does not enforce and
- * therefore ignores.
+ * An advisory warning on a schema registration or preview. The registration
+ * stands either way. Absent when there are none.
  *
- * Usually a misspelling (`maxLenght` for `maxLength`), and worth acting on:
- * the constraint the author intended is not applied, so every value passes.
- * Absent when there are none. Prefix a deliberate annotation with `x-` to keep
- * it out of this list.
+ * Most name a keyword in a submitted schema that the validator does not
+ * enforce and therefore ignores. Usually a misspelling (`maxLenght` for
+ * `maxLength`), and worth acting on: the constraint the author intended is not
+ * applied, so every value passes. Prefix a deliberate annotation with `x-` to
+ * keep it out of this list.
+ *
+ * A warning with `keyword: 'format'` names a rule that reads a date from a
+ * path the schema does not declare with `format: 'date-time'` or
+ * `format: 'date'` (or admits without declaring): a fieldMapping with
+ * `valueType: 'datetime'`, or an expression passing a `criteria.` or
+ * `evidence.` path to `daysBetween`. Its `path` is the fieldMapping member
+ * (`fieldMappings.criteriaPath`, `fieldMappings.evidencePath` or
+ * `fieldMappings.expression`). Without the format, nothing refuses a value
+ * that is not RFC 3339 before the gate reads it. `criteria.deadline` and
+ * `evidence.submitted_at`, which the gate writes itself, raise none.
  */
 export interface SchemaKeywordWarning {
-  /** Location of the keyword within the submitted schema. */
+  /**
+   * Location of the keyword within the submitted schema, or the fieldMapping
+   * member for a `format` warning.
+   */
   path?: string;
-  /** The unrecognized keyword. */
+  /** The unrecognized keyword, or `format` for an undeclared date format. */
   keyword?: string;
   message?: string;
 }
@@ -2652,15 +2666,35 @@ export interface ComplianceExport {
    */
   recordCount?: number;
   /**
-   * True when the filters matched more than the 10000-row export cap, so the
-   * export holds only the newest 10000 rows. Window
-   * with `filters.from` / `filters.to` to cover the rest.
+   * True when the filters matched more than the 10000-row export cap. The
+   * export holds the newest matching rows, at most 10000: it ends at a
+   * millisecond boundary, so it holds fewer when rows at the cap share a
+   * millisecond. To fetch the rest, re-run the export with the same filters
+   * and `filters.to` set to {@link resumeTo}, window by window, until an export
+   * comes back with `truncated: false`.
    *
    * On a download, the same answer rides the `X-AGLedger-Export-Truncated`
    * response header, which is the only carrier for a `csv` download: the body
    * is raw rows, and a notice line would corrupt the parse.
    */
   truncated?: boolean;
+  /**
+   * Present only when `truncated`. The inclusive `filters.to` for the next
+   * window, at microsecond precision: re-run with the same filters and
+   * `filters.to` set to this value, copied verbatim, and that export holds
+   * exactly the matching records this one left out, with none repeated. Every
+   * record this export holds is in a later millisecond than every record it
+   * left out, so the bound falls between them.
+   *
+   * Absent when more than 10000 matching records share the millisecond of the
+   * oldest one, which no time window can split; narrow by
+   * `filters.contractTypes`, `filters.ref` or `filters.recordIds` then. On
+   * `getExportStatus()` it is read back from the export's oldest `createdAt`,
+   * so it is also absent there when the export did not carry `createdAt` or
+   * every row it holds shares one millisecond; the create response carries it
+   * in the first case.
+   */
+  resumeTo?: string;
   /**
    * Total rows the filters matched at creation time, before the cap. Equals
    * `recordCount` unless `truncated`. Header twin on a download:
@@ -2696,6 +2730,20 @@ export interface ExportComplianceParams {
     from?: string;
     to?: string;
     contractTypes?: string[];
+    /**
+     * Scope the export to the records tagged with this entity reference. At
+     * least one of `system`, `refType` and `refId`; a partial reference
+     * matches on the sub-fields supplied.
+     */
+    ref?: { system?: string; refType?: string; refId?: string };
+    /** Explicit record ids to export (up to 1000), for records that carry no reference tag. Org scope still applies. */
+    recordIds?: string[];
+    /**
+     * Scope to one delegation tree: the root and all its descendants. Records
+     * in sibling trees joined only by a shared reference are outside it, so
+     * use `ref` for a pack that spans actors.
+     */
+    rootRecordId?: string;
   };
   /**
    * Optional column selection. Omit for the default rich row (~24 accountability
@@ -2891,6 +2939,21 @@ export type AuditChainIntegrityReasonCode =
    * checkpoint that anchors the chain.
    */
   | 'checkpoint_key_unanchored'
+  /**
+   * The checkpoint's signature verifies, but the database wrote it after the
+   * `retiredAt` (`checkpoint_key_expired`) or before the `activatedAt`
+   * (`checkpoint_key_not_yet_active`) published for the key that signed it.
+   * Same window rule as `key_expired` / `key_not_yet_active`, applied to the
+   * checkpoint that anchors the chain.
+   */
+  | 'checkpoint_key_expired'
+  | 'checkpoint_key_not_yet_active'
+  /**
+   * More than 1000 checkpoints that a `VAULT_DISTRUSTED_KEYS` entry accounts
+   * for sit above the newest checkpoint of the chain it does not account for,
+   * so the chain is reported rather than judged against what lies past them.
+   */
+  | 'checkpoint_accounted_run_exceeded'
   | 'payload_drift'
   | 'oidc_actor_drift'
   | 'cert_actor_drift'
@@ -3902,15 +3965,21 @@ export interface EnforcementSettings {
 
 /**
  * Automatic re-check run once when a dispute is opened. Absent or null means no
- * re-check runs and the dispute waits at `PENDING_RESOLUTION`. When set, the
- * type's gate rules are re-run with the widening below and a PASS resolves the
- * dispute `OVERTURNED` with a reporter of `system`. Only applies to Records in
- * `auto` gate mode whose type declares rules to re-run.
+ * re-check runs. When set, the type's gate rules are re-run with the widening
+ * below and a PASS resolves the dispute `OVERTURNED` with a reporter of
+ * `system`. Only applies to Records in `auto` gate mode whose type declares
+ * rules to re-run; every other dispute goes to the evidence window.
  */
 export interface AutoReadjudicateConfig {
-  /** Multiplier applied to every numeric tolerance band on the re-run (1-3). 1 re-runs at the original bands. */
+  /** Multiplier applied to every numeric tolerance band on the re-run (1-3). 1 re-runs at the original bands. `graceSeconds` is not multiplied: it takes `deadlineGraceSeconds`. */
   toleranceExpansion: number;
-  /** Grace added to deadline checks on the re-run, in seconds (0-86400). */
+  /**
+   * Seconds added to the record's `tolerance.graceSeconds` on the re-run
+   * (0-86400). `toleranceExpansion` does not multiply `graceSeconds`; this is
+   * what widens it. The re-run reads the record's deadline and the
+   * completion's arrival time as the gate did, so a deadline rule is
+   * re-evaluated against the widened grace.
+   */
   deadlineGraceSeconds: number;
 }
 
@@ -5010,6 +5079,7 @@ export interface StateTransitionResult {
   ack: true;
   state: string;
   serverTimestamp: string;
+  /** The receiving Server's Ed25519 signature, 128 lowercase hex characters; an empty string when that Server holds no federation key. */
   serverSignature: string;
   /** False when the receiving Server acknowledged the transition without applying it; `reason` says why. */
   applied: boolean;
@@ -5025,29 +5095,54 @@ export interface RelaySignalParams {
   /** Recommendation to the downstream financial system (SETTLE / HOLD / RELEASE). */
   recommendation: FederationSettlementSignal;
   outcomeHash: string;
+  /**
+   * When the signal stops being actionable. A sending Server mints it as its
+   * own clock plus 24 hours, and it orders the signals for one record. The
+   * receiver refuses it with 422 when it is already past, or when it is
+   * further ahead of the receiver's clock than that window plus the receiver's
+   * `AGLEDGER_CLOCK_SKEW_MAX_MS`.
+   */
   validUntil: string;
   idempotencyKey: string;
   /** The principal's verdict, or null when the signal carries none. Required, so send null explicitly. */
   outcome: FederationVerdict | null;
+  /**
+   * Bilateral co-sign attachment: the Ed25519 signature, 128 lowercase hex
+   * characters, that the counterparty Server's `POST /federation/v1/co-sign-requests`
+   * returned over the canonical co-sign payload. Any other form is a 400.
+   */
   counterSignature?: string;
   schemaRef: FederationSchemaRef;
   /**
-   * Machine-readable cause for the signal
-   * (`AUTO_SETTLE` / `AUTO_SETTLE_WITHIN_TOLERANCE` / `AUTO_FAIL` /
-   * `PRINCIPAL_ACCEPT` / `PRINCIPAL_REJECT` / `DISPUTE_OVERTURNED` / `TIMED_OUT` /
-   * `REMEDIATED` / `CANCEL_PRE_WORK` / `CANCEL_IN_PROGRESS` / `OVERFLOW_REJECT` /
-   * `ARBITRATION_*` …). `AUTO_SETTLE_WITHIN_TOLERANCE` marks an
-   * auto-settle that cleared only via a non-zero tolerance band. Required;
-   * null when the signal has no machine-readable cause.
+   * Machine-readable cause for the signal, one of the causes a Server stamps on
+   * a Settlement Signal (`AUTO_FAIL` / `AUTO_SETTLE` /
+   * `AUTO_SETTLE_WITHIN_TOLERANCE` / `DISPUTE_OVERTURNED` / `PRINCIPAL_ACCEPT` /
+   * `PRINCIPAL_REJECT`). The receiver refuses any other value with a 400.
+   * `AUTO_SETTLE_WITHIN_TOLERANCE` marks an auto-settle that cleared only via a
+   * non-zero tolerance band. Required; null when the sender recorded no cause.
    */
-  reasonCode: string | null;
-  /** ruleIds that failed when a gate evaluation produced this HOLD. Required; null for non-rule terminals. */
+  reasonCode:
+    | 'AUTO_FAIL'
+    | 'AUTO_SETTLE'
+    | 'AUTO_SETTLE_WITHIN_TOLERANCE'
+    | 'DISPUTE_OVERTURNED'
+    | 'PRINCIPAL_ACCEPT'
+    | 'PRINCIPAL_REJECT'
+    | null;
+  /**
+   * RuleIds that failed when a gate evaluation produced this HOLD: at most 220
+   * of them, each at most 100 characters. The receiver refuses a longer list or
+   * a longer id with a 400, so cut either to those bounds before sending, as a
+   * Server does on its own outbound signals. Required; null for non-rule
+   * terminals.
+   */
   failingRuleIds: string[] | null;
 }
 
 /** Result of a signal relay. */
 export interface SignalRelayResult {
   relayed: true;
+  /** The receiving Server's Ed25519 signature, 128 lowercase hex characters; an empty string when that Server holds no federation key. */
   serverSignature: string;
   serverTimestamp: string;
   /** False when the receiving Server acknowledged the signal without applying it; `reason` says why. */
@@ -5065,6 +5160,13 @@ export interface SubmitCoSignRequestParams {
   outcomeHash: string;
   state: string;
   performerHubId: string;
+  /**
+   * The validity of the signal this co-signature is for: the sending Server's
+   * clock plus 24 hours, the same value the signal carrying the
+   * counter-signature sends. The receiver refuses it with 422 when it is
+   * already past, or further ahead of the receiver's clock than that window
+   * plus its clock skew allowance.
+   */
   validUntil: string;
   idempotencyKey: string;
   outcome?: FederationVerdict | null;
@@ -5074,7 +5176,7 @@ export interface SubmitCoSignRequestParams {
 /** Result of a co-sign request. */
 export interface CoSignRequestResult {
   coSigned: true;
-  /** The receiving Server's counter-signature over the Settlement Signal. */
+  /** The receiving Server's counter-signature over the Settlement Signal: 128 lowercase hex characters. */
   counterSignature: string;
   serverTimestamp: string;
   nextSteps?: NextStep[];
@@ -5119,7 +5221,7 @@ export interface DisputeProtocolResult {
   applied: boolean;
   /** Why the receiver did not apply it, when `applied` is false. */
   reason?: 'peer_unbound' | 'org_deactivated' | 'same_state' | (string & {});
-  /** The receiver's signature over the acknowledgement. */
+  /** The receiver's signature over the acknowledgement: 128 lowercase hex characters, or an empty string when that Server holds no federation key. */
   serverSignature: string;
   serverTimestamp: string;
   /** The schema the receiver resolved the message against. */
@@ -5845,6 +5947,10 @@ export interface VaultCheckpointingSchedule {
  * Server may add codes, and an unknown one still type-checks. The meanings
  * match {@link AuditChainIntegrityReasonCode}; `schema_chain_missing_for_subjects`
  * is schema-chain only, and `verification_error` is a walk that could not run.
+ * `accounted_checkpoint_only` is a chain with no entry whose only checkpoints
+ * are ones a `VAULT_DISTRUSTED_KEYS` entry accounts for (see
+ * {@link VaultScanResult.distrustedCheckpoints}): nothing vouches for it. On a
+ * record-less chain it is reported for the platform-ops chain only.
  */
 export type VaultScanBreakReason =
   | 'chain_broken_at'
@@ -5871,7 +5977,11 @@ export type VaultScanBreakReason =
   | 'checkpoint_key_unanchored'
   | 'checkpoint_unsigned'
   | 'checkpoint_claim_mismatch'
+  | 'checkpoint_key_expired'
+  | 'checkpoint_key_not_yet_active'
+  | 'checkpoint_accounted_run_exceeded'
   | 'schema_chain_missing_for_subjects'
+  | 'accounted_checkpoint_only'
   | 'verification_error'
   | 'signing_key_distrusted'
   | (string & {});
@@ -5958,6 +6068,10 @@ export interface VaultScanGlobalChains {
  * `leaf_key_unanchored`, `checkpoint_unsigned` and `checkpoint_key_unanchored`
  * are the read-log twins of the vault chain's `signature_missing`,
  * `signing_key_unanchored`, `checkpoint_unsigned` and `checkpoint_key_unanchored`.
+ * `leaf_key_expired` / `leaf_key_not_yet_active` and `checkpoint_key_expired` /
+ * `checkpoint_key_not_yet_active` are a leaf or checkpoint written outside its
+ * signing key's published window, the read-log twins of `key_expired` /
+ * `key_not_yet_active`.
  */
 export type OrgReadsBreakReason =
   | 'leaf_index_gap'
@@ -5967,6 +6081,8 @@ export type OrgReadsBreakReason =
   | 'leaf_key_unknown'
   | 'leaf_key_unanchored'
   | 'leaf_signature_missing'
+  | 'leaf_key_not_yet_active'
+  | 'leaf_key_expired'
   | 'checkpoint_leaf_count_mismatch'
   | 'checkpoint_root_mismatch'
   | 'checkpoint_claim_mismatch'
@@ -5974,6 +6090,8 @@ export type OrgReadsBreakReason =
   | 'checkpoint_key_unknown'
   | 'checkpoint_key_unanchored'
   | 'checkpoint_unsigned'
+  | 'checkpoint_key_not_yet_active'
+  | 'checkpoint_key_expired'
   | 'verification_error'
   | (string & {});
 
@@ -5986,11 +6104,25 @@ export interface VaultScanBrokenOrg {
 }
 
 /**
+ * A read-log leaf or checkpoint a `VAULT_DISTRUSTED_KEYS` key signed that the
+ * vault scan lists as accounted for rather than broken.
+ */
+export interface VaultScanOrgReadsDistrustedEntry {
+  orgId?: string;
+  kind?: 'leaf' | 'checkpoint';
+  /** The leaf index, or the checkpoint's tree size. */
+  at?: number;
+  keyId?: string;
+}
+
+/**
  * The cross-party read log (`org_admin_reads` and its signed Merkle
- * checkpoints), walked whole on a full scan: each leaf against its hash, signed
- * claim and signature, and each checkpoint against the Merkle root over the
- * leaves it covers, its signed claim and its signature. A break here fails
- * `healthy`.
+ * checkpoints), walked whole on a full scan: each leaf against its hash, its
+ * signed claim, its signature and its key's signed window, and each checkpoint
+ * against the Merkle root over the leaves it covers, its signed claim, its
+ * signature and its key's signed window. A break here fails `healthy`; what a
+ * `VAULT_DISTRUSTED_KEYS` entry accounts for is listed in
+ * {@link distrustedEntries} and does not.
  */
 export interface VaultScanOrgAdminReads {
   /** Orgs with at least one leaf or checkpoint. */
@@ -6001,6 +6133,26 @@ export interface VaultScanOrgAdminReads {
   broken?: number;
   /** Orgs whose leaves this host cannot verify (algorithm not available here). Not in `broken`. */
   unsupportedAlgorithm?: number;
+  /**
+   * Orgs whose only findings are leaves or checkpoints a `VAULT_DISTRUSTED_KEYS`
+   * entry accounts for. Not in `broken`; each is in {@link distrustedEntries}.
+   */
+  distrustedSigned?: number;
+  /**
+   * The read-log leaves and checkpoints a `VAULT_DISTRUSTED_KEYS` key signed
+   * and the database wrote inside what that entry and the retirement a key this
+   * Server trusts signed for it account for, as the walk met them before its
+   * org's first finding (the walk stops an org at its first finding). Capped at
+   * 100; {@link distrustedEntriesTotal} is the full count listed. Never verified
+   * and never evidence: such a checkpoint's root is not compared. Not folded
+   * into `broken` or `VaultScanResult.healthy`. One such a key signed after
+   * that retirement is not listed: under a key still anchored it is
+   * `leaf_key_expired` or `checkpoint_key_expired`, under one the distrust
+   * entry leaves unanchored it is `leaf_key_unanchored` or
+   * `checkpoint_key_unanchored`, and either is a break.
+   */
+  distrustedEntries?: VaultScanOrgReadsDistrustedEntry[];
+  distrustedEntriesTotal?: number;
   /** Capped at 100 entries. */
   brokenOrgs?: VaultScanBrokenOrg[];
   /** True when an org held more leaves than one walk reads; its checkpoints past that point were not checked. */
@@ -6024,18 +6176,21 @@ export interface VaultScanResult {
   unsupportedAlgorithm?: number;
   /**
    * True iff `broken === 0`, `signatureErrors === 0`, `globalChains.broken === 0`,
-   * `recordsMissingChain === 0`, `orgAdminReads.broken === 0` and
-   * `keyRegistry.findings` is empty: nothing the scan found is unaccounted
-   * for. The single field to branch on. It does not fold in
+   * `recordsMissingChain === 0`, `orgAdminReads.broken === 0` and every
+   * `keyRegistry.findings` item is `standing`: nothing the scan found is
+   * unaccounted for. The single field to branch on. It does not fold in
    * `unsupportedAlgorithm` (chains this host could not check at all), nor
-   * `distrustedEntries` and `keyRegistry.distrustedStatements` (what a leaked
-   * key signed before a trusted key retired it, which the operator's
-   * `VAULT_DISTRUSTED_KEYS` entry accounts for).
+   * {@link distrustedEntries}, {@link distrustedCheckpoints},
+   * `orgAdminReads.distrustedEntries` and `keyRegistry.distrustedStatements`
+   * (what a leaked key signed before a key this Server trusts retired it, which
+   * the operator's `VAULT_DISTRUSTED_KEYS` entry accounts for and which is
+   * never verified).
    */
   healthy: boolean;
   /**
    * Records carrying no chain entry and no checkpoint at all, counted on a full
-   * scan. A `recordIds`-scoped scan reports 0, and so does a scan whose check
+   * scan. One whose only checkpoints are ones a `VAULT_DISTRUSTED_KEYS` entry
+   * accounts for is in `brokenRecords` as `accounted_checkpoint_only` instead. A `recordIds`-scoped scan reports 0, and so does a scan whose check
    * did not complete, which says so in its errors. Every create path appends
    * its first entry inside the create transaction, so a record with none is an
    * anomaly rather than a young record.
@@ -6063,6 +6218,27 @@ export interface VaultScanResult {
    */
   distrustedEntries?: VaultScanDistrustedEntry[];
   distrustedEntriesTotal?: number;
+  /**
+   * The vault checkpoints, of a record chain or a record-less one, that the
+   * scan set aside: each signed by a `VAULT_DISTRUSTED_KEYS` key and written
+   * inside what that entry and the retirement a key this Server trusts signed
+   * for it account for, and each above the newest checkpoint of its chain that
+   * is not one. Such a checkpoint below that one is never read, and a chain
+   * whose checkpoint cross-check reports a finding lists none. Capped at 100;
+   * {@link distrustedCheckpointsTotal} is the full count set aside. `position`
+   * is the chain position the checkpoint covers.
+   *
+   * Never evidence: each chain is cross-checked against the newest checkpoint
+   * that is not one, and none of these moves `verified`, `broken` or
+   * `healthy`. More than 1000 of them above that checkpoint is a counted finding instead
+   * (`checkpoint_accounted_run_exceeded`), and a chain with no entry whose only
+   * checkpoints are such is broken (`accounted_checkpoint_only`). A checkpoint
+   * such a key signed after that retirement is not listed: under a key still
+   * anchored it is `checkpoint_key_expired`, under one the distrust entry
+   * leaves unanchored it is `checkpoint_key_unanchored`.
+   */
+  distrustedCheckpoints?: VaultScanDistrustedEntry[];
+  distrustedCheckpointsTotal?: number;
   /** Record-less chain findings. Present on a full scan; absent on a `recordIds`-scoped scan. */
   globalChains?: VaultScanGlobalChains;
   /** Cross-party read log findings. Present on a full scan; null or absent on a `recordIds`-scoped scan. */
@@ -6105,9 +6281,9 @@ export interface VaultScanKeyRegistryFinding {
   statementId?: string | null;
   detail?: string;
   /**
-   * Whether the finding still stands: the key it names has no retirement a
-   * trusted key signed, so the walk grades entries under it differently from
-   * this Server today. `false` is history the operator already closed.
+   * True when no setting clears the finding and the remedy its detail names
+   * has been carried out: the record of what happened, which counts against
+   * neither `healthy`, the daily integrity check nor system health.
    */
   standing?: boolean;
 }
@@ -6135,8 +6311,11 @@ export interface VaultScanKeyRegistry {
 }
 
 /**
- * A chain entry a distrusted key signed before a trusted key retired it,
- * listed by a vault scan as accounted for rather than broken.
+ * A chain entry, or a vault checkpoint, a distrusted key signed before a
+ * trusted key retired it, listed by a vault scan as accounted for rather than
+ * broken: {@link VaultScanResult.distrustedEntries} holds entries and
+ * {@link VaultScanResult.distrustedCheckpoints} holds checkpoints, where
+ * `position` is the chain position the checkpoint covers.
  */
 export interface VaultScanDistrustedEntry {
   chain?: VaultCheckpointChain;
@@ -6853,12 +7032,15 @@ export interface OpsSummary {
       /**
        * Registration state: peers allowed to receive. A peer counts here from
        * the moment it is registered, whether or not it has ever taken a
-       * delivery. Read it with the three delivery counts below, which partition
+       * delivery. Read it with the four delivery counts below, which partition
        * it.
        */
       active: number;
       revoked: number;
-      /** Active peers whose last delivery attempt succeeded. */
+      /**
+       * Active peers whose last delivery attempt succeeded and that have no
+       * delivery waiting unattempted (see {@link stalled}).
+       */
       delivering: number;
       /**
        * Active peers with consecutive failed delivery attempts. Per-peer detail,
@@ -6866,6 +7048,15 @@ export interface OpsSummary {
        * `GET /federation/v1/admin/peers`.
        */
       failing: number;
+      /**
+       * Active peers with a delivery queued and ready for over 180s while no
+       * outbound delivery to any peer was attempted in that time, and no
+       * consecutive failure on record. The peer is not refusing anything: no
+       * worker is taking the outbound queue. `system.degradedReasons` says why
+       * when the worker publishes a hold; otherwise check that a worker is
+       * running.
+       */
+      stalled: number;
       /**
        * Active peers with no delivery attempt recorded at all. A peer that has
        * only ever failed counts under `failing`, not here. Expected for a peer
