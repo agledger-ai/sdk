@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual, createHash, createPublicKey, verify as cry
 import { httpbis, type VerifyingKey, type SignatureParameters } from 'http-message-signatures';
 import {
   algorithmByName,
+  instantMs,
   looksLikeEd25519Key,
   resolveKeyAlgorithm,
   runtimeCanCompute,
@@ -18,6 +19,13 @@ import { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '
 export { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
 
 const MAX_TOLERANCE_SECONDS = 300;
+
+/**
+ * Clock skew allowed at each edge of a signing key's window when a delivery's
+ * `created` time is placed in it. The Server publishes the same allowance to
+ * receivers; it is fixed, and separate from the replay tolerance.
+ */
+const KEY_WINDOW_SKEW_MS = 300_000;
 
 /** A verified webhook event with typed payload. */
 export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
@@ -207,8 +215,14 @@ const RFC9421_COVERED_COMPONENTS = ['content-digest', 'x-agledger-idempotency-ke
  * base64-encoded key (raw 32-byte Ed25519 or SPKI DER, which also carries
  * P-256), or the `data` array from `client.verificationKeys.list()`, in which
  * case the key is resolved by matching the delivery's `keyid` to
- * `VerificationKey.keyId`. The key statements are not read here, so a key
- * list held without them works too.
+ * `VerificationKey.keyId` and the delivery's `created` time must fall inside
+ * that key's `[activatedAt, retiredAt]` window, with 300 seconds allowed at
+ * each edge (`retiredAt: null` means the window is still open). `status` is
+ * not consulted: a key retired between signing and your fetch still verifies
+ * what it signed while it was active. A single key string carries no window,
+ * so pinning one accepts whatever that key signed inside the replay window.
+ * The key statements are not read here, so a key list held without them works
+ * too.
  */
 export type Rfc9421PublicKey = string | Omit<VerificationKey, 'statements'>[];
 
@@ -327,12 +341,31 @@ function verifyingKeyFor(keyObj: KeyObject, id: string | undefined): VerifyingKe
   return null;
 }
 
+type KeyWindow = { activatedAt: unknown; retiredAt: unknown };
+
+/**
+ * Whether a signature created at `createdSeconds` falls inside its key's
+ * window, with the skew allowance at each edge. A window that cannot be read
+ * (no `activatedAt`, or an instant that is not RFC 3339) places nothing.
+ */
+function insideKeyWindow(createdSeconds: number, window: KeyWindow): boolean {
+  const createdMs = createdSeconds * 1000;
+  const activatedMs = typeof window.activatedAt === 'string' ? instantMs(window.activatedAt) : Number.NaN;
+  // NaN compares false, so an unreadable edge rejects.
+  if (!(createdMs >= activatedMs - KEY_WINDOW_SKEW_MS)) return false;
+  if (window.retiredAt === null || window.retiredAt === undefined) return true;
+  const retiredMs = typeof window.retiredAt === 'string' ? instantMs(window.retiredAt) : Number.NaN;
+  return createdMs <= retiredMs + KEY_WINDOW_SKEW_MS;
+}
+
 /**
  * Verify an RFC 9421 webhook delivery (ed25519 or ecdsa-p256-sha256), the
  * non-repudiable signing tier for settlement events. Recomputes the
  * Content-Digest over the raw body, reconstructs the RFC 9421 signature base,
  * resolves the public key by `keyid`, verifies the signature under the
  * algorithm that key commits to, and enforces the `created` replay window.
+ * Given the key list, it also holds `created` to the signing key's
+ * `[activatedAt, retiredAt]` window with 300 seconds allowed at each edge.
  *
  * @param headers - The delivery's HTTP headers (must include `content-digest`,
  *   `signature-input`, `signature`, and `x-agledger-idempotency-key`). Casing
@@ -341,7 +374,7 @@ function verifyingKeyFor(keyObj: KeyObject, id: string | undefined): VerifyingKe
  * @param key - A single base64 public key, or the array from
  *   `client.verificationKeys.list()` (resolved by `keyid`).
  * @param options - `toleranceSeconds` for the replay window (default/max: 300).
- * @returns true only if the signature, digest, and replay window all hold.
+ * @returns true only if the signature, digest, replay window and key window all hold.
  * @throws {SignatureAlgorithmUnavailableError} when this host cannot compute
  *   the key's algorithm (typically an active OpenSSL FIPS provider, which
  *   carries no EdDSA). Nothing was checked, so the delivery is neither
@@ -379,24 +412,30 @@ export async function verifyRfc9421(
 
     const tolerance = Math.min(options?.toleranceSeconds ?? MAX_TOLERANCE_SECONDS, MAX_TOLERANCE_SECONDS);
 
-    const resolveKey = (keyid: string | undefined): KeyObject | null => {
-      if (typeof key === 'string') return publicKeyObject(key);
+    type Resolved = { keyObj: KeyObject; window: KeyWindow | null };
+    const resolveKey = (keyid: string | undefined): Resolved | null => {
+      if (typeof key === 'string') return { keyObj: publicKeyObject(key), window: null };
       const match = key.find((k) => k.keyId === keyid);
-      return match ? publicKeyObject(match.publicKey) : null;
+      return match
+        ? { keyObj: publicKeyObject(match.publicKey), window: { activatedAt: match.activatedAt, retiredAt: match.retiredAt } }
+        : null;
     };
 
-    // The `created` time of every signature a key was handed out for. The
-    // replay window is enforced on these below, by this function's own
-    // arithmetic.
-    const createdSeconds: number[] = [];
+    // The `created` time of every signature a key was handed out for, with
+    // that key's window. The replay window and the key window are enforced on
+    // these below, by this function's own arithmetic.
+    const signed: { created: number; window: KeyWindow | null }[] = [];
 
     const result = await httpbis.verifyMessage(
       {
         keyLookup: async (params: SignatureParameters): Promise<VerifyingKey | null> => {
-          const keyObj = resolveKey(typeof params.keyid === 'string' ? params.keyid : undefined);
-          if (!keyObj) return null;
-          createdSeconds.push(params.created instanceof Date ? params.created.getTime() / 1000 : Number.NaN);
-          return verifyingKeyFor(keyObj, typeof params.keyid === 'string' ? params.keyid : undefined);
+          const resolved = resolveKey(typeof params.keyid === 'string' ? params.keyid : undefined);
+          if (!resolved) return null;
+          signed.push({
+            created: params.created instanceof Date ? params.created.getTime() / 1000 : Number.NaN,
+            window: resolved.window,
+          });
+          return verifyingKeyFor(resolved.keyObj, typeof params.keyid === 'string' ? params.keyid : undefined);
         },
         // `created` is required for replay protection. The library is given a
         // window no narrower than ours under either reading of `maxAge` and
@@ -413,9 +452,15 @@ export async function verifyRfc9421(
     if (result !== true) return false;
 
     // The replay window, symmetric as on the HMAC path: every signature a key
-    // was resolved for must carry a `created` within `tolerance` of now.
+    // was resolved for must carry a `created` within `tolerance` of now, and
+    // inside the window of the key it names.
     const now = Date.now() / 1000;
-    return createdSeconds.length > 0 && createdSeconds.every((created) => Math.abs(now - created) <= tolerance);
+    return (
+      signed.length > 0 &&
+      signed.every(
+        ({ created, window }) => Math.abs(now - created) <= tolerance && (window === null || insideKeyWindow(created, window)),
+      )
+    );
   } catch (err) {
     // "Could not check" must not be flattened into "did not verify"; every
     // other failure in here really is a rejected delivery.

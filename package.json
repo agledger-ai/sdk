@@ -39,7 +39,7 @@
   "scripts": {
     "prebuild": "rm -rf dist *.tsbuildinfo",
     "build": "tsc",
-    "prepack": "npm run build",
+    "prepack": "node -e \"fs.existsSync('tsconfig.json')&&child_process.execSync('npm run build',{stdio:'inherit'})\"",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.typetests.json",
     "typecheck:types": "tsc -p tsconfig.typetests.json",
     "test": "vitest run",

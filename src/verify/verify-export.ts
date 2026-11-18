@@ -73,6 +73,12 @@ export type {
  * fails `CHAIN_EVIDENCE_BINDING_MISMATCH`. `result.evidenceBinding` counts
  * them; an encrypted-mode completion is `clientHashed`, not re-bound.
  *
+ * The chain's length is held to the two counts the export states: fewer
+ * entries than `exportMetadata.expectedEntries` (the record's latest
+ * checkpoint position) fails `CHECKPOINT_ROW_MISSING`, and fewer than
+ * `exportMetadata.totalEntries` fails `CHAIN_POSITION_GAP`.
+ * `result.entryCount` reports both.
+ *
  * Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
  * `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can
  * still be true, and it then means the chain verifies against keys nobody

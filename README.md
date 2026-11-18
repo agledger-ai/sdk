@@ -443,8 +443,11 @@ try {
 `verifyRfc9421` recomputes the RFC 9530 Content-Digest over the body, reconstructs
 the RFC 9421 signature base, verifies the signature under the algorithm the
 resolved key commits to (Ed25519 or ES256), and enforces the
-`created` replay window (default/max 300s). `constructEventRfc9421` verifies and
-parses in one step. This path uses `http-message-signatures` for the canonical
+`created` replay window (default/max 300s). Given the key list, it also holds
+`created` to the signing key's `[activatedAt, retiredAt]` window, with 300s
+allowed at each edge, so a key retired between signing and your fetch still
+verifies what it signed while active and nothing it signs afterwards.
+`constructEventRfc9421` verifies and parses in one step. This path uses `http-message-signatures` for the canonical
 serialization.
 
 If the host runtime cannot compute the key's algorithm, both functions throw

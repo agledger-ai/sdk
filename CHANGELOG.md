@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - Each scope profile's `description` in `ScopeProfiles` is the text an AGLedger Server later than 2.2.0 serves. Scopes and roles are unchanged.
 - Documentation describes what the caller observes instead of the Server's internals.
 - The README leads the offline verification example with `result.verdict`, and no longer claims Deno and Bun support.
+- **`verifyExport` fails an export cut from the end, and reports `result.entryCount`.** The export is held to the two entry counts it states: fewer entries than `exportMetadata.expectedEntries`, the position of the record's latest checkpoint, is `CHECKPOINT_ROW_MISSING`, and fewer than `exportMetadata.totalEntries` is `CHAIN_POSITION_GAP`. `result.entryCount` carries both counts, each null when the export does not state it. An export that verified on 3.1.0 with its tail removed now fails.
 
 ### Fixed
 
@@ -39,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - `AutoReadjudicateConfig` said a dispute with no re-check waits at `PENDING_RESOLUTION`; it goes to the evidence window. `toleranceExpansion` says that it leaves `graceSeconds` to `deadlineGraceSeconds`.
 - The federation results state the form of `serverSignature` and `counterSignature`: 128 lowercase hex characters, `serverSignature` empty when the receiving Server holds no federation key.
 
+- **`verifyRfc9421` and `constructEventRfc9421` hold a delivery to its signing key's window.** Given the list from `client.verificationKeys.list()`, a delivery was accepted whenever its `keyid` matched a listed key and its signature verified, including one signed with a retired key long after its retirement. The delivery's `created` time must now fall inside that key's `[activatedAt, retiredAt]` window, with 300 seconds allowed at each edge, as the Server's receiver guidance gives it. `status` is not consulted, so a key retired between signing and your fetch still verifies what it signed while active. A listed key whose `activatedAt` is missing or is not an RFC 3339 instant verifies nothing. A single key passed as a string carries no window and behaves as before.
 ## [3.1.0] - 2026-11-05
 
 ### Added

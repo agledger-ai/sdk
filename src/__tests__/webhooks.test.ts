@@ -153,7 +153,7 @@ describe('RFC 9421 (ed25519) Webhook Verification', () => {
   const spkiBase64 = kp.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
   const rawBase64 = Buffer.from(kp.publicKey.export({ format: 'jwk' }).x as string, 'base64url').toString('base64');
   const verificationKeys: VerificationKey[] = [
-    { keyId, algorithm: 'Ed25519', publicKey: spkiBase64, publicKeyRaw: rawBase64, status: 'active', activatedAt: '2026-01-01', retiredAt: null, statements: [] },
+    { keyId, algorithm: 'Ed25519', publicKey: spkiBase64, publicKeyRaw: rawBase64, status: 'active', activatedAt: '2026-01-01T00:00:00.000000Z', retiredAt: null, statements: [] },
   ];
   const body = '{"type":"signal.emitted","data":{"recordId":"rec-1","signal":"SETTLE"},"timestamp":"2026-05-25T00:00:00Z","id":"evt-9"}';
   const idk = '11111111-2222-3333-4444-555555555555';
@@ -245,6 +245,33 @@ describe('RFC 9421 (ed25519) Webhook Verification', () => {
     expect(await verifyRfc9421(withoutDigest, body, spkiBase64)).toBe(false);
   });
 
+  it('holds created to the signing key window from a verification-keys array, 300s allowed at each edge', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const at = (seconds: number) => new Date(seconds * 1000).toISOString().replace('Z', '000Z');
+    const listed = (activatedAt: unknown, retiredAt: unknown, status = 'retired') =>
+      [{ ...verificationKeys[0], status, activatedAt, retiredAt }] as VerificationKey[];
+    const signedAt = (created: number) => sign({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, created });
+    const long = at(now - 86_400);
+
+    // A retired key still verifies what it signed while active, and up to 300s after.
+    expect(await verifyRfc9421(signedAt(now - 100), body, listed(long, at(now - 50)))).toBe(true);
+    expect(await verifyRfc9421(signedAt(now), body, listed(long, at(now - 300)))).toBe(true);
+    expect(await verifyRfc9421(signedAt(now), body, listed(long, at(now - 301)))).toBe(false);
+    expect(await verifyRfc9421(signedAt(now), body, listed(long, at(now - 23 * 60)))).toBe(false);
+    // Activation edge.
+    expect(await verifyRfc9421(signedAt(now), body, listed(at(now + 300), null, 'active'))).toBe(true);
+    expect(await verifyRfc9421(signedAt(now), body, listed(at(now + 301), null, 'active'))).toBe(false);
+    // A window that cannot be read places nothing.
+    expect(await verifyRfc9421(signedAt(now), body, listed(undefined, null, 'active'))).toBe(false);
+    expect(await verifyRfc9421(signedAt(now), body, listed('2026-01-01', null, 'active'))).toBe(false);
+    expect(await verifyRfc9421(signedAt(now), body, listed(long, 'yesterday'))).toBe(false);
+    // The same delivery under the pinned key string: no window to hold it to.
+    expect(await verifyRfc9421(signedAt(now), body, spkiBase64)).toBe(true);
+    await expect(constructEventRfc9421(signedAt(now), body, listed(long, at(now - 23 * 60)))).rejects.toThrow(
+      'RFC 9421 webhook signature verification failed',
+    );
+  });
+
   it('constructEventRfc9421 parses a verified delivery and throws otherwise', async () => {
     const headers = sign({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId });
     const event = await constructEventRfc9421(headers, body, verificationKeys);
@@ -294,7 +321,7 @@ describe('RFC 9421 (ecdsa-p256-sha256) Webhook Verification', () => {
   const keyId = 'f6e5d4c3b2a10897';
   const spkiBase64 = kp.publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
   const verificationKeys: VerificationKey[] = [
-    { keyId, algorithm: 'ES256', coseAlgorithm: -7, publicKey: spkiBase64, status: 'active', activatedAt: '2026-08-01', retiredAt: null, statements: [] },
+    { keyId, algorithm: 'ES256', coseAlgorithm: -7, publicKey: spkiBase64, status: 'active', activatedAt: '2026-08-01T00:00:00.000000Z', retiredAt: null, statements: [] },
   ];
   const body = '{"type":"signal.emitted","data":{"recordId":"rec-2","signal":"SETTLE"},"timestamp":"2026-08-05T00:00:00Z","id":"evt-10"}';
   const idk = '66666666-7777-8888-9999-aaaaaaaaaaaa';
