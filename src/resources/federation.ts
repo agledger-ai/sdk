@@ -58,7 +58,12 @@ export class FederationResource {
    * `co_sign_required`. The receiver refuses any field `RelaySignalParams`
    * does not name with a 400, free-text `reason` included: the cause crosses
    * the wire as `reasonCode` and `failingRuleIds`, both required (null where
-   * there is none).
+   * there is none). A `reasonCode` outside its enum, a `failingRuleIds` past
+   * its bounds, or a `counterSignature` that is not 128 lowercase hex
+   * characters is a 400; a `validUntil` outside the signal window is a 422. A
+   * record the receiving Server created itself is refused with an opaque 404,
+   * whether or not it was shared to the sender: a peer drives only the records
+   * it originated.
    */
   relaySignal(
     params: RelaySignalParams,

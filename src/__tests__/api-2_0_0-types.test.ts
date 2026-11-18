@@ -154,7 +154,8 @@ describe('federation requests match what the receiver requires', () => {
   it('requires the fields the routes require', () => {
     expectTypeOf<RelaySignalParams['schemaRef']>().not.toEqualTypeOf<undefined>();
     expectTypeOf<RelaySignalParams>().not.toHaveProperty('reason');
-    expectTypeOf<RelaySignalParams['reasonCode']>().toEqualTypeOf<string | null>();
+    expectTypeOf<RelaySignalParams['reasonCode']>().toMatchTypeOf<string | null>();
+    expectTypeOf<null>().toMatchTypeOf<RelaySignalParams['reasonCode']>();
     expectTypeOf<RelaySignalParams['failingRuleIds']>().toEqualTypeOf<string[] | null>();
     expectTypeOf<SubmitDisputeProtocolParams>().not.toHaveProperty('tier');
     expectTypeOf<SubmitStateTransitionParams['principalAgentId']>().toEqualTypeOf<string>();

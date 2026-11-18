@@ -6,10 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- **Checkpoint key windows on an audit export.** `AuditChainIntegrityReasonCode` adds `checkpoint_key_expired` and `checkpoint_key_not_yet_active` (a vault checkpoint whose signature verifies, written after its key's `retiredAt` or before its `activatedAt`) and `checkpoint_accounted_run_exceeded` (more than 1000 checkpoints a `VAULT_DISTRUSTED_KEYS` entry accounts for sit above the newest one it does not). The union is closed, so an exhaustive `switch` over it needs the three new cases. An AGLedger Server later than 2.2.0 sends them.
+- **The vault scan lists what a distrusted key signed beyond chain entries.** `VaultScanResult.distrustedCheckpoints` and `distrustedCheckpointsTotal` are the vault checkpoints the scan set aside and cross-checked past; `VaultScanOrgAdminReads.distrustedEntries` (`VaultScanOrgReadsDistrustedEntry`: `orgId`, `kind`, `at`, `keyId`), `distrustedEntriesTotal` and `distrustedSigned` are the read-log leaves and checkpoints the same entry accounts for. None of them fails `healthy`.
+- `VaultScanBreakReason` adds `accounted_checkpoint_only`, `checkpoint_accounted_run_exceeded`, `checkpoint_key_expired` and `checkpoint_key_not_yet_active`; `OrgReadsBreakReason` adds `checkpoint_key_expired`, `checkpoint_key_not_yet_active`, `leaf_key_expired` and `leaf_key_not_yet_active`.
+- `OpsSummary.federation.peers.stalled`: active peers with a delivery queued and ready for over 180 seconds while no outbound delivery was attempted, because no worker is taking the outbound queue. With it, four delivery counts partition `active`.
+- **`ComplianceExport.resumeTo`** on a truncated export: re-run with the same filters and `filters.to` set to it, copied verbatim, and the next export holds exactly the matching records this one left out.
+- **`ExportComplianceParams.filters` takes `ref`, `recordIds` and `rootRecordId`**, which the Server has accepted: scope an export to the records tagged with an entity reference, to an explicit list of up to 1000 record ids, or to one delegation tree. They are the narrower filters a truncated export's `resumeTo` guidance points at.
+
 ### Changed
 
+- **`RelaySignalParams.reasonCode` is the closed set a Server stamps**: `AUTO_FAIL`, `AUTO_SETTLE`, `AUTO_SETTLE_WITHIN_TOLERANCE`, `DISPUTE_OVERTURNED`, `PRINCIPAL_ACCEPT`, `PRINCIPAL_REJECT`, or null. An AGLedger Server later than 2.2.0 refuses any other value with a 400, and code passing a plain `string` no longer typechecks. The docs on `relaySignal()` state the bounds the receiver enforces: `failingRuleIds` at most 220 ids of at most 100 characters, `counterSignature` exactly 128 lowercase hex characters, `validUntil` within the 24-hour signal window, and an opaque 404 for a record the receiving Server created.
+- Each scope profile's `description` in `ScopeProfiles` is the text an AGLedger Server later than 2.2.0 serves. Scopes and roles are unchanged.
 - Documentation describes what the caller observes instead of the Server's internals.
 - The README leads the offline verification example with `result.verdict`, and no longer claims Deno and Bun support.
+
+### Fixed
+
+- **`verifyRfc9421` and `constructEventRfc9421` hold the replay window themselves.** The window was set through the `maxAge` and `tolerance` options of `http-message-signatures`, whose releases from 1.0.10 read them as `maxAge + tolerance` where earlier ones read `maxAge - tolerance`. An install that resolved 1.0.10 or later accepted an RFC 9421 delivery up to three times `toleranceSeconds` old: 900 seconds at the default, where 300 is documented. The `created` time of the signature is now compared with the clock here, symmetric and to the second, under every release of that library the dependency range admits. HMAC verification (`verifySignature`, `constructEvent`) was never affected.
+- `RateLimitInfo.reset` is documented as the seconds until the window resets, which is what the `x-ratelimit-reset` header carries. It said a Unix timestamp.
+- `ComplianceExport.truncated` said to window with `filters.from` / `filters.to` to cover the rest, and that a truncated export holds exactly 10000 rows. It ends at a millisecond boundary and can hold fewer; continue with `resumeTo`.
+- `OpsSummary.federation.peers.active` said three delivery counts partition it; with `stalled` there are four, and `delivering` excludes a peer with a delivery waiting unattempted.
+- `RelaySignalParams.reasonCode` listed causes (`TIMED_OUT`, `REMEDIATED`, `CANCEL_*`, `OVERFLOW_REJECT`, `ARBITRATION_*`) the Server never stamps and now refuses.
+- `VaultScanResult.healthy` said it requires `keyRegistry.findings` to be empty; it requires every finding to be `standing`.
+- `AutoReadjudicateConfig.deadlineGraceSeconds` said it is a grace added to deadline checks. It is added to the record's `tolerance.graceSeconds`, which `toleranceExpansion` does not multiply; on an AGLedger Server later than 2.2.0 the re-check reads the record's deadline as the gate did.
+- `SchemaKeywordWarning` said every warning is an ignored keyword. Registration and preview also warn with `keyword: 'format'` when a rule reads a date from a path the schema does not declare with `format: 'date-time'` or `'date'`.
+- `VaultScanKeyRegistryFinding.standing` said the key has no retirement a trusted key signed. It is true when no setting clears the finding and the remedy its detail names has been carried out.
+- `AutoReadjudicateConfig` said a dispute with no re-check waits at `PENDING_RESOLUTION`; it goes to the evidence window. `toleranceExpansion` says that it leaves `graceSeconds` to `deadlineGraceSeconds`.
+- The federation results state the form of `serverSignature` and `counterSignature`: 128 lowercase hex characters, `serverSignature` empty when the receiving Server holds no federation key.
 
 ## [3.1.0] - 2026-11-05
 

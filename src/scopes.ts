@@ -81,7 +81,7 @@ export interface ScopeProfile {
 export const ScopeProfiles: Record<string, ScopeProfile> = {
   'admin-observer': {
     name: 'admin-observer',
-    description: 'Read-only admin: audit, compliance, events, disputes, drift, schemas, webhooks, records, completions',
+    description: 'Read-only admin; audit, compliance, events, disputes, drift, schemas, webhooks, records, completions',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.AUDIT_READ,
@@ -98,11 +98,9 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   'admin-standard': {
     name: 'admin-standard',
     description:
-      'Default admin: full org governance plus record action rights (admin actions signed as admin in vault). ' +
-      'Carries schemas:write for contract types in its own org; schemas:admin (cross-org and engine-core authority) ' +
-      'is deliberately kept off this profile and lives on admin-schema. completions:write is held to delegate, ' +
-      'not to exercise: an admin key is never a performer, and this is the only profile whose scopes cover ' +
-      'agent-full and agent-performer-only, so dropping it would stop an org-admin minting agent keys.',
+      'Default admin for an org: manages agents, webhooks, API keys and the org\'s own Types, acts on any record in the org, ' +
+      'and reads audit and compliance data. Cannot manage platform-level Types or other orgs; use admin-schema for ' +
+      'platform-level Type authority.',
     allowedRoles: ['admin'],
     scopes: [
       Scopes.AUDIT_READ,
@@ -129,26 +127,23 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   'admin-iac': {
     name: 'admin-iac',
     description:
-      'Infrastructure provisioning: agents, webhooks, keys, schemas. The full own-org schema surface ' +
-      '(register, import, preview, export, lifecycle) rides on schemas:write; schemas:read is held for the ' +
-      'completion dry-run (POST /v1/schemas/{type}/validate), so a pipeline that registers a type can test a ' +
-      'payload against it. Resolves as org-admin; engine-core and cross-org rows are platform-only and stay out of reach.',
+      'Infrastructure provisioning for a pipeline: manages agents, webhooks and API keys, and registers and manages ' +
+      'the org\'s own Types, including testing a payload against a Type. Cannot reach platform-level Types or other orgs.',
     allowedRoles: ['admin'],
     scopes: [Scopes.ADMIN_KEYS, Scopes.AGENTS_MANAGE, Scopes.WEBHOOKS_MANAGE, Scopes.SCHEMAS_READ, Scopes.SCHEMAS_WRITE],
   },
   'admin-schema': {
     name: 'admin-schema',
     description:
-      'Schema registry management: create, version, disable/enable custom types. schemas:admin is held as ' +
-      'the schema-admin role marker, not for reach: it resolves this key to the schema-admin structural role ' +
-      'instead of org-admin. Every schema action this key performs is authorized by schemas:write.',
+      'Type registry management: create, version, disable and enable Types, including platform-level Types. ' +
+      'For operators who manage the Type catalogue and need nothing else.',
     allowedRoles: ['admin'],
     scopes: [Scopes.SCHEMAS_READ, Scopes.SCHEMAS_WRITE, Scopes.SCHEMAS_ADMIN],
   },
   'agent-full': {
     name: 'agent-full',
     description:
-      'Full agent: record lifecycle, completions, disputes, events, schemas, self-audit of own records, ' +
+      'Full agent; record lifecycle, completions, disputes, events, schemas, self-audit of own records, ' +
       'and self-introspection of own drift',
     allowedRoles: ['agent'],
     scopes: [
@@ -168,14 +163,17 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
   },
   'agent-readonly': {
     name: 'agent-readonly',
-    description: 'Read-only agent: view own records, completions, and audit trail',
+    description: 'Read-only agent; view own records, completions, and audit trail',
     allowedRoles: ['agent'],
     scopes: [Scopes.RECORDS_READ, Scopes.COMPLETIONS_READ, Scopes.AUDIT_READ, Scopes.COMPLIANCE_READ],
   },
   'agent-performer-only': {
     name: 'agent-performer-only',
     description:
-      'Performer agent: can deliver completions, read records, and self-audit, but cannot be principal of new records',
+      'Performer agent; can deliver completions, read records, and self-audit, but cannot be principal of new records. ' +
+      'It does not carry records:write, so it cannot accept or reject a proposal (POST /v1/records/{id}/accept or /reject): ' +
+      'it performs records that reach it already ACTIVE (autoActivate, or activated by the principal). ' +
+      'A performer that must consent to proposals needs agent-full, or custom scopes that add records:write.',
     allowedRoles: ['agent'],
     scopes: [
       Scopes.RECORDS_READ,

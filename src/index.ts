@@ -398,6 +398,7 @@ export type {
   VaultScanFirstFindingReason,
   VaultScanOrgAdminReads,
   VaultScanBrokenOrg,
+  VaultScanOrgReadsDistrustedEntry,
   OrgReadsBreakReason,
   VaultScanSummary,
   VaultScanLastCompleted,
