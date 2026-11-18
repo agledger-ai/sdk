@@ -385,19 +385,24 @@ export async function verifyRfc9421(
       return match ? publicKeyObject(match.publicKey) : null;
     };
 
+    // The `created` time of every signature a key was handed out for. The
+    // replay window is enforced on these below, by this function's own
+    // arithmetic.
+    const createdSeconds: number[] = [];
+
     const result = await httpbis.verifyMessage(
       {
         keyLookup: async (params: SignatureParameters): Promise<VerifyingKey | null> => {
           const keyObj = resolveKey(typeof params.keyid === 'string' ? params.keyid : undefined);
           if (!keyObj) return null;
+          createdSeconds.push(params.created instanceof Date ? params.created.getTime() / 1000 : Number.NaN);
           return verifyingKeyFor(keyObj, typeof params.keyid === 'string' ? params.keyid : undefined);
         },
-        // `created` is required for replay protection. The library's window
-        // math: a delivery is rejected when age > maxAge - tolerance (past)
-        // or when created - tolerance > now (future). maxAge = 2t with
-        // tolerance = t therefore accepts age in [-t, +t], the same symmetric
-        // window the HMAC path enforces. maxAge = tolerance = t would make
-        // the past window ZERO seconds and reject every real delivery.
+        // `created` is required for replay protection. The library is given a
+        // window no narrower than ours under either reading of `maxAge` and
+        // `tolerance` its releases have had (age > maxAge - tolerance through
+        // 1.0.9, age > maxAge + tolerance from 1.0.10), so it never rejects a
+        // delivery inside [-t, +t]; the window itself is enforced below.
         requiredParams: ['created', 'keyid'],
         requiredFields: [...RFC9421_COVERED_COMPONENTS],
         maxAge: tolerance * 2,
@@ -405,8 +410,12 @@ export async function verifyRfc9421(
       },
       { method: 'POST', url: 'https://webhook.agledger.local/', headers: h },
     );
+    if (result !== true) return false;
 
-    return result === true;
+    // The replay window, symmetric as on the HMAC path: every signature a key
+    // was resolved for must carry a `created` within `tolerance` of now.
+    const now = Date.now() / 1000;
+    return createdSeconds.length > 0 && createdSeconds.every((created) => Math.abs(now - created) <= tolerance);
   } catch (err) {
     // "Could not check" must not be flattened into "did not verify"; every
     // other failure in here really is a rejected delivery.
