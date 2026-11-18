@@ -220,6 +220,17 @@ describe('RFC 9421 (ed25519) Webhook Verification', () => {
     expect(await verifyRfc9421(headers, body, spkiBase64)).toBe(false);
   });
 
+  it('holds the replay window at its edges, whatever the signature library reads maxAge as', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    for (const [age, ok] of [[290, true], [310, false], [-290, true], [-310, false]] as const) {
+      const headers = sign({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, created: now - age });
+      expect(await verifyRfc9421(headers, body, spkiBase64), `age ${age}s`).toBe(ok);
+    }
+    const narrow = sign({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, created: now - 90 });
+    expect(await verifyRfc9421(narrow, body, spkiBase64, { toleranceSeconds: 60 })).toBe(false);
+    expect(await verifyRfc9421(narrow, body, spkiBase64, { toleranceSeconds: 120 })).toBe(true);
+  });
+
   it('rejects a far-future signature beyond clock skew', async () => {
     const created = Math.floor(Date.now() / 1000) + 600;
     const headers = sign({ rawBody: body, idempotencyKey: idk, privateKey: kp.privateKey, keyId, created });
