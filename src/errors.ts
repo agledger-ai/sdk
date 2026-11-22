@@ -143,9 +143,24 @@ export class AgledgerApiError extends AgledgerError {
    * `RECORDS_REFERENCE_TYPE`, `CONFLICTING_VERSION`, `RESERVED_PUBLISHER_LABEL`,
    * `PROVISIONING_MANAGED`, `OIDC_JTI_REPLAY`, `ROW_HAS_DEPENDENT_RECORDS`,
    * `CHAIN_REWIND_DETECTED`, `VAULT_SCAN_IN_FLIGHT`, `AGENT_NAME_IN_USE`,
-   * `TRUSTED_ISSUER_EXISTS` or `KEY_ALREADY_ROTATED`. Not every 409 names one
-   * (a duplicate agent `displayName` answers `error: CONFLICT` with no
+   * `TRUSTED_ISSUER_EXISTS`, `KEY_ALREADY_ROTATED`, `IDEMPOTENCY_KEY_IN_FLIGHT`,
+   * `IDEMPOTENT_WRITE_COMMITTED` or `GATE_PASS_IN_FLIGHT`. Not every 409 names
+   * one (a duplicate agent `displayName` answers `error: CONFLICT` with no
    * `reason` today), so branch on `code` first and on `reason` when present.
+   *
+   * The 409 reasons that carry `retryable: true` are retried by the SDK itself,
+   * after the `Retry-After` the Server named: `IDEMPOTENCY_KEY_IN_FLIGHT` (an
+   * earlier request under the same `Idempotency-Key` still holds the key) and
+   * `GATE_PASS_IN_FLIGHT` (a completion reached a principal-mode Record while
+   * the Server was still evaluating another). `IDEMPOTENT_WRITE_COMMITTED` is
+   * `retryable: false` and throws at once: the earlier request committed its
+   * work and stored no response, so a resend would run the work again; read the
+   * result at `refreshUrl`.
+   *
+   * On a 422, a verdict sent with `signatureMeaning` can name
+   * `signature_requires_oidc_identity` (the credential is an API key, or the
+   * request carried `AGLedger-On-Behalf-Of`) or `signature_requires_signer_name`
+   * (the IdP token carried no `name` claim).
    */
   readonly reason?: string;
 

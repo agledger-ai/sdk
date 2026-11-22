@@ -462,6 +462,124 @@ describe('HttpClient', () => {
       expect(result.done).toBe(true);
     });
 
+    describe('a 409 the Server marks retryable', () => {
+      const conflict = (reason: string, retryable: boolean, headers: Record<string, string> = {}) => {
+        const body = {
+          error: 'CONFLICT',
+          reason,
+          retryable,
+          detail: reason,
+          retryAfterSeconds: 2,
+          refreshUrl: '/v1/records/rec-1',
+        };
+        return {
+          ok: false,
+          status: 409,
+          statusText: 'Conflict',
+          json: vi.fn().mockResolvedValue(body),
+          text: vi.fn().mockResolvedValue(JSON.stringify(body)),
+          arrayBuffer: vi.fn().mockResolvedValue(new TextEncoder().encode(JSON.stringify(body)).buffer),
+          headers: new Headers({ 'content-type': 'application/json', ...headers }),
+        };
+      };
+      const ok = () => ({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ done: true }),
+        text: vi.fn().mockResolvedValue('{"done":true}\n'),
+        arrayBuffer: vi.fn().mockResolvedValue(new TextEncoder().encode('bin').buffer),
+        headers: new Headers(),
+      });
+      const retrying = (fetch: ReturnType<typeof vi.fn>) => {
+        const waits: number[] = [];
+        const client = new HttpClient({
+          apiKey: 'test',
+          baseUrl: TEST_BASE_URL,
+          fetch: fetch as unknown as typeof globalThis.fetch,
+          maxRetries: 1,
+        });
+        (client as unknown as { sleep: (ms: number) => Promise<void> }).sleep = async (ms: number) => { waits.push(ms); };
+        return { client, waits };
+      };
+
+      it.each(['IDEMPOTENCY_KEY_IN_FLIGHT', 'GATE_PASS_IN_FLIGHT'])(
+        'resends a write on %s under the same Idempotency-Key, after the wait it named',
+        async (reason) => {
+          const fetch = vi.fn().mockResolvedValueOnce(conflict(reason, true, { 'Retry-After': '2' })).mockResolvedValueOnce(ok());
+          const { client, waits } = retrying(fetch);
+
+          const result = await client.post<{ done: boolean }>('/v1/records/rec-1/completions', { evidence: {} });
+
+          expect(result.done).toBe(true);
+          expect(fetch).toHaveBeenCalledTimes(2);
+          const first = fetch.mock.calls[0][1].headers['Idempotency-Key'];
+          expect(first).toBeTruthy();
+          expect(fetch.mock.calls[1][1].headers['Idempotency-Key']).toBe(first);
+          expect(waits[0]).toBeGreaterThanOrEqual(2000);
+          expect(waits[0]).toBeLessThanOrEqual(2500);
+        },
+      );
+
+      it('throws IDEMPOTENT_WRITE_COMMITTED at once, with refreshUrl on the error', async () => {
+        const fetch = vi.fn().mockResolvedValue(conflict('IDEMPOTENT_WRITE_COMMITTED', false));
+        const { client } = retrying(fetch);
+
+        const err = await client.post('/v1/records', {}).catch((e: unknown) => e) as AgledgerApiError;
+
+        expect(err.status).toBe(409);
+        expect(err.reason).toBe('IDEMPOTENT_WRITE_COMMITTED');
+        expect(err.retryable).toBe(false);
+        expect(err.refreshUrl).toBe('/v1/records/rec-1');
+        expect(fetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not resend a 409 that names no retryable flag', async () => {
+        const fetch = vi.fn().mockResolvedValue({
+          ok: false,
+          status: 409,
+          json: vi.fn().mockResolvedValue({ error: 'CONFLICT', detail: 'name taken' }),
+          headers: new Headers(),
+        });
+        const { client } = retrying(fetch);
+        await expect(client.post('/v1/agents', {})).rejects.toMatchObject({ status: 409 });
+        expect(fetch).toHaveBeenCalledTimes(1);
+      });
+
+      it('throws once the retries are spent, still carrying the reason', async () => {
+        const fetch = vi.fn().mockResolvedValue(conflict('IDEMPOTENCY_KEY_IN_FLIGHT', true));
+        const { client } = retrying(fetch);
+        const err = await client.post('/v1/records', {}).catch((e: unknown) => e) as AgledgerApiError;
+        expect(err.reason).toBe('IDEMPOTENCY_KEY_IN_FLIGHT');
+        expect(fetch).toHaveBeenCalledTimes(2);
+      });
+
+      it('applies to the binary path as well', async () => {
+        const fetch = vi.fn().mockResolvedValueOnce(conflict('IDEMPOTENCY_KEY_IN_FLIGHT', true)).mockResolvedValueOnce(ok());
+        const { client } = retrying(fetch);
+        const bytes = await client.requestBinary('POST', '/v1/scitt/entries', { body: new Uint8Array([1]) });
+        expect(new TextDecoder().decode(bytes)).toBe('bin');
+        expect(fetch).toHaveBeenCalledTimes(2);
+
+        const committed = vi.fn().mockResolvedValue(conflict('IDEMPOTENT_WRITE_COMMITTED', false));
+        const second = retrying(committed);
+        await expect(second.client.requestBinary('POST', '/v1/scitt/entries', { body: new Uint8Array([1]) }))
+          .rejects.toMatchObject({ reason: 'IDEMPOTENT_WRITE_COMMITTED' });
+        expect(committed).toHaveBeenCalledTimes(1);
+      });
+
+      it('applies to the NDJSON path as well', async () => {
+        const fetch = vi.fn().mockResolvedValueOnce(conflict('GATE_PASS_IN_FLIGHT', true)).mockResolvedValueOnce(ok());
+        const { client } = retrying(fetch);
+        const page = await client.getNdjson('/v1/events/stream');
+        expect(page.data).toEqual([{ done: true }]);
+        expect(fetch).toHaveBeenCalledTimes(2);
+
+        const committed = vi.fn().mockResolvedValue(conflict('IDEMPOTENT_WRITE_COMMITTED', false));
+        await expect(retrying(committed).client.getNdjson('/v1/events/stream')).rejects.toMatchObject({ status: 409 });
+        expect(committed).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it('waits out a Retry-After on a 503, not only on a 429', async () => {
       // A proxy in front of the Server answers 503 with retry-after: 6. The
       // backoff used to read the header only off RateLimitError, so the retry

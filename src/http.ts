@@ -261,6 +261,22 @@ function isRetryableAuthFailure(err: unknown): boolean {
   return err instanceof ConnectionError;
 }
 
+/**
+ * Whether a refused request is sent again. 429 and 5xx always are. A 409 is
+ * only when the Server's body says `retryable: true`, which it does for
+ * `IDEMPOTENCY_KEY_IN_FLIGHT` and `GATE_PASS_IN_FLIGHT`: the first means an
+ * earlier request under the same `Idempotency-Key` still holds the key, the
+ * second that the Server is still evaluating a completion on the Record. Every
+ * mutating request in this client carries an `Idempotency-Key` that stays the
+ * same across attempts, so the resend replays or is told it committed rather
+ * than running twice. A 409 with `retryable: false`
+ * (`IDEMPOTENT_WRITE_COMMITTED` among them) is never resent.
+ */
+function isRetryableStatus(status: number, error: AgledgerApiError): boolean {
+  if (status === 429 || status >= 500) return true;
+  return status === 409 && error.retryable === true;
+}
+
 export class HttpClient {
   private readonly auth: AuthSource;
   private readonly baseUrl: string;
@@ -438,7 +454,7 @@ export class HttpClient {
         const error = this.mapError(response.status, binaryErrorBody(response, bytes), response.headers);
         error.rawBody = bytes;
 
-        if (response.status === 429 || response.status >= 500) {
+        if (isRetryableStatus(response.status, error)) {
           lastError = error;
           continue;
         }
@@ -598,7 +614,7 @@ export class HttpClient {
 
           const error = this.mapError(response.status, errorBody.body, response.headers);
           if (errorBody.raw) error.rawBody = errorBody.raw;
-          if (response.status === 429 || response.status >= 500) {
+          if (isRetryableStatus(response.status, error)) {
             lastError = error;
             continue;
           }
@@ -837,8 +853,8 @@ export class HttpClient {
         const error = this.mapError(response.status, errorBody.body, response.headers);
         if (errorBody.raw) error.rawBody = errorBody.raw;
 
-        // Retry on 429 and 5xx
-        if (response.status === 429 || response.status >= 500) {
+        // Retry on 429, 5xx and a 409 the Server marks retryable
+        if (isRetryableStatus(response.status, error)) {
           lastError = error;
           continue;
         }
