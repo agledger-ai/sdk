@@ -494,7 +494,7 @@ export type SchemaCompatibilityMode = 'none' | 'backward' | 'forward' | 'full' |
  * direction, coercion) and is worth reading before relying on a helper in a
  * rule: `daysBetween`, for example, counts whole elapsed 24h periods between
  * UTC instants (floored, order-independent) rather than calendar days, and
- * returns 0 on an unparseable date.
+ * fails the rule, naming the argument, when one is missing or names no date.
  */
 export interface ExpressionHelperDoc {
   /** The call shape, e.g. `daysBetween(a, b)`. */
@@ -1242,6 +1242,25 @@ export interface RecordRow {
    * way the Record-level `schemaUrl` is.
    */
   completionHint?: { requiredFields: string[]; optionalFields?: string[]; schemaUrl?: string } | null;
+  /** What produced the work on this Record, as its creator stated it at create. Null when none was sent. */
+  producedBy?: ProducedBy | null;
+  /**
+   * The W3C trace id (32 lowercase hex characters) of the version-00
+   * `metadata.traceparent` this Record was created with. Fixed at create: a
+   * later PATCH of `metadata` leaves it as it was. Null when the create sent no
+   * valid traceparent, and on an imported Record or a peer's projection. Search
+   * on it with `records.search({ traceId })`.
+   */
+  traceId?: string | null;
+  /**
+   * On a Record this Server received from a peer (`federationStatus: 'inbound'`):
+   * which peer sent it and the id it sent. A projection is named by that pair,
+   * not by the id alone. Null on a Record this Server created.
+   * `records.search({ originRecordId })` lists every projection of one sent id.
+   */
+  federationOrigin?: FederationOrigin | null;
+  /** The Record's outbound federation deliveries, one per peer and kind, with their attempts and last error. */
+  federationLegs?: FederationLeg[];
   /** Advisory enforcement warnings from the most recent transition. */
   advisoryWarnings?: Array<{ rule: string; message: string; details?: Record<string, unknown> }>;
   /**
@@ -1441,6 +1460,120 @@ export interface RecordIntegrity {
 }
 
 /**
+ * The act a verdict signature stands for, which the signer chooses:
+ * `authorship`, `review`, `approval` or `responsibility`.
+ */
+export type SignatureMeaning = 'approval' | 'authorship' | 'responsibility' | 'review';
+
+/** The dimensions `records.counts()` groups by. */
+export type RecordCountGroupBy =
+  | 'category'
+  | 'createdDay'
+  | 'createdMonth'
+  | 'gateMode'
+  | 'operatingMode'
+  | 'performerAgentId'
+  | 'principalAgentId'
+  | 'status'
+  | 'type';
+
+/** The formats `records.getAuditExport()` serves. `html` is the one `getAuditExportHtml()` returns as a string. */
+export type AuditExportFormat = 'cose' | 'csv' | 'html' | 'json' | 'ndjson';
+
+/**
+ * What produced a piece of work, as the writer states it. Every key is
+ * optional, unknown keys are refused, and at least one key is required when the
+ * object is sent. It is signed into the chain entry the write appends (a
+ * Record's create entry, an accepted completion's `COMPLETION_SUBMITTED`
+ * entry), so an offline verifier reads the same value the API serves.
+ *
+ * The Server stores a digest, never the content it covers: equal digests on two
+ * Records mean the same bytes without either one disclosing them. How the bytes
+ * are canonicalized before hashing is yours to fix and keep stable.
+ */
+export interface ProducedBy {
+  /** Who serves the model, e.g. `anthropic`, `openai`, `bedrock`, `vertex`, `self-hosted`. At most 128 characters. */
+  modelProvider?: string;
+  /** The model identifier as the provider names it. At most 256 characters. */
+  modelId?: string;
+  /** A version or snapshot of that model, when the identifier does not already pin one. At most 128 characters. */
+  modelVersion?: string;
+  /** The agent program, harness or framework that ran the model. At most 256 characters. */
+  agentSoftware?: string;
+  /** Release, build or commit of `agentSoftware`. At most 128 characters. */
+  agentSoftwareVersion?: string;
+  /** Digest of the system prompt or instructions the run used: `sha256:<64 hex>`, `sha384:<96 hex>` or `sha512:<128 hex>`, lowercase. */
+  promptDigest?: string;
+  /** Digest of the run configuration (tools, parameters, policies) the run used, in the same form as `promptDigest`. */
+  configDigest?: string;
+}
+
+/** What a federation leg carries: `state-transition` the Record's state, `signal` a Settlement Signal, `dispute` a dispute lifecycle step. */
+export type FederationLegKind = 'dispute' | 'signal' | 'state-transition';
+
+/** Delivery state of a federation leg: `pending` until the peer applies it, `delivered` once it did, `failed` when the peer refused it for good or its retries ran out. */
+export type FederationLegStatus = 'delivered' | 'failed' | 'pending';
+
+/**
+ * A last delivery error as a word to branch on. `peer_rejected`: the peer
+ * refused the message for good. `peer_not_applied`: the peer answered 2xx and
+ * did not apply it. `peer_http_error`: the peer answered an error a retry can
+ * clear. `peer_inactive`: the peer is revoked or inactive here.
+ * `co_sign_rejected` and `co_sign_failed`: the counter-signature request was
+ * refused or could not be made. `co_sign_signature_invalid`: the
+ * counter-signature did not verify. `org_deactivated`: the Org was deactivated.
+ * `local_config`: this Server's own configuration blocks the send.
+ * `transport_error`: the connection failed.
+ */
+export type FederationLegErrorReason =
+  | 'co_sign_failed'
+  | 'co_sign_rejected'
+  | 'co_sign_signature_invalid'
+  | 'local_config'
+  | 'org_deactivated'
+  | 'peer_http_error'
+  | 'peer_inactive'
+  | 'peer_not_applied'
+  | 'peer_rejected'
+  | 'transport_error';
+
+/** One outbound federation delivery of a Record to one peer, as `RecordRow.federationLegs` lists it. */
+export interface FederationLeg {
+  /** The peer this leg is addressed to. */
+  peerHubId: string;
+  kind: FederationLegKind;
+  status: FederationLegStatus;
+  /** The Record state (`state-transition`) or dispute status (`dispute`) the leg carries. Null on a `signal` leg; its recommendation is on `settlementSignal`. */
+  state?: string | null;
+  deliveredAt?: string | null;
+  /** Delivery attempts this dispatch of the leg has made. */
+  attempts?: number;
+  /** When the last attempt ran. Null before the first. */
+  lastAttemptedAt?: string | null;
+  /**
+   * The last failed attempt's message as the Server stored it (at most 500
+   * characters). Served to admin and platform keys only; null for every other
+   * reader, which reads {@link lastErrorReason}. Null before any failure and
+   * once the leg delivered.
+   */
+  lastError?: string | null;
+  /** {@link lastError} as a word to branch on. */
+  lastErrorReason?: FederationLegErrorReason | null;
+}
+
+/** Where a Record this Server received from a peer came from. */
+export interface FederationOrigin {
+  /** The peer Server that sent the Record. */
+  peerHubId: string;
+  /**
+   * The Record id that peer gave it, which the peer's own `GET /v1/records/{id}`
+   * answers to. Equal to `RecordRow.id` unless a Record already held that id
+   * here, in which case the projection takes a fresh local `id`.
+   */
+  recordId: string;
+}
+
+/**
  * Settlement Signal projected onto a Record: the SETTLE/HOLD/RELEASE
  * recommendation bound to the terminal verdict, plus federation delivery state.
  * One payload class on the Notify channel; the Record holds the recommendation,
@@ -1518,6 +1651,14 @@ export interface CoSignPeerLeg {
    * vault keys. Null unless its `status` is `succeeded`.
    */
   counterSignature: string | null;
+  /** Delivery attempts this dispatch of the leg has made. */
+  attempts?: number;
+  /** When the last attempt ran. Null before the first. */
+  lastAttemptedAt?: string | null;
+  /** The last failed attempt's message (at most 500 characters). Admin and platform keys only; null for every other reader, which reads `lastErrorReason`. */
+  lastError?: string | null;
+  /** `lastError` as a word to branch on. */
+  lastErrorReason?: FederationLegErrorReason | null;
 }
 
 /**
@@ -1615,6 +1756,12 @@ export interface CreateRecordParams {
   dependsOn?: string[];
   /** Arbitrary metadata. */
   metadata?: Record<string, unknown>;
+  /**
+   * What produced this work: model, model version, agent software and its
+   * version, and digests of the prompt and configuration. Signed into the
+   * Record's create entry. At least one key when sent.
+   */
+  producedBy?: ProducedBy;
   /** Optional outcome (success/failure/denied/partial); stored on metadata.outcome and surfaced on the response. */
   outcome?: 'success' | 'failure' | 'denied' | 'partial' | (string & {});
   /** Optional grouping ID: multiple Records sharing a correlationId can be queried together. */
@@ -1696,7 +1843,11 @@ export interface GetRecordParams {
   view?: RecordView;
 }
 
-export interface SearchRecordsParams extends CursorListParams {
+/**
+ * The filters `records.search()` and `records.counts()` share. Both read the
+ * same set under the same key scoping.
+ */
+export interface RecordFilterParams {
   orgId?: string;
   /** Strict enum server-side: a value outside it is a 400, not an empty page. */
   status?: RecordStatusFilter;
@@ -1716,8 +1867,6 @@ export interface SearchRecordsParams extends CursorListParams {
   projectRef?: string;
   from?: string;
   to?: string;
-  sort?: 'createdAt' | 'updatedAt' | (string & {});
-  order?: 'asc' | 'desc';
   externalTaskId?: string;
   parentRecordId?: string;
   correlationId?: string;
@@ -1760,11 +1909,93 @@ export interface SearchRecordsParams extends CursorListParams {
   /** External entity reference filter: the entity id within the system. */
   'ref.id'?: string;
   /**
+   * Filter by W3C trace id: the 32 lowercase hex characters of the version-00
+   * `metadata.traceparent` a Record was created with. Matches
+   * {@link RecordRow.traceId}.
+   */
+  traceId?: string;
+  /**
+   * Every Record this Server received from a peer under this Record id,
+   * whichever local `id` each holds ({@link RecordRow.federationOrigin}).
+   * More than one row can answer: one per peer that sent the id.
+   */
+  originRecordId?: string;
+  /**
+   * Filter by what produced the Record: an exact match on up to 2 of the
+   * {@link ProducedBy} keys, sent as `producedBy[modelId]=...`. Like
+   * `criteria`, it selects on a value inside the create-time signature. A
+   * completion's own `producedBy` is not searched.
+   */
+  producedBy?: ProducedBy;
+  /**
+   * Numeric bounds on a top-level `criteria` value: `criteriaGte: { amount: '500' }`
+   * sends `criteriaGte[amount]=500`. A bound is a plain decimal of at most 32
+   * characters (`-12`, `1500.75`), and a value matches only when the stored
+   * one is a JSON number. Combine one lower bound (`Gt` or `Gte`) and one upper
+   * bound (`Lt` or `Lte`) on a key for a window; both lower bounds on one key
+   * are refused. Equality and range keys share 5 slots per request.
+   */
+  criteriaGt?: Record<string, string>;
+  /** Inclusive lower bound on a `criteria` value. See {@link RecordFilterParams.criteriaGt}. */
+  criteriaGte?: Record<string, string>;
+  /** Exclusive upper bound on a `criteria` value. See {@link RecordFilterParams.criteriaGt}. */
+  criteriaLt?: Record<string, string>;
+  /** Inclusive upper bound on a `criteria` value. See {@link RecordFilterParams.criteriaGt}. */
+  criteriaLte?: Record<string, string>;
+  /** Exclusive lower bound on a `metadata` value. Same form and limits as {@link RecordFilterParams.criteriaGt}. */
+  metadataGt?: Record<string, string>;
+  /** Inclusive lower bound on a `metadata` value. */
+  metadataGte?: Record<string, string>;
+  /** Exclusive upper bound on a `metadata` value. */
+  metadataLt?: Record<string, string>;
+  /** Inclusive upper bound on a `metadata` value. */
+  metadataLte?: Record<string, string>;
+}
+
+export interface SearchRecordsParams extends CursorListParams, RecordFilterParams {
+  sort?: 'createdAt' | 'updatedAt' | (string & {});
+  order?: 'asc' | 'desc';
+  /**
    * Response form. `compact` leaves out every top-level null on each row and
    * trims `nextSteps` to the call, and the method then resolves to a
    * {@link RecordCompactPage}. Omitted or `full`, whole {@link RecordRow}s.
    */
   view?: RecordView;
+}
+
+/** Parameters for `records.counts()`: every search filter, plus how to group. */
+export interface CountRecordsParams extends RecordFilterParams {
+  /**
+   * Up to two dimensions to group by, sent comma-joined. Omitted, `data` is one
+   * entry holding the count of every matching Record (or `[]` when none match);
+   * `total` answers either way.
+   */
+  groupBy?: RecordCountGroupBy | readonly RecordCountGroupBy[];
+  /** Most groups returned, largest first. 1 to 1000, default 100. */
+  limit?: number;
+}
+
+/** One group of {@link RecordCounts}: a property per `groupBy` dimension holding the group's value (null when the Record leaves it empty), and its `count`. */
+export type RecordCountGroup = {
+  [K in RecordCountGroupBy]?: string | null;
+} & {
+  /** Records in the group. */
+  count: number;
+};
+
+/** Result of `records.counts()`. */
+export interface RecordCounts {
+  /** The largest `limit` groups, largest first. */
+  data: RecordCountGroup[];
+  /** The dimensions each entry is grouped by, in request order. */
+  groupBy: RecordCountGroupBy[];
+  /** Records matching the filters, across all groups. */
+  total: number;
+  /** Groups the filters produce, including any past `limit`. */
+  groupCount: number;
+  /** True when `groupCount` exceeds the groups in `data`. To read the smaller groups, narrow the filters. */
+  truncated: boolean;
+  nextSteps?: NextStep[];
 }
 
 /**
@@ -1876,6 +2107,8 @@ export interface Completion {
   settlementSignal?: CompletionSettlementSignal | null;
   /** Idempotency key used when submitting. */
   idempotencyKey?: string | null;
+  /** What produced this completion, as its submitter stated it. Null when none was sent. */
+  producedBy?: ProducedBy | null;
   createdAt: string;
   /** Org-admin cross-party reads only: the chain entry this read appended. */
   recordRead?: RecordReadCompletion;
@@ -1906,6 +2139,12 @@ export interface SubmitCompletionParams {
   evidence: Record<string, unknown>;
   evidenceHash?: string;
   idempotencyKey?: string;
+  /**
+   * What produced this completion. Signed into the `COMPLETION_SUBMITTED` entry
+   * of an accepted completion. A completion `idempotencyKey` binds it together
+   * with the evidence, so a replay with a different value is refused.
+   */
+  producedBy?: ProducedBy;
 }
 
 
@@ -1991,6 +2230,28 @@ export interface SubmitVerdictParams {
   reason?: string;
   /** Alias of `notes`, as `/accept`, `/reject` and `/revision` name it. Same 4000-character bound. */
   message?: string;
+  /**
+   * Sign the verdict as a person, and say what the signature stands for. Taken
+   * only on an ephemeral cert from `auth.exchangeOidcCert()`: an API key, or a
+   * request carrying `AGLedger-On-Behalf-Of`, is refused with 422
+   * `signature_requires_oidc_identity`, and an IdP token that carried no `name`
+   * claim (or none the trusted issuer maps to `name`) with 422
+   * `signature_requires_signer_name`. The signature is sealed on the
+   * `OUTCOME_REPORTED` chain entry as `payload.signature`.
+   */
+  signatureMeaning?: SignatureMeaning;
+}
+
+/** The person-level signature a verdict carried, as the Server sealed it. */
+export interface VerdictSignature {
+  meaning: SignatureMeaning;
+  /** The printed name the IdP asserted for the signer. */
+  signerName: string;
+  /** The IdP issuer of the signer's identity. */
+  signerIss: string;
+  /** The signer's subject at that issuer. */
+  signerSub: string;
+  signedAt: string;
 }
 
 export interface VerdictResult {
@@ -2019,6 +2280,8 @@ export interface VerdictResult {
    */
   reporterRole?: 'principal' | 'org-admin';
   reportedAt: string;
+  /** The signature the verdict carried, or null when the request did not send `signatureMeaning`. */
+  signature?: VerdictSignature | null;
   /** Suggested next API calls after submitting the verdict. */
   nextSteps?: NextStep[];
 }
@@ -2093,6 +2356,43 @@ export interface DisputeEvidence {
   /** Role of the submitting party. */
   submittedByRole: string;
   createdAt: string;
+}
+
+/** The automatic re-check result on a dispute-create response. */
+export interface DisputeAutoReadjudication {
+  /** Whether the automatic re-check resolved the dispute. */
+  autoResolved?: boolean;
+  /** Outcome the re-check rendered, if it resolved the dispute. */
+  outcome?: string | null;
+  /**
+   * Populated when `autoResolved` is false: why no automatic overturn happened.
+   * `not_configured`: the Org has not set `disputes.autoReadjudicate`, so no
+   * re-check runs (the default). `outside_expanded_band`: the re-check ran with
+   * the configured widening and the completion still failed, which consumes the
+   * one automatic re-check the dispute gets. `no_completion_to_readjudicate`: no
+   * completion to re-grade. `type_not_resolved`: the registration the Record was
+   * judged under could not be resolved. `principal_mode_no_readjudication`: the
+   * verdict was the principal's judgment call, which rules cannot re-grade.
+   * `type_has_no_rules`: the Type registers no gate rules. In every case the
+   * dispute is in `EVIDENCE_WINDOW` and the principal resolves it.
+   */
+  reason?:
+    | 'not_configured'
+    | 'outside_expanded_band'
+    | 'no_completion_to_readjudicate'
+    | 'type_not_resolved'
+    | 'principal_mode_no_readjudication'
+    | 'type_has_no_rules'
+    | null;
+  /** Present with `reason: 'outside_expanded_band'`: the gate rules that failed the re-check, the same list its `DISPUTE_STATE_CHANGE` chain entry signs. */
+  failingRuleIds?: string[];
+}
+
+/** The 201 envelope of `POST /v1/records/{id}/dispute`, which `disputes.create()` unwraps to the dispute. Read it with `client.request()`. */
+export interface DisputeCreateEnvelope {
+  dispute: Dispute;
+  autoReadjudication?: DisputeAutoReadjudication | null;
+  nextSteps?: NextStep[];
 }
 
 /** Response envelope from GET /dispute: includes both dispute and evidence. */
@@ -2324,6 +2624,19 @@ export interface WebhookDelivery {
   nextRetryAt: string | null;
   createdAt: string;
   deliveredAt: string | null;
+  /**
+   * The `X-AGLedger-Idempotency-Key` header sent: the event id, the same on
+   * every attempt of one event, and the delivery id on a `webhook.test` ping.
+   * Null on an attempt refused before a request was built.
+   */
+  idempotencyKey?: string | null;
+  /**
+   * The RFC 9421 `Signature-Input` header sent with an ed25519 delivery,
+   * verbatim. With `requestBody`, `idempotencyKey` and `signature` it rebuilds
+   * the signature base. Null on an hmac delivery and on an attempt refused
+   * before a request was built.
+   */
+  signatureInput?: string | null;
 }
 
 export interface WebhookTestResult {
@@ -2648,6 +2961,14 @@ export interface ComplianceExport {
    * in the first case.
    */
   resumeTo?: string;
+  /**
+   * Present when the window had no `filters.to`, or one at or past this instant.
+   * The export reads only records created before it, the point below which every
+   * record was already committed. It is the inclusive `filters.from` for the next
+   * incremental export: copy it verbatim and that export starts with the first
+   * record this one did not read, with none repeated and none skipped.
+   */
+  nextFrom?: string;
   /**
    * Total rows the filters matched at creation time, before the cap. Equals
    * `recordCount` unless `truncated`. Header twin on a download:
@@ -3543,7 +3864,17 @@ export interface AccountProfile {
   /** Present (non-null) only for `ephemeral_cert` sessions: the bound short-lived signing cert. */
   cert?: { id: string; thumbprint: string; expiresAt: string } | null;
   /** Present (non-null) for OIDC-bound sessions: the upstream IdP identity that minted the credential. */
-  oidc?: { iss: string; sub: string } | null;
+  oidc?: {
+    iss: string;
+    sub: string;
+    /**
+     * On an `ephemeral_cert` session, the printed name the IdP asserted for this
+     * person in the token the cert was exchanged from. A verdict sent with
+     * `signatureMeaning` seals it as the signer's name, and is refused when this
+     * is null. Always null on an `oidc` session.
+     */
+    name?: string | null;
+  } | null;
 }
 
 
@@ -3711,7 +4042,16 @@ export interface ConformanceResponse {
      *  because that route binds its full filter set into the token. Size
      *  cursor storage to this value; no route mints a longer token. */
     searchCursorMaxLength?: number;
-    [key: string]: number | undefined;
+    /** Most levels of objects and arrays any JSON request body may nest, the outermost object counted as level 1. A deeper body is refused with 400. */
+    jsonBodyMaxDepth?: number;
+    /**
+     * The listings whose `?limit=` cap differs from {@link paginationLimitMax},
+     * keyed `"<METHOD> <path>"` as the OpenAPI document spells it (for example
+     * `"GET /v1/events"`), each valued at that route's cap. A listing not
+     * mounted on this Server is absent.
+     */
+    paginationLimitMaxByRoute?: Record<string, number>;
+    [key: string]: number | Record<string, number> | undefined;
   };
   /**
    * License state of this install, readable without a platform key. Nothing is
@@ -5240,6 +5580,12 @@ export interface FederationDlqEntry {
   kind: string | null;
   peerHubId: string | null;
   recordId: string | null;
+  /** Delivery attempts the leg has made. Null when the Server holds no delivery row for the leg the job names. */
+  attempts?: number | null;
+  /** When the leg's last delivery attempt ran. Null with `attempts` null, or before any attempt. */
+  lastAttemptedAt?: string | null;
+  /** Why the leg's last delivery attempt failed (at most 500 characters). Null with `attempts` null. */
+  lastError?: string | null;
 }
 
 
@@ -5300,6 +5646,10 @@ export interface AgentProfile {
   references?: Record<string, unknown>[];
   /** When an operator deactivated this agent, or null while it is active. */
   deactivatedAt?: string | null;
+  /** The peer Server a federation-projected agent came from, or null for an agent this Server registered. Such a row cannot be named as `principalAgentId` or `performerAgentId`. */
+  originPeerHubId?: string | null;
+  /** On a federation-projected agent: the id its origin Server gave it, which that Server's Records name. Equal to `id` unless another agent here already held that id. */
+  originAgentId?: string | null;
   createdAt: string;
   /** Suggested next API calls, on update. */
   nextSteps?: NextStep[];
@@ -7009,6 +7359,20 @@ export interface OpsSummary {
        */
       neverDelivered: number;
     };
+    /**
+     * Delivery state per leg (one Record, one peer, one kind), which the peer
+     * counts above cannot hold: a peer reads `delivering` again after its next
+     * success on any Record, while a leg that keeps failing stays pending with
+     * its own attempts and error.
+     */
+    legs?: {
+      /** Legs still pending after at least one failed attempt. They retry on their own. */
+      retrying: number;
+      /** Legs that failed in the last 24 hours: refused for good by the peer, or out of retries. */
+      failed: number;
+      /** The earliest last attempt among retrying legs. Null when no leg is retrying. */
+      oldestRetryingAt: string | null;
+    };
   };
   vault: {
     signingKeys: { active: number; retired: number };
@@ -7144,6 +7508,10 @@ export interface AgentDirectoryEntry {
    * ever non-null on a listing that asked for deactivated agents.
    */
   deactivatedAt?: string | null;
+  /** On a federated agent synced from a peer: the id the peer gives it. Null on a local agent. */
+  originAgentId?: string | null;
+  /** On a federated agent synced from a peer: that peer. Null on a local agent. */
+  originPeerHubId?: string | null;
   createdAt: string;
 }
 
@@ -7166,6 +7534,8 @@ export interface PeerAgent {
   agentClass: string;
   /** The peer hub this agent originated from. */
   originPeerHubId: string;
+  /** The id the originating peer gives this agent. A shadow agent whose name is taken locally is named `fed-<peer prefix>-<id>`. */
+  originAgentId?: string;
   createdAt: string;
 }
 

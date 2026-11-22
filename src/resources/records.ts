@@ -23,6 +23,9 @@ import type {
   RecordGraph,
   RecordRowCompact,
   RecordCompactPage,
+  CountRecordsParams,
+  AuditExportFormat,
+  RecordCounts,
 } from '../types.js';
 import { getValidTransitions as getTransitions } from '../record-lifecycle.js';
 
@@ -103,6 +106,30 @@ export class RecordsResource {
   search(params?: SearchRecordsParams, options?: RequestOptions): Promise<Page<RecordRow> | RecordCompactPage>;
   search(params?: SearchRecordsParams, options?: RequestOptions): Promise<Page<RecordRow> | RecordCompactPage> {
     return this.http.getPage<RecordRow>('/v1/records/search', params as unknown as Record<string, unknown>, options);
+  }
+
+  /**
+   * Count the Records `search()` would list under the same filters and key
+   * scoping, grouped by up to two dimensions, without paging the set:
+   * `counts({ groupBy: ['type', 'status'], from })` answers how many Records of
+   * each Type ended in each status since a date in one call. Groups come
+   * largest first, `total` counts every match, and `truncated` says `limit`
+   * left some groups out; there is no cursor, so narrow the filters to read the
+   * smaller ones. `CANCELLED_PRE_WORK` and `CANCELLED_IN_PROGRESS` fold into
+   * one `CANCELLED` group, and `createdDay` and `createdMonth` buckets are UTC.
+   * Backed by `GET /v1/records/counts`.
+   */
+  counts(params?: CountRecordsParams, options?: RequestOptions): Promise<RecordCounts> {
+    const { groupBy, ...filters } = params ?? {};
+    const query: Record<string, unknown> = { ...filters };
+    if (groupBy !== undefined) {
+      const dims = typeof groupBy === 'string' ? [groupBy] : groupBy;
+      if (dims.length > 2) {
+        throw new RangeError(`counts groups by at most 2 dimensions, got ${dims.length}`);
+      }
+      if (dims.length > 0) query.groupBy = dims.join(',');
+    }
+    return this.http.get<RecordCounts>('/v1/records/counts', query, options);
   }
 
   /** Update a Record's mutable fields. */
@@ -214,10 +241,27 @@ export class RecordsResource {
    */
   getAuditExport(
     recordId: string,
-    params?: { format?: 'json' | 'csv' | 'ndjson'; receipts?: boolean; evidence?: boolean },
+    params?: { format?: Exclude<AuditExportFormat, 'html' | 'cose'>; receipts?: boolean; evidence?: boolean },
     options?: RequestOptions,
   ): Promise<RecordAuditExport> {
     return this.http.get<RecordAuditExport>(`/v1/records/${recordId}/audit-export`, params as Record<string, unknown>, options);
+  }
+
+  /**
+   * Export the per-Record audit trail as a self-contained HTML page and return
+   * it as a string. The page carries the complete JSON export in a
+   * `<script type="application/json" id="agledger-audit-export">` element, so
+   * the same bytes can be read back out of it. The Server serves it as an
+   * attachment; this method returns the document itself rather than parsing it.
+   * `getAuditExport()` is the call for the JSON form.
+   */
+  async getAuditExportHtml(recordId: string, options?: RequestOptions): Promise<string> {
+    const bytes = await this.http.requestBinary('GET', `/v1/records/${recordId}/audit-export`, {
+      ...options,
+      accept: 'text/html',
+      params: { format: 'html' },
+    });
+    return new TextDecoder().decode(bytes);
   }
 
   /**

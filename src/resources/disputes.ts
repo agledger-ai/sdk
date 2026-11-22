@@ -43,7 +43,7 @@ export class DisputesResource {
    */
   async create(recordId: string, params: CreateDisputeParams, options?: RequestOptions): Promise<Dispute> {
     const response = await this.http.post<Record<string, unknown>>(`/v1/records/${recordId}/dispute`, params, options);
-    // The 201 is a { dispute, autoReadjudication, nextSteps } envelope. Read
+    // The 201 is a DisputeCreateEnvelope. Read
     // the envelope with `client.request()` when the auto-readjudication result
     // matters: `autoResolved` says whether the Server's re-check already
     // resolved the dispute, and `reason` says why it did not.

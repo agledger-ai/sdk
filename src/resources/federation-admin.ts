@@ -73,7 +73,8 @@ export class FederationAdminResource {
 
   /**
    * Recover stuck or failed outbound federation jobs. `{ dryRun: true }`
-   * reports what would be recovered and changes nothing.
+   * changes nothing: it answers `recovered: 0` and reports how many jobs are
+   * eligible in `inspected`.
    */
   recoverDlq(
     params: { limit?: number; dryRun?: boolean } = {},
