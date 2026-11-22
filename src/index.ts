@@ -51,8 +51,6 @@ export type {
   SchemaPreviewError,
   SchemaDiffResult,
   SchemaDiffChange,
-  SchemaExportResult,
-  SchemaExportVersion,
   SchemaManifest,
   SchemaManifestExport,
   SchemaImportParams,
@@ -64,8 +62,6 @@ export type {
   RegisterSchemaParams,
   SchemaVersionDetail,
   UpdateSchemaVersionParams,
-  SchemaCompatibilityResult,
-  ExportSchemaOptions,
 
   // Records
   AcceptanceStatus,
@@ -247,7 +243,6 @@ export type {
   FleetCapabilitiesParams,
   FleetCapabilityEntry,
   ReloadLicenseParams,
-  SupportBundleUploadResult,
   UpdateApiKeyResult,
   LicenseNotice,
   LicenseNoticeKind,

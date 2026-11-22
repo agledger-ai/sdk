@@ -11,19 +11,16 @@ import type {
   SchemaPreviewInput,
   SchemaPreviewResult,
   SchemaDiffResult,
-  SchemaExportResult,
   SchemaManifest,
   SchemaImportParams,
   RegisterSchemaParams,
   SchemaVersionDetail,
   UpdateSchemaVersionParams,
-  SchemaCompatibilityResult,
   SchemaManifestExport,
   SchemaScopeOptions,
   SchemaDeleteResult,
   SchemaRulesResult,
   SchemaLifecycleResult,
-  ExportSchemaOptions,
   ListSchemasParams,
 } from '../types.js';
 
@@ -149,18 +146,6 @@ export class SchemasResource {
     return this.http.post<SchemaPreviewResult>('/v1/schemas/preview', input, options);
   }
 
-  /**
-   * Dry-run the compatibility check `register()` runs, without registering:
-   * against the latest ACTIVE version of the publisher in your org (or the
-   * Server-wide one when your org has none). The `publisher` option names the
-   * publisher, as `register()`'s `publisher` field does, and defaults to
-   * `local`; a publisher with no version of the type here answers compatible.
-   */
-  checkCompatibility(type: RecordType, schemas: { recordSchema: Record<string, unknown>; completionSchema: Record<string, unknown> }, options?: SchemaScopeOptions): Promise<SchemaCompatibilityResult> {
-    const { request, params } = scope(options);
-    return this.http.post<SchemaCompatibilityResult>(`/v1/schemas/${type}/check-compatibility`, schemas, request, params);
-  }
-
   /** Register a new custom Type schema. */
   register(input: RegisterSchemaParams, options?: RequestOptions): Promise<SchemaVersionDetail> {
     return this.http.post<SchemaVersionDetail>('/v1/schemas', input, options);
@@ -182,15 +167,6 @@ export class SchemasResource {
   enable(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaLifecycleResult> {
     const { request, params } = scope(options);
     return this.http.patch<SchemaLifecycleResult>(`/v1/schemas/${type}/enable`, {}, request, params);
-  }
-
-  /** Export a Type schema bundle for transfer between environments. */
-  exportSchema(type: RecordType, opts?: ExportSchemaOptions, options?: RequestOptions): Promise<SchemaExportResult> {
-    const params: Record<string, unknown> = {};
-    if (opts?.versions) params.versions = opts.versions;
-    if (opts?.orgId) params.orgId = opts.orgId;
-    if (opts?.publisher) params.publisher = opts.publisher;
-    return this.http.post<SchemaExportResult>(`/v1/schemas/${type}/export`, undefined, options, params);
   }
 
   /**

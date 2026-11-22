@@ -57,7 +57,6 @@ import type {
   SetOrgConfigParams,
   StartVaultScanParams,
   SupportBundle,
-  SupportBundleUploadResult,
   SystemHealth,
   TrustedIssuer,
   UpdateApiKeyParams,
@@ -599,28 +598,13 @@ export class AdminResource {
     return this.http.patch<CircuitBreakerResult>(`/v1/admin/webhooks/${webhookId}/circuit-breaker`, params, options);
   }
 
-  /** Flush the auth cache. Forces re-validation of all cached credentials. */
-  flushAuthCache(options?: RequestOptions): Promise<{ flushed: true; nextSteps?: NextStep[] }> {
-    return this.http.post('/v1/admin/auth-cache/flush', {}, options);
-  }
-
   /** Get auth cache occupancy (size, capacity, entry lifetime). */
   getAuthCacheStats(options?: RequestOptions): Promise<AuthCacheStats> {
     return this.http.get<AuthCacheStats>('/v1/admin/auth-cache/stats', undefined, options);
   }
 
-  /** Flush the schema cache. Forces re-loading of all Type schemas. */
-  flushSchemaCache(options?: RequestOptions): Promise<{ flushed?: boolean; nextSteps?: NextStep[] }> {
-    return this.http.post('/v1/admin/schemas/cache/flush', {}, options);
-  }
-
   /** Download a diagnostic support bundle (config snapshot, recent logs). */
   getSupportBundle(options?: RequestOptions): Promise<SupportBundle> {
     return this.http.get<SupportBundle>('/v1/admin/support-bundle', undefined, options);
-  }
-
-  /** Upload a support bundle to AGLedger support (opt-in). */
-  uploadSupportBundle(options?: RequestOptions): Promise<SupportBundleUploadResult> {
-    return this.http.post<SupportBundleUploadResult>('/v1/admin/support-bundle/upload', {}, options);
   }
 }

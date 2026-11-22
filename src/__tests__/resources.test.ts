@@ -1784,31 +1784,12 @@ describe('SchemasResource', () => {
     expect(init.method).toBe('POST');
   });
 
-  it('checks compatibility', async () => {
-    const { client, fetch } = createMockClient();
-    await client.schemas.checkCompatibility('ACH-PROC-v1', {
-      recordSchema: {},
-      completionSchema: {},
-    });
-    const [url, init] = fetch.mock.calls[0];
-    expect(url).toContain('/v1/schemas/ACH-PROC-v1/check-compatibility');
-    expect(init.method).toBe('POST');
-  });
-
   it('reads a Record\'s own validTransitions before the status table', () => {
     const { client } = createMockClient();
     const row = { status: 'FAILED', validTransitions: ['REVISION_REQUESTED'] } as unknown as RecordRow;
     expect(client.records.getValidTransitions(row)).toEqual(['REVISION_REQUESTED']);
     const bare = { status: 'FAILED' } as unknown as RecordRow;
     expect(client.records.getValidTransitions(bare)).toEqual(['DISPUTED', 'FULFILLED', 'REVISION_REQUESTED']);
-  });
-
-  it('checks compatibility within the publisher it names', async () => {
-    const { client, fetch } = createMockClient({ compatible: true });
-    await client.schemas.checkCompatibility('ACH-PROC-v1', { recordSchema: {}, completionSchema: {} }, { publisher: 'acme-corp' });
-    const [url, init] = fetch.mock.calls[0];
-    expect(new URL(url).searchParams.get('publisher')).toBe('acme-corp');
-    expect(JSON.parse(init.body)).toEqual({ recordSchema: {}, completionSchema: {} });
   });
 
   it('registers a schema', async () => {
@@ -1847,15 +1828,6 @@ describe('SchemasResource', () => {
     const [url, init] = fetch.mock.calls[0];
     expect(url).toContain('/v1/schemas/ACH-CUSTOM-v1/enable');
     expect(init.method).toBe('PATCH');
-  });
-
-  it('exports a schema with versions param', async () => {
-    const { client, fetch } = createMockClient();
-    await client.schemas.exportSchema('ACH-PROC-v1', { versions: '1,2' });
-    const [url, init] = fetch.mock.calls[0];
-    expect(url).toContain('/v1/schemas/ACH-PROC-v1/export');
-    expect(url).toContain('versions=1%2C2');
-    expect(init.method).toBe('POST');
   });
 
   it('imports a schema manifest via import_()', async () => {

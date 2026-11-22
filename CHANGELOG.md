@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **`ComplianceExport.resumeTo`** on a truncated export: re-run with the same filters and `filters.to` set to it, copied verbatim, and the next export holds exactly the matching records this one left out.
 - **`ExportComplianceParams.filters` takes `ref`, `recordIds` and `rootRecordId`**, which the Server has accepted: scope an export to the records tagged with an entity reference, to an explicit list of up to 1000 record ids, or to one delegation tree. They are the narrower filters a truncated export's `resumeTo` guidance points at.
 
+### Removed
+
+Each of these routes is gone from AGLedger Server 3.0.0, so the method that called it is removed.
+
+- `admin.uploadSupportBundle()`, with `SupportBundleUploadResult`. `admin.getSupportBundle()` stays.
+- `admin.flushAuthCache()` and `admin.flushSchemaCache()`. A key change already invalidates the auth cache across replicas, entries expire after 30 seconds, and a schema cache whose startup load failed retries on its own.
+- `schemas.checkCompatibility()`, with `SchemaCompatibilityResult`. `schemas.preview()` runs the same check and reports each incompatibility as a `COMPATIBILITY` error.
+- `schemas.exportSchema()`, with `SchemaExportResult` and `ExportSchemaOptions`. `schemas.getManifest()` and `schemas.import_()` move a named-publisher Type; a `local` Type is registered on the target from `schemas.getVersion()`.
+
 ### Changed
 
 - **`verifyExport` (`@agledger/sdk/verify`) runs on `@agledger/verify-core` 2.2.0.** A sealed federation message is placed in its key's window with 300 seconds allowed at each edge, as the Server's receiver guidance gives it: one signed within that of a key change was failed or counted in `federationWire.afterRetirement`, and now verifies on the key it names. A signed payload string that begins with U+FEFF no longer fails `CHAIN_PAYLOAD_BINDING_MISMATCH` against its row.

@@ -141,27 +141,6 @@ describe('publisher on the rest of the schema-read surface', () => {
     expect(on.versionsEnabled).toBe(2);
   });
 
-  it('scopes an export, which otherwise emits both registrations', async () => {
-    const { client, fetch } = mockClient({
-      exportVersion: 1,
-      exportedAt: '2026-08-08T00:00:00.000Z',
-      type: 'ruleskew-v1',
-      publisher: 'peerco',
-      displayName: null,
-      description: null,
-      category: null,
-      compatibilityMode: 'BACKWARD',
-      versions: [],
-      sharedSchemas: {},
-    });
-
-    const bundle = await client.schemas.exportSchema('ruleskew-v1', { publisher: 'peerco' });
-
-    expect(queryOf(fetch).get('publisher')).toBe('peerco');
-    expect(bundle.publisher).toBe('peerco');
-    // The engine sends null rather than omitting these on an unlabelled type.
-    expect(bundle.displayName).toBeNull();
-  });
 });
 
 describe('Record.schemaUrl', () => {

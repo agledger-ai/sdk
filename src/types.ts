@@ -725,38 +725,6 @@ export interface SchemaDiffChange {
   detail: string;
 }
 
-/** Exported schema bundle for transfer between environments. */
-export interface SchemaExportResult {
-  exportVersion: number;
-  exportedAt: string;
-  type: RecordType;
-  /**
-   * Publisher label of the registration this artifact was exported from. Pin
-   * the export with the `publisher` option on a type two publishers offer;
-   * without it the Server emits both registrations, and their `versions`
-   * entries can collide on the same number.
-   */
-  publisher?: string;
-  displayName: string | null;
-  description: string | null;
-  category: string | null;
-  compatibilityMode: SchemaCompatibilityMode;
-  versions: SchemaExportVersion[];
-  sharedSchemas: Record<string, unknown>;
-  /** Suggested next API calls after the export. */
-  nextSteps?: NextStep[];
-}
-
-/** Individual version within a schema export. */
-export interface SchemaExportVersion {
-  version: number;
-  status: SchemaVersionStatus;
-  recordSchema: Record<string, unknown>;
-  completionSchema: Record<string, unknown>;
-  rulesConfig: Record<string, unknown>;
-  createdAt: string;
-}
-
 /**
  * Response of `schemas.getManifest()`: this Server's registration of a type,
  * shaped exactly as `schemas.import_()` accepts it.
@@ -987,21 +955,6 @@ export interface SchemaVersionDetail {
  */
 export interface UpdateSchemaVersionParams {
   compatibilityMode: SchemaCompatibilityMode;
-}
-
-/** Result of a compatibility check against an existing schema. */
-export interface SchemaCompatibilityResult {
-  record: { compatible: boolean; changes: SchemaDiffChange[] };
-  completion: { compatible: boolean; changes: SchemaDiffChange[] };
-  nextSteps?: NextStep[];
-}
-
-/** Options for exporting a schema. */
-export interface ExportSchemaOptions {
-  versions?: string;
-  orgId?: string;
-  /** Publisher label to export from. Required in practice on a type two publishers offer, or the artifact carries both. */
-  publisher?: string;
 }
 
 /**
@@ -3854,14 +3807,6 @@ export interface FleetCapabilityEntry {
 export interface FleetCapabilitiesParams {
   /** Only agents that declared this contract type. */
   type: string;
-}
-
-/** Result of `POST /v1/admin/support-bundle/upload`. */
-export interface SupportBundleUploadResult {
-  bundleId?: string;
-  receivedAt?: string;
-  sizeBytes?: number;
-  nextSteps?: NextStep[];
 }
 
 /**
