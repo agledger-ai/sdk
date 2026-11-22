@@ -130,7 +130,17 @@ export const ScopeProfiles: Record<string, ScopeProfile> = {
       'Infrastructure provisioning for a pipeline: manages agents, webhooks and API keys, and registers and manages ' +
       'the org\'s own Types, including testing a payload against a Type. Cannot reach platform-level Types or other orgs.',
     allowedRoles: ['admin'],
-    scopes: [Scopes.ADMIN_KEYS, Scopes.AGENTS_MANAGE, Scopes.WEBHOOKS_MANAGE, Scopes.SCHEMAS_READ, Scopes.SCHEMAS_WRITE],
+    // A pipeline reconciles: it reads what exists before it writes, so each
+    // manage scope travels with its read.
+    scopes: [
+      Scopes.ADMIN_KEYS,
+      Scopes.AGENTS_READ,
+      Scopes.AGENTS_MANAGE,
+      Scopes.WEBHOOKS_READ,
+      Scopes.WEBHOOKS_MANAGE,
+      Scopes.SCHEMAS_READ,
+      Scopes.SCHEMAS_WRITE,
+    ],
   },
   'admin-schema': {
     name: 'admin-schema',
