@@ -1,8 +1,6 @@
 /**
  * Source hygiene checks over this package's own code.
  *
- * Repo-scoped copy (the SDK is its own source-of-truth repo). Mirrors the
- * checks the AGLedger monorepo enforced, narrowed to this package's `src`.
  * The offline-verifier network block is intentionally omitted: the SDK is an
  * HTTP client and legitimately uses fetch. Run with `npm test`.
  */
@@ -232,7 +230,7 @@ describe('no tracker references', () => {
   // consumer who reads it, and `dist/*.d.ts` puts it in their editor. Say
   // what the behaviour is rather than where it was decided.
   const TRACKER_REF =
-    /(?:agledger-)?(?:agents|api|testbed|web)#\d+|(?<![\w/])#\d{2,4}\b|\bF-\d{3}\b|\bCR-\d+\b/;
+    /\b[\w-]+#\d+|(?<![\w/])#\d{2,4}\b|\bF-\d{3}\b|\bCR-\d+\b/;
 
   it('source, tests and docs cite no issue numbers', () => {
     const dirs = readdirSync(ROOT).filter(e => e === 'src' || e === 'test' || e === 'tests');
