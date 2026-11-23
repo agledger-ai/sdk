@@ -290,7 +290,8 @@ export class AgledgerApiError extends AgledgerError {
    * `Retry-After` header on any status (a load balancer sends one on a 503 as
    * the Server does on a 429), or from a 429 body's `retryAfterSeconds` when
    * the header was stripped. `null` when neither was given. The SDK's own
-   * retries wait at least this long.
+   * retries wait at least this long, up to 30 seconds: a longer ask is thrown
+   * as this error without a wait, and this field carries the requested time.
    */
   readonly retryAfter: number | null;
 

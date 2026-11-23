@@ -21,6 +21,19 @@ export { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '
 const MAX_TOLERANCE_SECONDS = 300;
 
 /**
+ * The replay window in seconds: the caller's value capped at 300. A value that
+ * is not a finite number, 0 or more, throws instead of being capped: `NaN`
+ * would make every freshness comparison false and so switch the window off.
+ */
+function resolveTolerance(toleranceSeconds: number | undefined): number {
+  if (toleranceSeconds === undefined) return MAX_TOLERANCE_SECONDS;
+  if (typeof toleranceSeconds !== 'number' || !Number.isFinite(toleranceSeconds) || toleranceSeconds < 0) {
+    throw new RangeError('toleranceSeconds must be a finite number, 0 or more.');
+  }
+  return Math.min(toleranceSeconds, MAX_TOLERANCE_SECONDS);
+}
+
+/**
  * Clock skew allowed at each edge of a signing key's window when a delivery's
  * `created` time is placed in it. The Server publishes the same allowance to
  * receivers; it is fixed, and separate from the replay tolerance.
@@ -36,8 +49,8 @@ export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
     : T extends `record.${string}` ? RecordRow
     : T extends `dispute.${string}` ? Dispute
     : Record<string, unknown>;
-  /** ISO 8601 timestamp of the event. */
-  timestamp: string;
+  /** ISO 8601 timestamp of the event, as the sender stated it. Absent when the body carries none. */
+  timestamp?: string;
   /** Unique event ID. */
   id?: string;
 }
@@ -48,7 +61,7 @@ export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
  * @param rawBody - The raw request body string (do NOT parse JSON first)
  * @param header - The x-agledger-signature header value
  * @param secrets - One or more webhook secrets (array for key rotation)
- * @param toleranceSeconds - Max age in seconds (default/max: 300)
+ * @param toleranceSeconds - Max age in seconds (default/max: 300; a value that is not a finite number, 0 or more, throws a RangeError)
  * @returns Parsed and typed webhook event
  * @throws Error if signature is invalid or body cannot be parsed
  *
@@ -56,7 +69,9 @@ export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
  * ```ts
  * import { constructEvent } from '@agledger/sdk/webhooks';
  *
- * const event = constructEvent(rawBody, req.headers['x-agledger-signature'], secret);
+ * const header = req.headers['x-agledger-signature'];
+ * if (typeof header !== 'string') throw new Error('missing signature header');
+ * const event = constructEvent(rawBody, header, secret);
  * if (event.type === 'record.created') {
  *   console.log(event.data.id); // typed as RecordRow
  * }
@@ -81,7 +96,7 @@ function parseWebhookEvent(rawBody: string): WebhookEvent {
   return {
     type: (o.type ?? o.event ?? 'unknown') as WebhookEventType,
     data: (o.data ?? o.payload ?? parsed) as WebhookEvent['data'],
-    timestamp: (o.timestamp ?? o.created_at ?? new Date().toISOString()) as string,
+    timestamp: (o.timestamp ?? o.created_at) as string | undefined,
     id: (o.id ?? o.event_id) as string | undefined,
   };
 }
@@ -131,8 +146,8 @@ export function parseSignatureHeader(
     if (!key || !value) return null;
 
     if (key.trim() === 't') {
-      timestamp = parseInt(value.trim(), 10);
-      if (isNaN(timestamp)) return null;
+      if (!/^\d+$/.test(value.trim())) return null;
+      timestamp = Number(value.trim());
     } else if (key.trim() === 'v1') {
       signatures.push(value.trim());
     }
@@ -148,7 +163,7 @@ export function parseSignatureHeader(
  * @param rawBody - The raw request body string
  * @param header - The x-agledger-signature header value
  * @param secrets - One or more webhook secrets (array for key rotation)
- * @param toleranceSeconds - Max age in seconds (default/max: 300)
+ * @param toleranceSeconds - Max age in seconds (default/max: 300). A value that is not a finite number, 0 or more, throws a RangeError.
  * @returns true if signature is valid and within tolerance
  */
 export function verifySignature(
@@ -157,13 +172,9 @@ export function verifySignature(
   secrets: string | string[],
   toleranceSeconds?: number,
 ): boolean {
+  const tolerance = resolveTolerance(toleranceSeconds);
   const parsed = parseSignatureHeader(header);
   if (!parsed) return false;
-
-  const tolerance = Math.min(
-    toleranceSeconds ?? MAX_TOLERANCE_SECONDS,
-    MAX_TOLERANCE_SECONDS,
-  );
 
   // Check timestamp freshness
   const now = Math.floor(Date.now() / 1000);
@@ -198,8 +209,7 @@ export function verifySignature(
 // Message Signatures; the receiver verifies against the published public key at
 // GET /v1/verification-keys (matched by the `keyid` parameter) and holds no
 // secret, so it can check the Server's signature on a Settlement Signal on its
-// own. This is distinct from
-// the HMAC path above. The verification algorithm is dispatched from the
+// own. This is distinct from the HMAC path above. The verification algorithm is dispatched from the
 // resolved key's type, never from the attacker-writable `alg` parameter; `alg`
 // is asserted against the key via the `algs` allowlist.
 //
@@ -377,7 +387,7 @@ function insideKeyWindow(createdSeconds: number, window: KeyWindow): boolean {
  * @param rawBody - The raw request body string (do NOT parse JSON first).
  * @param key - A single base64 public key, or the array from
  *   `client.verificationKeys.list()` (resolved by `keyid`).
- * @param options - `toleranceSeconds` for the replay window (default/max: 300).
+ * @param options - `toleranceSeconds` for the replay window (default/max: 300; a value that is not a finite number, 0 or more, rejects with a RangeError).
  * @returns true only if the signature, digest, replay window and key window all hold.
  * @throws {SignatureAlgorithmUnavailableError} when this host cannot compute
  *   the key's algorithm (typically an active OpenSSL FIPS provider, which
@@ -407,8 +417,9 @@ export async function verifyRfc9421(
   key: Rfc9421PublicKey,
   options?: Rfc9421VerifyOptions,
 ): Promise<boolean> {
+  const tolerance = resolveTolerance(options?.toleranceSeconds);
   try {
-    return verifyDelivery(normalizeHeaders(headers), rawBody, key, options);
+    return verifyDelivery(normalizeHeaders(headers), rawBody, key, tolerance);
   } catch (err) {
     // "Could not check" must not be flattened into "did not verify"; every
     // other failure in here really is a rejected delivery.
@@ -425,7 +436,7 @@ export async function verifyRfc9421(
  * such as an intermediary's; one that is not ours is passed over rather than
  * failing the delivery.
  */
-function verifyDelivery(h: Record<string, string>, rawBody: string, key: Rfc9421PublicKey, options?: Rfc9421VerifyOptions): boolean {
+function verifyDelivery(h: Record<string, string>, rawBody: string, key: Rfc9421PublicKey, tolerance: number): boolean {
   // RFC 9530 body integrity: the body is bound to the signature through the
   // Content-Digest it covers.
   const contentDigest = h['content-digest'];
@@ -439,7 +450,6 @@ function verifyDelivery(h: Record<string, string>, rawBody: string, key: Rfc9421
   const signatures = parseDictionary(sigField);
   if (!inputs || !signatures) return false;
 
-  const tolerance = Math.min(options?.toleranceSeconds ?? MAX_TOLERANCE_SECONDS, MAX_TOLERANCE_SECONDS);
   const now = Date.now() / 1000;
   const componentValues: Record<string, string> = {
     'content-digest': contentDigest,
@@ -456,8 +466,9 @@ function verifyDelivery(h: Record<string, string>, rawBody: string, key: Rfc9421
     try {
       if (verifyOne(input, Buffer.from(sig.value.bytes), componentValues, key, tolerance, now)) return true;
     } catch (err) {
-      if (!(err instanceof SignatureAlgorithmUnavailableError)) throw err;
-      unavailableError ??= err;
+      // A label that cannot be checked (an unusable key, a host without the
+      // algorithm) is passed over so a later label can still verify.
+      if (err instanceof SignatureAlgorithmUnavailableError) unavailableError ??= err;
     }
   }
   if (unavailableError) throw unavailableError;

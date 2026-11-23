@@ -221,7 +221,7 @@ reusable either way.
 ## Features
 
 - **Resource-oriented client** with sub-clients (`client.records`, `client.completions`, etc.)
-- **Automatic retries** with exponential backoff + jitter for 429 and 5xx errors, and for a 409 the Server marks retryable (`IDEMPOTENCY_KEY_IN_FLIGHT`, `GATE_PASS_IN_FLIGHT`), honoring `Retry-After`
+- **Automatic retries** with exponential backoff + jitter for 429 and 5xx errors, and for a 409 the Server marks retryable (`IDEMPOTENCY_KEY_IN_FLIGHT`, `GATE_PASS_IN_FLIGHT`), honoring `Retry-After` up to 30 seconds (a longer ask throws the error rather than sleeping)
 - **API keys or OIDC workload identity**: `oidcCertCredential` exchanges your IdP's token for a short-lived cert, refreshes it, and signs request bodies
 - **Idempotency keys** auto-generated for all mutating requests, plus per-item `idempotencyKey` on bulk-create for replay-safe high-volume ingest
 - **Auto-pagination** via async iterators
@@ -413,8 +413,8 @@ if (!isValid) return res.status(401).end();
 
 **Asymmetric** (`signingAlg: 'ed25519'` or `'ecdsa-p256-sha256'`) is RFC 9421
 HTTP Message Signatures signed with the Server's vault key. The receiver holds
-no secret and verifies against the Server's published public key, so the
-receiver can verify the Server's signature without holding a shared secret. Settlement-event subscriptions
+no secret and verifies against the Server's published public key, so it can
+check the Server's signature on its own. Settlement-event subscriptions
 default to this when the Server has a vault signing key. The wire `alg`
 reflects the Server's active key; `verifyRfc9421` handles both.
 

@@ -45,6 +45,12 @@ import {
 const DEFAULT_TIMEOUT = 30_000;
 const DEFAULT_MAX_RETRIES = 3;
 const MAX_BACKOFF = 30_000;
+/**
+ * Longest `Retry-After` the SDK sleeps through. A Server that asks for more
+ * than this gets its error thrown (the error's `retryAfter` carries the ask)
+ * rather than a call that hangs for the requested time.
+ */
+const MAX_RETRY_AFTER = MAX_BACKOFF;
 
 /**
  * Runaway guard on an unbounded auto-paginating walk. Hitting it is an error,
@@ -132,6 +138,28 @@ type AuthSource =
   | { kind: 'static'; token: string }
   | { kind: 'function'; fn: () => string | Promise<string> }
   | { kind: 'credential'; credential: BearerCredential };
+
+/** What one request needs from the shared attempt loop. */
+interface SendSpec<T> {
+  method: string;
+  url: string;
+  accept: string;
+  options: RequestOptions | undefined;
+  body?: string | Uint8Array;
+  /** Request-specific headers such as `Content-Type`. */
+  headers?: Record<string, string>;
+  idempotencyKey?: string;
+  signature: Record<string, string>;
+  /** Reads a 2xx response; runs inside the timeout window. */
+  readOk(response: Response): Promise<T>;
+  /** Reads a non-2xx response into the body the error classes take. */
+  readFailure(response: Response): Promise<{ body: Record<string, unknown>; raw?: Uint8Array }>;
+}
+
+/** The error for a call the caller cancelled with its own `signal`. */
+function abortedError(idempotencyKey?: string, cause?: Error): ConnectionError {
+  return new ConnectionError('Request aborted', cause ?? new Error('AbortError'), idempotencyKey);
+}
 
 /** The bearer one attempt was sent with, and the credential that issued it. */
 interface ResolvedAuth {
@@ -402,89 +430,23 @@ export class HttpClient {
       method === 'POST'
         ? opts.idempotencyKey ?? `${this.idempotencyKeyPrefix}${crypto.randomUUID()}`
         : undefined;
-    const signature = await this.signatureHeaders(opts, opts.body);
-    const authState: AuthRetryState = { forceRefresh: false, reauthenticated: false };
-    let lastError: Error | undefined;
-    let skipBackoff = false;
-
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      if (attempt > 0 && !skipBackoff) {
-        await this.sleep(this.backoff(attempt, lastError));
-      }
-      skipBackoff = false;
-
-      let auth: ResolvedAuth;
-      try {
-        auth = await this.resolveAuth(opts, authState);
-      } catch (err) {
-        if (!isRetryableAuthFailure(err)) throw err;
-        lastError = err as Error;
-        continue;
-      }
-
-      const timeout = opts.timeout ?? this.timeout;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
-      if (opts.signal) {
-        if (opts.signal.aborted) {
-          clearTimeout(timer);
-          throw new ConnectionError('Request aborted', new Error('AbortError'));
-        }
-        opts.signal.addEventListener('abort', () => controller.abort(), { once: true });
-      }
-
-      const headers = this.baseHeaders(opts.accept ?? 'application/octet-stream', auth, opts);
-      if (opts.body) headers['Content-Type'] = opts.contentType ?? 'application/octet-stream';
-      if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-      Object.assign(headers, signature);
-      if (opts.headers) Object.assign(headers, opts.headers);
-
-      try {
-        const response = await this.fetchFn(url, {
-          method,
-          headers,
-          body: opts.body,
-          signal: controller.signal,
-        });
-        clearTimeout(timer);
-
-        this.parseRateLimitHeaders(response.headers);
-        this._lastRequestId = response.headers.get('x-request-id');
-
-        const arrayBuf = await response.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuf);
-
-        if (response.ok) return bytes;
-
-        if (await this.shouldReauthenticate(response.status, auth, authState)) {
-          attempt--;
-          skipBackoff = true;
-          continue;
-        }
-
-        const error = this.mapError(response.status, binaryErrorBody(response, bytes), response.headers);
-        error.rawBody = bytes;
-
-        if (isRetryableStatus(response.status, error)) {
-          lastError = error;
-          continue;
-        }
-        throw error;
-      } catch (err) {
-        clearTimeout(timer);
-        if (err instanceof AgledgerApiError) throw err;
-        const cause = err as Error;
-        if (cause.name === 'AbortError') {
-          lastError = new TimeoutError(method, url, opts.timeout ?? this.timeout, cause, idempotencyKey);
-        } else {
-          lastError = new ConnectionError(connectionErrorMessage(method, url, cause), cause, idempotencyKey);
-        }
-        continue;
-      }
-    }
-
-    // The constructor holds maxRetries to 0 or more, so at least one attempt ran.
-    throw lastError ?? new ConfigurationError('maxRetries must be an integer, 0 or more.');
+    const headers: Record<string, string> = {};
+    if (opts.body) headers['Content-Type'] = opts.contentType ?? 'application/octet-stream';
+    return this.send<Uint8Array>({
+      method,
+      url,
+      accept: opts.accept ?? 'application/octet-stream',
+      options: opts,
+      body: opts.body,
+      headers,
+      idempotencyKey,
+      signature: await this.signatureHeaders(opts, opts.body),
+      readOk: async (response) => new Uint8Array(await response.arrayBuffer()),
+      readFailure: async (response) => {
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        return { body: binaryErrorBody(response, bytes), raw: bytes };
+      },
+    });
   }
 
   /**
@@ -527,7 +489,10 @@ export class HttpClient {
    * is a runaway guard behind it, and hitting it throws {@link PaginationLimitError}
    * rather than returning a prefix that looks like the whole listing. Set `maxPages`
    * or `maxItems` to stop early on purpose: those bounds are yours, so they end the
-   * walk quietly.
+   * walk quietly. `maxItems` must be an integer, 1 or more (anything else throws a
+   * RangeError). A page that reports more rows but carries no cursor to continue
+   * from also throws {@link PaginationLimitError}: the walk cannot proceed, and
+   * returning would pass a prefix off as the whole listing.
    */
   async *paginate<T>(
     path: string,
@@ -537,6 +502,9 @@ export class HttpClient {
     const ceilingIsDefault = options?.maxPages === undefined;
     const maxPages = options?.maxPages ?? DEFAULT_MAX_PAGES;
     const maxItems = options?.maxItems;
+    if (maxItems !== undefined && (!Number.isInteger(maxItems) || maxItems < 1)) {
+      throw new RangeError('maxItems must be an integer, 1 or more.');
+    }
     let cursor: string | undefined;
     let pagesRead = 0;
     let itemsYielded = 0;
@@ -549,10 +517,20 @@ export class HttpClient {
       for (const item of page.data) {
         yield item;
         itemsYielded++;
-        if (maxItems && itemsYielded >= maxItems) return;
+        if (maxItems !== undefined && itemsYielded >= maxItems) return;
       }
 
-      if (!page.hasMore || !page.nextCursor) return;
+      if (!page.hasMore) return;
+      if (!page.nextCursor) {
+        throw new PaginationLimitError(
+          path,
+          pagesRead,
+          itemsYielded,
+          maxPages,
+          `Pagination of ${path} stopped after ${itemsYielded} item(s): the response says more rows ` +
+            `exist but carries no cursor to continue from, so the rows yielded are a prefix of the listing.`,
+        );
+      }
       cursor = page.nextCursor;
     }
 
@@ -572,67 +550,13 @@ export class HttpClient {
     options?: RequestOptions,
   ): Promise<{ data: T[]; cursor: string | null; holdbackSeconds: number | null }> {
     const url = this.buildUrl(path, params);
-    const authState: AuthRetryState = { forceRefresh: false, reauthenticated: false };
-    let lastError: Error | undefined;
-    let skipBackoff = false;
-
-    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
-      if (attempt > 0 && !skipBackoff) {
-        await this.sleep(this.backoff(attempt, lastError));
-      }
-      skipBackoff = false;
-
-      let auth: ResolvedAuth;
-      try {
-        auth = await this.resolveAuth(options, authState);
-      } catch (err) {
-        if (!isRetryableAuthFailure(err)) throw err;
-        lastError = err as Error;
-        continue;
-      }
-
-      const timeout = options?.timeout ?? this.timeout;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeout);
-
-      if (options?.signal) {
-        if (options.signal.aborted) {
-          clearTimeout(timer);
-          throw new ConnectionError('Request aborted', new Error('AbortError'));
-        }
-        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
-      }
-
-      const headers = this.baseHeaders('application/x-ndjson', auth, options);
-      if (options?.headers) Object.assign(headers, options.headers);
-
-      try {
-        const response = await this.fetchFn(url, {
-          method: 'GET',
-          headers,
-          signal: controller.signal,
-        });
-
-        clearTimeout(timer);
-        this.parseRateLimitHeaders(response.headers);
-
-        if (!response.ok) {
-          const errorBody = await readErrorBody(response);
-          if (await this.shouldReauthenticate(response.status, auth, authState)) {
-            attempt--;
-            skipBackoff = true;
-            continue;
-          }
-
-          const error = this.mapError(response.status, errorBody.body, response.headers);
-          if (errorBody.raw) error.rawBody = errorBody.raw;
-          if (isRetryableStatus(response.status, error)) {
-            lastError = error;
-            continue;
-          }
-          throw error;
-        }
-
+    return this.send({
+      method: 'GET',
+      url,
+      accept: 'application/x-ndjson',
+      options,
+      signature: {},
+      readOk: async (response) => {
         const text = await response.text();
         const lines = text.split('\n').filter((l) => l.trim().length > 0);
         const data = lines.map((line) => JSON.parse(line) as T);
@@ -648,26 +572,11 @@ export class HttpClient {
           holdbackRaw !== null && /^[+-]?\d+$/.test(holdbackRaw.trim())
             ? Number(holdbackRaw.trim())
             : null;
-
         return { data, cursor, holdbackSeconds };
-      } catch (err) {
-        clearTimeout(timer);
-        if (err instanceof AgledgerApiError) throw err;
-
-        const cause = err as Error;
-        if (cause.name === 'AbortError') {
-          lastError = new TimeoutError('GET', url, timeout, cause);
-        } else {
-          lastError = new ConnectionError(connectionErrorMessage('GET', url, cause), cause);
-        }
-        continue;
-      }
-    }
-
-    // The constructor holds maxRetries to 0 or more, so at least one attempt ran.
-    throw lastError ?? new ConfigurationError('maxRetries must be an integer, 0 or more.');
+      },
+      readFailure: readErrorBody,
+    });
   }
-
 
   /**
    * The bearer for one attempt. A per-request `authOverride` wins; otherwise
@@ -798,13 +707,44 @@ export class HttpClient {
       options,
       payload !== undefined ? new TextEncoder().encode(payload) : undefined,
     );
+    const headers: Record<string, string> = {};
+    if (payload !== undefined) headers['Content-Type'] = 'application/json';
+    return this.send<T>({
+      method,
+      url,
+      accept: 'application/json',
+      options,
+      body: payload,
+      headers,
+      idempotencyKey,
+      signature,
+      readOk: async (response) => (response.status === 204 ? (undefined as T) : ((await response.json()) as T)),
+      readFailure: readErrorBody,
+    });
+  }
+
+  /**
+   * The one attempt loop behind every request. Per attempt it resolves the
+   * credential, arms the timeout, sends, and reads the body inside the same
+   * timeout window, so a Server that answers its headers and then stalls
+   * still times out. A caller's `signal` ends the call at once: it is not a
+   * timeout, is never retried, interrupts the backoff sleep, and its listener
+   * is removed when the attempt ends.
+   */
+  private async send<T>(spec: SendSpec<T>): Promise<T> {
+    const { method, url, options, idempotencyKey } = spec;
+    const signal = options?.signal;
+    const timeout = options?.timeout ?? this.timeout;
     const authState: AuthRetryState = { forceRefresh: false, reauthenticated: false };
     let lastError: Error | undefined;
     let skipBackoff = false;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      if (signal?.aborted) throw abortedError(idempotencyKey);
       if (attempt > 0 && !skipBackoff) {
-        await this.sleep(this.backoff(attempt, lastError));
+        const wait = this.backoff(attempt, lastError);
+        if (wait === null) throw lastError;
+        await this.sleep(wait, signal, idempotencyKey);
       }
       skipBackoff = false;
 
@@ -817,46 +757,30 @@ export class HttpClient {
         continue;
       }
 
-      const timeout = options?.timeout ?? this.timeout;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), timeout);
+      const onAbort = (): void => controller.abort();
+      signal?.addEventListener('abort', onAbort, { once: true });
 
-      if (options?.signal) {
-        if (options.signal.aborted) {
-          clearTimeout(timer);
-          throw new ConnectionError('Request aborted', new Error('AbortError'));
-        }
-        options.signal.addEventListener('abort', () => controller.abort(), { once: true });
-      }
-
-      const headers = this.baseHeaders('application/json', auth, options);
-      if (payload !== undefined) headers['Content-Type'] = 'application/json';
+      const headers = this.baseHeaders(spec.accept, auth, options);
       if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-      Object.assign(headers, signature);
+      Object.assign(headers, spec.headers, spec.signature);
       if (options?.headers) Object.assign(headers, options.headers);
 
       try {
         const response = await this.fetchFn(url, {
           method,
           headers,
-          body: payload,
+          body: spec.body as RequestInit['body'],
           signal: controller.signal,
         });
-
-        clearTimeout(timer);
-
-        if (response.status === 204) {
-          return undefined as T;
-        }
 
         this.parseRateLimitHeaders(response.headers);
         this._lastRequestId = response.headers.get('x-request-id');
 
-        if (response.ok) {
-          return (await response.json()) as T;
-        }
+        if (response.ok) return await spec.readOk(response);
 
-        const errorBody = await readErrorBody(response);
+        const errorBody = await spec.readFailure(response);
         if (await this.shouldReauthenticate(response.status, auth, authState)) {
           attempt--;
           skipBackoff = true;
@@ -871,24 +795,21 @@ export class HttpClient {
           lastError = error;
           continue;
         }
-
         throw error;
       } catch (err) {
-        clearTimeout(timer);
-
-        if (err instanceof AgledgerApiError) {
-          throw err;
-        }
+        if (err instanceof AgledgerApiError) throw err;
+        if (signal?.aborted) throw abortedError(idempotencyKey, err as Error);
 
         const cause = err as Error;
-        if (cause.name === 'AbortError') {
-          lastError = new TimeoutError(method, url, timeout, cause, idempotencyKey);
-        } else {
-          lastError = new ConnectionError(connectionErrorMessage(method, url, cause), cause, idempotencyKey);
-        }
-
-        // Retry network errors
+        lastError =
+          cause.name === 'AbortError'
+            ? new TimeoutError(method, url, timeout, cause, idempotencyKey)
+            : new ConnectionError(connectionErrorMessage(method, url, cause), cause, idempotencyKey);
+        // Retry network errors and timeouts
         continue;
+      } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', onAbort);
       }
     }
 
@@ -939,13 +860,19 @@ export class HttpClient {
     }
   }
 
-  private backoff(attempt: number, lastError?: Error): number {
+  /**
+   * Milliseconds to wait before the next attempt, or null when the Server
+   * asked for longer than `MAX_RETRY_AFTER`: the caller gets that error
+   * instead of a sleep that long.
+   */
+  private backoff(attempt: number, lastError?: Error): number | null {
     let delay = Math.min(1000 * Math.pow(2, attempt - 1), MAX_BACKOFF);
 
     // Honor Retry-After from any answer that carried one (a 429 from the
     // Server, a 503 from whatever sits in front of it): the Server's own
     // statement of when to come back, so wait at least that long.
     if (lastError instanceof AgledgerApiError && lastError.retryAfter) {
+      if (lastError.retryAfter > MAX_RETRY_AFTER) return null;
       delay = Math.max(delay, lastError.retryAfter);
     }
 
@@ -1014,9 +941,17 @@ export class HttpClient {
     return { data, hasMore: !!nextCursor, nextCursor, total: obj.total as number | undefined, ...extras };
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
+  private sleep(ms: number, signal?: AbortSignal, idempotencyKey?: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const onAbort = (): void => {
+        clearTimeout(timer);
+        reject(abortedError(idempotencyKey));
+      };
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
+      signal?.addEventListener('abort', onAbort, { once: true });
     });
   }
 }

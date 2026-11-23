@@ -107,9 +107,9 @@ export interface AgledgerClientOptions {
 export interface RequestOptions {
   /** Override idempotency key for this request */
   idempotencyKey?: string;
-  /** Abort signal for cancellation */
+  /** Abort signal for cancellation. An abort ends the call with a `ConnectionError`; it is never retried. */
   signal?: AbortSignal;
-  /** Override timeout for this request (ms) */
+  /** Override timeout for this request (ms). Covers reading the response body as well as waiting for the response. */
   timeout?: number;
   /**
    * Override authentication for this request.
@@ -216,7 +216,7 @@ export interface AutoPaginateOptions {
    * and the cap is yours, so the walk stops at it quietly.
    */
   maxPages?: number;
-  /** Maximum total items to yield before stopping (default: unlimited). */
+  /** Maximum total items to yield before stopping (default: unlimited). An integer, 1 or more; anything else throws a RangeError. */
   maxItems?: number;
 }
 
@@ -4664,7 +4664,7 @@ type DatabaseProbeFailure =
 export interface ConnectedVersion {
   /** The AGLedger version those connections report. */
   version?: string;
-  /** Backends the database holds for that version, across every API and worker process. */
+  /** How many database connections processes of that version hold open, across every API and worker process. */
   connections?: number;
   /** When the oldest of those connections was opened, or null when the reading role could not see it. */
   oldestConnectionAt?: string | null;
@@ -4739,16 +4739,17 @@ export interface SystemHealth {
    */
   connectedVersions?: ConnectedVersion[] | null;
   /**
-   * Database connections held by worker processes, read from the role each
-   * AGLedger connection reports about itself. `0` degrades `status`: nothing
-   * is processing the jobs this API enqueues. Null when this process runs no
-   * job queue or the connection list could not be read (which also degrades
-   * `status`). A worker that does not identify itself is not counted.
+   * How many background workers are connected to the Server's database.
+   * `0` degrades `status`: nothing is processing the jobs this API enqueues.
+   * Null when this process runs no job queue or the count could not be read
+   * (which also degrades `status`). A worker that does not identify itself is
+   * not counted.
    */
   workerConnections?: number | null;
   /**
-   * Background migrations the Server runs after boot (a claim index rebuild, a
-   * backfill), counted by state. `null` when the table could not be read.
+   * Maintenance tasks the Server runs in the background after it starts
+   * (rebuilding a lookup structure, backfilling data), counted by state.
+   * `null` when the counts could not be read.
    * A non-zero `failed` is why `status` is `degraded` when nothing else is.
    */
   backgroundMigrations: {
