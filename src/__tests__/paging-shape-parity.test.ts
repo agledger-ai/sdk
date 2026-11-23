@@ -101,7 +101,7 @@ function parseCalls(): Call[] {
       const call = body.match(/this\.http\.(?:getPage|paginate)<[^>]+>\(\s*([^,]+),\s*([^,]+),/);
       if (!call) continue;
       if (call[2].trim().startsWith('undefined')) continue;
-      const rawPath = call[1].trim().replaceAll(/^[`']|[`']$/g, '');
+      const rawPath = call[1].trim().replace(/^path(?=`)/, '').replaceAll(/^[`']|[`']$/g, '');
       const path = rawPath.replaceAll(/\$\{[^}]+\}/g, '{}');
       const params = signature.match(/params\??:\s*([\w]+)/);
       if (!params) continue;

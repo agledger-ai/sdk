@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   Dispute,
@@ -42,7 +43,7 @@ export class DisputesResource {
    * ```
    */
   async create(recordId: string, params: CreateDisputeParams, options?: RequestOptions): Promise<Dispute> {
-    const response = await this.http.post<Record<string, unknown>>(`/v1/records/${recordId}/dispute`, params, options);
+    const response = await this.http.post<Record<string, unknown>>(path`/v1/records/${recordId}/dispute`, params, options);
     // The 201 is a DisputeCreateEnvelope. Read
     // the envelope with `client.request()` when the auto-readjudication result
     // matters: `autoResolved` says whether the Server's re-check already
@@ -55,7 +56,7 @@ export class DisputesResource {
    * Returns the full envelope: `{ dispute, evidence }`.
    */
   get(recordId: string, options?: RequestOptions): Promise<DisputeResponse> {
-    return this.http.get<DisputeResponse>(`/v1/records/${recordId}/dispute`, undefined, options);
+    return this.http.get<DisputeResponse>(path`/v1/records/${recordId}/dispute`, undefined, options);
   }
 
   /**
@@ -86,7 +87,7 @@ export class DisputesResource {
     params: ResolveDisputeParams,
     options?: RequestOptions,
   ): Promise<Dispute> {
-    return this.http.post<Dispute>(`/v1/disputes/${disputeId}/resolve`, params, options);
+    return this.http.post<Dispute>(path`/v1/disputes/${disputeId}/resolve`, params, options);
   }
 
   /** Withdraw an open dispute. Optional `reason` is recorded in the audit trail. */
@@ -96,7 +97,7 @@ export class DisputesResource {
     options?: RequestOptions,
   ): Promise<Dispute> {
     return this.http.post<Dispute>(
-      `/v1/records/${recordId}/dispute/withdraw`,
+      path`/v1/records/${recordId}/dispute/withdraw`,
       params ?? {},
       options,
     );
@@ -118,6 +119,6 @@ export class DisputesResource {
     params: { evidenceType: EvidenceType; payload: Record<string, unknown> },
     options?: RequestOptions,
   ): Promise<DisputeEvidence & { nextSteps?: NextStep[] }> {
-    return this.http.post<DisputeEvidence & { nextSteps?: NextStep[] }>(`/v1/records/${recordId}/dispute/evidence`, params, options);
+    return this.http.post<DisputeEvidence & { nextSteps?: NextStep[] }>(path`/v1/records/${recordId}/dispute/evidence`, params, options);
   }
 }

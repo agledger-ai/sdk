@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type { RequestOptions } from '../types.js';
 
@@ -47,6 +48,6 @@ export class PredicatesResource {
    * ```
    */
   get(kind: string, _version: 'v1' = 'v1', options?: RequestOptions): Promise<PredicateSchema> {
-    return this.http.get<PredicateSchema>(`/predicates/${kind}/v1`, undefined, options);
+    return this.http.get<PredicateSchema>(path`/predicates/${kind}/v1`, undefined, options);
   }
 }

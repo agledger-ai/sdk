@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   AcknowledgeVaultRewindParams,
@@ -148,7 +149,7 @@ export class AdminVaultResource {
       run: (params?: StartVaultScanParams, options?: RequestOptions) =>
         http.post<VaultScanJob>('/v1/admin/vault/scan', params ?? {}, options),
       status: (jobId: string, options?: RequestOptions) =>
-        http.get<VaultScanJob>(`/v1/admin/vault/scan/${jobId}`, undefined, options),
+        http.get<VaultScanJob>(path`/v1/admin/vault/scan/${jobId}`, undefined, options),
       list: (options?: RequestOptions) =>
         http.get<VaultScanList>('/v1/admin/vault/scan', undefined, options),
     };
@@ -159,7 +160,7 @@ export class AdminVaultResource {
         http.post<VaultSigningKeyRotation>('/v1/admin/vault/signing-keys/rotate', {}, options),
       retire: (keyId: string, params?: RetireVaultSigningKeyParams, options?: RequestOptions) =>
         http.post<VaultSigningKeyRetirement>(
-          `/v1/admin/vault/signing-keys/${keyId}/retire`,
+          path`/v1/admin/vault/signing-keys/${keyId}/retire`,
           params ?? {},
           options,
         ),
@@ -238,12 +239,12 @@ export class AdminTrustedIssuersResource {
 
   /** Get a trusted issuer by ID. */
   get(id: string, options?: RequestOptions): Promise<TrustedIssuer> {
-    return this.http.get<TrustedIssuer>(`/v1/admin/trusted-issuers/${id}`, undefined, options);
+    return this.http.get<TrustedIssuer>(path`/v1/admin/trusted-issuers/${id}`, undefined, options);
   }
 
   /** Merge-update a trusted issuer (PATCH semantics). */
   update(id: string, params: UpdateTrustedIssuerParams, options?: RequestOptions): Promise<TrustedIssuer> {
-    return this.http.patch<TrustedIssuer>(`/v1/admin/trusted-issuers/${id}`, params, options);
+    return this.http.patch<TrustedIssuer>(path`/v1/admin/trusted-issuers/${id}`, params, options);
   }
 
   /**
@@ -251,12 +252,12 @@ export class AdminTrustedIssuersResource {
    * disable it (`update(id, { enabled: false })`) and revoke its certs first.
    */
   delete(id: string, options?: RequestOptions): Promise<{ deleted: true; id: string; nextSteps?: NextStep[] }> {
-    return this.http.delete(`/v1/admin/trusted-issuers/${id}`, undefined, options);
+    return this.http.delete(path`/v1/admin/trusted-issuers/${id}`, undefined, options);
   }
 
   /** Revoke every live ephemeral cert issued under this issuer. */
   revokeCerts(id: string, options?: RequestOptions): Promise<RevokeTrustedIssuerCertsResult> {
-    return this.http.post<RevokeTrustedIssuerCertsResult>(`/v1/admin/trusted-issuers/${id}/revoke-certs`, {}, options);
+    return this.http.post<RevokeTrustedIssuerCertsResult>(path`/v1/admin/trusted-issuers/${id}/revoke-certs`, {}, options);
   }
 }
 
@@ -282,7 +283,7 @@ export class AdminResource {
 
   /** Revoke a single ephemeral signing cert by ID. */
   revokeEphemeralCert(certId: string, options?: RequestOptions): Promise<RevokeEphemeralCertResult> {
-    return this.http.post<RevokeEphemeralCertResult>(`/v1/admin/ephemeral-certs/${certId}/revoke`, {}, options);
+    return this.http.post<RevokeEphemeralCertResult>(path`/v1/admin/ephemeral-certs/${certId}/revoke`, {}, options);
   }
 
   /**
@@ -330,7 +331,7 @@ export class AdminResource {
     params: DeactivateOrgParams = {},
     options?: RequestOptions,
   ): Promise<DeactivateResult> {
-    return this.http.post<DeactivateResult>(`/v1/admin/orgs/${orgId}/deactivate`, params, options);
+    return this.http.post<DeactivateResult>(path`/v1/admin/orgs/${orgId}/deactivate`, params, options);
   }
 
   /**
@@ -344,7 +345,7 @@ export class AdminResource {
     params: ReactivateParams = {},
     options?: RequestOptions,
   ): Promise<ReactivateResult> {
-    return this.http.post<ReactivateResult>(`/v1/admin/orgs/${orgId}/reactivate`, params, options);
+    return this.http.post<ReactivateResult>(path`/v1/admin/orgs/${orgId}/reactivate`, params, options);
   }
 
   /** Deactivate an agent. Revokes the agent's API keys. */
@@ -353,7 +354,7 @@ export class AdminResource {
     params: DeactivateAgentParams = {},
     options?: RequestOptions,
   ): Promise<DeactivateResult> {
-    return this.http.post<DeactivateResult>(`/v1/admin/agents/${agentId}/deactivate`, params, options);
+    return this.http.post<DeactivateResult>(path`/v1/admin/agents/${agentId}/deactivate`, params, options);
   }
 
   /**
@@ -367,12 +368,12 @@ export class AdminResource {
     params: ReactivateParams = {},
     options?: RequestOptions,
   ): Promise<ReactivateResult> {
-    return this.http.post<ReactivateResult>(`/v1/admin/agents/${agentId}/reactivate`, params, options);
+    return this.http.post<ReactivateResult>(path`/v1/admin/agents/${agentId}/reactivate`, params, options);
   }
 
   /** Set an agent's Type capabilities (PUT: replaces all). */
   setCapabilities(agentId: string, params: SetCapabilitiesParams, options?: RequestOptions): Promise<AgentCapabilities> {
-    return this.http.put<AgentCapabilities>(`/v1/admin/agents/${agentId}/capabilities`, params, options);
+    return this.http.put<AgentCapabilities>(path`/v1/admin/agents/${agentId}/capabilities`, params, options);
   }
 
   /**
@@ -399,7 +400,7 @@ export class AdminResource {
 
   /** Get an org's configuration. */
   getOrgConfig(orgId: string, options?: RequestOptions): Promise<OrgConfig> {
-    return this.http.get<OrgConfig>(`/v1/admin/orgs/${orgId}/config`, undefined, options);
+    return this.http.get<OrgConfig>(path`/v1/admin/orgs/${orgId}/config`, undefined, options);
   }
 
   /**
@@ -407,7 +408,7 @@ export class AdminResource {
    * Only provided fields are updated; others are preserved.
    */
   updateOrgConfig(orgId: string, params: SetOrgConfigParams, options?: RequestOptions): Promise<OrgConfig> {
-    return this.http.patch<OrgConfig>(`/v1/admin/orgs/${orgId}/config`, params, options);
+    return this.http.patch<OrgConfig>(path`/v1/admin/orgs/${orgId}/config`, params, options);
   }
 
   /**
@@ -451,7 +452,7 @@ export class AdminResource {
    * platform credential.
    */
   updateApiKey(keyId: string, params: UpdateApiKeyParams, options?: RequestOptions): Promise<UpdateApiKeyResult> {
-    return this.http.patch<UpdateApiKeyResult>(`/v1/admin/api-keys/${keyId}`, params, options);
+    return this.http.patch<UpdateApiKeyResult>(path`/v1/admin/api-keys/${keyId}`, params, options);
   }
 
   /**
@@ -545,7 +546,7 @@ export class AdminResource {
 
   /** Retry a single dead-letter queue entry. */
   retryDlq(dlqId: string, options?: RequestOptions): Promise<DlqRetryResult> {
-    return this.http.post<DlqRetryResult>(`/v1/admin/webhook-dlq/${dlqId}/retry`, undefined, options);
+    return this.http.post<DlqRetryResult>(path`/v1/admin/webhook-dlq/${dlqId}/retry`, undefined, options);
   }
 
   /** Retry all dead-letter queue entries. */
@@ -559,7 +560,7 @@ export class AdminResource {
    * cleared. The event itself is kept.
    */
   discardDlq(dlqId: string, options?: RequestOptions): Promise<DlqDiscardResult> {
-    return this.http.delete<DlqDiscardResult>(`/v1/admin/webhook-dlq/${dlqId}`, undefined, options);
+    return this.http.delete<DlqDiscardResult>(path`/v1/admin/webhook-dlq/${dlqId}`, undefined, options);
   }
 
   /** Get system health metrics (platform admin). */
@@ -578,12 +579,12 @@ export class AdminResource {
 
   /** Exempt an owner (agent or org id) from rate limiting. Idempotent. */
   setRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<RateLimitExemption> {
-    return this.http.put<RateLimitExemption>(`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
+    return this.http.put<RateLimitExemption>(path`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
   }
 
   /** Remove an owner's rate-limit exemption. Idempotent. */
   deleteRateLimitExemption(ownerId: string, options?: RequestOptions): Promise<RateLimitExemption> {
-    return this.http.delete<RateLimitExemption>(`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
+    return this.http.delete<RateLimitExemption>(path`/v1/admin/rate-limit-exemptions/${ownerId}`, undefined, options);
   }
 
   /** Get health status of all webhooks (delivery stats, circuit breaker states). */
@@ -593,7 +594,7 @@ export class AdminResource {
 
   /** Update a webhook's circuit breaker state (closed / open / half_open). */
   updateCircuitBreaker(webhookId: string, params: UpdateCircuitBreakerParams, options?: RequestOptions): Promise<CircuitBreakerResult> {
-    return this.http.patch<CircuitBreakerResult>(`/v1/admin/webhooks/${webhookId}/circuit-breaker`, params, options);
+    return this.http.patch<CircuitBreakerResult>(path`/v1/admin/webhooks/${webhookId}/circuit-breaker`, params, options);
   }
 
   /** Get auth cache occupancy (size, capacity, entry lifetime). */

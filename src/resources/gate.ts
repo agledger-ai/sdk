@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type { GateEvaluationResult, GateStatus, RequestOptions } from '../types.js';
 
@@ -12,7 +13,7 @@ export class GateResource {
    */
   evaluate(recordId: string, completionIds?: string[], options?: RequestOptions): Promise<GateEvaluationResult> {
     return this.http.post<GateEvaluationResult>(
-      `/v1/records/${recordId}/evaluate`,
+      path`/v1/records/${recordId}/evaluate`,
       completionIds?.length ? { completionIds } : {},
       options,
     );
@@ -20,6 +21,6 @@ export class GateResource {
 
   /** Get the current gate status (Phase 1 structural + Phase 2 evaluation) for a Record. */
   getStatus(recordId: string, options?: RequestOptions): Promise<GateStatus> {
-    return this.http.get<GateStatus>(`/v1/records/${recordId}/gate-status`, undefined, options);
+    return this.http.get<GateStatus>(path`/v1/records/${recordId}/gate-status`, undefined, options);
   }
 }

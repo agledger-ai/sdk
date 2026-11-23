@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   Completion,
@@ -23,19 +24,19 @@ export class CompletionsResource {
    * });
    */
   submit(recordId: string, params: SubmitCompletionParams, options?: RequestOptions): Promise<Completion> {
-    return this.http.post<Completion>(`/v1/records/${recordId}/completions`, params, options);
+    return this.http.post<Completion>(path`/v1/records/${recordId}/completions`, params, options);
   }
 
   get(recordId: string, completionId: string, options?: RequestOptions): Promise<Completion> {
-    return this.http.get<Completion>(`/v1/records/${recordId}/completions/${completionId}`, undefined, options);
+    return this.http.get<Completion>(path`/v1/records/${recordId}/completions/${completionId}`, undefined, options);
   }
 
   list(recordId: string, params?: ListCompletionsParams, options?: RequestOptions): Promise<Page<Completion>> {
-    return this.http.getPage<Completion>(`/v1/records/${recordId}/completions`, params as Record<string, unknown>, options);
+    return this.http.getPage<Completion>(path`/v1/records/${recordId}/completions`, params as Record<string, unknown>, options);
   }
 
   /** Auto-paginating iterator. Yields individual completions. */
   listAll(recordId: string, params?: ListCompletionsParams, options?: RequestOptions & AutoPaginateOptions): AsyncGenerator<Completion> {
-    return this.http.paginate<Completion>(`/v1/records/${recordId}/completions`, params as Record<string, unknown>, options);
+    return this.http.paginate<Completion>(path`/v1/records/${recordId}/completions`, params as Record<string, unknown>, options);
   }
 }

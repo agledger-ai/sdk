@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   AgentProfile,
@@ -38,22 +39,22 @@ export class AgentsResource {
 
   /** Get an agent by ID. */
   get(agentId: string, options?: RequestOptions): Promise<AgentProfile> {
-    return this.http.get<AgentProfile>(`/v1/agents/${agentId}`, undefined, options);
+    return this.http.get<AgentProfile>(path`/v1/agents/${agentId}`, undefined, options);
   }
 
   /** Update an agent's identity fields. */
   update(agentId: string, params: UpdateAgentParams, options?: RequestOptions): Promise<AgentProfile> {
-    return this.http.patch<AgentProfile>(`/v1/agents/${agentId}`, params, options);
+    return this.http.patch<AgentProfile>(path`/v1/agents/${agentId}`, params, options);
   }
 
   /** Add external references to an agent. */
   addReferences(agentId: string, references: EntityReferenceInput[], options?: RequestOptions): Promise<EntityReferencesResult> {
-    return this.http.post<EntityReferencesResult>(`/v1/agents/${agentId}/references`, { references }, options);
+    return this.http.post<EntityReferencesResult>(path`/v1/agents/${agentId}/references`, { references }, options);
   }
 
   /** Get an agent's external references. */
   getReferences(agentId: string, options?: RequestOptions): Promise<EntityReferencesResult> {
-    return this.http.get<EntityReferencesResult>(`/v1/agents/${agentId}/references`, undefined, options);
+    return this.http.get<EntityReferencesResult>(path`/v1/agents/${agentId}/references`, undefined, options);
   }
 
   /**

@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   AgentDrift,
@@ -29,7 +30,7 @@ export class DriftResource {
    * and nothing else, since its records carry no completion and no verdict.
    */
   getAgent(agentId: string, params?: GetAgentDriftParams, options?: RequestOptions): Promise<AgentDrift> {
-    return this.http.get<AgentDrift>(`/v1/agents/${agentId}/drift`, params as Record<string, unknown>, options);
+    return this.http.get<AgentDrift>(path`/v1/agents/${agentId}/drift`, params as Record<string, unknown>, options);
   }
 
   /**
@@ -69,7 +70,7 @@ export class DriftResource {
     options?: RequestOptions,
   ): Promise<Page<AgentHistoryEntry>> {
     return this.http.getPage<AgentHistoryEntry>(
-      `/v1/agents/${agentId}/history`,
+      path`/v1/agents/${agentId}/history`,
       params as Record<string, unknown>,
       options,
     );

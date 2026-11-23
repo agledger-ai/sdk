@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   Webhook,
@@ -46,7 +47,7 @@ export class WebhooksResource {
 
   /** Get a single webhook by ID. */
   get(webhookId: string, options?: RequestOptions): Promise<Webhook> {
-    return this.http.get<Webhook>(`/v1/webhooks/${webhookId}`, undefined, options);
+    return this.http.get<Webhook>(path`/v1/webhooks/${webhookId}`, undefined, options);
   }
 
   /**
@@ -58,7 +59,7 @@ export class WebhooksResource {
    * ```
    */
   update(webhookId: string, params: UpdateWebhookParams, options?: RequestOptions): Promise<Webhook> {
-    return this.http.patch<Webhook>(`/v1/webhooks/${webhookId}`, params, options);
+    return this.http.patch<Webhook>(path`/v1/webhooks/${webhookId}`, params, options);
   }
 
   /**
@@ -67,27 +68,27 @@ export class WebhooksResource {
    * system health degraded until discarded with `discardDlq()`.
    */
   delete(webhookId: string, options?: RequestOptions): Promise<WebhookDeleteResult> {
-    return this.http.delete<WebhookDeleteResult>(`/v1/webhooks/${webhookId}`, undefined, options);
+    return this.http.delete<WebhookDeleteResult>(path`/v1/webhooks/${webhookId}`, undefined, options);
   }
 
   /** Pause webhook deliveries. The subscription remains active but deliveries are held. */
   pause(webhookId: string, options?: RequestOptions): Promise<Webhook> {
-    return this.http.post<Webhook>(`/v1/webhooks/${webhookId}/pause`, undefined, options);
+    return this.http.post<Webhook>(path`/v1/webhooks/${webhookId}/pause`, undefined, options);
   }
 
   /** Resume a paused webhook. Held deliveries are released. */
   resume(webhookId: string, options?: RequestOptions): Promise<Webhook> {
-    return this.http.post<Webhook>(`/v1/webhooks/${webhookId}/resume`, undefined, options);
+    return this.http.post<Webhook>(path`/v1/webhooks/${webhookId}/resume`, undefined, options);
   }
 
   /** Rotate webhook signing secret. Returns the updated webhook with new secret. */
   rotate(webhookId: string, options?: RequestOptions): Promise<Webhook> {
-    return this.http.post<Webhook>(`/v1/webhooks/${webhookId}/rotate`, undefined, options);
+    return this.http.post<Webhook>(path`/v1/webhooks/${webhookId}/rotate`, undefined, options);
   }
 
   /** Send a test ping to the webhook URL. */
   ping(webhookId: string, options?: RequestOptions): Promise<WebhookTestResult> {
-    return this.http.post<WebhookTestResult>(`/v1/webhooks/${webhookId}/ping`, undefined, options);
+    return this.http.post<WebhookTestResult>(path`/v1/webhooks/${webhookId}/ping`, undefined, options);
   }
 
   /** List delivery attempts for a webhook, optionally filtered by status. */
@@ -97,7 +98,7 @@ export class WebhooksResource {
     options?: RequestOptions,
   ): Promise<Page<WebhookDelivery>> {
     return this.http.getPage<WebhookDelivery>(
-      `/v1/webhooks/${webhookId}/deliveries`,
+      path`/v1/webhooks/${webhookId}/deliveries`,
       params as Record<string, unknown>,
       options,
     );
@@ -110,7 +111,7 @@ export class WebhooksResource {
     options?: RequestOptions,
   ): Promise<Page<WebhookDlqEntry>> {
     return this.http.getPage<WebhookDlqEntry>(
-      `/v1/webhooks/${webhookId}/dlq`,
+      path`/v1/webhooks/${webhookId}/dlq`,
       params as Record<string, unknown>,
       options,
     );
@@ -118,12 +119,12 @@ export class WebhooksResource {
 
   /** Retry all dead-letter queue entries for a specific webhook. */
   retryAllDlq(webhookId: string, options?: RequestOptions): Promise<DlqRetryAllResult> {
-    return this.http.post<DlqRetryAllResult>(`/v1/webhooks/${webhookId}/dlq/retry-all`, undefined, options);
+    return this.http.post<DlqRetryAllResult>(path`/v1/webhooks/${webhookId}/dlq/retry-all`, undefined, options);
   }
 
   /** Retry a single dead-letter queue entry for a specific webhook. */
   retryDlq(webhookId: string, dlqId: string, options?: RequestOptions): Promise<DlqRetryResult> {
-    return this.http.post<DlqRetryResult>(`/v1/webhooks/${webhookId}/dlq/${dlqId}/retry`, undefined, options);
+    return this.http.post<DlqRetryResult>(path`/v1/webhooks/${webhookId}/dlq/${dlqId}/retry`, undefined, options);
   }
 
   /**
@@ -132,6 +133,6 @@ export class WebhooksResource {
    * `events.list()` and the record still carry it.
    */
   discardDlq(webhookId: string, dlqId: string, options?: RequestOptions): Promise<DlqDiscardResult> {
-    return this.http.delete<DlqDiscardResult>(`/v1/webhooks/${webhookId}/dlq/${dlqId}`, undefined, options);
+    return this.http.delete<DlqDiscardResult>(path`/v1/webhooks/${webhookId}/dlq/${dlqId}`, undefined, options);
   }
 }

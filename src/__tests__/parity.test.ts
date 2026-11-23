@@ -328,8 +328,8 @@ describe('every route the SDK calls is in the spec', () => {
   // registered, and nothing noticed because no list named it. This reads the
   // call sites instead, so a method that reaches a route the spec does not
   // have fails here.
-  const VERB = /this\.http\.(get|getPage|paginate|getPageWithEnvelope|getNdjson|post|put|patch|delete)(?:<[^>(]*(?:<[^>]*>[^>(]*)*>)?\(\s*(['"`])([^'"`]+)\2/g;
-  const BINARY = /this\.http\.requestBinary\(\s*'(GET|POST)'\s*,\s*(['"`])([^'"`]+)\2/g;
+  const VERB = /this\.http\.(get|getPage|paginate|getPageWithEnvelope|getNdjson|post|put|patch|delete)(?:<[^>(]*(?:<[^>]*>[^>(]*)*>)?\(\s*(?:path)?(['"`])([^'"`]+)\2/g;
+  const BINARY = /this\.http\.requestBinary\(\s*'(GET|POST)'\s*,\s*(?:path)?(['"`])([^'"`]+)\2/g;
   const METHOD: Record<string, string> = {
     get: 'GET', getPage: 'GET', paginate: 'GET', getPageWithEnvelope: 'GET', getNdjson: 'GET',
     post: 'POST', put: 'PUT', patch: 'PATCH', delete: 'DELETE',

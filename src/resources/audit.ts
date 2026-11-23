@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   RequestOptions,
@@ -66,7 +67,7 @@ export class OrgReadsCheckpointsResource {
   /** Get a single checkpoint by ID. */
   get(id: string, options?: RequestOptions): Promise<OrgReadsCheckpoint> {
     return this.http.get<OrgReadsCheckpoint>(
-      `/v1/audit/org-reads/checkpoints/${id}`,
+      path`/v1/audit/org-reads/checkpoints/${id}`,
       undefined,
       options,
     );
@@ -78,7 +79,7 @@ export class OrgReadsCheckpointsResource {
    */
   cosign(id: string, params: CosignCheckpointParams, options?: RequestOptions): Promise<OrgReadsCheckpoint> {
     return this.http.post<OrgReadsCheckpoint>(
-      `/v1/audit/org-reads/checkpoints/${id}/cosign`,
+      path`/v1/audit/org-reads/checkpoints/${id}/cosign`,
       params,
       options,
     );
@@ -92,7 +93,7 @@ export class OrgReadsCheckpointsResource {
    */
   proof(id: string, leaf: number, options?: RequestOptions): Promise<OrgReadsInclusionProof> {
     return this.http.get<OrgReadsInclusionProof>(
-      `/v1/audit/org-reads/checkpoints/${id}/proof`,
+      path`/v1/audit/org-reads/checkpoints/${id}/proof`,
       { leaf },
       options,
     );

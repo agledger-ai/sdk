@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   RecordType,
@@ -60,19 +61,19 @@ export class SchemasResource {
    */
   delete(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaDeleteResult> {
     const { request, params } = scope(options);
-    return this.http.delete<SchemaDeleteResult>(`/v1/schemas/${type}`, undefined, request, params);
+    return this.http.delete<SchemaDeleteResult>(path`/v1/schemas/${type}`, undefined, request, params);
   }
 
   /** Get the full JSON Schema for a Type. */
   get(type: RecordType, options?: SchemaScopeOptions): Promise<TypeSchema> {
     const { request, params } = scope(options);
-    return this.http.get<TypeSchema>(`/v1/schemas/${type}`, params, request);
+    return this.http.get<TypeSchema>(path`/v1/schemas/${type}`, params, request);
   }
 
   /** Get the verification rules for a Type. */
   getRules(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaRulesResult> {
     const { request, params } = scope(options);
-    return this.http.get<SchemaRulesResult>(`/v1/schemas/${type}/rules`, params, request);
+    return this.http.get<SchemaRulesResult>(path`/v1/schemas/${type}/rules`, params, request);
   }
 
   /**
@@ -82,7 +83,7 @@ export class SchemasResource {
    */
   validateCompletion(type: RecordType, evidence: Record<string, unknown>, options?: SchemaScopeOptions): Promise<SchemaValidationResult> {
     const { request, params } = scope(options);
-    return this.http.post<SchemaValidationResult>(`/v1/schemas/${type}/validate`, { evidence }, request, params);
+    return this.http.post<SchemaValidationResult>(path`/v1/schemas/${type}/validate`, { evidence }, request, params);
   }
 
   /**
@@ -91,7 +92,7 @@ export class SchemasResource {
    */
   getManifest(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaManifestExport> {
     const { request, params } = scope(options);
-    return this.http.get<SchemaManifestExport>(`/v1/schemas/${type}/manifest`, params, request);
+    return this.http.get<SchemaManifestExport>(path`/v1/schemas/${type}/manifest`, params, request);
   }
 
   /** Get the meta-schema describing constraints and limits for custom schema authoring. */
@@ -102,7 +103,7 @@ export class SchemasResource {
   /** Get a template for creating a new schema based on an existing Type. */
   getTemplate(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaTemplate> {
     const { request, params } = scope(options);
-    return this.http.get<SchemaTemplate>(`/v1/schemas/${type}/template`, params, request);
+    return this.http.get<SchemaTemplate>(path`/v1/schemas/${type}/template`, params, request);
   }
 
   /** Get a blank template for creating a custom Type from scratch. */
@@ -113,7 +114,7 @@ export class SchemasResource {
   /** List all versions of a Type schema. */
   getVersions(type: RecordType, options?: SchemaScopeOptions): Promise<Page<SchemaVersionDetail>> {
     const { request, params } = scope(options);
-    return this.http.getPage<SchemaVersionDetail>(`/v1/schemas/${type}/versions`, params, request);
+    return this.http.getPage<SchemaVersionDetail>(path`/v1/schemas/${type}/versions`, params, request);
   }
 
   /**
@@ -125,7 +126,7 @@ export class SchemasResource {
    */
   getVersion(type: RecordType, version: number, options?: SchemaScopeOptions): Promise<SchemaVersionDetail> {
     const { request, params } = scope(options);
-    return this.http.get<SchemaVersionDetail>(`/v1/schemas/${type}/versions/${version}`, params, request);
+    return this.http.get<SchemaVersionDetail>(path`/v1/schemas/${type}/versions/${version}`, params, request);
   }
 
   /**
@@ -138,7 +139,7 @@ export class SchemasResource {
    */
   diff(type: RecordType, from: number, to: number, options?: SchemaScopeOptions): Promise<SchemaDiffResult> {
     const { request, params } = scope(options);
-    return this.http.get<SchemaDiffResult>(`/v1/schemas/${type}/diff`, { from, to, ...params }, request);
+    return this.http.get<SchemaDiffResult>(path`/v1/schemas/${type}/diff`, { from, to, ...params }, request);
   }
 
   /** Preview a schema before registration. Returns validation results and compiled output. */
@@ -154,19 +155,19 @@ export class SchemasResource {
   /** Change a schema version's compatibility mode, which is all this route updates. */
   updateVersion(type: RecordType, version: number, body: UpdateSchemaVersionParams, options?: SchemaScopeOptions): Promise<SchemaVersionDetail> {
     const { request, params } = scope(options);
-    return this.http.patch<SchemaVersionDetail>(`/v1/schemas/${type}/versions/${version}`, body, request, params);
+    return this.http.patch<SchemaVersionDetail>(path`/v1/schemas/${type}/versions/${version}`, body, request, params);
   }
 
   /** Disable a Type. Records of this Type can no longer be created; existing Records are unaffected. */
   disable(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaLifecycleResult> {
     const { request, params } = scope(options);
-    return this.http.patch<SchemaLifecycleResult>(`/v1/schemas/${type}/disable`, {}, request, params);
+    return this.http.patch<SchemaLifecycleResult>(path`/v1/schemas/${type}/disable`, {}, request, params);
   }
 
   /** Re-enable a previously disabled Type. */
   enable(type: RecordType, options?: SchemaScopeOptions): Promise<SchemaLifecycleResult> {
     const { request, params } = scope(options);
-    return this.http.patch<SchemaLifecycleResult>(`/v1/schemas/${type}/enable`, {}, request, params);
+    return this.http.patch<SchemaLifecycleResult>(path`/v1/schemas/${type}/enable`, {}, request, params);
   }
 
   /**

@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type { RequestOptions, ScittConfiguration, ScittCheckpoint } from '../types.js';
 
@@ -69,7 +70,7 @@ export class ScittEntriesResource {
    * Read a Transparent Statement (Signed Statement + Receipt(s)) by entry id.
    */
   get(entryId: string, options?: RequestOptions): Promise<Uint8Array> {
-    return this.http.requestBinary('GET', `/v1/scitt/entries/${entryId}`, {
+    return this.http.requestBinary('GET', path`/v1/scitt/entries/${entryId}`, {
       ...options,
       accept: 'application/cose',
     });
@@ -96,7 +97,7 @@ export class ScittKeysResource {
 
   /** Fetch a single COSE_Key by kid (unauthenticated). */
   get(kid: string, options?: RequestOptions): Promise<Uint8Array> {
-    return this.http.requestBinary('GET', `/.well-known/scitt-keys/${kid}`, {
+    return this.http.requestBinary('GET', path`/.well-known/scitt-keys/${kid}`, {
       ...options,
       accept: 'application/cose-key',
       authOverride: 'none',

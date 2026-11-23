@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   RequestOptions,
@@ -43,7 +44,7 @@ export class FederationAdminResource {
     peerHubId: string,
     options?: RequestOptions,
   ): Promise<FederationPeer> {
-    return this.http.get<FederationPeer>(`/federation/v1/admin/peers/${peerHubId}`, undefined, options);
+    return this.http.get<FederationPeer>(path`/federation/v1/admin/peers/${peerHubId}`, undefined, options);
   }
 
   /** Revoke a peer Server (irreversible). */
@@ -52,7 +53,7 @@ export class FederationAdminResource {
     params: { reason: string },
     options?: RequestOptions,
   ): Promise<{ revoked: true; nextSteps?: NextStep[] }> {
-    return this.http.post(`/federation/v1/admin/peers/${peerHubId}/revoke`, params, options);
+    return this.http.post(path`/federation/v1/admin/peers/${peerHubId}/revoke`, params, options);
   }
 
   /** Permanently remove a revoked peer's record. */
@@ -60,7 +61,7 @@ export class FederationAdminResource {
     peerHubId: string,
     options?: RequestOptions,
   ): Promise<{ deleted: true; peerHubId: string; nextSteps?: NextStep[] }> {
-    return this.http.delete(`/federation/v1/admin/peers/${peerHubId}`, undefined, options);
+    return this.http.delete(path`/federation/v1/admin/peers/${peerHubId}`, undefined, options);
   }
 
   /** List failed outbound federation messages in the dead-letter queue. */

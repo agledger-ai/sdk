@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   ComplianceExport,
@@ -31,7 +32,7 @@ export class ComplianceResource {
 
   /** Read a compliance export's metadata. The only lifecycle to check is `expiresAt`. */
   getExportStatus(exportId: string, options?: RequestOptions): Promise<ComplianceExport> {
-    return this.http.get<ComplianceExport>(`/v1/compliance/export/${exportId}`, undefined, options);
+    return this.http.get<ComplianceExport>(path`/v1/compliance/export/${exportId}`, undefined, options);
   }
 
   /**
@@ -40,7 +41,7 @@ export class ComplianceResource {
    * `downloadExportText()` returns it.
    */
   downloadExport(exportId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
-    return this.http.get(`/v1/compliance/export/${exportId}/download`, undefined, options);
+    return this.http.get(path`/v1/compliance/export/${exportId}/download`, undefined, options);
   }
 
   /**
@@ -49,7 +50,7 @@ export class ComplianceResource {
    * or `'html'` (a `json` export comes back as its JSON text).
    */
   async downloadExportText(exportId: string, options?: RequestOptions): Promise<string> {
-    const bytes = await this.http.requestBinary('GET', `/v1/compliance/export/${exportId}/download`, {
+    const bytes = await this.http.requestBinary('GET', path`/v1/compliance/export/${exportId}/download`, {
       ...options,
       accept: 'text/csv, text/html, application/json',
     });
@@ -58,27 +59,27 @@ export class ComplianceResource {
 
   /** Create an AI impact assessment for a Record (EU AI Act). */
   createAssessment(recordId: string, params: CreateAiImpactAssessmentParams, options?: RequestOptions): Promise<AiImpactAssessment> {
-    return this.http.post<AiImpactAssessment>(`/v1/records/${recordId}/ai-impact-assessment`, params, options);
+    return this.http.post<AiImpactAssessment>(path`/v1/records/${recordId}/ai-impact-assessment`, params, options);
   }
 
   /** Get the AI impact assessment for a Record. */
   getAssessment(recordId: string, options?: RequestOptions): Promise<AiImpactAssessment> {
-    return this.http.get<AiImpactAssessment>(`/v1/records/${recordId}/ai-impact-assessment`, undefined, options);
+    return this.http.get<AiImpactAssessment>(path`/v1/records/${recordId}/ai-impact-assessment`, undefined, options);
   }
 
   /** Create a compliance record (attestation) for a Record. */
   createRecord(recordId: string, params: CreateComplianceRecordParams, options?: RequestOptions): Promise<ComplianceRecord> {
-    return this.http.post<ComplianceRecord>(`/v1/records/${recordId}/compliance-records`, params, options);
+    return this.http.post<ComplianceRecord>(path`/v1/records/${recordId}/compliance-records`, params, options);
   }
 
   /** List compliance records for a Record. */
   listRecords(recordId: string, params?: CursorListParams, options?: RequestOptions): Promise<Page<ComplianceRecord>> {
-    return this.http.getPage<ComplianceRecord>(`/v1/records/${recordId}/compliance-records`, params as Record<string, unknown>, options);
+    return this.http.getPage<ComplianceRecord>(path`/v1/records/${recordId}/compliance-records`, params as Record<string, unknown>, options);
   }
 
   /** Get a specific compliance record. */
   getRecord(recordId: string, complianceRecordId: string, options?: RequestOptions): Promise<ComplianceRecord> {
-    return this.http.get<ComplianceRecord>(`/v1/records/${recordId}/compliance-records/${complianceRecordId}`, undefined, options);
+    return this.http.get<ComplianceRecord>(path`/v1/records/${recordId}/compliance-records/${complianceRecordId}`, undefined, options);
   }
 
   /** Export the entire audit vault (platform-wide; admin-only). */

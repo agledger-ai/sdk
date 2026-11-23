@@ -1,3 +1,4 @@
+import { path } from '../path.js';
 import type { HttpClient } from '../http.js';
 import type {
   RecordRow,
@@ -57,7 +58,7 @@ export class RecordsResource {
   get(id: string, params?: GetRecordParams, options?: RequestOptions): Promise<RecordRow | RecordRowCompact>;
   get(id: string, params?: GetRecordParams, options?: RequestOptions): Promise<RecordRow | RecordRowCompact> {
     return this.http.get<RecordRow | RecordRowCompact>(
-      `/v1/records/${id}`,
+      path`/v1/records/${id}`,
       params as unknown as Record<string, unknown>,
       options,
     );
@@ -134,7 +135,7 @@ export class RecordsResource {
 
   /** Update a Record's mutable fields. */
   update(id: string, params: UpdateRecordParams, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.patch<RecordRow>(`/v1/records/${id}`, params, options);
+    return this.http.patch<RecordRow>(path`/v1/records/${id}`, params, options);
   }
 
   /**
@@ -145,12 +146,12 @@ export class RecordsResource {
   transition(id: string, action: RecordTransitionAction, reason?: string, options?: RequestOptions): Promise<RecordRow> {
     const body: Record<string, unknown> = { action };
     if (reason) body.reason = reason;
-    return this.http.post<RecordRow>(`/v1/records/${id}/transition`, body, options);
+    return this.http.post<RecordRow>(path`/v1/records/${id}/transition`, body, options);
   }
 
   /** Cancel a Record with an optional reason. */
   cancel(id: string, reason?: string, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.post<RecordRow>(`/v1/records/${id}/cancel`, reason ? { reason } : {}, options);
+    return this.http.post<RecordRow>(path`/v1/records/${id}/cancel`, reason ? { reason } : {}, options);
   }
 
   /**
@@ -159,7 +160,7 @@ export class RecordsResource {
    * wire-level aliases of the same field).
    */
   accept(id: string, message?: string, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.post<RecordRow>(`/v1/records/${id}/accept`, message ? { message } : {}, options);
+    return this.http.post<RecordRow>(path`/v1/records/${id}/accept`, message ? { message } : {}, options);
   }
 
   /**
@@ -167,7 +168,7 @@ export class RecordsResource {
    * the rejection (max 2000 chars; `reason`/`notes` are wire-level aliases).
    */
   reject(id: string, message?: string, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.post<RecordRow>(`/v1/records/${id}/reject`, message ? { message } : {}, options);
+    return this.http.post<RecordRow>(path`/v1/records/${id}/reject`, message ? { message } : {}, options);
   }
 
   /**
@@ -178,7 +179,7 @@ export class RecordsResource {
    */
   async getChain(id: string, options?: RequestOptions & AutoPaginateOptions): Promise<RecordRow[]> {
     const rows: RecordRow[] = [];
-    for await (const row of this.http.paginate<RecordRow>(`/v1/records/${id}/chain`, undefined, options)) {
+    for await (const row of this.http.paginate<RecordRow>(path`/v1/records/${id}/chain`, undefined, options)) {
       rows.push(row);
     }
     return rows;
@@ -186,7 +187,7 @@ export class RecordsResource {
 
   /** Get direct sub-Records of a Record. Page with `cursor`. */
   getSubRecords(id: string, params?: ListParams, options?: RequestOptions): Promise<Page<RecordRow>> {
-    return this.http.getPage<RecordRow>(`/v1/records/${id}/sub-records`, params as Record<string, unknown>, options);
+    return this.http.getPage<RecordRow>(path`/v1/records/${id}/sub-records`, params as Record<string, unknown>, options);
   }
 
   /** Auto-paginating iterator over the direct sub-Records of a Record. */
@@ -195,7 +196,7 @@ export class RecordsResource {
     params?: ListParams,
     options?: RequestOptions & AutoPaginateOptions,
   ): AsyncGenerator<RecordRow> {
-    return this.http.paginate<RecordRow>(`/v1/records/${id}/sub-records`, params as Record<string, unknown>, options);
+    return this.http.paginate<RecordRow>(path`/v1/records/${id}/sub-records`, params as Record<string, unknown>, options);
   }
 
   /**
@@ -244,7 +245,7 @@ export class RecordsResource {
     params?: { format?: Exclude<AuditExportFormat, 'html' | 'cose'>; receipts?: boolean; evidence?: boolean },
     options?: RequestOptions,
   ): Promise<RecordAuditExport> {
-    return this.http.get<RecordAuditExport>(`/v1/records/${recordId}/audit-export`, params, options);
+    return this.http.get<RecordAuditExport>(path`/v1/records/${recordId}/audit-export`, params, options);
   }
 
   /**
@@ -256,7 +257,7 @@ export class RecordsResource {
    * `getAuditExport()` is the call for the JSON form.
    */
   async getAuditExportHtml(recordId: string, options?: RequestOptions): Promise<string> {
-    const bytes = await this.http.requestBinary('GET', `/v1/records/${recordId}/audit-export`, {
+    const bytes = await this.http.requestBinary('GET', path`/v1/records/${recordId}/audit-export`, {
       ...options,
       accept: 'text/html',
       params: { format: 'html' },
@@ -272,7 +273,7 @@ export class RecordsResource {
    * `@agledger/sdk/verify` for cryptographic verification.
    */
   getAttestation(recordId: string, options?: RequestOptions): Promise<Uint8Array> {
-    return this.http.requestBinary('GET', `/v1/records/${recordId}/attestation`, {
+    return this.http.requestBinary('GET', path`/v1/records/${recordId}/attestation`, {
       ...options,
       accept: 'application/cose-sequence',
     });
@@ -290,7 +291,7 @@ export class RecordsResource {
     options?: RequestOptions,
   ): Promise<{ data: Array<Record<string, unknown>> }> {
     return this.http.get<{ data: Array<Record<string, unknown>> }>(
-      `/v1/records/${recordId}/attestation.bundle`,
+      path`/v1/records/${recordId}/attestation.bundle`,
       undefined,
       options,
     );
@@ -303,7 +304,7 @@ export class RecordsResource {
 
   /** Request revision after principal rejection (rework loop). Principal only. */
   requestRevision(id: string, reason?: string, options?: RequestOptions): Promise<RecordRow> {
-    return this.http.post<RecordRow>(`/v1/records/${id}/revision`, reason ? { reason } : {}, options);
+    return this.http.post<RecordRow>(path`/v1/records/${id}/revision`, reason ? { reason } : {}, options);
   }
 
   /** Create a Record and immediately activate it. Three API calls (create → register → activate): if a step fails, the Record ID is in the error. */
@@ -315,12 +316,12 @@ export class RecordsResource {
 
   /** Submit the principal verdict (accept/reject) on a Record completion. */
   submitVerdict(id: string, params: SubmitVerdictParams, options?: RequestOptions): Promise<VerdictResult> {
-    return this.http.post<VerdictResult>(`/v1/records/${id}/verdict`, params, options);
+    return this.http.post<VerdictResult>(path`/v1/records/${id}/verdict`, params, options);
   }
 
   /** Get the delegation graph for a Record. */
   getGraph(id: string, options?: RequestOptions): Promise<RecordGraph> {
-    return this.http.get<RecordGraph>(`/v1/records/${id}/graph`, undefined, options);
+    return this.http.get<RecordGraph>(path`/v1/records/${id}/graph`, undefined, options);
   }
 
   /**
