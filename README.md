@@ -4,7 +4,7 @@ The official TypeScript SDK for [AGLedger](https://agledger.ai): change control 
 
 Requires an AGLedger Server 2.0 or later. For a 1.x Server, use `npm i @agledger/sdk@1.12.0`, the last release that supports it.
 
-Two runtime dependencies, each used only by an opt-in entry point: `@agledger/verify-core` (offline chain verification in `@agledger/sdk/verify`, and the signature primitives behind `@agledger/sdk/webhooks`) and `http-message-signatures` (RFC 9421 webhook verification in `@agledger/sdk/webhooks`). The core client uses `fetch` and `node:crypto`, nothing else. TypeScript strict. Requires Node.js 24+.
+One runtime dependency, used only by opt-in entry points: `@agledger/verify-core` (offline chain verification in `@agledger/sdk/verify`, and the signature primitives behind `@agledger/sdk/webhooks`). The core client uses `fetch` and `node:crypto`, nothing else. TypeScript strict. Requires Node.js 24+.
 
 **Learn more**
 
@@ -447,8 +447,8 @@ resolved key commits to (Ed25519 or ES256), and enforces the
 `created` to the signing key's `[activatedAt, retiredAt]` window, with 300s
 allowed at each edge, so a key retired between signing and your fetch still
 verifies what it signed while active and nothing it signs afterwards.
-`constructEventRfc9421` verifies and parses in one step. This path uses `http-message-signatures` for the canonical
-serialization.
+`constructEventRfc9421` verifies and parses in one step. The SDK parses `Signature-Input` and `Signature` as
+RFC 8941 structured fields itself and rebuilds the signature base from the parsed values.
 
 If the host runtime cannot compute the key's algorithm, both functions throw
 `SignatureAlgorithmUnavailableError` instead of returning `false`. The usual

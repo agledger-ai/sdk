@@ -1,5 +1,4 @@
 import { createHmac, timingSafeEqual, createHash, createPublicKey, verify as cryptoVerify, type KeyObject } from 'node:crypto';
-import { httpbis, type VerifyingKey, type SignatureParameters } from 'http-message-signatures';
 import {
   algorithmByName,
   instantMs,
@@ -9,6 +8,7 @@ import {
 } from '@agledger/verify-core';
 import type { WebhookEventType, RecordRow, Completion, Dispute, VerificationKey } from '../types.js';
 import { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
+import { ByteSequence, parseDictionary, serializeInnerList, type InnerList } from './structured-fields.js';
 
 /**
  * Re-exported so a receiver can import the functions and the errors they throw
@@ -76,12 +76,13 @@ export function constructEvent(
 
 /** Parse a verified webhook body into a typed event (shared by both verify paths). */
 function parseWebhookEvent(rawBody: string): WebhookEvent {
-  const parsed = JSON.parse(rawBody);
+  const parsed: unknown = JSON.parse(rawBody);
+  const o: Record<string, unknown> = parsed !== null && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
   return {
-    type: parsed.type ?? parsed.event ?? 'unknown',
-    data: parsed.data ?? parsed.payload ?? parsed,
-    timestamp: parsed.timestamp ?? parsed.created_at ?? new Date().toISOString(),
-    id: parsed.id ?? parsed.event_id,
+    type: (o.type ?? o.event ?? 'unknown') as WebhookEventType,
+    data: (o.data ?? o.payload ?? parsed) as WebhookEvent['data'],
+    timestamp: (o.timestamp ?? o.created_at ?? new Date().toISOString()) as string,
+    id: (o.id ?? o.event_id) as string | undefined,
   };
 }
 
@@ -231,12 +232,18 @@ export interface Rfc9421VerifyOptions {
   toleranceSeconds?: number;
 }
 
-/** Normalize a headers bag to a lowercase-keyed map of single string values. */
+/**
+ * Normalize a headers bag to a lowercase-keyed map of single string values:
+ * each value trimmed and obsolete line folding replaced by a space, and
+ * multiple values joined with `, `, as RFC 9421 section 2.1 builds a field's
+ * component value.
+ */
 function normalizeHeaders(headers: Record<string, string | string[] | undefined>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(headers)) {
     if (v === undefined) continue;
-    out[k.toLowerCase()] = Array.isArray(v) ? v.join(', ') : v;
+    const values = Array.isArray(v) ? v : [v];
+    out[k.toLowerCase()] = values.map((x) => x.trim().replaceAll(/\n\s*/g, ' ')).join(', ');
   }
   return out;
 }
@@ -285,7 +292,7 @@ function publicKeyObject(base64Key: string): KeyObject {
 function assertRuntimeCanCompute(keyObj: KeyObject): void {
   const spki = (keyObj.export({ type: 'spki', format: 'der' }) as Buffer).toString('base64');
   const keyAlg = resolveKeyAlgorithm(spki);
-  // Key types outside the table are rejected by verifyingKeyFor as before:
+  // Key types outside the table are rejected by verifyUnderKey as before:
   // that is a fail-closed key-shape decision, not a runtime gap.
   if (typeof keyAlg !== 'object' || !keyAlg.verifiable) return;
   if (runtimeCanCompute(keyAlg)) return;
@@ -315,30 +322,27 @@ function unavailable(algorithm: string): SignatureAlgorithmUnavailableError {
 }
 
 /**
- * Build the http-message-signatures VerifyingKey for whatever algorithm the
- * resolved key commits to. Ed25519 and ES256 (`ecdsa-p256-sha256`, raw r||s
- * per RFC 9421) are supported; any other key type returns null so
- * verification fails closed rather than falling into Node's
- * key-type-dispatched `verify(null, ...)` fallback.
+ * Verify a signature base under whatever algorithm the resolved key commits
+ * to. Ed25519 and ES256 (`ecdsa-p256-sha256`, raw r||s per RFC 9421) are
+ * supported; any other key type fails closed rather than falling into Node's
+ * key-type-dispatched `verify(null, ...)`. A declared `alg` is asserted
+ * against the key, never used to choose the algorithm. The checks the sender
+ * controls come before the runtime capability probe, so nothing the sender
+ * sends decides whether this throws or returns false.
  */
-function verifyingKeyFor(keyObj: KeyObject, id: string | undefined): VerifyingKey | null {
-  assertRuntimeCanCompute(keyObj);
+function verifyUnderKey(keyObj: KeyObject, declaredAlg: string | undefined, base: Buffer, signature: Buffer): boolean {
   if (keyObj.asymmetricKeyType === 'ed25519') {
-    return {
-      id,
-      algs: ['ed25519'],
-      verify: async (data: Buffer, signature: Buffer) => cryptoVerify(null, data, keyObj, signature),
-    };
+    if (declaredAlg !== undefined && declaredAlg !== 'ed25519') return false;
+    assertRuntimeCanCompute(keyObj);
+    return cryptoVerify(null, base, keyObj, signature);
   }
   if (keyObj.asymmetricKeyType === 'ec' && keyObj.asymmetricKeyDetails?.namedCurve === 'prime256v1') {
-    return {
-      id,
-      algs: ['ecdsa-p256-sha256'],
-      verify: async (data: Buffer, signature: Buffer) =>
-        cryptoVerify('sha256', data, { key: keyObj, dsaEncoding: 'ieee-p1363' }, signature),
-    };
+    if (declaredAlg !== undefined && declaredAlg !== 'ecdsa-p256-sha256') return false;
+    if (signature.length !== 64) return false;
+    assertRuntimeCanCompute(keyObj);
+    return cryptoVerify('sha256', base, { key: keyObj, dsaEncoding: 'ieee-p1363' }, signature);
   }
-  return null;
+  return false;
 }
 
 type KeyWindow = { activatedAt: unknown; retiredAt: unknown };
@@ -404,69 +408,104 @@ export async function verifyRfc9421(
   options?: Rfc9421VerifyOptions,
 ): Promise<boolean> {
   try {
-    const h = normalizeHeaders(headers);
-
-    // RFC 9530 body integrity: the http-message-signatures library does not
-    // check Content-Digest, so the body↔digest binding is enforced here.
-    if (!h['content-digest'] || h['content-digest'] !== computeContentDigest(rawBody)) return false;
-
-    const tolerance = Math.min(options?.toleranceSeconds ?? MAX_TOLERANCE_SECONDS, MAX_TOLERANCE_SECONDS);
-
-    type Resolved = { keyObj: KeyObject; window: KeyWindow | null };
-    const resolveKey = (keyid: string | undefined): Resolved | null => {
-      if (typeof key === 'string') return { keyObj: publicKeyObject(key), window: null };
-      const match = key.find((k) => k.keyId === keyid);
-      return match
-        ? { keyObj: publicKeyObject(match.publicKey), window: { activatedAt: match.activatedAt, retiredAt: match.retiredAt } }
-        : null;
-    };
-
-    // The `created` time of every signature a key was handed out for, with
-    // that key's window. The replay window and the key window are enforced on
-    // these below, by this function's own arithmetic.
-    const signed: { created: number; window: KeyWindow | null }[] = [];
-
-    const result = await httpbis.verifyMessage(
-      {
-        keyLookup: async (params: SignatureParameters): Promise<VerifyingKey | null> => {
-          const resolved = resolveKey(typeof params.keyid === 'string' ? params.keyid : undefined);
-          if (!resolved) return null;
-          signed.push({
-            created: params.created instanceof Date ? params.created.getTime() / 1000 : Number.NaN,
-            window: resolved.window,
-          });
-          return verifyingKeyFor(resolved.keyObj, typeof params.keyid === 'string' ? params.keyid : undefined);
-        },
-        // `created` is required for replay protection. The library is given a
-        // window no narrower than ours under either reading of `maxAge` and
-        // `tolerance` its releases have had (age > maxAge - tolerance through
-        // 1.0.9, age > maxAge + tolerance from 1.0.10), so it never rejects a
-        // delivery inside [-t, +t]; the window itself is enforced below.
-        requiredParams: ['created', 'keyid'],
-        requiredFields: [...RFC9421_COVERED_COMPONENTS],
-        maxAge: tolerance * 2,
-        tolerance,
-      },
-      { method: 'POST', url: 'https://webhook.agledger.local/', headers: h },
-    );
-    if (result !== true) return false;
-
-    // The replay window, symmetric as on the HMAC path: every signature a key
-    // was resolved for must carry a `created` within `tolerance` of now, and
-    // inside the window of the key it names.
-    const now = Date.now() / 1000;
-    return (
-      signed.length > 0 &&
-      signed.every(
-        ({ created, window }) => Math.abs(now - created) <= tolerance && (window === null || insideKeyWindow(created, window)),
-      )
-    );
+    return verifyDelivery(normalizeHeaders(headers), rawBody, key, options);
   } catch (err) {
     // "Could not check" must not be flattened into "did not verify"; every
     // other failure in here really is a rejected delivery.
     if (err instanceof SignatureAlgorithmUnavailableError) throw err;
     return false;
   }
+}
+
+/**
+ * The delivery verifies when one of its signatures does. A signature is
+ * considered only when it covers exactly `content-digest` and
+ * `x-agledger-idempotency-key`, in that order, and names `created` (an
+ * Integer) and `keyid` (a String). A sender may add signatures of its own,
+ * such as an intermediary's; one that is not ours is passed over rather than
+ * failing the delivery.
+ */
+function verifyDelivery(h: Record<string, string>, rawBody: string, key: Rfc9421PublicKey, options?: Rfc9421VerifyOptions): boolean {
+  // RFC 9530 body integrity: the body is bound to the signature through the
+  // Content-Digest it covers.
+  const contentDigest = h['content-digest'];
+  const idempotencyKey = h['x-agledger-idempotency-key'];
+  const sigInputField = h['signature-input'];
+  const sigField = h['signature'];
+  if (!contentDigest || !idempotencyKey || !sigInputField || !sigField) return false;
+  if (contentDigest !== computeContentDigest(rawBody)) return false;
+
+  const inputs = parseDictionary(sigInputField);
+  const signatures = parseDictionary(sigField);
+  if (!inputs || !signatures) return false;
+
+  const tolerance = Math.min(options?.toleranceSeconds ?? MAX_TOLERANCE_SECONDS, MAX_TOLERANCE_SECONDS);
+  const now = Date.now() / 1000;
+  const componentValues: Record<string, string> = {
+    'content-digest': contentDigest,
+    'x-agledger-idempotency-key': idempotencyKey,
+  };
+
+  // A host that cannot compute a key's algorithm is a receiver fault: raised
+  // once no signature verified, never turned into a `false`.
+  let unavailableError: SignatureAlgorithmUnavailableError | null = null;
+  for (const [label, input] of inputs) {
+    if (input.kind !== 'inner-list') continue;
+    const sig = signatures.get(label);
+    if (sig?.kind !== 'item' || !(sig.value instanceof ByteSequence)) continue;
+    try {
+      if (verifyOne(input, Buffer.from(sig.value.bytes), componentValues, key, tolerance, now)) return true;
+    } catch (err) {
+      if (!(err instanceof SignatureAlgorithmUnavailableError)) throw err;
+      unavailableError ??= err;
+    }
+  }
+  if (unavailableError) throw unavailableError;
+  return false;
+}
+
+function verifyOne(
+  input: InnerList,
+  signature: Buffer,
+  componentValues: Record<string, string>,
+  key: Rfc9421PublicKey,
+  tolerance: number,
+  now: number,
+): boolean {
+  // Covered components: exactly ours, in order, with no component parameters.
+  if (input.items.length !== RFC9421_COVERED_COMPONENTS.length) return false;
+  for (const [i, item] of input.items.entries()) {
+    if (item.value !== RFC9421_COVERED_COMPONENTS[i] || item.params.size !== 0) return false;
+  }
+
+  const created = input.params.get('created');
+  const keyid = input.params.get('keyid');
+  const expires = input.params.get('expires');
+  const alg = input.params.get('alg');
+  if (typeof created !== 'number' || typeof keyid !== 'string') return false;
+  if (expires !== undefined && (typeof expires !== 'number' || now > expires + tolerance)) return false;
+  if (alg !== undefined && typeof alg !== 'string') return false;
+
+  // The replay window, symmetric as on the HMAC path.
+  if (Math.abs(now - created) > tolerance) return false;
+
+  let keyObj: KeyObject;
+  let window: KeyWindow | null = null;
+  if (typeof key === 'string') {
+    keyObj = publicKeyObject(key);
+  } else {
+    const match = key.find((k) => k.keyId === keyid);
+    if (!match) return false;
+    keyObj = publicKeyObject(match.publicKey);
+    window = { activatedAt: match.activatedAt, retiredAt: match.retiredAt };
+  }
+  if (window !== null && !insideKeyWindow(created, window)) return false;
+
+  const base = [
+    ...RFC9421_COVERED_COMPONENTS.map((c) => `"${c}": ${componentValues[c]}`),
+    `"@signature-params": ${serializeInnerList(input)}`,
+  ].join('\n');
+  return verifyUnderKey(keyObj, alg, Buffer.from(base, 'utf8'), signature);
 }
 
 /**

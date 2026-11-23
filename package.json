@@ -49,7 +49,7 @@
     "parity:refresh": "node scripts/refresh-parity.mjs",
     "test:watch": "vitest",
     "clean": "rm -rf dist *.tsbuildinfo",
-    "lint": "tsc --noEmit",
+    "lint": "oxlint --type-aware .",
     "lint:pkg": "publint --strict && attw --pack . --ignore-rules cjs-resolves-to-esm no-resolution",
     "prepublishOnly": "npm run build && npm run lint:pkg"
   },
@@ -84,14 +84,15 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "@agledger/verify-core": "^2.2.0",
-    "http-message-signatures": "^1.0.5"
+    "@agledger/verify-core": "^2.2.0"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.3",
     "@types/node": "^24.0.0",
-    "cborg": "^6.1.1",
-    "prettier": "^3.4.0",
+    "cborg": "7.0.0",
+    "http-message-signatures": "1.1.0",
+    "oxlint": "1.94.0",
+    "oxlint-tsgolint": "7.0.2007",
     "publint": "^0.3.21",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
