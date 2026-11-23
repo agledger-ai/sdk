@@ -8,751 +8,510 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [3.2.0] - 2026-11-18
 
+Tracks AGLedger Server 3.0.0.
+
 ### Added
 
-- **Checkpoint key windows on an audit export.** `AuditChainIntegrityReasonCode` adds `checkpoint_key_expired` and `checkpoint_key_not_yet_active` (a vault checkpoint whose signature verifies, written after its key's `retiredAt` or before its `activatedAt`) and `checkpoint_accounted_run_exceeded` (more than 1000 checkpoints a `VAULT_DISTRUSTED_KEYS` entry accounts for sit above the newest one it does not). The union is closed, so an exhaustive `switch` over it needs the three new cases. AGLedger Server 3.0.0 sends them.
-- **The vault scan lists what a distrusted key signed beyond chain entries.** `VaultScanResult.distrustedCheckpoints` and `distrustedCheckpointsTotal` are the vault checkpoints the scan set aside and cross-checked past; `VaultScanOrgAdminReads.distrustedEntries` (`VaultScanOrgReadsDistrustedEntry`: `orgId`, `kind`, `at`, `keyId`), `distrustedEntriesTotal` and `distrustedSigned` are the read-log leaves and checkpoints the same entry accounts for. None of them fails `healthy`.
-- `VaultScanBreakReason` adds `accounted_checkpoint_only`, `checkpoint_accounted_run_exceeded`, `checkpoint_key_expired` and `checkpoint_key_not_yet_active`; `OrgReadsBreakReason` adds `checkpoint_key_expired`, `checkpoint_key_not_yet_active`, `leaf_key_expired` and `leaf_key_not_yet_active`.
-- `OpsSummary.federation.peers.stalled`: active peers with a delivery queued and ready for over 180 seconds while no outbound delivery was attempted, because no worker is taking the outbound queue. With it, four delivery counts partition `active`.
+- **Checkpoint key windows on an audit export.** `AuditChainIntegrityReasonCode` adds `checkpoint_key_expired`, `checkpoint_key_not_yet_active` (a vault checkpoint whose signature verifies but was written after its key's `retiredAt` or before its `activatedAt`) and `checkpoint_accounted_run_exceeded`. The union is closed, so an exhaustive `switch` over it needs the three new cases.
+- **The vault scan lists what a distrusted key signed beyond chain entries.** `VaultScanResult.distrustedCheckpoints` and `distrustedCheckpointsTotal`; `VaultScanOrgAdminReads.distrustedEntries` (`VaultScanOrgReadsDistrustedEntry`), `distrustedEntriesTotal` and `distrustedSigned`. None of them fails `healthy`.
+- `VaultScanBreakReason` adds `accounted_checkpoint_only`, `checkpoint_accounted_run_exceeded`, `checkpoint_key_expired` and `checkpoint_key_not_yet_active`. `OrgReadsBreakReason` adds `checkpoint_key_expired`, `checkpoint_key_not_yet_active`, `leaf_key_expired` and `leaf_key_not_yet_active`.
+- `OpsSummary.federation.peers.stalled`: active peers with a delivery queued for over 180 seconds and no outbound attempt made. With it, four delivery counts partition `active`.
 - **`ComplianceExport.resumeTo`** on a truncated export: re-run with the same filters and `filters.to` set to it, copied verbatim, and the next export holds exactly the matching records this one left out.
-- **`ExportComplianceParams.filters` takes `ref`, `recordIds` and `rootRecordId`**, which the Server has accepted: scope an export to the records tagged with an entity reference, to an explicit list of up to 1000 record ids, or to one delegation tree. They are the narrower filters a truncated export's `resumeTo` guidance points at.
-- **`producedBy` says what produced the work.** `ProducedBy` (`modelProvider`, `modelId`, `modelVersion`, `agentSoftware`, `agentSoftwareVersion`, `promptDigest`, `configDigest`, each an optional string) goes on `CreateRecordParams`, each bulk-create item and `SubmitCompletionParams`, and reads back on `RecordRow.producedBy` and `Completion.producedBy`. The Server signs it into the create entry and into an accepted completion's `COMPLETION_SUBMITTED` entry; a digest is `sha256:`, `sha384:` or `sha512:` followed by lowercase hex. A completion `idempotencyKey` binds it together with the evidence.
-- **Search filters.** `records.search()` takes `traceId`, `originRecordId`, `producedBy` (up to two keys, sent as `producedBy[key]=value`) and the numeric bounds `criteriaGt`, `criteriaGte`, `criteriaLt`, `criteriaLte` and their four `metadata` twins, each a `Record<string, string>` sent as `?criteriaGte[amount]=500`. The shared filter set is `RecordFilterParams`.
-- **`records.counts(params)`** reads `GET /v1/records/counts`: the search filters plus `groupBy` (one `RecordCountGroupBy` or an array of up to two) and `limit`, answering `RecordCounts` (`data`, `groupBy`, `total`, `groupCount`, `truncated`) without paging the set.
-- **Federation fields on a Record.** `RecordRow.traceId`, `federationOrigin` (`{ peerHubId, recordId }`, null on a Record this Server created) and `federationLegs` (`FederationLeg`: `kind`, `status`, `state`, `deliveredAt`, `attempts`, `lastAttemptedAt`, `lastError`, `lastErrorReason`). `CoSignPeerLeg` carries the same `attempts`, `lastAttemptedAt`, `lastError` and `lastErrorReason`. Agent reads carry `originAgentId` and `originPeerHubId`.
+- **`ExportComplianceParams.filters` takes `ref`, `recordIds` and `rootRecordId`**: scope an export to the records tagged with an entity reference, to a list of up to 1000 record ids, or to one delegation tree.
+- **`producedBy` says what produced the work.** `ProducedBy` (`modelProvider`, `modelId`, `modelVersion`, `agentSoftware`, `agentSoftwareVersion`, `promptDigest`, `configDigest`, each an optional string) goes on `CreateRecordParams`, each bulk-create item and `SubmitCompletionParams`, and reads back on `RecordRow.producedBy` and `Completion.producedBy`. The Server signs it into the create entry and into an accepted completion's entry. A digest is `sha256:`, `sha384:` or `sha512:` followed by lowercase hex.
+- **Search filters.** `records.search()` takes `traceId`, `originRecordId`, `producedBy` (up to two keys) and the numeric bounds `criteriaGt`, `criteriaGte`, `criteriaLt`, `criteriaLte` and their four `metadata` twins, each a `Record<string, string>`. The shared filter set is `RecordFilterParams`.
+- **`records.counts(params)`** reads `GET /v1/records/counts`: the search filters plus `groupBy` (one `RecordCountGroupBy` or an array of up to two) and `limit`, returning `RecordCounts` without paging the set.
+- **Federation fields on a Record.** `RecordRow.traceId`, `federationOrigin` (`{ peerHubId, recordId }`, null on a Record this Server created) and `federationLegs` (`FederationLeg`). `CoSignPeerLeg` carries `attempts`, `lastAttemptedAt`, `lastError` and `lastErrorReason`. Agent reads carry `originAgentId` and `originPeerHubId`.
 - **Verdict signature.** `SubmitVerdictParams.signatureMeaning` (`authorship`, `review`, `approval` or `responsibility`) signs the verdict as a person, on an ephemeral cert from the OIDC exchange only. `VerdictResult.signature` is `{ meaning, signerName, signerIss, signerSub, signedAt }`, or null when no meaning was sent. An API key, or a request carrying `AGLedger-On-Behalf-Of`, is refused with 422 `signature_requires_oidc_identity`, and an IdP token with no `name` claim with 422 `signature_requires_signer_name`. `AccountProfile.oidc.name` is the name a cert's signature would carry.
-- **`records.getAuditExportHtml(recordId)`** returns the audit export as the HTML page the Server serves for `format=html`, as a string. The page holds the complete JSON export in its `agledger-audit-export` script element.
-- **`compliance.downloadExportText(exportId)`** returns a compliance export created with `format: 'csv'` or `'html'` as the text the Server sent. `downloadExport()` parses JSON, so it reads only a `json` export.
-- Smaller fields: `FederationDlqEntry.attempts`, `lastAttemptedAt` and `lastError`; `OpsSummary.federation.legs` (`retrying`, `failed`, `oldestRetryingAt`); `ComplianceExport.nextFrom`, the `filters.from` for the next incremental export; `ConformanceResponse.limits.jsonBodyMaxDepth` and `paginationLimitMaxByRoute`; `WebhookDelivery.signatureInput` and `idempotencyKey`; `DisputeCreateEnvelope` and `DisputeAutoReadjudication` (with `failingRuleIds`) for the dispute-create body read through `client.request()`.
+- **`records.getAuditExportHtml(recordId)`** returns the audit export as the HTML page the Server serves for `format=html`. The page holds the full JSON export in its `agledger-audit-export` script element.
+- **`compliance.downloadExportText(exportId)`** returns a compliance export created with `format: 'csv'` or `'html'` as text. `downloadExport()` parses JSON, so it reads only a `json` export.
+- Smaller fields: `FederationDlqEntry.attempts`, `lastAttemptedAt` and `lastError`; `OpsSummary.federation.legs`; `ComplianceExport.nextFrom`, the `filters.from` for the next incremental export; `ConformanceResponse.limits.jsonBodyMaxDepth` and `paginationLimitMaxByRoute`; `WebhookDelivery.signatureInput` and `idempotencyKey`; `DisputeCreateEnvelope` and `DisputeAutoReadjudication` (with `failingRuleIds`) for the dispute-create body read through `client.request()`.
 
 ### Removed
 
 Each of these routes is gone from AGLedger Server 3.0.0, so the method that called it is removed.
 
 - `admin.uploadSupportBundle()`, with `SupportBundleUploadResult`. `admin.getSupportBundle()` stays.
-- `admin.flushAuthCache()` and `admin.flushSchemaCache()`. A key change already invalidates the auth cache across replicas, entries expire after 30 seconds, and a schema cache whose startup load failed retries on its own.
+- `admin.flushAuthCache()` and `admin.flushSchemaCache()`.
 - `schemas.checkCompatibility()`, with `SchemaCompatibilityResult`. `schemas.preview()` runs the same check and reports each incompatibility as a `COMPATIBILITY` error.
 - `schemas.exportSchema()`, with `SchemaExportResult` and `ExportSchemaOptions`. `schemas.getManifest()` and `schemas.import_()` move a named-publisher Type; a `local` Type is registered on the target from `schemas.getVersion()`.
 
 ### Changed
 
-- **`@agledger/sdk/webhooks` verifies RFC 9421 deliveries with no third-party dependency.** `http-message-signatures` (and its `structured-headers`) is no longer a runtime dependency: the SDK parses `Signature-Input` and `Signature` as RFC 8941 structured fields and rebuilds the signature base itself. `@agledger/verify-core` is the only runtime dependency left. A delivery the Server signs verifies exactly as before. Stricter than before for anything else: a signature must cover exactly `content-digest` and `x-agledger-idempotency-key`, in that order and without component parameters, and name `created` as an Integer and `keyid` as a String; an `expires` parameter is enforced when present; an ES256 signature must be 64 bytes. When a delivery carries several signatures (an intermediary may add its own), it verifies when one of them does.
-- **A query parameter that is a nested object or array is refused with `ConfigurationError`.** The bracket form goes one level deep (`criteriaGte[amount]=500`); a value below that was sent as `[object Object]`, which the Server read as a filter on that string.
+- **`@agledger/sdk/webhooks` verifies RFC 9421 deliveries with no third-party dependency.** `http-message-signatures` is no longer a dependency; `@agledger/verify-core` is the only runtime dependency left. A delivery the Server signs verifies exactly as before. Anything else is held to a stricter rule: a signature must cover exactly `content-digest` and `x-agledger-idempotency-key`, in that order and without component parameters, and name `created` as an Integer and `keyid` as a String; an `expires` parameter is enforced when present; an ES256 signature must be 64 bytes. When a delivery carries several signatures, it verifies when one of them does.
+- **A query parameter that is a nested object or array is refused with `ConfigurationError`.** The bracket form goes one level deep (`criteriaGte[amount]=500`); a deeper value used to be sent as `[object Object]`.
 - **`maxRetries` must be an integer, 0 or more.** A negative value used to let a request make no attempt and reject with `undefined`; the constructor now throws `ConfigurationError`.
-- **`verifyExport` (`@agledger/sdk/verify`) runs on `@agledger/verify-core` 2.2.0.** A sealed federation message is placed in its key's window with 300 seconds allowed at each edge, as the Server's receiver guidance gives it: one signed within that of a key change was failed or counted in `federationWire.afterRetirement`, and now verifies on the key it names. A signed payload string that begins with U+FEFF no longer fails `CHAIN_PAYLOAD_BINDING_MISMATCH` against its row.
-- **`RelaySignalParams.reasonCode` is the closed set a Server stamps**: `AUTO_FAIL`, `AUTO_SETTLE`, `AUTO_SETTLE_WITHIN_TOLERANCE`, `DISPUTE_OVERTURNED`, `PRINCIPAL_ACCEPT`, `PRINCIPAL_REJECT`, or null. AGLedger Server 3.0.0 refuses any other value with a 400, and code passing a plain `string` no longer typechecks. The docs on `relaySignal()` state the bounds the receiver enforces: `failingRuleIds` at most 220 ids of at most 100 characters, `counterSignature` exactly 128 lowercase hex characters, `validUntil` within the 24-hour signal window, and an opaque 404 for a record the receiving Server created.
-- Each scope profile's `description` in `ScopeProfiles` is the text AGLedger Server 3.0.0 serves. Scopes and roles are unchanged.
-- Documentation describes what the caller observes instead of the Server's internals.
-- The README leads the offline verification example with `result.verdict`, and no longer claims Deno and Bun support.
-- **`verifyExport` fails an export cut from the end, and reports `result.entryCount`.** The export is held to the two entry counts it states: fewer entries than `exportMetadata.expectedEntries`, the position of the record's latest checkpoint, is `CHECKPOINT_ROW_MISSING`, and fewer than `exportMetadata.totalEntries` is `CHAIN_POSITION_GAP`. `result.entryCount` carries both counts, each null when the export does not state it. An export that verified on 3.1.0 with its tail removed now fails.
-- **A 409 the Server marks `retryable: true` is retried.** `IDEMPOTENCY_KEY_IN_FLIGHT` (an earlier request under the same `Idempotency-Key` still holds it) and `GATE_PASS_IN_FLIGHT` (a completion reached a principal-mode Record while another was still being evaluated) are resent under the same key after the `Retry-After` the Server named, within `maxRetries`. `IDEMPOTENT_WRITE_COMMITTED` is `retryable: false`: it throws at once, with `refreshUrl` on the error, because a resend would run the work again.
-- **`ScopeProfiles['admin-iac']` holds `agents:read` and `webhooks:read`**, as the Server's profile does, so a pipeline can read what it reconciles. Every profile's `description` equals the text the Server serves.
-- `federation.recoverDlq({ dryRun: true })` is documented as answering `recovered: 0` with the eligible count in `inspected`. `ExpressionHelperDoc` no longer says `daysBetween` returns 0 on an unparseable date: the rule fails and names the argument.
+- **`verifyExport` (`@agledger/sdk/verify`) runs on `@agledger/verify-core` 2.2.0.** A sealed federation message signed within 300 seconds of a key change now verifies on the key it names, where it used to fail or be counted in `federationWire.afterRetirement`. A signed payload string that begins with U+FEFF no longer fails `CHAIN_PAYLOAD_BINDING_MISMATCH` against its row.
+- **`verifyExport` fails an export cut from the end, and reports `result.entryCount`.** Fewer entries than `exportMetadata.expectedEntries` is `CHECKPOINT_ROW_MISSING`, and fewer than `exportMetadata.totalEntries` is `CHAIN_POSITION_GAP`. `result.entryCount` carries both counts, each null when the export does not state it. An export that verified on 3.1.0 with its tail removed now fails.
+- **`RelaySignalParams.reasonCode` is a closed set**: `AUTO_FAIL`, `AUTO_SETTLE`, `AUTO_SETTLE_WITHIN_TOLERANCE`, `DISPUTE_OVERTURNED`, `PRINCIPAL_ACCEPT`, `PRINCIPAL_REJECT`, or null. Server 3.0.0 refuses any other value with a 400, and code passing a plain `string` no longer typechecks. The docs on `relaySignal()` state the receiver's bounds: `failingRuleIds` at most 220 ids of at most 100 characters, `counterSignature` exactly 128 lowercase hex characters, `validUntil` within the 24-hour signal window.
+- **A 409 the Server marks `retryable: true` is retried.** `IDEMPOTENCY_KEY_IN_FLIGHT` and `GATE_PASS_IN_FLIGHT` are resent under the same key after the `Retry-After` the Server named, within `maxRetries`. `IDEMPOTENT_WRITE_COMMITTED` is `retryable: false`: it throws at once, with `refreshUrl` on the error, because a resend would run the work again.
+- **`ScopeProfiles['admin-iac']` holds `agents:read` and `webhooks:read`**, as the Server's profile does. Every profile's `description` equals the text the Server serves. Scopes and roles are otherwise unchanged.
 - **`WebhookEvent.timestamp` is optional.** `constructEvent` and `constructEventRfc9421` leave it `undefined` when the body carries none, where they used to fill in the time of parsing.
+- The README leads the offline verification example with `result.verdict`, and no longer claims Deno and Bun support.
+- `federation.recoverDlq({ dryRun: true })` is documented as answering `recovered: 0` with the eligible count in `inspected`. `ExpressionHelperDoc` no longer says `daysBetween` returns 0 on an unparseable date: the rule fails and names the argument.
 
 ### Fixed
 
-- **Path parameters are percent-encoded.** An id such as `../admin/x?y=1` passed to `records.get()` (or any method that puts an identifier in the URL) reached a different route; every interpolated path segment is now encoded, so it names that literal identifier.
+- **Path parameters are percent-encoded.** An id such as `../admin/x?y=1` passed to `records.get()` (or any method that puts an identifier in the URL) reached a different route. Every interpolated path segment is now encoded, so it names that literal identifier.
 - **`toleranceSeconds` that is `NaN`, `Infinity` or negative throws a `RangeError`** from `verifySignature`, `constructEvent`, `verifyRfc9421` and `constructEventRfc9421`. `NaN` used to switch the replay window off, so a signature of any age verified.
+- **`verifyRfc9421` and `constructEventRfc9421` enforce the replay window themselves.** With `http-message-signatures` 1.0.10 or later, an RFC 9421 delivery was accepted up to three times `toleranceSeconds` old: 900 seconds at the default, where 300 is documented. The signature's `created` time is now compared with the clock directly, symmetric and to the second. HMAC verification (`verifySignature`, `constructEvent`) was never affected.
+- **`verifyRfc9421` and `constructEventRfc9421` hold a delivery to its signing key's window.** Given the list from `client.verificationKeys.list()`, a delivery signed with a retired key was accepted long after its retirement. The delivery's `created` time must now fall inside that key's `[activatedAt, retiredAt]` window, with 300 seconds allowed at each edge. `status` is not consulted, so a key retired between signing and your fetch still verifies what it signed while active. A listed key whose `activatedAt` is missing or is not an RFC 3339 instant verifies nothing. A single key passed as a string carries no window and behaves as before.
+- **`verifyRfc9421` tries every signature label in the delivery.** An unusable key on one label no longer stops a later label that verifies from being tried.
 - **`timeout` covers reading the response body**, including `getNdjson`, not only the wait for the response headers.
-- **A caller's `AbortSignal` ends the call at once.** The abort throws `ConnectionError` ("Request aborted"), is no longer reported as a `TimeoutError` and retried, interrupts the wait between retries, and its listener is removed when the attempt ends.
+- **A caller's `AbortSignal` ends the call at once.** The abort throws `ConnectionError` ("Request aborted"), is no longer reported as a `TimeoutError` and retried, and interrupts the wait between retries.
 - **`Retry-After` is capped at 30 seconds.** A 429 or 503 asking for longer is thrown as the error it is (its `retryAfter` carries the requested wait) instead of the call sleeping through it.
 - **`paginate()` throws `PaginationLimitError` when a page says more rows exist but carries no cursor**, instead of ending the walk as though the listing were complete. `maxItems: 0` (or any value that is not an integer, 1 or more) throws a `RangeError` instead of meaning unlimited.
 - **A 204 response updates `lastRequestId` and `rateLimitInfo`** like every other response.
 - **A signature header whose timestamp is not all digits (`t=12abc`) is rejected** by `parseSignatureHeader`.
-- **`verifyRfc9421` tries every signature label in the delivery.** An unusable key on one label no longer stops a later label that verifies from being tried.
-- The request, binary and NDJSON paths share one retry loop, so these behaviours hold on all three.
-- **`verifyRfc9421` and `constructEventRfc9421` hold the replay window themselves.** The window was set through the `maxAge` and `tolerance` options of `http-message-signatures`, whose releases from 1.0.10 read them as `maxAge + tolerance` where earlier ones read `maxAge - tolerance`. An install that resolved 1.0.10 or later accepted an RFC 9421 delivery up to three times `toleranceSeconds` old: 900 seconds at the default, where 300 is documented. The `created` time of the signature is now compared with the clock here, symmetric and to the second, under every release of that library the dependency range admits. HMAC verification (`verifySignature`, `constructEvent`) was never affected.
-- `RateLimitInfo.reset` is documented as the seconds until the window resets, which is what the `x-ratelimit-reset` header carries. It said a Unix timestamp.
-- `ComplianceExport.truncated` said to window with `filters.from` / `filters.to` to cover the rest, and that a truncated export holds exactly 10000 rows. It ends at a millisecond boundary and can hold fewer; continue with `resumeTo`.
-- `OpsSummary.federation.peers.active` said three delivery counts partition it; with `stalled` there are four, and `delivering` excludes a peer with a delivery waiting unattempted.
-- `RelaySignalParams.reasonCode` listed causes (`TIMED_OUT`, `REMEDIATED`, `CANCEL_*`, `OVERFLOW_REJECT`, `ARBITRATION_*`) the Server never stamps and now refuses.
-- `VaultScanResult.healthy` said it requires `keyRegistry.findings` to be empty; it requires every finding to be `standing`.
-- `AutoReadjudicateConfig.deadlineGraceSeconds` said it is a grace added to deadline checks. It is added to the record's `tolerance.graceSeconds`, which `toleranceExpansion` does not multiply; on AGLedger Server 3.0.0 the re-check reads the record's deadline as the gate did.
-- `SchemaKeywordWarning` said every warning is an ignored keyword. Registration and preview also warn with `keyword: 'format'` when a rule reads a date from a path the schema does not declare with `format: 'date-time'` or `'date'`.
-- `VaultScanKeyRegistryFinding.standing` said the key has no retirement a trusted key signed. It is true when no setting clears the finding and the remedy its detail names has been carried out.
-- `AutoReadjudicateConfig` said a dispute with no re-check waits at `PENDING_RESOLUTION`; it goes to the evidence window. `toleranceExpansion` says that it leaves `graceSeconds` to `deadlineGraceSeconds`.
-- The federation results state the form of `serverSignature` and `counterSignature`: 128 lowercase hex characters, `serverSignature` empty when the receiving Server holds no federation key.
+- Corrected documentation: `RateLimitInfo.reset` is the seconds until the window resets, not a Unix timestamp; a truncated `ComplianceExport` ends at a millisecond boundary and can hold fewer than 10000 rows, so continue with `resumeTo`; `OpsSummary.federation.peers.active` is partitioned by four delivery counts; `RelaySignalParams.reasonCode` no longer lists causes the Server never stamps; `VaultScanResult.healthy` requires every key registry finding to be `standing`; `AutoReadjudicateConfig.deadlineGraceSeconds` is added to the record's `tolerance.graceSeconds`, and a dispute with no re-check goes to the evidence window; `SchemaKeywordWarning` also covers `keyword: 'format'` warnings on date rules; `serverSignature` and `counterSignature` are 128 lowercase hex characters, with `serverSignature` empty when the receiving Server holds no federation key.
 
-- **`verifyRfc9421` and `constructEventRfc9421` hold a delivery to its signing key's window.** Given the list from `client.verificationKeys.list()`, a delivery was accepted whenever its `keyid` matched a listed key and its signature verified, including one signed with a retired key long after its retirement. The delivery's `created` time must now fall inside that key's `[activatedAt, retiredAt]` window, with 300 seconds allowed at each edge, as the Server's receiver guidance gives it. `status` is not consulted, so a key retired between signing and your fetch still verifies what it signed while active. A listed key whose `activatedAt` is missing or is not an RFC 3339 instant verifies nothing. A single key passed as a string carries no window and behaves as before.
 ## [3.1.0] - 2026-11-05
 
 ### Added
 
-- **Every field of an error body is on the error.** `AgledgerApiError` and its subclasses now carry the whole served `ErrorResponse`: the 400 rebuild kit (`requiredFields`, `optionalFields`, `examplePayload`, `schemaUrl`, `recordType`, `validationErrors`), the 404 `hint`, the 422 `attemptedAction` / `attemptedTransition` / `attemptedState`, `title`, `instance`, `allowedValues`, `allowedActors`, `constraintViolations`, the license tier fields, `nextSteps`, the cap counters and digests, and `body`, the parsed body itself, so a field added later is readable without a release. The classes used to copy a fixed list and dropped the rest, so a strict caller could not rebuild the body its `recoveryHint` told it to.
-- **`rawBody` on a JSON route's error, when the body was not JSON.** A load balancer's or proxy's 502 page reached the caller as nothing but the status text. The page's bytes are on `rawBody` now (`new TextDecoder().decode(err.rawBody)`), as a binary route's error bytes already were; `body` stays the status line.
-- **`retryAfter` on every API error, and the SDK waits it out on any status.** A load balancer or proxy answers 503 with a `Retry-After` of its own; the retry backoff read the header only off a 429, so the retry went out after the 1 s step, inside the window the proxy named. The header is read on every status now and the backoff waits at least that long.
-- **`admin.vault.signingKeys.list()` returns what the route sends.** `{ data, total, signer }`, typed `VaultSigningKeyList`: `signer` says whether the vault key is local or in AWS KMS (`keyArn`, `maxSignsPerSecond`). It went through the page helper, which invented `hasMore` and `nextCursor` the route never sends and dropped `signer`.
-- **Four more lists return what the route sends.** `discovery.getScopeProfiles()`, `admin.listRateLimitExemptions()`, `admin.vault.anchors.list()` and `admin.getFleetCapabilities()` return `{ data, total }` as the new `Listing<T>`, with `nextSteps` and `recordRead` where the route sends them. None of the four routes takes a cursor; the page helper added `hasMore: false` and `nextCursor: null` to each. Code that read `hasMore` off one of them no longer typechecks, and had nothing to read: every row was already in `data`.
-- **`a2a.cancelTask()`**, the `CancelTask` call with its one typed extension: `reason` rides in `metadata["agledger:reason"]` and lands as the record's `lastTransitionReason`.
-- **`federationKeys` on `verifyExport`** (`@agledger/sdk/verify`): a receiving Server's `FEDERATION_*` entries seal each peer message as the peer signed it (`payload.wire`); every sealed message is held to its body hash and to its entry, and one from a hub whose federation key is given is also re-verified under it. `result.federationWire` counts them (`present`, `verified`, `failed`); a failure is `CHAIN_FEDERATION_WIRE_INVALID`. After a peer changes its federation key, give a list entry its `history` (the peer's `discovery.getFederationKeys()`, as returned) beside the key you pinned: every key the history links to it through successions both keys signed is trusted inside its window, each message placed by its signed `wire.timestamp`, and `federationWire.afterRetirement` counts messages the peer signed under a key it had already retired. Needs `@agledger/verify-core` 2.1.0.
-- **`verifyExport` re-binds inlined evidence.** On an export taken with `?evidence=true`, each completion's evidence body and each dispute's filed payload is hashed (SHA-256 over RFC 8785) against the `evidenceHash` or `payloadHash` its entry signs; an edited body fails `CHAIN_EVIDENCE_BINDING_MISMATCH` where it used to pass. `result.evidenceBinding` counts them (`present`, `verified`, `clientHashed`, `failed`) and `evidence_binding` joins `optionalChecks`. Needs `@agledger/verify-core` 2.1.0.
-- **`schemas.import_()` takes a `schemas.getManifest()` response whole** and sends its `manifestDigest`; the Server refuses the import with 400, writing nothing, when the manifest does not hash to it. `SchemaImportParams.manifestDigest` sets the digest by hand. A bare manifest imports as before. Sending a digest needs an AGLedger Server 2.2 or later; an earlier one refuses the field.
-- **`discovery.getFederationKeys()`** reads `GET /.well-known/agledger-federation-keys.json` (no auth): every federation signing key the Server has held, with its validity window, and the signed statements linking them (`FederationKeyHistory`). Needs a Server 2.2 or later.
+- **Every field of an error body is on the error.** `AgledgerApiError` and its subclasses carry the whole served `ErrorResponse`: the 400 rebuild kit (`requiredFields`, `optionalFields`, `examplePayload`, `schemaUrl`, `recordType`, `validationErrors`), the 404 `hint`, the 422 `attemptedAction` / `attemptedTransition` / `attemptedState`, `title`, `instance`, `allowedValues`, `allowedActors`, `constraintViolations`, the license tier fields, `nextSteps`, the cap counters and digests, and `body`, the parsed body itself, so a field added later is readable without a new release.
+- **`rawBody` on a JSON route's error, when the body was not JSON.** A load balancer's or proxy's 502 page now reaches the caller (`new TextDecoder().decode(err.rawBody)`); `body` stays the status line.
+- **`retryAfter` on every API error, and the SDK waits it out on any status.** The retry backoff used to read `Retry-After` only off a 429; it is read on every status now and the backoff waits at least that long.
+- **`admin.vault.signingKeys.list()` returns `{ data, total, signer }`**, typed `VaultSigningKeyList`: `signer` says whether the vault key is local or in AWS KMS (`keyArn`, `maxSignsPerSecond`). It used to report `hasMore` and `nextCursor` the route never sends and dropped `signer`.
+- **Four more lists return `{ data, total }`** as the new `Listing<T>`, with `nextSteps` and `recordRead` where the route sends them: `discovery.getScopeProfiles()`, `admin.listRateLimitExemptions()`, `admin.vault.anchors.list()` and `admin.getFleetCapabilities()`. Code that read `hasMore` off one of them no longer typechecks; every row was already in `data`.
+- **`a2a.cancelTask()`**, the `CancelTask` call. `reason` rides in `metadata["agledger:reason"]` and lands as the record's `lastTransitionReason`.
+- **`federationKeys` on `verifyExport`** (`@agledger/sdk/verify`): every sealed federation message is held to its body hash and to its entry, and one from a hub whose federation key is given is also re-verified under it. `result.federationWire` counts them (`present`, `verified`, `failed`); a failure is `CHAIN_FEDERATION_WIRE_INVALID`. After a peer changes its federation key, give a list entry its `history` (from `discovery.getFederationKeys()`) beside the key you pinned, and every key the history links to it through successions both keys signed is trusted inside its window. `federationWire.afterRetirement` counts messages a peer signed under a key it had already retired. Needs `@agledger/verify-core` 2.1.0.
+- **`verifyExport` re-binds inlined evidence.** On an export taken with `?evidence=true`, each completion's evidence body and each dispute's filed payload is hashed (SHA-256 over RFC 8785) against the hash its entry signs; an edited body fails `CHAIN_EVIDENCE_BINDING_MISMATCH` where it used to pass. `result.evidenceBinding` counts them and `evidence_binding` joins `optionalChecks`. Needs `@agledger/verify-core` 2.1.0.
+- **`schemas.import_()` takes a `schemas.getManifest()` response whole** and sends its `manifestDigest`; the Server refuses the import with 400, writing nothing, when the manifest does not hash to it. `SchemaImportParams.manifestDigest` sets the digest by hand. A bare manifest imports as before. Sending a digest needs an AGLedger Server 2.2 or later.
+- **`discovery.getFederationKeys()`** reads `GET /.well-known/agledger-federation-keys.json` (no auth): every federation signing key the Server has held, with its validity window and the signed statements linking them (`FederationKeyHistory`). Needs a Server 2.2 or later.
 - **`inapplicableFields`** on `AgledgerApiError`: the fields a 422 `notarize_only_field` refused on a notarize-only create (`deadline`, `gateMode`, `maxSubmissions`, `maxRevisions`).
-- `FederationPeer.signingPublicKey`, the peer's federation key this Server holds; `SchemaVersionDetail.current` on `schemas.versions()` rows; `capabilities.federation` on the conformance summary.
+- `FederationPeer.signingPublicKey`; `SchemaVersionDetail.current` on `schemas.versions()` rows; `capabilities.federation` on the conformance summary.
 - Types the Server now serves: `SystemHealth.backgroundMigrations` and `process.heapLimitMb`, the per-item rebuild kit on `BulkCreateResult.results[]`, `SchemaQuickStart.unsatisfied`, `ComplianceExport.bulkExport`, `connections_overcommitted` on `StatusComponentReason`, `keyRegistry.standing` on the ops summary and `standing` on each scan finding.
 
 ### Changed
 
-- **`RecordRow.gateMode`, `maxRevisions` and `maxDisputes` are typed `| null`, and so is `GateStatus.gateMode`.** A notarize-only Record (status `RECORDED`) has no gate and no completion phase, and an AGLedger Server 2.2 sends the three as null on it. Code that reads `maxRevisions` as a number has to handle null.
+- **`RecordRow.gateMode`, `maxRevisions` and `maxDisputes` are typed `| null`, and so is `GateStatus.gateMode`.** A notarize-only Record (status `RECORDED`) has no gate and no completion phase, and a Server 2.2 sends the three as null on it. Code that reads `maxRevisions` as a number has to handle null.
 - The `reason` doc on errors names the thirteen 409 reason codes the Server can send, and says a 409 does not always carry one.
 - The README says the package needs an AGLedger Server 2.0 or later and names the last release for a 1.x Server.
 
 ## [3.0.0] - 2026-10-05
 
-Reconciled against API 2.0. The 3.x SDK targets API 2.0 only (the version is 3.0.0 because npm holds 2.0.0 to 2.5.0 for deprecated pre-production releases): every shape the Server removed is removed here, with no 1.x fallback. It also carries the 1.13.0 work, which was prepared and never published. Every change below was diffed against the 2.0 OpenAPI document; the SDK's declared return types were compared against each route's response schema, field by field.
+Targets AGLedger API 2.0 only: every shape the Server removed is removed here, with no 1.x fallback.
 
 ### Breaking changes
 
 - **Error bodies carry `detail`, not `message`.** `AgledgerApiError.message` is the body's `detail`, falling back to `title`. `ApiErrorResponse` drops `message`, `code`, `docs`, `docUrl`, `signInputTemplate` and `migratedTo`, none of which the Server sends, and `AgledgerApiError` drops `docs` and `docUrl`. `AgledgerApiError.code` stays, read from the body's `error`.
-- **`IdempotencyError` is removed.** It was thrown only for a 409 whose code the Server never emits. Reusing an `Idempotency-Key` with a different body is a 400 `ValidationError`; a key whose first request is still in flight is a 409 `ConflictError`.
-- **Keyset listings take cursor only.** The Server refuses `offset` on every keyset listing (400, unknown parameter). `ListRecordsParams`, `SearchRecordsParams`, `ListCompletionsParams`, `ListDisputesParams`, `ListEventsParams`, `QueryAdminRecordsParams`, `ListWebhooksParams`, `ListApiKeysParams` and `ReferenceLookupParams` extend `CursorListParams`, and `ListOrgReadsCheckpointsParams` drops `offset`. `records.listProposals`, `compliance.listRecords`, `webhooks.listDeliveries`, `webhooks.listDlq` and `admin.getWebhookHealth` take `CursorListParams`. `ListParams`, which still offers `offset`, is kept for the listings that accept it: sub-Records, schemas and federation peers. The deprecated `OffsetListParams` is gone.
+- **`IdempotencyError` is removed.** Reusing an `Idempotency-Key` with a different body is a 400 `ValidationError`; a key whose first request is still in flight is a 409 `ConflictError`.
+- **Keyset listings take cursor only.** The Server refuses `offset` on every keyset listing (400). `ListRecordsParams`, `SearchRecordsParams`, `ListCompletionsParams`, `ListDisputesParams`, `ListEventsParams`, `QueryAdminRecordsParams`, `ListWebhooksParams`, `ListApiKeysParams` and `ReferenceLookupParams` extend `CursorListParams`, and `ListOrgReadsCheckpointsParams` drops `offset`. `records.listProposals`, `compliance.listRecords`, `webhooks.listDeliveries`, `webhooks.listDlq` and `admin.getWebhookHealth` take `CursorListParams`. `ListParams`, which still offers `offset`, stays for sub-Records, schemas and federation peers. `OffsetListParams` is gone.
 - **`EventType` drops `record.settled`, `dispute.escalated` and `record.proposal_counter_proposed`.** `GET /v1/events` refuses them with a 400 carrying `allowedValues`. Query `record.fulfilled`, the type `record.settled` stood for, or `signal.emitted` for every settlement-signal variant.
-- **Federation request types follow what the receiver requires.** Every `POST /federation/v1/*` body refuses unknown fields. `RelaySignalParams` drops `reason` and requires `outcome`, `schemaRef`, `reasonCode` and `failingRuleIds` (send null where there is none). `SubmitStateTransitionParams` requires `schemaRef`, `principalAgentId`, `performerAgentId` and `operatingMode` (now `OperatingMode`), and gains `platformRef`, `riskClassification` and `euAiActDomain`. `SubmitCoSignRequestParams` and `SubmitDisputeProtocolParams` require `schemaRef`. `SubmitDisputeProtocolParams` drops `tier`, and its `grounds` and `outcome` are the closed sets the route validates. `DisputeProtocolAction` drops `escalated`.
-- **`DisputeProtocolResult` declares what the receiver sends**: `ack: true`, and `applied`, `serverSignature` and `serverTimestamp` required, with no index signature. `StateTransitionResult.reason` drops `missing_agent_ids`.
-- **Federation peering tokens bind at mint** (from 1.13.0). `federationAdmin.createPeeringToken` takes `CreatePeeringTokenParams`: `peerHubId` (the initiating Server's `instanceId`) and `boundOrgId` (the local org its records project into) are required, and `label` is optional. The Server answers 404 for an org it does not hold and 409 for a hub id already registered, and the 201 (`PeeringToken`) echoes both. `PeerHandshakeParams` drops `boundOrgId`: the token carries the org, and the route refuses the field. A `peerHubId` other than the one the token was minted for is a 422 that leaves the token unconsumed, and an unknown, consumed or expired token is a 401 checked before anything else.
-- **Scope profiles** (from 1.13.0). `Scopes.DISPUTES_WRITE` (`disputes:write`) is new: opening a dispute, submitting evidence, withdrawing and resolving need it, and `disputes:read` only reads. `agent-full` and `admin-standard` carry it. `admin-iac` carries `schemas:read`, which `schemas.validateCompletion` requires. A key minted from the 1.12.0 mirror 403s on every dispute mutation.
+- **Federation request types follow what the receiver requires.** Every `POST /federation/v1/*` body refuses unknown fields. `RelaySignalParams` drops `reason` and requires `outcome`, `schemaRef`, `reasonCode` and `failingRuleIds` (send null where there is none). `SubmitStateTransitionParams` requires `schemaRef`, `principalAgentId`, `performerAgentId` and `operatingMode` (now `OperatingMode`), and gains `platformRef`, `riskClassification` and `euAiActDomain`. `SubmitCoSignRequestParams` and `SubmitDisputeProtocolParams` require `schemaRef`. `SubmitDisputeProtocolParams` drops `tier`, and its `grounds` and `outcome` are closed sets. `DisputeProtocolAction` drops `escalated`.
+- **`DisputeProtocolResult` declares what the receiver sends**: `ack: true`, and `applied`, `serverSignature` and `serverTimestamp` required. `StateTransitionResult.reason` drops `missing_agent_ids`.
+- **Federation peering tokens bind at mint.** `federationAdmin.createPeeringToken` takes `CreatePeeringTokenParams`: `peerHubId` (the initiating Server's `instanceId`) and `boundOrgId` (the local org its records project into) are required, and `label` is optional. The Server answers 404 for an org it does not hold and 409 for a hub id already registered, and the 201 (`PeeringToken`) echoes both. `PeerHandshakeParams` drops `boundOrgId`: the token carries the org. A `peerHubId` other than the one the token was minted for is a 422 that leaves the token unconsumed, and an unknown, consumed or expired token is a 401.
+- **Scope profiles.** `Scopes.DISPUTES_WRITE` (`disputes:write`) is new: opening a dispute, submitting evidence, withdrawing and resolving need it, and `disputes:read` only reads. `agent-full` and `admin-standard` carry it. `admin-iac` carries `schemas:read`, which `schemas.validateCompletion` requires. A key minted before this change gets a 403 on every dispute mutation.
 - **`WebhookTestResult` drops `httpStatus` and `latencyMs`**, which duplicated `statusCode` and `durationMs`.
-- **`RecordRow.createdByKeyId` is `string | null`**: null on a federation-received Record (`federationStatus: 'inbound'`), which no key on this Server created.
+- **`RecordRow.createdByKeyId` is `string | null`**: null on a federation-received Record (`federationStatus: 'inbound'`).
 - **`VerdictResult.recommendation` is `'SETTLE' | 'HOLD'`** and `reporterType` is `'principal'`. `RELEASE` exists only on the dispute-overturn settlement signal.
 - **`EphemeralCert.agentId` is `string`.** A token that binds no agent gets no cert.
 - **`Dispute.context` is `string | null`.**
 - **`VaultAnchor` is the anchor object the route lists**: `key`, `chainPosition`, `lastModified`, `size`, `versions` and `hidden`. The previous `id`, `entryHash`, `previousHash` and `createdAt` were never served.
-- **Vault unions gain the members 2.0 serves**, which breaks an exhaustive `switch`: `VaultAnchorReconcileResult.status` adds `incomplete` and `acknowledged`, `VaultAnchorReconcileFinding.finding` adds `fork`, and `VaultRewindState.source` adds `acknowledgement_check`.
-- **`VerificationKey.statements` is required**, and `VerificationKeysResponse` requires `anchoredFrom` and `keyStatementFormat`: the Server always sends them. `verifyRfc9421` accepts a key list without `statements`, since it does not read them.
-- **`OpsSummary.vault.chainWrites` is required**, and carries `refusedBecause` (every cause refusing chain writes: `signing_key_unusable`, `chain_rewind_detected`) and `signingKeyGate` (`signer_unreachable`, `unanchored`, `retired`, or null). `OpsSummary.vault.anchoring.instanceId` and `OpsSummary.webhooks.inactive` are required too.
-- **`Completion.agentId` is `string | null`**: null on the completion the engine synthesizes for a delegation parent from its children's failure rollup, which carries `rollupSynthesized: true`. A principal cannot accept that completion; the Server answers with the reject, revise and resubmit path.
-- **`CreateApiKeyParams` pairs each role with its owner kind** (`ApiKeyRoleOwner`): `admin` with `org`, `agent` with `agent`, `platform` with `platform`. The Server refuses any other pair with a 400, so a mismatched pair is now a compile error.
+- **Vault unions gain new members**, which breaks an exhaustive `switch`: `VaultAnchorReconcileResult.status` adds `incomplete` and `acknowledged`, `VaultAnchorReconcileFinding.finding` adds `fork`, and `VaultRewindState.source` adds `acknowledgement_check`.
+- **`VerificationKey.statements` is required**, and `VerificationKeysResponse` requires `anchoredFrom` and `keyStatementFormat`. `verifyRfc9421` accepts a key list without `statements`.
+- **`OpsSummary.vault.chainWrites` is required**, and carries `refusedBecause` (`signing_key_unusable`, `chain_rewind_detected`) and `signingKeyGate` (`signer_unreachable`, `unanchored`, `retired`, or null). `OpsSummary.vault.anchoring.instanceId` and `OpsSummary.webhooks.inactive` are required too.
+- **`Completion.agentId` is `string | null`**: null on the completion the Server synthesizes for a delegation parent from its children's failure rollup, which carries `rollupSynthesized: true`. A principal cannot accept that completion; the Server answers with the reject, revise and resubmit path.
+- **`CreateApiKeyParams` pairs each role with its owner kind** (`ApiKeyRoleOwner`): `admin` with `org`, `agent` with `agent`, `platform` with `platform`. A mismatched pair is now a compile error.
 - **`UpdateApiKeyResult` names the key `keyId`**, as `POST /v1/admin/api-keys` does; `id` is gone, so reading it from `admin.updateApiKey` or `toggleApiKey` was `undefined`.
-- **`webhooks.delete` resolves to `WebhookDeleteResult`** (`webhookId`, `isActive: false`, `deadLetters`, `nextSteps`) rather than `void`. The Server answers 200 with the dead-lettered deliveries the subscription still holds; each keeps system health degraded until it is discarded, and a retry of one is refused.
-- **`SigningKeyStatement` requires `id` and `createdAt`**: the statement row's id and its write time at microsecond precision, which the trust walk orders by (`createdAt`, then `id`), on `VerificationKey.statements` and `exportMetadata.signingKeyStatements`.
-- **`ComplianceExport.status` is `'ready'`, and `compliance.waitForExport` is removed.** The Server assembles an export inside the create call, so there was never a state to poll for; follow `downloadUrl`.
-- **`schemas.checkCompatibility` requires `completionSchema`**, as the route always has.
+- **`webhooks.delete` resolves to `WebhookDeleteResult`** (`webhookId`, `isActive: false`, `deadLetters`, `nextSteps`) rather than `void`. Each dead-lettered delivery the subscription still holds keeps system health degraded until it is discarded, and a retry of one is refused.
+- **`SigningKeyStatement` requires `id` and `createdAt`**, on `VerificationKey.statements` and `exportMetadata.signingKeyStatements`.
+- **`ComplianceExport.status` is `'ready'`, and `compliance.waitForExport` is removed.** The Server assembles an export inside the create call; follow `downloadUrl`.
+- **`schemas.checkCompatibility` requires `completionSchema`.**
 - **`RecordStatusSummary` is removed**: `GET /v1/records/summary` is gone from the Server.
-- **`verifyExport` runs on `@agledger/verify-core` 2.0.0, and out-of-band keys are supplied keys.** `requireOutOfBandKeys` is `requireSuppliedKeys`, `result.keyProvenance.outOfBand` is `result.keyProvenance.supplied`, and the re-exported `OutOfBandKeyEntry` is `SuppliedKeyEntry`. A key the Server serves comes from its database, so the old name promised an independence the option never gave; behaviour is unchanged, and what makes a key trusted is the new `trustAnchors`. `result.optionalChecks` carries one more member, `key_anchoring`, and every result carries `keyTrust`. An entry whose `signingKeyId` disagrees with its signed kid, and whose key's declared algorithm contradicts its material, now reports `CHAIN_SIGNING_KEY_DRIFT` rather than `CHAIN_ALG_MISMATCH`. `verifyExport` throws `TypeError` on an option it does not read, naming `requireSuppliedKeys` for `requireOutOfBandKeys`: a 1.x caller keeping the old name, or a misspelt one, used to lose the check without a word and still pass. It also throws on a pinned key distrusted with no instant, which the Server refuses to start with.
+- **`verifyExport` runs on `@agledger/verify-core` 2.0.0, and out-of-band keys are supplied keys.** `requireOutOfBandKeys` is `requireSuppliedKeys`, `result.keyProvenance.outOfBand` is `result.keyProvenance.supplied`, and the re-exported `OutOfBandKeyEntry` is `SuppliedKeyEntry`. Behaviour is unchanged; what makes a key trusted is the new `trustAnchors`. `result.optionalChecks` carries one more member, `key_anchoring`, and every result carries `keyTrust`. An entry whose `signingKeyId` disagrees with its signed kid, and whose key's declared algorithm contradicts its material, now reports `CHAIN_SIGNING_KEY_DRIFT` rather than `CHAIN_ALG_MISMATCH`. `verifyExport` throws `TypeError` on an option it does not read, naming `requireSuppliedKeys` for `requireOutOfBandKeys`: a caller keeping the old name, or a misspelt one, used to lose the check silently. It also throws on a pinned key distrusted with no instant.
 
 ### Added
 
-- **Discarding dead letters.** `webhooks.discardDlq(webhookId, dlqId)` and `admin.discardDlq(dlqId)` (platform key, any subscription) remove a dead-lettered delivery without delivering it and resolve to `DlqDiscardResult`. On an inactive subscription this is the only way to clear an entry. `AdminWebhookDlqEntry.subscriptionActive` says which entries those are, and `DlqRetryAllResult.skippedInactive` counts the entries a retry-all left in place for that reason.
-- **Health fields.** `SystemHealth.workerConnections` (and the support bundle's `health.workerConnections`) counts database connections held by workers; `0` degrades `status`. `StatusComponent.reason` names `database_unavailable` and `signing_key_unusable` on Chain writes, and `no_worker_connected`, `worker_not_consuming` and `not_checked` on Workers. `VaultRewindOpenFinding.previousAcknowledgement` describes an earlier acknowledgement that holds the finding's position and does not cover it.
+- **Discarding dead letters.** `webhooks.discardDlq(webhookId, dlqId)` and `admin.discardDlq(dlqId)` (platform key, any subscription) remove a dead-lettered delivery without delivering it and resolve to `DlqDiscardResult`. On an inactive subscription this is the only way to clear an entry. `AdminWebhookDlqEntry.subscriptionActive` says which entries those are, and `DlqRetryAllResult.skippedInactive` counts the entries a retry-all left in place.
+- **Health fields.** `SystemHealth.workerConnections` (and the support bundle's `health.workerConnections`) counts connections held by workers; `0` degrades `status`. `StatusComponent.reason` names `database_unavailable` and `signing_key_unusable` on Chain writes, and `no_worker_connected`, `worker_not_consuming` and `not_checked` on Workers. `HealthResponse.signingKey` names the process's signing gate (`usable`, `retired`, `unregistered`, `signer_unreachable`, `unanchored`, `unsigned`) and `status` may be `degraded`. `SystemHealth.database.failure` and `SystemHealth.connectedVersions` (`ConnectedVersion`) name why the probe failed and which AGLedger releases are connected. `VaultRewindOpenFinding.previousAcknowledgement` describes an earlier acknowledgement that holds the finding's position and does not cover it.
 - **Unanchored-key chain codes.** `AuditChainIntegrityReasonCode` gains `signing_key_unanchored` and `checkpoint_key_unanchored`, and `AuditChainFailureCode` gains `signing_key_unanchored`: an entry, or a checkpoint, signed by a key the registry holds and no signed key statement anchors. `VaultScanBreakReason` gains both, and `OrgReadsBreakReason` gains `checkpoint_key_unanchored` and `leaf_key_unanchored`.
-- **Signed key statements.** `VerificationKey.statements` and `RecordAuditExport.exportMetadata.signingKeyStatements` carry the `SigningKeyStatement`s (`succession`, `genesis`, `closure`; base64 COSE_Sign1 in signing order) that admit each key, and `VerificationKeysResponse.anchoredFrom` and `exportMetadata.anchoredFrom` name the key the serving process signs with, to compare against a pin taken out of band.
-- **Vault key trust.** A `VaultSigningKey` row carries `trust` (`anchored`, `unanchored`, `undecided`) and `admittedBy`. `VaultSigningKeyRetirement` carries `alreadyRetired`, `unanchoredKeyIds`, `closureDigest` and `retiredSpkiSha256`, and `revokedCertCount` counts the certs minted by every key in `unanchoredKeyIds` as well. `VaultScanResult.keyRegistry` (`VaultScanKeyRegistry`) is the key-registry trust walk of a full scan, and its findings fail `healthy`.
-- **Anchors and rewinds.** `VaultAnchorVerifyRow` names the `fork`, `superseded`, `hidden` and `missing_or_hidden` outcomes and carries `storedVersions`, `versionsNote` and `signedForIssuer`. `VaultAnchorReconcileResult` carries `hidden`, `hiddenAnchors` (`VaultHiddenAnchor`), `forked` and `acknowledged`, and each finding `acknowledged`, `hidden` and `signedForIssuer`. `VaultRewindStatus` carries `openFindings` (`VaultRewindOpenFindings`) and `nextSteps`, and `VaultRewindAcknowledgement` carries `coveredFindings`. `OpsSummary.vault.chainWrites` says whether a detected rewind refuses chain writes.
+- **Signed key statements.** `VerificationKey.statements` and `RecordAuditExport.exportMetadata.signingKeyStatements` carry the `SigningKeyStatement`s (`succession`, `genesis`, `closure`; base64 COSE_Sign1 in signing order) that admit each key. `VerificationKeysResponse.anchoredFrom` and `exportMetadata.anchoredFrom` name the key the serving process signs with, to compare against a pin taken out of band.
+- **Vault key trust.** A `VaultSigningKey` row carries `trust` (`anchored`, `unanchored`, `undecided`) and `admittedBy`. `VaultSigningKeyRetirement` carries `alreadyRetired`, `unanchoredKeyIds`, `closureDigest`, `retiredSpkiSha256` and `revokedCertCount`. `VaultScanResult.keyRegistry` (`VaultScanKeyRegistry`) is the key-registry trust walk of a full scan, and its findings fail `healthy`.
+- **Anchors and rewinds.** `VaultAnchorVerifyRow` names the `fork`, `superseded`, `hidden` and `missing_or_hidden` outcomes and carries `storedVersions`, `versionsNote` and `signedForIssuer`. `VaultAnchorReconcileResult` carries `hidden`, `hiddenAnchors` (`VaultHiddenAnchor`), `forked` and `acknowledged`. `VaultRewindStatus` carries `openFindings` and `nextSteps`, and `VaultRewindAcknowledgement` carries `coveredFindings`. `OpsSummary.vault.chainWrites` says whether a detected rewind refuses chain writes.
 - **`events.list` resolves to `EventPage`**, carrying `visibleBefore`: send it as the next window's `since` so consecutive windows neither overlap nor skip.
 - **`LicenseValidity` names `marketplace_refused`.**
-- **Health.** `HealthResponse.signingKey` names the process's signing gate (`usable`, `retired`, `unregistered`, `signer_unreachable`, `unanchored`, `unsigned`) and `status` may be `degraded`. `StatusComponent.reason` says why the Database component is at `outage`, or `chain_rewind_detected` on the Chain writes component, and `latencyMs` may be null. `SystemHealth.database.failure` and `SystemHealth.connectedVersions` (`ConnectedVersion`), mirrored on the support bundle, name why the probe failed and which AGLedger releases hold connections to the database.
 - **Keys.** `AdminApiKey.scopeProfile` is back on the listing row, and `RotateKeyResult` carries `keyId` and `scopeProfile`.
 - **Records.** `VerdictResult.reporterRole` says whether the principal or an org admin rendered the verdict. Bulk-create items carry `constraintViolations`, and bulk and batch results carry `nextSteps`. `BackfillImportedRecord.advisoryWarnings` lists what an import was allowed past. `AcceptanceStatus` names `BYPASSED`.
 - **Schemas.** `SchemaQuickStart.recordFields` names the top-level Record fields that belong beside `criteria`. `SchemaValidationResult` carries `publisher` and `nextSteps`, and its `errors` may be null. `RegisterSchemaParams` and `SchemaPreviewInput` take `defaultShare`, `coSignRequired`, `flipRecordStatusOnDispute`, `federateDisputes` and `publisher`, and `displayName` is optional on both.
-- **Provisioning.** `ProvisioningStatus` carries `loadWarnings` and `trustedIssuersWarnings`, and `ProvisioningReloadResult` carries `loadWarnings` and `trustedIssuers.warnings`: entries that applied but kept a stored `jwks_uri`, or that an API door would treat differently.
+- **Provisioning.** `ProvisioningStatus` carries `loadWarnings` and `trustedIssuersWarnings`, and `ProvisioningReloadResult` carries `loadWarnings` and `trustedIssuers.warnings`.
 - `PeerHandshakeResult.serverHubId`, the receiving Server's hub id, to name when you mint the reverse peering token.
 - `ApiErrorResponse.submissionCount` and `maxSubmissions`, on the submission-cap refusal.
 - `nextSteps` on trusted issuers, circuit-breaker updates, agent updates, reference writes, org-read cosigns, AI impact assessments, compliance records, schema previews and compatibility checks, and audit exports; `recordRead` on AI impact assessments and compliance records.
-- From 1.13.0: **`view: 'compact'` on `records.get`, `list`, `listAll` and `search`.** The Server leaves out every top-level null and trims each `nextSteps` entry to `action`, `method` and `href`. Those calls resolve to `RecordRowCompact` (or `RecordCompactPage`), derived from `RecordRow` so that each field the full view types `| null` is optional and never null, with `NextStepCompact` steps. Without `view`, or with `view: 'full'`, the methods resolve to `RecordRow`; a view only known at runtime resolves to the union. New types: `RecordView`, `RecordRowCompact`, `RecordCompactPage`, `NextStepCompact`.
-- From 1.13.0: **`verifyExport` reports an unsigned entry written while the vault was signing.** An entry with no signing key fails with `CHAIN_ENTRY_UNSIGNED` when an earlier entry in its chain names a key, or when it was written at or after the earliest activation time among the keys the verifier holds. An unsigned history written before the first key stays reduced coverage. An entry that names a key but carries an all-zero signature fails `CHAIN_SIGNATURE_INVALID`.
-- From 1.13.0: `signature_missing` and `checkpoint_unsigned` in `AuditChainIntegrityReasonCode`, and `signature_missing` in `AuditChainFailureCode`.
-- From 1.13.0: vault scan findings. `VaultScanBrokenRecord` and `VaultScanBrokenChain` carry `firstFinding` (`VaultScanFirstFinding`), and their `reason` is the open `VaultScanBreakReason`. `VaultScanResult` carries `unsupportedAlgorithm` and `orgAdminReads` (`VaultScanOrgAdminReads`, with `OrgReadsBreakReason` per broken org); `VaultScanGlobalChains` carries `unsupportedAlgorithm`.
-- From 1.13.0: `AgledgerApiError` forwards `reason`, `currentState`, `allowedActions` and `existingId` from the error body, and `ApiErrorResponse` gains `existingId`.
-- From 1.13.0: `VaultSigningKeyRetirement.revokedCertCount`, `ComplianceExport.format`, `TrustedIssuerAlg` for `allowedAlgs`, and the JWKS fetch fields on `TrustedIssuer` (`jwksLastFetchAt`, `jwksLastFetchOutcome`, `jwksLastFetchError`, `jwksLastSuccessAt`).
+- **`view: 'compact'` on `records.get`, `list`, `listAll` and `search`.** The Server leaves out every top-level null and trims each `nextSteps` entry to `action`, `method` and `href`. Those calls resolve to `RecordRowCompact` (or `RecordCompactPage`), with `NextStepCompact` steps. Without `view`, or with `view: 'full'`, the methods resolve to `RecordRow`. New types: `RecordView`, `RecordRowCompact`, `RecordCompactPage`, `NextStepCompact`.
+- **`verifyExport` reports an unsigned entry written while the vault was signing.** An entry with no signing key fails with `CHAIN_ENTRY_UNSIGNED` when an earlier entry in its chain names a key, or when it was written at or after the earliest activation time among the keys the verifier holds. An unsigned history written before the first key stays reduced coverage. An entry that names a key but carries an all-zero signature fails `CHAIN_SIGNATURE_INVALID`.
+- `signature_missing` and `checkpoint_unsigned` in `AuditChainIntegrityReasonCode`, and `signature_missing` in `AuditChainFailureCode`.
+- Vault scan findings: `VaultScanBrokenRecord` and `VaultScanBrokenChain` carry `firstFinding` (`VaultScanFirstFinding`), and their `reason` is the open `VaultScanBreakReason`. `VaultScanResult` carries `unsupportedAlgorithm` and `orgAdminReads` (`VaultScanOrgAdminReads`); `VaultScanGlobalChains` carries `unsupportedAlgorithm`.
+- `AgledgerApiError` forwards `reason`, `currentState`, `allowedActions` and `existingId` from the error body, and `ApiErrorResponse` gains `existingId`.
+- `ComplianceExport.format`, `TrustedIssuerAlg` for `allowedAlgs`, and the JWKS fetch fields on `TrustedIssuer` (`jwksLastFetchAt`, `jwksLastFetchOutcome`, `jwksLastFetchError`, `jwksLastSuccessAt`).
 - **`result.verdict`**: `'trusted'`, `'unanchored'` or `'failed'` (`Verdict`, re-exported from `@agledger/sdk/verify`), the word every AGLedger verifier prints. A valid result with no pin, or none that anchored a signature, is `'unanchored'`; read `verdict`, not `valid` alone. `publicKeys` also takes the `client.verificationKeys.list()` result as it comes, not only its `.data`.
-- The `toggleApiKey` and `updateApiKey` doc comments say revocation is one-way for an admin key: re-enabling a revoked key is 403 `PLATFORM_REQUIRED` unless a platform credential sends it.
-- **`verifyExport(exp, { trustAnchors, distrustedKeys })` anchors the vault keys.** `trustAnchors` takes the SPKI digests (`sha256:<hex>`) of vault keys you took out of band; the signed key statements the export carries (`exportMetadata.signingKeyStatements`, plus the `statements` on keys passed as `publicKeys`) are walked from them, as the Server walks its own registry. An entry signed by a key the walk does not reach fails `CHAIN_SIGNING_KEY_UNANCHORED`, each anchored key is held to the window its statements sign, and a statement that does not hold is `KEY_STATEMENT_INVALID`, `KEY_CLOSURE_INVALID` or `CHAIN_KEY_WINDOW_DRIFT` in `result.keyTrust.findings`, failing the result at position 0 when the chain itself is intact (when it also breaks, `brokenAt` is the chain failure). `distrustedKeys` takes the operator's `VAULT_DISTRUSTED_KEYS` entries, and passing them without `trustAnchors` throws `TypeError`, as does a pinned key distrusted with no instant (the Server refuses to start with that pair); a pin beside a dated entry for the same key (`sha256:<hex>@<instant>`) is taken, and vouches for what the key signed before the instant. `keyTrust.accounted` is always empty on an export, which accounts for nothing a distrusted key signed. Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and `optionalChecks.key_anchoring` is `'skipped_no_input'`: `valid` then means the chain is intact against keys nobody pinned, and the README and the `verifyExport` doc comment say to read it together with `keyTrust.status`. With `trustAnchors`, a run in which no signature verified under an anchored key (an export of unsigned history) is `'no_anchored_signature'` (`KeyTrustStatus`), which is no more trusted than `'no_anchor'`: a chain is trusted only when `valid` is true and the status is `'walked'`. An entry with no readable `createdAt` where the walk needs one, or a null payload or key, fails with a failure code such as `CHAIN_MALFORMED_ENTRY` rather than passing or throwing, and `optionalChecks.key_anchoring` is `'not_checked'` (a new `CheckApplicability` member) when `trustAnchors` were given but no entry reached the check. `@agledger/sdk/verify` re-exports `DistrustedKey`, `KeyTrustReport`, `KeyTrustNote`, `KeyTrustStatus`, `KeyRegistryFinding`, `KeyRegistryFindingCode`, `OptionalCheck` and `CheckApplicability`.
+- **`verifyExport(exp, { trustAnchors, distrustedKeys })` anchors the vault keys.** `trustAnchors` takes the SPKI digests (`sha256:<hex>`) of vault keys you took out of band; the signed key statements the export carries are walked from them. An entry signed by a key the walk does not reach fails `CHAIN_SIGNING_KEY_UNANCHORED`, each anchored key is held to the window its statements sign, and a statement that does not hold is `KEY_STATEMENT_INVALID`, `KEY_CLOSURE_INVALID` or `CHAIN_KEY_WINDOW_DRIFT` in `result.keyTrust.findings`. `distrustedKeys` takes the operator's `VAULT_DISTRUSTED_KEYS` entries; passing them without `trustAnchors` throws `TypeError`, as does a pinned key distrusted with no instant. A pin beside a dated entry for the same key (`sha256:<hex>@<instant>`) vouches for what the key signed before the instant. Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and `optionalChecks.key_anchoring` is `'skipped_no_input'`: `valid` then means the chain is intact against keys nobody pinned. With `trustAnchors`, a run in which no signature verified under an anchored key is `'no_anchored_signature'` (`KeyTrustStatus`), which is no more trusted than `'no_anchor'`: a chain is trusted only when `valid` is true and the status is `'walked'`. An entry with no readable `createdAt` where the walk needs one, or a null payload or key, fails with a failure code such as `CHAIN_MALFORMED_ENTRY` rather than passing or throwing, and `optionalChecks.key_anchoring` is `'not_checked'` when `trustAnchors` were given but no entry reached the check. `@agledger/sdk/verify` re-exports `DistrustedKey`, `KeyTrustReport`, `KeyTrustNote`, `KeyTrustStatus`, `KeyRegistryFinding`, `KeyRegistryFindingCode`, `OptionalCheck` and `CheckApplicability`.
 - **Distrusted keys and key material.** `AuditChainIntegrityReasonCode` gains `signing_key_distrusted` (an entry a `VAULT_DISTRUSTED_KEYS` key signed before a key the Server trusts retired it: accounted for, never verified) and `signing_key_material_invalid` (every entry verified, and the key material the export carries does not verify as a set). `AuditChainFailureCode`, `VaultScanBreakReason` and `VaultScanFirstFindingReason` gain `signing_key_distrusted`. A vault scan lists what such a key signed: `VaultScanResult.distrustedSigned`, `distrustedEntries` (`VaultScanDistrustedEntry`) and `distrustedEntriesTotal`, `VaultScanGlobalChains.distrustedSigned`, and `VaultScanKeyRegistry.distrustedStatements`; none of them fails `healthy`.
-- **A scan the workers will not take says so.** `VaultScanJob.waitingOn` (`VaultScanWaitingOn`, reason `VaultScanWaitingReason`) is set on `admin.vault.scan.run()` and `status()` while no worker is connected, a connected worker has stopped taking jobs (`workerHolds` says why), or one is attached but stalled.
-- **Health.** `StatusComponent.reason` is the named, open `StatusComponentReason` and gains `privilege_missing` (the database role lacks a privilege the engine writes with) and `worker_stalled`. `OpsSummary.vault` carries `keyRegistry.findings` and `appendOnly` (`enforced`, `role`, `held`): whether UPDATE, DELETE and TRUNCATE on the chain tables are revoked from the role the Server connects as.
-- **The lifecycle table is the graph `GET /lifecycle` serves.** `RECORD_TRANSITIONS` gains the dispute edges (FULFILLED, FAILED and REMEDIATED reach DISPUTED; DISPUTED reaches REMEDIATED), the deadline edges (CREATED and PROPOSED reach EXPIRED, PROCESSING reaches EXPIRED and CANCELLED) and the rollup's PROCESSING and REVISION_REQUESTED to ACTIVE, and drops FAILED to REMEDIATED, PROCESSING to REVISION_REQUESTED and PROCESSING to DISPUTED, which no Record takes (a revision is requested from FAILED, and a dispute is opened on a rendered outcome). `TERMINAL_STATUSES` and `isTerminalStatus` follow the Server's terminal flag, so FULFILLED and REMEDIATED stay terminal although a dispute can reopen them. `records.getValidTransitions(record)` returns the Record's own `validTransitions` when the row carries them, since a given Record can reach fewer targets than its status allows.
+- **A scan that is not being picked up says so.** `VaultScanJob.waitingOn` (`VaultScanWaitingOn`, reason `VaultScanWaitingReason`) is set on `admin.vault.scan.run()` and `status()` while no worker is connected, a connected worker has stopped taking jobs (`workerHolds` says why), or one is attached but stalled.
+- **Health.** `StatusComponent.reason` is the open `StatusComponentReason` and gains `privilege_missing` and `worker_stalled`. `OpsSummary.vault` carries `keyRegistry.findings` and `appendOnly` (`enforced`, `role`, `held`).
+- **The lifecycle table is the graph `GET /lifecycle` serves.** `RECORD_TRANSITIONS` gains the dispute edges (FULFILLED, FAILED and REMEDIATED reach DISPUTED; DISPUTED reaches REMEDIATED), the deadline edges (CREATED and PROPOSED reach EXPIRED, PROCESSING reaches EXPIRED and CANCELLED) and the rollup's PROCESSING and REVISION_REQUESTED to ACTIVE, and drops FAILED to REMEDIATED, PROCESSING to REVISION_REQUESTED and PROCESSING to DISPUTED, which no Record takes. `TERMINAL_STATUSES` and `isTerminalStatus` follow the Server's terminal flag, so FULFILLED and REMEDIATED stay terminal although a dispute can reopen them. `records.getValidTransitions(record)` returns the Record's own `validTransitions` when the row carries them.
 - `schemas.checkCompatibility` takes the `publisher` option and checks within that publisher, as `register()` does. `SubmitVerdictParams.message` is the third wire alias of `notes`. Bulk-create items carry `allowedValues`, and `AgledgerApiError.validTransitions` forwards the targets reachable now from a 422 refusal.
-- **`verifyExport` names the distrust entry an export says the Server applied.** verify-core reads `distrustedFrom` from the export's `signingKeyWindows`: where the Server's `VAULT_DISTRUSTED_KEYS` entry cut the listed retirement and the run was not given the same `distrustedKeys` entry, the `CHAIN_KEY_WINDOW_DRIFT` (or `KEY_CLOSURE_INVALID`) finding names the entry (`distrustedKeys sha256:<hex>@<distrustedFrom>`) to confirm with the Server's operator rather than reading as a rewritten column, says when the given entry carries another instant, and an earlier given instant is a `keyTrust.notes` entry. The verdict is as before.
-- `VerificationKey` and the `signingKeyWindows` entries declare `distrustedFrom?: string`, present when the Server's `VAULT_DISTRUSTED_KEYS` names the key. `SchemaPreviewResult` declares `unchanged?: boolean`, true when the body repeats the latest version.
-- The conformance corpus is regenerated from the API 2.0 engine: 35 export vectors, including three new ones for unsigned entries. Every vector passes through `verifyExport` as its manifest expects, and again pinned on the key the export names, where only the key-substitution vector changes verdict (to `CHAIN_SIGNING_KEY_UNANCHORED`).
+- **`verifyExport` names the distrust entry an export says the Server applied.** Where the Server's `VAULT_DISTRUSTED_KEYS` entry cut a key's listed retirement and the run was not given the same `distrustedKeys` entry, the `CHAIN_KEY_WINDOW_DRIFT` (or `KEY_CLOSURE_INVALID`) finding names the entry to confirm with the Server's operator. The verdict is as before.
+- `VerificationKey` and the `signingKeyWindows` entries declare `distrustedFrom?: string`. `SchemaPreviewResult` declares `unchanged?: boolean`, true when the body repeats the latest version.
+- The conformance corpus is regenerated for API 2.0: 35 export vectors, including three new ones for unsigned entries.
 
 ### Fixed
 
-- **`VaultScanList.lastCompleted` has no `state`.** The Server sends `{ jobId, completedAt, result }` there, so it is the new `VaultScanLastCompleted` rather than `VaultScanSummary`, whose required `state` was never present on that entry. `VaultScanSummary` (`active` and `recent[]`) drops `result`, which neither carries.
-- **An `/a2a` HTTP 4xx maps onto the usual error fields.** The Server answers a JSON-RPC envelope there; `code` held the whole error object although it is a string, and `detail` and `recoveryHint` were dropped. `code` is now the ErrorInfo `reason` (`VALIDATION_ERROR`, `UNAUTHORIZED`), or the JSON-RPC number as a string when there is none; `message`, `recoveryHint`, `requestId` and `retryable` come from `error.data[0].metadata`, and the JSON-RPC error object stays on `details`.
-- **A JSON error on a binary route maps like any other.** The SCITT and attestation routes answer their own errors as CBOR problem details, but a request refused before the handler, such as a malformed entry id, is answered in JSON; that body was dropped, leaving `code: 'binary-error'` and the HTTP status text as the message. It now gives `code`, `detail` and `type` as on every JSON route, and `rawBody` still holds the bytes. A CBOR problem body's `code` is `'unknown'`, the code every other unparsed error body gets, rather than `'binary-error'`.
+- **`VaultScanList.lastCompleted` has no `state`.** It is the new `VaultScanLastCompleted` (`{ jobId, completedAt, result }`) rather than `VaultScanSummary`. `VaultScanSummary` (`active` and `recent[]`) drops `result`.
+- **An `/a2a` HTTP 4xx maps onto the usual error fields.** `code` is now the ErrorInfo `reason` (`VALIDATION_ERROR`, `UNAUTHORIZED`), or the JSON-RPC number as a string when there is none; `message`, `recoveryHint`, `requestId` and `retryable` come from `error.data[0].metadata`, and the JSON-RPC error object stays on `details`.
+- **A JSON error on a binary route maps like any other.** A request refused before the handler on the SCITT and attestation routes, such as a malformed entry id, is answered in JSON; it now gives `code`, `detail` and `type` as on every JSON route, and `rawBody` still holds the bytes. A CBOR problem body's `code` is `'unknown'`, as for every other unparsed error body, rather than `'binary-error'`.
 - **`TimeoutError` and `ConnectionError` carry `idempotencyKey`**, the `Idempotency-Key` the failed request sent (reused across the SDK's own retries). Pass it back as the `idempotencyKey` request option to retry a write that may have been applied without applying it twice.
-- **Key statements are walked in write order.** Every API 2.0 export carries each statement's `id` and `createdAt`, and `verifyExport` orders the walk by them (`createdAt`, then `id`) as the Server does, rather than by the instants the statements sign, so `keyTrust.order` is `'written'` and findings name the statement row. A trusted key's later admissions now date its window as the Server's do, and a listed window the walk grades more loosely than the export states is `CHAIN_KEY_WINDOW_DRIFT`. The write times decide only the order: they are not signed, so a key statement signed by a key in `distrustedKeys` counts for nothing whatever time it carries. A statement that counts for nothing only because its signer is distrusted, dated before the cutoff by the export's own unsigned write time, is a `keyTrust.notes` entry rather than a finding, so an honest rotation away from a key distrusted after it still passes pinned on its successor.
-- From 1.13.0: **a Record received from a federation peer type-checks.** `RecordRow.federationStatus` is the open `RecordFederationStatus`, which names `inbound`.
+- **Key statements are walked in write order.** `verifyExport` orders the walk by each statement's `createdAt`, then `id`, so `keyTrust.order` is `'written'` and findings name the statement row. A listed window the walk grades more loosely than the export states is `CHAIN_KEY_WINDOW_DRIFT`. A key statement signed by a key in `distrustedKeys` counts for nothing whatever time it carries. A statement that counts for nothing only because its signer is distrusted, dated before the cutoff by the export's own unsigned write time, is a `keyTrust.notes` entry rather than a finding, so an honest rotation away from a key distrusted after it still passes pinned on its successor.
+- **A Record received from a federation peer type-checks.** `RecordRow.federationStatus` is the open `RecordFederationStatus`, which names `inbound`.
 
 ### Documentation
 
-- The README's HMAC webhook example narrows `req.headers['x-agledger-signature']`, typed `string | string[] | undefined`, before verifying, so it compiles under `tsc --strict`.
-- The README Quick Start runs the principal and the performer as two clients. It submitted the completion with the principal's key, which the Server refuses with a 403 `WRONG_STRUCTURAL_ROLE`; it now ends with the principal's accept verdict.
+- The README's HMAC webhook example narrows `req.headers['x-agledger-signature']` before verifying, so it compiles under `tsc --strict`.
+- The README Quick Start runs the principal and the performer as two clients, and ends with the principal's accept verdict. It used to submit the completion with the principal's key, which the Server refuses with a 403 `WRONG_STRUCTURAL_ROLE`.
 - `Completion.verdict` is the auto gate's verdict on that completion, null in principal mode, on encrypted Records, when the gate was deferred, and on a completion read.
-- From 1.13.0: `oidcCertCredential({ agentId })` and `IssueEphemeralCertParams.agentId` are an assertion, not a choice: the token decides the agent, and a different `agentId`, or any `agentId` on a token that binds no agent, is a 403 `CERT_AGENT_BINDING_MISMATCH` whose `recoveryHint` names the binding to make.
-- From 1.13.0: `SettlementSignalSummary.reason` is null on an inbound signal: free text does not cross the federation wire.
-- From 1.13.0: `a2a.call('SendMessage', ...)` shows the action in a data part of the message; an `action` on `params` is refused with `-32602`.
-- From 1.13.0: `Webhook.secret` is absent on an `Idempotency-Key` replay of the create.
-- `oidcCertCredential` and the README say the Server verifies the body signature on every authenticated route and seals it into every chain entry the request writes; they named five routes. The headers are sent only by the cert credential and only with a body, since the Server refuses them with 400 under any other credential (an API key, or an admin or platform OIDC bearer).
+- `oidcCertCredential({ agentId })` and `IssueEphemeralCertParams.agentId` are an assertion, not a choice: the token decides the agent, and a different `agentId`, or any `agentId` on a token that binds no agent, is a 403 `CERT_AGENT_BINDING_MISMATCH` whose `recoveryHint` names the binding to make.
+- `SettlementSignalSummary.reason` is null on an inbound signal.
+- `a2a.call('SendMessage', ...)` shows the action in a data part of the message; an `action` on `params` is refused with `-32602`.
+- `Webhook.secret` is absent on an `Idempotency-Key` replay of the create.
+- `oidcCertCredential` and the README say the Server verifies the body signature on every authenticated route and seals it into every chain entry the request writes. The headers are sent only by the cert credential and only with a body, since the Server refuses them with 400 under any other credential.
 - `constraintInheritance` on a create: omitted, the Record inherits the org's `enforcement.constraintInheritanceDefault`.
-
-### Parity
-
-- `routes.json` and `schema-fields.json` are regenerated from the final API 2.0 spec (195 routes), and every pinned enum is re-derived from its spec sites; `VaultScanWaitingReason` and `StatusComponentReason` are newly pinned. The snapshot is byte-identical to the Python SDK's.
+- `routes.json` and `schema-fields.json` are regenerated from the final API 2.0 spec (195 routes).
 
 ## [1.12.0] - 2026-09-21
 
-Reconciled against the API 1.8.0 release (`v1.8.0`). It adds OIDC workload identity to the client, and it removes fields and methods the SDK declared that the Server never sent: a sweep of every method's declared return type against the route it calls found them across the admin, federation, discovery and reference surfaces. Each removal below is a type that was wrong on the wire before this release, so code that read one of those fields was reading `undefined`.
+Reconciled against API 1.8.0. Adds OIDC workload identity to the client, and removes fields and methods the SDK declared that the Server never sent; code that read one of those fields was reading `undefined`.
 
 ### Added
 
-- **Conformance corpus regenerated from the tagged 1.8.0 engine** (the `v1.8.0` release), replacing a corpus generated at API 1.3.4. The export slice goes from 23 to 32 vectors and the dump slice from 12 to 18, and the additions cover this release's own work: `export/actor-attribution-mismatch.json` and `dump/chain-actor-attribution-mismatch` both expect `CHAIN_ACTOR_ATTRIBUTION_MISMATCH`, and `export/agent-signature-invalid.json` expects `CHAIN_AGENT_SIGNATURE_INVALID`. The runner now maps the manifest's `agentKeysFile` to the verifier's agent-key input; without it that vector ran with no agent keys, reported `skipped_no_input`, passed, and failed the suite on a check that never executed.
-
-- **`bearerToken` and `oidcCertCredential`.** `AgledgerClientOptions` takes `bearerToken` beside `apiKey`, and exactly one of the two is required (`ConfigurationError` otherwise). A string is sent as is. A function is called before every request, retries included, and nothing is cached, which is the form for handing the Server an admin OIDC token from your IdP; when the operator turns on `jtiSingleUse` for that trusted issuer, each token is accepted once, so the function must mint a fresh one per call. A `BearerCredential` is driven by the client: `oidcCertCredential({ getOidcToken, agentId?, refreshFraction? })` exchanges a fresh OIDC token for a short-lived cert (`POST /v1/auth/oidc/cert`), presents the cert as the bearer, re-exchanges once `refreshFraction` (default 0.5) of the cert's lifetime has passed, and re-exchanges and retries once when a request made with the cert is refused with 401. Concurrent requests share one exchange. `getOidcToken` must return a new token (a new `jti`) on every call, since the Server exchanges each token id once; when a source that rotates on its own schedule, such as a projected Kubernetes token file, hands back the token it already exchanged, the credential keeps the current cert while it is valid and asks again shortly after, and once the cert has expired or was refused it throws `OidcExchangeError` (409) naming the reused token. The credential holds one Ed25519 key pair generated in memory and never persisted; the proof of possession is standard base64 over `agledger.oidc.cert.v1\n<sub>`, and `publicKeyJwk` exposes the public half for offline verification.
-- **Request body signing under a cert.** A client using `oidcCertCredential` signs every request body: `X-Agent-Signature-Content-Hash` is `sha256:<hex>` of the exact bytes sent and `X-Agent-Signature` an Ed25519 signature over `agledger.agent.sig.v1\n<hex>`. The Server seals it into the chain entry as `predicate.on_behalf_of.agent_signature` on record create, transition and verdict, completion submit, and A2A. The body is serialized once per request, so every retry sends the bytes that were signed.
-- **`OidcExchangeError`**, thrown when the Server refuses the exchange. It carries the Server's status and `recoveryHint`, and the OIDC token is scrubbed from the message and details, which on a 400 echo the submitted input.
+- **`bearerToken` and `oidcCertCredential`.** `AgledgerClientOptions` takes `bearerToken` beside `apiKey`, and exactly one of the two is required (`ConfigurationError` otherwise). A string is sent as is. A function is called before every request, retries included, and nothing is cached, which is the form for handing the Server an admin OIDC token from your IdP; when the operator turns on `jtiSingleUse` for that trusted issuer, each token is accepted once, so the function must mint a fresh one per call. `oidcCertCredential({ getOidcToken, agentId?, refreshFraction? })` exchanges a fresh OIDC token for a short-lived cert (`POST /v1/auth/oidc/cert`), presents the cert as the bearer, re-exchanges once `refreshFraction` (default 0.5) of the cert's lifetime has passed, and re-exchanges and retries once when a request made with the cert is refused with 401. Concurrent requests share one exchange. `getOidcToken` must return a new token on every call, since the Server exchanges each token id once; when a source that rotates on its own schedule hands back the token it already exchanged, the credential keeps the current cert while it is valid, and once the cert has expired or was refused it throws `OidcExchangeError` (409) naming the reused token. The credential holds one Ed25519 key pair generated in memory and never persisted; `publicKeyJwk` exposes the public half for offline verification.
+- **Request body signing under a cert.** A client using `oidcCertCredential` signs every request body: `X-Agent-Signature-Content-Hash` is `sha256:<hex>` of the exact bytes sent and `X-Agent-Signature` an Ed25519 signature. The Server seals it into the chain entry on record create, transition and verdict, completion submit, and A2A. The body is serialized once per request, so every retry sends the bytes that were signed.
+- **`OidcExchangeError`**, thrown when the Server refuses the exchange. It carries the Server's status and `recoveryHint`, and the OIDC token is scrubbed from the message and details.
 - **`RequestOptions.onBehalfOf`**, sent as the `AGLedger-On-Behalf-Of` header: an RFC 8693 delegation token for work done on behalf of a person or another party, accepted on record create, transition and verdict, completion submit, and A2A.
 - **API key dormancy.** `ListApiKeysParams` takes `lastUsedBefore` and `neverUsed`. `admin.bulkRevokeApiKeys` takes either key ids (as before) or a `BulkRevokeApiKeysParams` filter object (`keyIds`, `ownerId`, `role`, `createdBefore`, `lastUsedBefore`, `neverUsed`, `reason`), and resolves to `BulkRevokeApiKeysResult` with `alreadyInactive` and `notFound` beside `revoked`. `UpdateApiKeyParams.allowedIps` replaces a key's IP allow-list (CIDR blocks allowed; `null` clears it).
 - **`AdminApiKey` reports revocation**: `revokedAt`, `revokedByKeyId`, `revocationReason`, `rotatedFromKeyId`, plus `orgId` and `allowedIps`.
 - **Trusted issuers**: `jtiSingleUse` and `subjectAllowlist` on the row and on create and update, and `enabled` on the row. `UpdateTrustedIssuerParams.managedBy: null` takes admin ownership of a provisioning-managed row.
-- **License notice.** `LicenseTier` names `unlicensed`. `LicenseInfo.validity` is the typed `LicenseValidity`, and `LicenseInfo.notice` (`LicenseNotice | null`) names the state an operator has to act on: no key, a Developer Edition key on an external database, or a key that failed validation. The same notice is on `OpsSummary.license` and `SupportBundle.license`, and `ConformanceResponse.license` carries `validity`, the notice kind and `escalated` without a platform key. `admin.reloadLicense({ license })` or `({ licenseKey })` applies a key from the request body; `reloadLicense(options)` still works.
-- **Admin vault: the four routes the 1.8.0 engine added.** `admin.vault.signingKeys.retire(keyId, { force? })` retires one key by its 16-hex fingerprint (retiring the only key able to sign is refused, so rotate first; `force` skips the quiet period for a compromised key). `admin.vault.anchors.reconcile({ maxKeys?, deadlineMs? })` walks the anchor bucket against this database, reporting complete counters beside a capped `findings` sample and a `truncated` flag for a walk that stopped on its key cap or time budget. `admin.vault.rewind.get()` reads the chain-rewind state, whose `blocked` says whether chain writes are currently refused, and `admin.vault.rewind.acknowledge({ note? })` lifts that refusal and appends a `RESTORE_EPOCH` entry. New types: `VaultSigningKeyRetirement`, `RetireVaultSigningKeyParams`, `VaultAnchorReconcileResult`, `VaultAnchorReconcileFinding`, `ReconcileVaultAnchorsParams`, `VaultRewindStatus`, `VaultRewindState`, `VaultRewindAcknowledgement`, `AcknowledgeVaultRewindParams`, `VaultAnchorPosture`.
-
-- **Nine chain-integrity codes the engine declares and the SDK did not.** `AuditChainIntegrityReasonCode` gains `checkpoint_signature_invalid`, `checkpoint_key_unknown`, `checkpoint_claim_mismatch`, `key_expired`, `key_not_yet_active` and `signing_key_unpublished`; `AuditChainFailureCode` gains the last three. Both unions are closed, so before this a `switch` on `chainIntegrityReason` could not name a code the Server sends, and comparing against one was a type error.
-
-- **`cert_window_drift`** in `AuditChainIntegrityReason` and `AuditChainFailure`: the cert row's `expires_at` is no longer the instant the entry sealed. The non-null members are now the named unions `AuditChainIntegrityReasonCode` and `AuditChainFailureCode`, so the enum guard checks them against the spec.
+- **License notice.** `LicenseTier` names `unlicensed`. `LicenseInfo.validity` is the typed `LicenseValidity`, and `LicenseInfo.notice` (`LicenseNotice | null`) names the state an operator has to act on: no key, a Developer Edition key on an external database, or a key that failed validation. The same notice is on `OpsSummary.license` and `SupportBundle.license`, and `ConformanceResponse.license` carries `validity`, the notice kind and `escalated` without a platform key. `admin.reloadLicense({ license })` or `({ licenseKey })` applies a key from the request body.
+- **Admin vault routes.** `admin.vault.signingKeys.retire(keyId, { force? })` retires one key by its 16-hex fingerprint (retiring the only key able to sign is refused, so rotate first; `force` skips the quiet period for a compromised key). `admin.vault.anchors.reconcile({ maxKeys?, deadlineMs? })` walks the anchor bucket against the Server's records and reports counters beside a capped `findings` sample and a `truncated` flag. `admin.vault.rewind.get()` reads the chain-rewind state, whose `blocked` says whether chain writes are currently refused, and `admin.vault.rewind.acknowledge({ note? })` lifts that refusal. New types: `VaultSigningKeyRetirement`, `RetireVaultSigningKeyParams`, `VaultAnchorReconcileResult`, `VaultAnchorReconcileFinding`, `ReconcileVaultAnchorsParams`, `VaultRewindStatus`, `VaultRewindState`, `VaultRewindAcknowledgement`, `AcknowledgeVaultRewindParams`, `VaultAnchorPosture`.
+- **Nine chain-integrity codes the Server declares and the SDK did not.** `AuditChainIntegrityReasonCode` gains `checkpoint_signature_invalid`, `checkpoint_key_unknown`, `checkpoint_claim_mismatch`, `key_expired`, `key_not_yet_active` and `signing_key_unpublished`; `AuditChainFailureCode` gains the last three. `cert_window_drift` is added to `AuditChainIntegrityReason` and `AuditChainFailure`.
 - **`recordRead`** on `GateStatus`, `GateEvaluationResult`, `Completion`, `DisputeResponse`, `RecordAuditExport`, and the new `RecordGraph` and `EntityReferencesResult`: the chain entry an org-admin cross-party read appended.
 - **`managedBy`** on `Webhook` and `WebhookHealthEntry`: a provisioning-managed subscription answers 409 to delete, update and rotate.
-- **Provisioning**: `ProvisioningStatus.managed.trustedIssuers` and `trustedIssuersUnchangedSinceLastLoad`, and on a reload `trustedIssuers.loadedAt` and `trustedIssuers.unchangedSinceLastLoad`, which say whether an edited `trusted-issuers.yaml` ever reached the pod.
+- **Provisioning**: `ProvisioningStatus.managed.trustedIssuers` and `trustedIssuersUnchangedSinceLastLoad`, and on a reload `trustedIssuers.loadedAt` and `trustedIssuers.unchangedSinceLastLoad`.
 - **`admin.listOrgs({ search })`, `admin.listAgents({ orgId, search })`, `admin.getFleetCapabilities({ type })`** and **`references.lookupAll()`**.
 - Typed results where a method returned `Record<string, unknown>`: `records.getGraph` (`RecordGraph`), the four reference methods on `references` and `agents` (`EntityReferencesResult`), `capabilities.get` and `set` and `admin.setCapabilities` (`AgentCapabilities`), `disputes.submitEvidence`, `federationAdmin.getInstance`, and the DLQ retry methods (`DlqRetryResult`, `DlqRetryAllResult`).
-- `BulkCreateResult` items carry `errorCode` and the summary `replayed`; `BatchGetRecordsResult` carries `notFound`; `RecordAuditExport` carries `verificationGuide`; `SchemaQuickStart` (one declaration, shared by both schema reads) carries `tolerance` and `gateMode`; `MetaSchema` carries `fieldMappingValueTypeSpec`, `expressionBindings`, `verbVocabulary` and the rest the route serves.
-
+- `BulkCreateResult` items carry `errorCode` and the summary `replayed`; `BatchGetRecordsResult` carries `notFound`; `RecordAuditExport` carries `verificationGuide`; `SchemaQuickStart` carries `tolerance` and `gateMode`; `MetaSchema` carries `fieldMappingValueTypeSpec`, `expressionBindings`, `verbVocabulary` and the rest the route serves.
 - **`verifyExport(exp, { agentKeys })`** re-checks, offline, the agent signatures an OIDC cert sealed into the chain, against the cert keys you supply (`oidcCertCredential().publicKeyJwk`). `result.agentSignatures` counts those present and verified, and one that does not verify is `CHAIN_AGENT_SIGNATURE_INVALID`. `AgentPublicKeyJwk` is re-exported from `@agledger/sdk/verify`. Needs `@agledger/verify-core` 1.5.0, which the dependency range now names.
+- The conformance corpus is regenerated for API 1.8.0 (export slice from 23 to 32 vectors, dump slice from 12 to 18), with new vectors for actor attribution and agent signatures.
 
 ### Removed (the Server never sent the field or served the route)
 
-- **`environment` is gone from `CreateApiKeyParams`.** The Server refuses it now (400), and it never carried meaning: a key is a row in one Server's database.
+- **`environment` is gone from `CreateApiKeyParams`.** The Server refuses it now (400).
 - **`AdminApiKey` is the row the listing serves.** The key's id is `keyId`; `id`, `environment`, `rateLimitTier`, `prefix` and `scopeProfile` were never on the row.
-- **`admin.updateApiKey` and `toggleApiKey` resolve to `UpdateApiKeyResult`** (`id`, `isActive`, `scopes`, `scopeProfile`, `allowedIps`), which is what the PATCH returns, not a whole key row.
+- **`admin.updateApiKey` and `toggleApiKey` resolve to `UpdateApiKeyResult`** (`id`, `isActive`, `scopes`, `scopeProfile`, `allowedIps`), not a whole key row.
 - **`admin.getRateLimitExemption` is removed**: `GET /v1/admin/rate-limit-exemptions/{ownerId}` does not exist and every call was a 404. `listRateLimitExemptions` resolves to a page of owner ids, `setRateLimitExemption(ownerId, options?)` sends no body, and both writes resolve to `{ ownerId, exempt, nextSteps }`.
 - **`admin.records.list` resolves to `Page<AdminRecordSummary>`**, the ten-field summary the route serves, not full `RecordRow`s.
-- **`admin.createAgent` resolves to `CreateAgentResult`**, and `AdminAgent` loses `nextSteps`, which no listing row carried. `admin.getFleetCapabilities` rows are `{ agentId, displayName, contractTypes }`; `capabilities` was never on them.
-- **`admin.listDlq` rows are `AdminWebhookDlqEntry`, and `webhooks.listDlq` rows are `WebhookDlqEntry`** as each route serves them (`subscriptionId`, `eventId`, `eventType` or `type`, `errorMessage`, `attempts`). The previous shape (`webhookId`, `event`, `payload`, `failureReason`, `attemptCount`) matched neither.
-- **`references.lookup` resolves to `Page<ReferenceLookupMatch>`** (`entityType`, `entityId`, `reference` per match) and takes `limit` and `cursor`. It was typed as a single `{ references, entityType, entityId }`, which the route has never returned.
+- **`admin.createAgent` resolves to `CreateAgentResult`**, and `AdminAgent` loses `nextSteps`. `admin.getFleetCapabilities` rows are `{ agentId, displayName, contractTypes }`.
+- **`admin.listDlq` rows are `AdminWebhookDlqEntry`, and `webhooks.listDlq` rows are `WebhookDlqEntry`** as each route serves them (`subscriptionId`, `eventId`, `eventType` or `type`, `errorMessage`, `attempts`).
+- **`references.lookup` resolves to `Page<ReferenceLookupMatch>`** (`entityType`, `entityId`, `reference` per match) and takes `limit` and `cursor`.
 - **`discovery.getLifecycle` resolves to `{ record, dispute }`**, each with `states` (valid transitions, actions, terminal) and its paths. `statuses`, `transitions` and `terminalStatuses` were never served.
-- **`predicates.list` resolves to `{ data: [{ kind, predicateType, schemaUrl }] }`**, not `kinds`. **`predicates.get` resolves to the JSON Schema document itself**, and its version is the literal `v1`, the only one the route serves.
+- **`predicates.list` resolves to `{ data: [{ kind, predicateType, schemaUrl }] }`**, not `kinds`. **`predicates.get` resolves to the JSON Schema document itself**, and its version is the literal `v1`.
 - **`federationAdmin.createPeeringToken` resolves to `peeringToken`** (with `label` and `createdAt`), not `token`. `FederationDlqEntry` is `{ id, data, createdOn, firstFailedAt, kind, peerHubId, recordId }`. `recoverDlq` takes `{ limit?, dryRun? }` and reports `inspected` and `dryRun`. `deletePeer` reports `peerHubId`.
-- **Federation results match the wire**: `CoSignRequestResult` is `{ coSigned, counterSignature, serverTimestamp }` (it declared `queued`), and `SignalRelayResult` and `StateTransitionResult` carry `serverSignature`, `serverTimestamp`, `applied`, `reason` and `schemaRef` instead of an index signature.
-- **`HealthResponse` loses `uptime` and `database`, and `StatusResponse` loses `activeIncidents`.** `AuthCacheStats` is `{ size, max, ttl }`, not a hit rate. `SupportBundle` is the sectioned document the route serves (`manifest`, `version`, `license`, `health`, `authCache`, `config`, `database`, `environment`, `guidance`). `LicenseInstanceInfo` loses `createdAt`. `ProvisioningReloadResult` loses its top-level `loadedAt`, which lives under `trustedIssuers`. `VerificationKeysResponse` loses `hashAlgorithm` and gains `envelope` and `payloadFormat`. `MetaSchema.limits.typeMaxLength` is `contractTypeMaxLength`. `uploadSupportBundle` resolves to `{ bundleId, receivedAt, sizeBytes }`, not `uploaded`.
-- **The vault signing-key registry is typed as the engine sends it.** `VaultSigningKey` is `{keyId, algorithm, status, activatedAt, retiredAt, lastSignedAt}`; `id`, `publicKey`, `createdAt` and `rotatedAt` were never on the row, and the route serves no key material at all (the ungated `GET /v1/verification-keys`, typed `VerificationKey`, is where an auditor gets it). `admin.vault.signingKeys.rotate()` resolves to the new `VaultSigningKeyRotation` (`newKeyId`, `status: 'staged' | 'already_active'`, `activeKeys`, `nextSteps`), which shares no field with a registry row: it was typed as `VaultSigningKey`, so `(await rotate()).status === 'active'` typechecked and could never be true.
-- **`AuditExportEntry` loses `position`, `timestamp` and `actor`**, pre-0.25 aliases no Server of this line sends, and the `AuditActor` type with them. Read `chainPosition`, `createdAt` and the `actor*` fields.
+- **Federation results match the wire**: `CoSignRequestResult` is `{ coSigned, counterSignature, serverTimestamp }`, and `SignalRelayResult` and `StateTransitionResult` carry `serverSignature`, `serverTimestamp`, `applied`, `reason` and `schemaRef`.
+- **`HealthResponse` loses `uptime` and `database`, and `StatusResponse` loses `activeIncidents`.** `AuthCacheStats` is `{ size, max, ttl }`. `SupportBundle` is the sectioned document the route serves (`manifest`, `version`, `license`, `health`, `authCache`, `config`, `database`, `environment`, `guidance`). `LicenseInstanceInfo` loses `createdAt`. `ProvisioningReloadResult` loses its top-level `loadedAt`, which lives under `trustedIssuers`. `VerificationKeysResponse` loses `hashAlgorithm` and gains `envelope` and `payloadFormat`. `MetaSchema.limits.typeMaxLength` is `contractTypeMaxLength`. `uploadSupportBundle` resolves to `{ bundleId, receivedAt, sizeBytes }`.
+- **The vault signing-key registry is typed as the Server sends it.** `VaultSigningKey` is `{keyId, algorithm, status, activatedAt, retiredAt, lastSignedAt}`; `id`, `publicKey`, `createdAt` and `rotatedAt` were never on the row. The ungated `GET /v1/verification-keys` (`VerificationKey`) is where an auditor gets key material. `admin.vault.signingKeys.rotate()` resolves to the new `VaultSigningKeyRotation` (`newKeyId`, `status: 'staged' | 'already_active'`, `activeKeys`, `nextSteps`).
+- **`AuditExportEntry` loses `position`, `timestamp` and `actor`**, pre-0.25 aliases no current Server sends, and the `AuditActor` type with them. Read `chainPosition`, `createdAt` and the `actor*` fields.
 
 ### Fixed
 
-- **A 401 the cert did not cause no longer triggers a re-exchange.** The Server also answers 401 for an `AGLedger-On-Behalf-Of` delegation token it cannot validate and for an `X-Agent-Signature` that does not verify. A new cert changes neither, and with a token source that repeats a token the forced exchange 409'd and hid the real error. On a 401 to a cert bearer the client now makes one `GET /v1/auth/me` with the same cert: if that succeeds the 401 surfaces as the Server sent it, and only if it fails does the credential re-exchange and retry once. The probe runs at most once per request and never on an API-key or function bearer.
-- **A failed exchange at the refresh point keeps the current cert.** When the IdP is unreachable, or the Server answers 5xx, 429, 409 or anything else at a refresh ahead of expiry, the request goes out with the cert that is still valid and the next attempt waits a quarter of the cert's remaining lifetime, at least 1 second and at most 30. Only an exchange forced by a 401, or one after the cert has expired, fails the request. The refresh point is timed from local receipt using the cert's own lifetime, so a Server clock that disagrees with the local one cannot force an exchange on every request.
-
+- **A 401 the cert did not cause no longer triggers a re-exchange.** The Server also answers 401 for an `AGLedger-On-Behalf-Of` delegation token it cannot validate and for an `X-Agent-Signature` that does not verify. On a 401 to a cert bearer the client now makes one `GET /v1/auth/me` with the same cert: if that succeeds the 401 surfaces as the Server sent it, and only if it fails does the credential re-exchange and retry once.
+- **A failed exchange at the refresh point keeps the current cert.** When the IdP is unreachable, or the Server answers 5xx, 429, 409 or anything else at a refresh ahead of expiry, the request goes out with the cert that is still valid and the next attempt waits a quarter of the cert's remaining lifetime, at least 1 second and at most 30. Only an exchange forced by a 401, or one after the cert has expired, fails the request.
 - `IssueEphemeralCertParams.proofOfPossession` was documented as base64url; the Server requires standard base64 with `==` padding.
-- A test now resolves every route each resource method calls against the route snapshot, so a method that reaches a route the Server does not register fails the suite. That is how `getRateLimitExemption` and the `predicates.get` version path were found.
 
 ### Changed
 
-- **An audit export re-attributed to another actor no longer verifies.** `verifyExport` runs on `@agledger/verify-core` 1.5.0, which cross-checks an entry's `actorId`, `actorRole` and `actorOwnerId` against the signature-covered actor claim in the COSE protected header and fails `CHAIN_ACTOR_ATTRIBUTION_MISMATCH` on a divergence. The export's own guide points an auditor at those fields as the attribution to rely on, and until now nothing checked them. `result.optionalChecks.actor_attribution` says whether the check applied.
-
-- `LICENSE` follows SDK License Template 1.9: section 1 says AGLedger LLC does not receive, inspect or use the data you process through your deployment and collects no product usage information from it; section 7 names AGLedger and Settlement Signal as trademarks of AGLedger LLC; section 8 refers to issued or pending U.S. patents.
+- **An audit export re-attributed to another actor no longer verifies.** `verifyExport` runs on `@agledger/verify-core` 1.5.0, which cross-checks an entry's `actorId`, `actorRole` and `actorOwnerId` against the signature-covered actor claim in the COSE protected header and fails `CHAIN_ACTOR_ATTRIBUTION_MISMATCH` on a divergence. `result.optionalChecks.actor_attribution` says whether the check applied.
+- `LICENSE` follows SDK License Template 1.9.
 
 ## [1.11.0] - 2026-09-10
 
-Reconciled against the API build that follows 1.6.0. Two things are gone from the Server and this release removes both without aliases: agent reputation, which agent drift replaced, and the dispute tier ladder, which a single principal rendering replaced. Commission, the peer agent-directory sync and proposal counter-offers went with them.
-
-### Removed (the Server removed the route or the field)
-
-- **`records.counterPropose` and `records.acceptCounter` are gone**, with `CounterProposeParams`. `POST /v1/records/{id}/counter-propose` and `POST /v1/records/{id}/accept-counter` no longer exist. Negotiation is propose, then accept or reject: a performer who wants different terms rejects and the principal creates the Record it means. `AcceptanceStatus` no longer names `COUNTER_PROPOSED`, and `record.proposal_counter_proposed` is no longer a webhook event type a subscription can name.
-
-- **`disputes.escalate` is gone**, and so is the tier ladder behind it. `DisputeStatus` is `EVIDENCE_WINDOW`, `PENDING_RESOLUTION`, `RESOLVED`, `WITHDRAWN`: the three tier values (`TIER_2_REVIEW`, `ESCALATED`, `TIER_3_ARBITRATION`) are gone from the type, from `RecordRow.disputeStatus`, and from the `status` and `disputeStatus` query filters, all of which declare a strict enum, so a retired value is a 400. `Dispute` loses `currentTier`, `feeChargedTo`, `feeAmount` and `feeCurrency`; there are no tiers to charge for. `dispute.escalated` is no longer subscribable.
-
-- **`PENDING_ARBITRATION` is gone from `RecordStatus`**, from `RECORD_TRANSITIONS` and `TERMINAL_STATUSES` in `record-lifecycle`, from `BackfillRecord.terminalStatus`, and from `RecordRow.awaitingActor`, which is now `principal`, `performer`, `system` or null. `DISPUTED` transitions to `FULFILLED` or `FAILED`; there is no state in between. The label survives on one wire only: `federation.submitStateTransition` still accepts it, because a peer on the previous version is still sending it through a rolling upgrade.
-
-- **Commission is gone from every Record surface.** `RecordRow.commissionPct` and `commissionAmount`, `CreateRecordParams.commissionPct` (and the bulk item that extends it), `DelegateRecordParams.commissionPct`, and `SchemaRulesConfig.commissionSourceField` are all removed. AGLedger records acceptance; it never computed a payment.
-
-- **`federation.syncAgentDirectory` and `federationAdmin.resyncPeer` are gone**, with `AgentDirectorySyncParams`. `POST /federation/v1/peer/agent-sync` and `POST /federation/v1/admin/peers/{peerHubId}/resync` no longer exist, and the peer columns they fed go with them: `FederationPeer` loses `agentDirectoryHash` and `lastSyncAt`. Reachability was never `lastSyncAt` anyway; it is `lastDeliveryAt` with `consecutiveDeliveryFailures`.
-
-- **The peer handshake body is exactly five fields.** `PeerHandshakeParams` is `peerHubId`, `peerUrl`, `signingPublicKey`, `peeringToken` and `boundOrgId`, all required; `encryptionPublicKey` and `agentDirectory` are gone and the route refuses anything else. It is unauthenticated now: the single-use peering token in the body is what admits the call. `PeerHandshakeResult` loses `serverEncryptionPublicKey`.
-
-- **`FederationPeerStatus` no longer names `suspended`**, on peer rows or on the `status` filter of the peers listing, and `OpsSummary.federation.peers` loses its `suspended` counter. A peer is `active` or `revoked`.
-
-- **`AiImpactAssessment.overseerName` is gone.** The assessment records the oversight configuration, not a named individual.
-
-### Changed (breaking)
-
-- **`client.reputation` is `client.drift`.** The Server no longer computes a reputation score, a composite, or a confidence level, and the routes that served them are gone. What it serves instead is drift: counts of what an agent did in the current window (records, completions, verdicts, accepted, rejected, overturned, acceptance rate, median completion time), the same counts for the window before it, and the difference. The difference is the signal; there is no score, no weighting and no threshold. `drift.getAgent(agentId, { window?, type? })` reads one agent, overall and per type. `drift.listFleet({ window?, limit?, cursor? })` is the org-wide roll-up for an org-bound admin key, one row per agent, with the window every row was computed over returned beside the rows; `drift.listAllFleet` walks it. `drift.getAgentHistory` is the per-record history that used to be `reputation.getHistory`, now with its filters typed. `ReputationScore` and `ReputationHistoryEntry` are gone; `AgentDrift`, `DriftBucket`, `DriftChange`, `FleetDriftRow`, `FleetDriftPage` and `AgentHistoryEntry` are the new types.
-
-- **`Scopes.REPUTATION_READ` is `Scopes.DRIFT_READ`, and the string is `drift:read`.** The Server refuses `reputation:read` everywhere a scope is validated, so a key request or profile check that still names it fails on the wire regardless of what this SDK exports. The profile descriptions and memberships follow.
-
-- **`federation.contributeReputation` and `federation.getAgentReputation` are removed**, with `ContributeReputationParams` and `FederationAgentReputation`. The cross-Server contribution flow no longer exists.
-
-- **`CreateAgentParams` no longer has `name`.** `POST /v1/admin/agents` accepts `displayName` only and refuses `name` as an unknown property, so the previous type, which required both, had no callable form against the current Server: omitting `name` failed to compile and sending it was a 400. `displayName` is the agent's name, unique within the org; the two fields never described different values.
-
-- **`ConformanceResponse.capabilities.reputationScoring` is `agentDrift`.**
-
-- **`Scopes.DISPUTES_MANAGE` is removed.** The Server has never had a `disputes:manage` scope at any published version, so a key request that named it was refused. It was carried on `admin-standard` here for a full release cycle.
-
-
-- **Types that named fields the wire never carried are corrected.** `auth.rotateKey` resolves to `RotateKeyResult`, which has no `keyId` (the route never returned one) and does have `role`, `previousKeyDeactivated`, `previousKeyDeactivatesAt` and the new `expiresAt`. `ProvisioningStatus` is the shape `GET /v1/admin/provisioning/status` serves (`configured`, `configPath`, `dryRun`, `prune`, `lastReloadAt`, `managed`, `loadErrors`, `pruneSuppressed`); `loaded`, `sourcePath`, `lastLoadedAt` and `entries` were invented. `admin.reloadLicense` resolves to `LicenseInfo` and `admin.reloadProvisioning` to `ProvisioningReloadResult`; neither route returns a `reloaded` flag. `admin.deactivateOrg` and `admin.deactivateAgent` resolve to `DeactivateResult`.
-
-### Added
-
-- **`disputes.resolve(disputeId, { outcome, rationale? })`** (`POST /v1/disputes/{id}/resolve`). This is what replaced the tier ladder: the principal renders the outcome and the engine records it. `OVERTURNED` means the disputed verdict does not stand, so a Record that had FAILED settles at FULFILLED with the verdict re-rendered as accept (one already FULFILLED or REMEDIATED is restored to that terminal) and a RELEASE Settlement Signal follows carrying `reasonCode: DISPUTE_OVERTURNED`. `UPHELD` returns the Record to exactly the status it held before the dispute and emits no signal. Accepted while the dispute is in `EVIDENCE_WINDOW` or `PENDING_RESOLUTION`; one already `RESOLVED` or `WITHDRAWN` is refused with 422. `DisputeOutcome` and `ResolveDisputeParams` are new. The path parameter is the DISPUTE id, unlike every other dispute method on this resource, which takes the Record id: read it from `disputes.list()` or from `RecordRow.disputeId`.
-
-- **`CreateRecordParams.maxRevisions`** (1-20): the rework cap for this Record. Omit it to inherit the org default `enforcement.defaultMaxRevisions`, which is 3 unless the org set it. Immutable once the Record is created. Reaching the cap refuses the next resubmit with 422 and leaves the Record where it was, so the principal can still verdict, cancel or dispute it. Bulk create takes it too.
-
-- **`agents.list` and `agents.listAll` take `includeDeactivated`** via the new `ListAgentsParams`, and `AgentProfile` and `AgentDirectoryEntry` carry `deactivatedAt`. The default drops the agents an operator deactivated, which a new Record cannot name. The flag is bound into `nextCursor`, so set it before a walk starts rather than partway through.
-
-- **Org config is typed.** `OrgConfig` was an index signature; it is now `config` (the overrides an operator explicitly stored, as `OrgConfigDocument`), `enforcement` (the values actually in force, as `EnforcementSettings`), `enforcementDefaults` (the engine defaults, which is where a cleared override lands) and `enforcementSource` (per field, `org` or `default`). `SetOrgConfigParams` types the PATCH the same way, with every enforcement key nullable because `null` is how an override is dropped rather than changed, plus the new `disputes.autoReadjudicate` (`toleranceExpansion`, `deadlineGraceSeconds`) and `enforcement.defaultMaxRevisions`. `approvedSuppliers` is a string array, which is what the route has always taken; it was typed as an object.
-
-- **`CoSignStatus` is a named, exported union, and it knows `partial`**: some co-signers answered and some did not, which used to read as `pending` or `failed` depending on nothing the caller could see. `RecordRow.coSignStatus` and `settlementSignal.coSignStatus` both use it; it was written inline at both sites, where the enum guard could not see it.
-
-- **`EventType` gains `system.cascading_gate_enqueue_failed` and `system.verification_enqueue_failed`**, the two engine-internal failure events, plus the two types retired from subscriptions above. All four are queryable history and none is subscribable, so the gap between `EventType` and `WebhookEventType` is seven members now rather than three.
-
-- **`FederationDlqEntry.firstFailedAt`**: when the message first failed, as distinct from when the row was written. A queue entry retried for a day has one of each.
-
-- **`AgentHistoryEntry.status` is the `RecordStatus` union** rather than a bare string, matching the enum the route now declares.
-
-- **`DisputeResponse` carries `nextSteps`**, which the dispute read has started serving.
-
-- **`admin.reactivateOrg` and `admin.reactivateAgent`** (`POST /v1/admin/{orgs,agents}/{id}/reactivate`). Idempotent: an already-active account returns `wasDeactivated: false` rather than an error. Reactivation does not restore the keys deactivation revoked. `AdminOrg` and `AdminAgent` rows now carry `deactivatedAt` and `managedBy`, and a provisioning-managed row refuses both verbs with a 409.
-
-- **Agents can be bound to an external identity.** `CreateAgentParams` and `UpdateAgentParams` take `oidcIss` and `oidcSub` together (a half-set pair is refused), and `AgentProfile` reports them. With both set, `POST /v1/auth/oidc/cert` resolves the agent from a token carrying that issuer and subject. `UpdateAgentParams` also gains `agentCardUrl`, which the route has always accepted, and `agentClass` is typed as the `AgentClass` union the Server enforces.
-
-- **Trusted issuers can auto-provision agents.** `TrustedIssuer`, `CreateTrustedIssuerParams` and `UpdateTrustedIssuerParams` carry `autoProvisionAgents`, `autoProvisionScopeProfile` (an `AutoProvisionScopeProfile`, which is also the scope ceiling for every cert the issuer mints) and `autoProvisionMaxAgents`.
-
-- **`ListApiKeysParams.expiresBefore` and `neverExpires`**: the rotation queue and the no-expiry inventory. Keys with no expiry are not matched by `expiresBefore`.
-
-- **`RotateKeyResult.expiresAt`**: when the replacement key expires under an install-wide key lifetime cap. Rotation is not a way around the cap; schedule the next rotation before this instant.
-
-- **`LicenseInfo.source` knows `compact`**, the key form a Helm values file carries.
-
-- **`ProvisioningReloadResult.apiKeys.generated[].keyId` and `.source`**: which key rows the reconcile created and whether the Server minted the material (`generated`, with a one-shot `apiKey` readout that exists nowhere else) or the YAML supplied it.
-
-- **`AuditChainIntegrityReason` names `audit_vault_empty`**: the record exists but its chain holds no entries. Every creation path appends an entry in the same transaction as the record, so an empty chain is every entry gone, and the export reports it rather than passing a trivially valid chain.
-
-### Fixed
-
-- **`ScopeProfiles` matches what the Server grants.** The hand-mirrored copy had drifted on every profile. The three agent profiles were missing `audit:read` and `compliance:read` (an agent's own records have been self-auditable since API 1.5), `agent-full` was missing `drift:read`, `admin-standard` listed `admin:backfill` and `schemas:admin` that the Server does not grant it, and `admin-iac` carried `schemas:admin` where the Server grants `schemas:write`. The live source is `GET /v1/scope-profiles`; this copy exists so a client can reason about a profile offline, and now it can.
-
-- **The enum guard pins `AgentClass` and `AutoProvisionScopeProfile`**, and it now also pins `DisputeOutcome`, `EnforcementMode` and `EnforcementSource`. Every pinned union was re-read against the current spec, which is what caught the five that had moved: `DisputeStatus`, `RecordStatus`, `FederationPeerStatus`, `EventType` and `WebhookEventType`.
-
-- **`disputes.create` says what the create envelope carries.** The 201 is `{ dispute, autoReadjudication, nextSteps }` and the method returns the dispute; `autoReadjudication` (renamed from `tier1Result` on the wire) says whether the engine's automatic re-check already resolved the dispute and, when it did not, why. Reach it with `client.request()` when that matters.
-
-- **`federationAdmin.revokePeer` resolves to `{ revoked: true; nextSteps? }`.** It declared `revoked: boolean`, and the route never returns false: a refusal is a thrown 4xx. The `remoteAgentsDeleted` count it used to carry is gone with the agent directory.
-
-## [1.10.0] - 2026-08-30
-
-Reconciled against API v1.6.0.
-
-### Fixed (the SIEM stream dropped audit events)
-
-- **`compliance.streamAll` sends the stream cursor back verbatim instead of rebuilding a timestamp from it.** It used to split `X-AGLedger-Stream-Cursor` at its last underscore and feed the instant half back as `since`. Rows written in one database transaction all carry the same `created_at`, and `since` is compared by instant alone, so any page boundary landing inside such a group skipped every remaining row that shared the newest instant. Those events were never delivered to the SIEM and nothing reported a gap. The walk now continues with `cursor`, which carries the row id alongside a full-precision instant and steps through the group. Anyone forwarding audit events with `streamAll` should re-pull the window they care about: the rows lost this way are still on the Server.
-
-- **A page yielding rows with no cursor to resume from raises `PaginationLimitError` rather than returning quietly.** The walk cannot advance past it, and stopping there hands back a prefix of the stream that reads as all of it. A bound you set with `maxPages` still ends the walk quietly, because that stop is yours.
-
-### Fixed (three event types the webhook API rejects)
-
-- **`WebhookEventType` is the set a subscription can actually fire on.** It named `record.settled`, `record.released` and `dispute.evidence_window_closed`, which `POST /v1/webhooks` has never accepted: the create route declares a strict enum, so `webhooks.create({ eventTypes: ['record.settled'] })` was a 400 from a parameter this SDK typed as valid. None of the three was ever delivered as a webhook type either. Settlement outcomes reach subscribers as `signal.emitted` and `signal.received`, not as per-variant types. Removing them is a breaking type change for anyone who named one, and the code it breaks was making a request the Server refused.
-
-- **`EventType` is new, and carries the wider set.** The three removed above are queryable on `GET /v1/events`, which serves a deliberate superset of the subscribable enum as replay surface. That is the type to reach for when filtering the event listing. It has no `*` member, because the wildcard is a subscription filter rather than a type any event carries.
-
-- **`audit.orgReadsCheckpoints.proof()` takes the leaf index as a number.** The `leaf` query parameter is an integer, and the value to send is `OrgAdminRead.leafIndex`, which is a number too, so the documented workflow (list the leaves, prove one against a checkpoint) did not compile.
-
-- **`compliance.stream` rejects a call that sends neither `since` nor `cursor`.** The endpoint requires `since` unless a `cursor` is present, so an empty params object was a guaranteed 400. It throws `ConfigurationError` alongside the existing both-were-sent check.
-
-- **A fractional `X-AGLedger-Stream-Holdback-Seconds` reads as null.** The header is whole seconds, and `3.5` was being reported as 3.5 seconds of holdback rather than as a header this client does not understand.
-
-### Changed
-
-- **`AuditStreamParams.since` is optional and `cursor` is new.** Send one or the other, never both: `since` opens a walk, `cursor` continues one. Passing both throws `ConfigurationError` before the request leaves the process, rather than silently dropping one and starting somewhere you did not ask for.
-
-- **`AuditStreamResult.hasMore` means "this page produced rows".** It was `events.length >= (limit ?? 100)`, a guess that is wrong in both directions once the Server holds rows back: a short page is not the end of the stream. On a cursor walk the only honest local signal is whether this poll returned anything, and a zero-row page ends this poll rather than the stream.
-
-- **`AuditStreamResult.holdbackSeconds` is new.** Whole seconds by which the page stops short of now, because a transaction open on the Server has not committed and rows stamped inside it are not yet visible. `0` means the page runs up to the present; a large value means an empty page is not evidence that nothing has happened, so hold the cursor and keep polling. Null when the Server sends no header.
-
-- **`FederationPeer` is the row the endpoint serves.** Five of its seven fields (`hubId`, `name`, `endpoint`, `publicKey`, `registeredAt`) are served by no version of `GET /federation/v1/admin/peers`, so anything reading them got `undefined`. The real row is `peerId`, `peerHubId`, `peerUrl`, `status` and `createdAt`, plus the optional `agentDirectoryHash`, `consecutiveDeliveryFailures`, `lastDeliveryAt`, `lastDeliveryError` and `lastSyncAt`. Reachability is `lastDeliveryAt` with `consecutiveDeliveryFailures`, not `lastSyncAt`, which only moves when a peer pushes its agent directory. This is a breaking type change for code that typed a peers listing, and the fields it breaks on never held a value.
-
-- **`PeerHandshakeResult` is declared.** It was `{ established: boolean; peerHubId?: string }` plus an index signature; `established` is not a field the route serves. The 201 carries `peered` (always `true`), `peerId`, `peerHubId`, `status`, `serverSigningPublicKey`, `serverEncryptionPublicKey` and optional `nextSteps`. `peerHubId` is the identifier every `/federation/v1/admin/peers/{peerHubId}` path takes; `peerId` is a receiver-local row id no admin path accepts.
-
-- **The federation peer methods name their parameter `peerHubId`,** matching the path parameter the API renamed from `hubId`. `federationAdmin.getPeer`, `revokePeer`, `resyncPeer` and `deletePeer` take it positionally, so the URL they build is unchanged and no call site has to move.
-
-- **`audit.orgReadsCheckpoints.list` returns the whole envelope.** It declared `{ data }` alone, so the `checkpointing` sweep schedule, `hasMore`, `nextCursor` and `total` were all served and none were reachable. The schedule is what separates a log whose first sweep has not fired from missing checkpoints. It has its own type rather than reusing `VaultCheckpointingSchedule`, which carries an `anchoringEnabled` this endpoint does not serve. The method also takes `offset` and `cursor` now, so a listing past the first page can be walked.
-
-### Added
-
-- **`audit.orgReadsCheckpoints.listReads()`** for `GET /v1/audit/org-reads`, the read-transparency log entries the checkpoints cover, oldest first in `leafIndex` order. Without it an empty checkpoint list could not be told apart from "no qualifying reads have happened yet": nothing here means nothing was logged, while rows here with no checkpoint mean the sweep has not run over them. Verify one against a checkpoint with `proof()`, passing its `leafIndex`.
-
-- **`events.list` and `events.listAll` take `until`,** returning events created strictly before that instant. Pair it with `since` (inclusive) to close a window, and consecutive windows compose without overlap when the next `since` equals the previous `until`. Both methods now take the named `ListEventsParams`.
-
-- **`events.list` and `events.listAll` take `recordId` and `eventType`.** Both are served by the route and neither was on the params type, and because TypeScript rejects unknown keys in an object literal, neither filter could be passed without a cast. `eventType` takes the new `EventType`.
-
-- **`FederationPeerStatus` and `OrgReadsCheckpointingSource` are named types.** Both were spelled inline on the field that uses them, where the enum-member parity guard cannot see them: it reads top-level type aliases, so an inline union drifts unchecked. They are pinned to the API enum now, and `FederationPeer['status']` and `OrgReadsCheckpointingSchedule['source']` are unchanged for callers.
-
-- **`OpsSummary.vault.orgReadsCheckpoints`,** the platform-wide read-transparency sweep posture: `cron`, `lastCheckpointAt` across all orgs, and `workerScheduled` (null when the worker posture could not be determined).
-
-## [1.9.0] - 2026-08-21
-
-### Fixed (enum members that could never have worked)
-
-Each of these was reachable from a typed, documented parameter and named values the API has never had. The route declares a strict enum, so sending one is a 400. The first was found while validating the 1.9.0 release; the rest came out of auditing every union in the file against the served spec.
-
-- **`DisputeStatus` dropped `OPENED` and `TIER_1_REVIEW`.** Neither exists anywhere in the API. The type reaches three strict-enum query params (`GET /v1/records`, `GET /v1/records/search`, `GET /v1/disputes`), and `SearchRecordsParams.disputeStatus` is new in this release, so it would have shipped a filter that 400s on two of its own documented values. The full set is `EVIDENCE_WINDOW`, `TIER_2_REVIEW`, `ESCALATED`, `TIER_3_ARBITRATION`, `RESOLVED`, `WITHDRAWN`.
-
-- **`SchemaCompatibilityMode` is lowercase.** It named `FULL`/`BACKWARD`/`FORWARD`/`NONE` while every request site (`POST /v1/schemas`, `POST /v1/schemas/preview`, the import manifest's `compatibility`, and the version PATCH) declares `none`/`backward`/`forward`/`full`. All four documented values were a 400. The same file already spelled them correctly inline on `SchemaManifest`, which now uses the named type instead of its own copy.
-
-- **`SchemaVersionStatus` is `ACTIVE | DISABLED`.** It named `DEPRECATED` and `DELETED`, neither of which appears in the API, and omitted `DISABLED`, which the listing and detail routes serve.
-
-- **`UpdateSchemaVersionParams` takes only `compatibilityMode`, and requires it.** The PATCH body declares `additionalProperties: false` with `compatibilityMode` required, so the optional `status` this interface offered was rejected outright rather than deprecating anything. `schemas.updateVersion`'s doc comment said "e.g., deprecate", which was never true of this route; disabling a Type is `schemas.disable()`.
-
-- **`SubmitDisputeProtocolParams` types its two enumerated fields.** `action` was `string` against a strict `opened | resolved | withdrawn | escalated` (now `DisputeProtocolAction`, exported), and `disputeStatus` was `string` where the route means a dispute status.
-
-- **One declaration per enum.** `disputeStatus` was declared four different ways across the file (a named union, a bare `string`, and two inline copies of the member list), which is how two of them drifted while the others stayed right. Each now points at the named type.
-
-### Added
-
-- **An enum-member parity guard** (`src/__tests__/enum-parity.test.ts`, with the `enums` block in `schema-fields.json`). `routes.json` pinned the route surface and `schema-fields.json` pinned field NAMES; nothing had ever looked inside a union, which is why every defect above survived. 26 of the SDK's 29 string-literal unions are now pinned to the API enum they mirror, and the other three are listed with the reason each has no enum to pin against. A union the parser cannot see fails the guard rather than passing quietly.
-
-### Changed
-
-- **An auto-paginating walk that hits the page ceiling now throws `PaginationLimitError` instead of returning a prefix.** `paginate` stopped at 100 pages and returned, so nothing distinguished "walked the whole listing" from "hit the ceiling": `listAllSubRecords(parent, { limit: 7 })` over 1000 sub-Records yielded 700 rows and reported success. The ceiling is a runaway guard, not a result, and this release makes it say so. A bound you set yourself is an intentional stop and still ends the walk quietly, so `maxPages` and `maxItems` behave exactly as before. To walk a large listing, raise `limit` so the rows arrive in fewer pages, or pass a `maxPages` that fits it. `compliance.streamAll` had the same shape and gets the same treatment, where the stakes are higher: a SIEM feed that stops early and says nothing reads as a quiet window with no events in it. Found in pre-release validation of the 1.9.0 candidate.
-
-### Added
-
-- **Three pagination caps on `Conformance.limits`.** `cursorMaxLength`, `paginationLimitMax`, and `searchCursorMaxLength` are published by the Server and were reaching callers through the index signature with no type or documentation. They bound what a paging client has to handle: round-trip `nextCursor` verbatim, keep `?limit=` at or under `paginationLimitMax` for portability across routes, and size cursor storage to `searchCursorMaxLength`, the widest token any route mints.
-
-### Fixed (query parameters that could never have worked)
-
-Every item here was reachable from a typed, documented method and returned `400` on every call. They were invisible to the test suite because mocks assert on what the SDK sends, and to the parity snapshots because those are built from the SDK's own idea of the shape. All four were found by driving the SDK against a live Server.
-
-- **Object query params are expanded into the API's bracket notation.** `buildUrl` ran every value through `String(value)`, so `search({ metadata: { state: 'blocked' } })` went out as `metadata=[object Object]` and came back `400 querystring/metadata must be object`. Metadata-filtered search has never worked from this SDK. The same defect would have swallowed the new `criteria` filter.
-
-- **A `Date` passed to a date-time query param** (`from`, `to`, `updatedAfter`, `updatedBefore`) serialized to the JS locale form, which the Server rejects. It now serializes as ISO-8601.
-
-- **`SearchRecordsParams.principalAgentId` is removed.** No record endpoint accepts a `principalAgentId` query param, and the search querystring rejects unknown properties, so offering it guaranteed a `400`. What replaces it depends on the key: on an **agent key**, `role: 'principal'` narrows the caller's own auto-scope to the Records it is principal on. On an **admin or platform key** `role` is itself a `400` (it narrows an agent's auto-scope and those keys have none), so narrow with `performerAgentId` instead.
-
-- **`AuditVaultExportParams.since` / `.until` are removed**, replaced by the `from` / `to` the route actually takes. The type also gains `recordId` and `agentId`, and `format` drops `'csv'`, which the route does not serve.
-
-- **Pagination params now match each route.** `ListParams` offered `limit`, `offset` and `cursor` uniformly while 14 endpoints accept only some of them. Methods now take `LimitParams`, `CursorListParams`, or `ListParams` as appropriate, starting with `agents.list`/`listAll` (cursor only).
-
-- **`CreateApiKeyParams.ownerType` and `AdminApiKey.ownerType` are `KeyOwnerType`, not `ApiKeyRole`.** What a key is owned by is not the set of what it can do: owners are `org | agent | platform`, roles are `admin | agent | platform`. Typing both as `ApiKeyRole` made the ordinary admin-key create a compile error, because an admin key is owned by an org and `'org'` was not in the type, while the `ownerType: 'admin'` the API rejects typechecked clean. The SDK's own test suite had the rejected value written into it. `RateLimitExemption.ownerType` moves too, and `AccountProfile.ownerType` narrows from bare `string`.
-
-Removing a parameter is a type-level break, but no working call can depend on one: each produced a `400` in every case.
-
-### Fixed (paging, reconciled against API v1.5.0)
-
-- **`records.getChain` walks every page.** It returned the first page's rows under a doc comment calling it the full delegation chain. A page caps at 1000 rows, so a longer chain came back truncated with nothing on the result saying so. `maxPages` caps the walk.
-
-- **`records.getSubRecords` and `records.listProposals` take paging params.** Both passed `undefined`, so the `nextCursor` on the page they returned could not be spent through the typed method. `records.listAllSubRecords` walks the listing.
-
-- **`cursor` on every listing that accepts it.** `admin.getWebhookHealth`, `reputation.getHistory` and `ListTrustedIssuersParams` offered `limit` and `offset` only. The Server pages these by position now, and offset paging skips or repeats rows on a listing being written to while you walk it. `OffsetListParams` is deprecated: no route the Server publishes takes `offset` without also taking `cursor`.
-
-- **`RateLimitError.retryAfter` reads the 429 body.** It came from the `Retry-After` header alone, so a proxy that strips headers left it `null` with `retryAfterSeconds` sitting in the body unread. The header still wins where both are present, and `ApiErrorResponse` now carries `retryAfterSeconds`.
-
-- **`Page` carries `nextSteps` and `recordRead`.** The list envelope names both, and normalizing a response dropped them; `recordRead` is the org-admin cross-party read receipt, so on those listings the chain entry the read appended went unreported.
-
-- **`HealthResponse.uptime` and `.database` are deprecated.** `GET /health` declares `status`, `version` and `timestamp`, and the Server strips what its response schema does not declare, so neither has ever arrived. Kept so callers compile. Process uptime and database state are on `SystemHealth`, where `database` is an object.
-
-### Added (API drift this release tracks)
-
-- **`RecordRow.supersedesRecordId` and `RecordRow.supersededByCount`.** Supersession answers "which record is current" on an append-only ledger. `supersedesRecordId` is create-only, immutable, and inside the create-time signature, so an offline verifier reconstructs the same lineage the API reports. `supersededByCount` above 1 is a fork, not an error: two writers superseded the same Record independently.
-
-- **`CreateRecordParams.supersedesRecordId`**, and with it `BulkCreateRecordItem`. A checkpoint-style pattern pairs this with `parentRecordId`: every checkpoint is a child of the same root and supersedes the previous head.
-
-- **`SearchRecordsParams` gains `superseded`, `supersedesRecordId` and `criteria`**, plus ten filters the API already accepted and the SDK never offered: `role`, `category`, `projectRef`, `hasDispute`, `disputeStatus`, `imported`, `source`, and `ref.system` / `ref.type` / `ref.id`. `criteria` filters on signed bytes; `metadata` filters on an unsigned annotation an offline verifier cannot see.
-
-- **`CreateRecordParams.references` and `.share`**, both long accepted by `POST /v1/records` and both unexpressible from the SDK. References are typed by the new **`EntityReferenceInput`**, which `references.addRecordReferences` and `addAgentReferences` now take in place of `Record<string, unknown>[]`.
-
-- **`ConformanceResponse.limits`**: the numeric caps this install enforces. Several are org-configurable, so read them rather than hardcoding.
-
-- **`recoveryHint` on bulk per-item results**, and **`AgledgerApiError.registryVersion`** for the `CONFLICTING_VERSION` 409, which names the registry slot a schema conflict is on.
-
-- **`ListApiKeysParams`, and `admin.listAllApiKeys`.** `admin.listApiKeys` took `limit` and nothing else, so the six filters the route has always accepted (`ownerId`, `orgId`, `ownerType`, `role`, `isActive`, `createdBefore`) were unreachable from the typed method, single-owner mode included. It now pages as well: the API used to slice cross-owner mode in SQL and then report `hasMore: false` with `total` set to the count it had just sliced, so an install with more than 200 keys reported exactly 200 and called itself complete. The API now reports that envelope honestly, which means a caller reading `data` and stopping now sees the `hasMore: true` it was owed. `listAllApiKeys` walks the whole listing and resends the filters with each cursor, which the single-owner cursor requires: it carries the owner it was minted under, and replaying it without the matching `ownerId` is a 400 rather than a silent slide into the install-wide listing.
-
-- **`ListSchemasParams` and `ListPeersParams`.** `schemas.list` accepted only `orgId`, so neither the page size nor `includeDisabled` could be set; `federationAdmin.listPeers` took an unnamed inline shape a consumer could not import. Both are named types now, and both gain the `cursor` their route now declares, alongside `compliance.listRecords`.
-
-### Fixed (admin types that did not describe the response)
-
-- **`SystemHealth` did not resemble the payload at all.** It declared `database: string`, `queue: string`, `cache: string` and `activeConnections: number`. `GET /v1/admin/system-health` returns `database` as an object (`status`, `latencyMs`, `pool`), serves no `cache` and no `activeConnections`, and carries five fields the type never had: `status`, `degradedReasons`, `queues`, `webhookDeadLetters` and `process`. Every property on the old type was wrong, so no reader of this endpoint could have been compiling against it and getting real data. `status` reads `degraded` when the database cannot serve or anything is dead-lettered; failure counts on live queues do not move it, because those are retries in flight.
-
-- **`OpsSummary` was missing three blocks the route returns.** `system.degradedReasons` says why `status` is degraded. `federation.peers` gains `delivering`, `failing` and `neverDelivered`, which partition the existing `active` count: `active` is registration state and reads identically for a peer taking every delivery and one that has never taken any. `vault.anchoring` is required in the response and was absent entirely; it carries the external-anchoring posture, including the `reconciled` flag that says whether the API and worker processes agree that anchoring is happening. `queues` was `Record<string, unknown>` and is now `Record<string, QueueCounts>`.
-
-- **Nine types a caller can reach are now exported.** `QueueCounts` (from `SystemHealth.queues` and `OpsSummary.queues`), `AuditChainFailure`, `AuditChainIntegrityDetail`, `AuditChainIntegrityReason`, `AuditSignatureCoverage`, `BackfillImportedRecord`, `FederationSchemaRef`, `SchemaKeywordWarning` and `WebhookSigningAlg`. Each types a field on a type the resource methods already return, so a consumer could hold the value and not name it. The export gate only checked the type names the resource modules import by name, which is one hop; it now walks the whole reference closure out of those types.
+Two things are gone from the Server and this release removes both without aliases: agent reputation, which agent drift replaced, and the dispute tier ladder, which a single principal rendering replaced. Commission, the peer agent-directory sync and proposal counter-offers went with them.
 
 ### Removed
 
-- **`EuAiActReport`.** No API route produces that shape, in this release or any earlier one. The two SDKs had even invented different shapes for it (this one had `records[]` and `summary`, the Python SDK had `recordsAssessed` and `generatedAt`), which is the clearest evidence it was never real.
+- **`records.counterPropose` and `records.acceptCounter`**, with `CounterProposeParams`. Negotiation is propose, then accept or reject: a performer who wants different terms rejects and the principal creates the Record it means. `AcceptanceStatus` no longer names `COUNTER_PROPOSED`, and `record.proposal_counter_proposed` is no longer a webhook event type.
+- **`disputes.escalate`, and the tier ladder behind it.** `DisputeStatus` is `EVIDENCE_WINDOW`, `PENDING_RESOLUTION`, `RESOLVED`, `WITHDRAWN`: the tier values (`TIER_2_REVIEW`, `ESCALATED`, `TIER_3_ARBITRATION`) are gone from the type, from `RecordRow.disputeStatus`, and from the `status` and `disputeStatus` query filters, where a retired value is a 400. `Dispute` loses `currentTier`, `feeChargedTo`, `feeAmount` and `feeCurrency`. `dispute.escalated` is no longer subscribable.
+- **`PENDING_ARBITRATION` is gone from `RecordStatus`**, from `RECORD_TRANSITIONS` and `TERMINAL_STATUSES` in `record-lifecycle`, from `BackfillRecord.terminalStatus`, and from `RecordRow.awaitingActor`, which is now `principal`, `performer`, `system` or null. `DISPUTED` transitions to `FULFILLED` or `FAILED`. `federation.submitStateTransition` still accepts the label, because a peer on the previous version may still send it.
+- **Commission is gone from every Record surface.** `RecordRow.commissionPct` and `commissionAmount`, `CreateRecordParams.commissionPct` (and the bulk item that extends it), `DelegateRecordParams.commissionPct`, and `SchemaRulesConfig.commissionSourceField` are removed.
+- **`federation.syncAgentDirectory` and `federationAdmin.resyncPeer`**, with `AgentDirectorySyncParams`. `FederationPeer` loses `agentDirectoryHash` and `lastSyncAt`; reachability is `lastDeliveryAt` with `consecutiveDeliveryFailures`.
+- **The peer handshake body is exactly five fields.** `PeerHandshakeParams` is `peerHubId`, `peerUrl`, `signingPublicKey`, `peeringToken` and `boundOrgId`, all required; `encryptionPublicKey` and `agentDirectory` are gone. The route is unauthenticated: the single-use peering token in the body admits the call. `PeerHandshakeResult` loses `serverEncryptionPublicKey`.
+- **`FederationPeerStatus` no longer names `suspended`**, and `OpsSummary.federation.peers` loses its `suspended` counter. A peer is `active` or `revoked`.
+- **`AiImpactAssessment.overseerName`.** The assessment records the oversight configuration, not a named individual.
+- **`Scopes.DISPUTES_MANAGE`.** The Server has never had a `disputes:manage` scope, so a key request that named it was refused.
 
-### Changed
+### Changed (breaking)
 
-- **`ListRecordsParams.role` and `SearchRecordsParams.role` say that `role` is agent-key only**, and narrow from bare `string` to `'performer' | 'principal'` on the list params. The parameter narrows the calling agent's auto-scope, so an admin or platform key passing it gets a `400`. This mattered most on exactly the migration this release creates: a caller dropping `principalAgentId` and reaching for `role` on an admin key trades one `400` for another.
-
-- **`npm run parity:refresh` regenerates the parity snapshots** from an OpenAPI spec (`--url` or `--spec`), and `parity:check` reports drift without writing. Both snapshots were previously hand-maintained with no generator, which meant the parity tests could not detect API drift at all: they compare the SDK against files that only change when someone edits them. Refreshing against the current spec also recovered a `publisher` query param on `GET /v1/schemas/{type}/diff` and `POST /v1/schemas/{type}/export` that the hand-built snapshot had been missing since v1.4.0.
-
-- **The parity snapshots track API 1.4.0 plus the post-release pagination changes above.** Route count is unchanged at 193 and the field surface is identical across all 11 components; the four `cursor` params are the only client-visible drift.
-
-## [1.8.0] - 2026-08-08
-
-### Added (multi-publisher schemas)
-
-Two publishers offering the same `record_type` in one org is a supported state. Once that happens a bare `type` no longer names a schema, so record creation refuses rather than picking one: `422 /problems/ambiguous-publisher`, with the candidates listed. The pick is withheld deliberately, because it would change the moment the other publisher shipped a higher version. None of that was expressible from either SDK.
-
-- **`CreateRecordParams.publisher`** pins which registration of `type` a Record binds to. `BulkCreateRecordItem` inherits it, so each item of a bulk create can pin its own.
-
-- **`RecordRow.publisher`** reports the binding the engine actually used, present whether or not you pinned it. It is `string | null`, and the `null` is load-bearing: a federation-received Record was judged by the originator against its own registration, so it was never validated against a local one. Read `null` as "ask the originator", not as "the schema is missing here". Backfill-imported Records are not null; import binds the registration it validated against.
-
-- **`BackfillRecord.publisher`** pins the registration a backfilled item binds to, the import-side counterpart of `CreateRecordParams.publisher`. Without it a batch touching an ambiguous type was unsendable from the SDK: the field could not be expressed, and the engine refuses the batch with a 422 naming the offending index.
-
-- **`AgledgerApiError.publishers`** carries the candidate labels off that 422, and **`AgledgerApiError.type`** carries the RFC 9457 problem URI. Without these the error was unactionable in code: the SDK copied a fixed set of fields off the body and dropped everything else, so a caller could read the recovery prose but could not get the list it referred to. Branch on `type`, not on message text.
-
-- **Per-item bulk failures** now carry `problemType` and `context`, matching the singleton error body. Previously a failed item was a bare `error` string with no way to tell an ambiguous publisher from anything else.
-
-- **Schema reads and writes take a `publisher` option**, on `get`, `delete`, `getRules`, `getTemplate`, `getVersions`, `getVersion`, `updateVersion`, `disable`, `enable`, and `validateCompletion`. The engine has accepted `?publisher=` on these since before v1.3.4 and the SDK never sent it, so an org with two publishers could not read its own schemas through the SDK at all. `schemas.list()` returns one row per (publisher, type); take `publisher` off the row you want.
-
-- **`schemas.getManifest()`**, for `GET /v1/schemas/{type}/manifest`. The route existed with no SDK method. It returns the canonical manifest plus the `manifestDigest` a peer computes on import.
-
-`schemaUrl` on a Record and on `completionHint` now carries `?publisher=` whenever the publisher is known. It stays an opaque string to follow; single-publisher orgs get `?publisher=local` where they used to get a bare path, so anything comparing `schemaUrl` against a literal needs updating. Follow it verbatim rather than rebuilding it from `type`.
-
-Pinning `publisher` against a Server older than this API release will be rejected as an unknown body field. Only send it in response to the 422, which only a Server that supports it can emit.
-
-### Added (API drift this release tracks)
-
-- **`WebhookSigningAlg`** replaces the inline `'hmac' | 'ed25519'` union and adds `ecdsa-p256-sha256`, the FIPS-mode counterpart of `ed25519`. Same RFC 9421 scheme, same `verifyRfc9421` call. Read `capabilities.signingAlgorithms` from `getConformance()` rather than assuming a Server offers `ed25519`.
-
-- **`unsupported_algorithm`** on `AuditChainIntegrityReason` and `AuditChainFailure`: an entry signed under a COSE algorithm the engine cannot verify. Not a tamper signal. Check `minVerifierVersion` on the key.
-
-- **`VaultCheckpointingSchedule`**, returned by `audit.vaultCheckpoints.list()` and on `VaultScanResult.checkpointing`. Checkpoints are written on a schedule, not per Record, so an empty checkpoint list on a fresh install means the first sweep has not fired yet rather than that anchors are missing. That distinction was unreachable before: the schedule arrives beside `data` in the list envelope, and page normalization built a fresh `Page` and discarded it.
-
-- **`SchemaKeywordWarning`** on `SchemaPreviewResult` and `SchemaVersionDetail`: keywords in a submitted schema the validator ignores. Usually a misspelling (`maxLenght`), and worth acting on, since the intended constraint is not applied and every value passes.
-
-- **`ProvisioningStatus.loadErrors`**: provisioning files that cannot be loaded. A file that fails to parse is skipped whole while the rest of the reconcile succeeds and the Server boots healthy, so this list is the only signal that config-as-code is partially applied.
-
-- **`VerificationKeysResponse.coseAlgorithm`**, and `signatureAlgorithm` is now nullable. Both describe the active key only, not the response; a rotation across algorithms leaves retired keys under a different one, so verify each entry against the key it names.
-
-- **Twenty-three error-body fields** the SDK never modelled, including the dispute-cap set (`disputeCount`, `maxDisputes`, `openDisputeId`, `disputeableWhen`, `currentStatus`), the schema-conflict digests (`existingDigest`, `incomingDigest`, `localDigest`, `peerDigest`), and `jobId`, `terminalReason`, `migratedTo`, `signInputTemplate`.
-
-### Fixed
-
-- **`ApiErrorResponse.docUrl` is deprecated: no route emits it.** The engine's error schema has no such property, so Fastify strips it from every serialized body and the field has always been `undefined`. The value it was meant to hold is `docs`, now modelled. `docUrl` is kept so existing callers compile.
-
-- **`AuditChainFailure` was narrower than the wire.** `signature_invalid`, `signing_key_unknown`, and `signing_key_drift` reached `chainIntegrityDetail.failure` with the v1.3.2 fail-closed verification work and were only ever added to `AuditChainIntegrityReason`, so exhaustive handling of the detail union missed three real values.
-
-- **`VaultScanState` no longer claims `expired`**, which the queue stopped emitting, and adds `cancelled` and `retry`. It is open-ended now: the queue owns this vocabulary and has changed it once already. Branch on `completed` and `failed`, and treat anything else as still running.
-
-### Changed (internal)
-
-- `HttpClient.patch` and `.delete` accept query params, and `getPageWithEnvelope` returns the raw list envelope alongside the normalized page. Both exist because the SDK previously had no way to send a query on a PATCH/DELETE or to read a field the API returns next to `data`.
-
-- The schema-field parity guard now maps `ErrorResponse` to `ApiErrorResponse`. It was the one snapshot component with no SDK counterpart under test, which is why `publishers` sat pinned in the snapshot and unmodelled in the SDK for a full release cycle.
-
-### Fixed (wrong types, found against a live v1.3.4 Server)
-
-- **Four methods claimed to return a bare array and have always returned a `Page` envelope.** `discovery.getScopeProfiles()`, `admin.vault.anchors.list()`, `admin.vault.signingKeys.list()`, and `admin.listRateLimitExemptions()` were typed `T[]` while the API sends `{ data, total, hasMore, nextCursor }`, which its own OpenAPI has always declared. The obvious consumer code compiled and then threw:
-
-  ```ts
-  for (const p of await client.discovery.getScopeProfiles()) { … }  // TypeError: not iterable
-  ```
-
-  All four now return `Page<T>`, matching every other list method. No mocked test could catch this, because the mocks were written from the same wrong assumption; the integration suite now asserts each one against the live wire.
-
-- **`admin.vault.anchors.list()` typed a required parameter as optional.** `recordId` is `required: true` in the API's OpenAPI querystring, so `anchors.list()` typechecked and then failed with a 400. It is now `list(params: { recordId: string })`.
-
-- **`admin.records.import()` described a response the API has never sent.** It was typed `{ imported: number; recordIds: string[]; source }`. The engine answers `{ source, count, imported[] }`, where each `imported` entry is `{ index, recordId, chainPosition }` aligned 1:1 with the request. So `.recordIds` was `undefined` at runtime and `.imported` was an array typed as a number: reading a count off it gave `NaN`, and the record ids were unreachable except by casting. Now `AdminImportRecordsResult` matches the wire, with `BackfillImportedRecord` exported for the entries.
-
-  The unit test hid this for as long as the type existed, because it mocked `{ imported: 1, recordIds: ['rec-1'] }`, a body invented to match the SDK rather than copied from the API. It now mocks the real shape and the integration suite drives a live import.
-
-- **`AccountProfile.agentId` did not exist.** It was declared `string | null` with the note "Agent ID when `role === 'agent'`", and `GET /v1/auth/me` has never returned it, in v1.3.4 or any build since. The agent id is `ownerId` when `ownerType === 'agent'`. The field is removed rather than deprecated: every read of it returned `undefined`, so no working caller depends on it.
-
-  This one had teeth beyond the type. Three of the SDK's own integration tests gated themselves on `me.agentId` and so returned early every run, meaning the record-lifecycle and reputation checks had never actually executed against a live Server. They now resolve the id properly and run.
-
-- **`schemas.diff()` could not scope to a publisher**, so on a type two publishers offer it had no reachable result: `?publisher=` was the one way to answer and the SDK never sent it. It now takes the same `publisher` option as its ten sibling schema methods. Worth pinning even where it used to appear to work, since the engine previously resolved each side of the diff independently and could compare two unrelated publishers' schemas, reporting the difference as a breaking change.
-
-- **`schemas.delete()` returned `Promise<void>`** and discarded a body that names which registration went away. It now returns `SchemaDeleteResult` (`type`, `publisher`, `versionsDeleted`). On an ambiguous type this is the only confirmation of what was deleted: rows under the other publisher survive, so the type remaining in the catalog after a successful delete is expected rather than a failure.
-
-- **`admin.records.import()` documented the wrong role.** The JSDoc said "requires admin role + `admin:backfill` scope"; the route is platform-tier and answers an org admin key with `403 ... 'BACKFILL_IMPORT' requires platform role`. Anyone following the doc hit a 403 on a correctly-scoped key.
-
-### Fixed (declared shapes that did not match the engine)
-
-- **`RecordRow.schemaUrl` is now `string | null`.** A federation-received Record whose schema this Server does not hold has no link that resolves here: a receiver-scoped path 404s where the type is absent, and where the receiver happens to hold the same type name it answers with its own unrelated registration, whose requirements can differ. The engine returns `null` rather than a link that lies, matching `publisher`, whose `null` already means "ask the originator". Non-federated Records are unaffected and still carry a publisher-scoped URL. (`completionHint` is suppressed whole on the same Records and was already nullable.)
-
-- **`TypeSchema` declared twelve fields and the engine sends twenty.** `publisher` is the one that mattered: `SchemaListItem` declared it, so a caller could see the publisher while triaging the catalog and lost it on `schemas.get()`, the more detailed read. That is also the read that takes a publisher pin and refuses an ambiguous type with a 422, so confirming which registration answered was exactly the thing a caller could not type. Added `publisher`, `manifestDigest`, `trustClass`, `federatable`, `defaultShare`, `coSignRequired`, `flipRecordStatusOnDispute` and `federateDisputes`; `displayName`, `description`, `category` and `defaultGateMode` are nullable as the engine declares them; and `quickStart` is nullable with its real `evidence: null` (notarize-only Types have no completion phase), `tolerance` and `gateMode`.
-
-- **`schemas.getRules()`, `disable()` and `enable()` dropped the publisher they acted on.** All three returned inline types naming two or three fields. On a type two publishers offer the rules differ per publisher, so rules read without knowing whose they are are not actionable. `SchemaRulesResult` and `SchemaLifecycleResult` now carry `publisher` plus the `fieldMappings`, `commissionSourceField`, `versionsDisabled`/`versionsEnabled` and `nextSteps` the engine has always sent.
-
-- **`schemas.exportSchema()` could not pin a publisher**, so on an ambiguous type the artifact carried both registrations, with `versions` entries that can collide on the same number. It takes `publisher` now and `SchemaExportResult.publisher` reports what was exported; `displayName`, `description` and `category` are nullable as the engine sends them.
-
-- **`AgledgerApiError` now carries `pinnedRecords` and `unattributableRecords`**, the two counts that say why a schema delete was refused. Same trap as `publishers`: the constructor copies a fixed set of keys off the body, so a field it does not name is unreachable rather than merely untyped. The pair is the diagnosis. A non-zero `pinnedRecords` is fixable by deleting the other publisher's registration instead; `unattributableRecords` counts Records naming no registration at all, which block the delete under every label.
-
-- **`AccountProfile` gained `expiresAt` and `allowedIps`**, both sent by `/v1/auth/me` and neither declared.
-
-- **Seven public types were unreachable from the package entry point.** `types.ts` is not re-exported wholesale, so `SchemaDeleteResult`, `SchemaScopeOptions`, `SchemaManifestExport`, `VaultCheckpointPage` and `VaultCheckpointingSchedule` (all added this release) could be returned by a method but not named by the caller. The SDK's own code imports from `../types.js` directly, so this typechecked internally and broke only for consumers. A test now fails if a resource method references a type the entry point does not export.
-
-### Documentation
-
-- **The resource table named a method that does not exist.** It listed `client.discovery` as offering `conformance()`; the method is `getConformance()`. A reader following the table got `TypeError: client.discovery.conformance is not a function`. The row now names all three real methods.
-
-### Fixed
-
-- **A FIPS-locked receiver no longer rejects every legitimate webhook as forged.** The FIPS provider carries no EdDSA, so verifying an ed25519 delivery throws inside `verifyRfc9421`. That throw was caught and returned as `false`, which every documented caller turns into a 401: a receiver rejecting every valid delivery it was sent, reporting each one as a bad signature, with nothing anywhere naming the cause (the same defect class the verifier packages carried).
-
-  `verifyRfc9421` and `constructEventRfc9421` now throw `SignatureAlgorithmUnavailableError` when the host cannot compute the key's algorithm, proven against a fixed known-answer signature rather than inferred from a failed verification of the delivery itself.
-
-  **On such a host, no ed25519 delivery can be classified at all**, valid or forged: the check necessarily precedes signature verification, so a genuine forgery throws too. That is the honest result, since nothing was computed and nothing is known, but do not read the exception as evidence a delivery was legitimate. On every host that can compute the algorithm, which is all of them absent a FIPS-style restriction, behavior is unchanged and bad deliveries still return `false`.
+- **`client.reputation` is `client.drift`.** The Server no longer computes a reputation score, composite or confidence level. It serves drift: counts of what an agent did in the current window (records, completions, verdicts, accepted, rejected, overturned, acceptance rate, median completion time), the same counts for the window before it, and the difference. `drift.getAgent(agentId, { window?, type? })` reads one agent, overall and per type. `drift.listFleet({ window?, limit?, cursor? })` is the org-wide roll-up for an org-bound admin key, one row per agent; `drift.listAllFleet` walks it. `drift.getAgentHistory` is the per-record history that used to be `reputation.getHistory`, now with its filters typed. `ReputationScore` and `ReputationHistoryEntry` are gone; `AgentDrift`, `DriftBucket`, `DriftChange`, `FleetDriftRow`, `FleetDriftPage` and `AgentHistoryEntry` are the new types.
+- **`Scopes.REPUTATION_READ` is `Scopes.DRIFT_READ`, and the string is `drift:read`.** The Server refuses `reputation:read` everywhere a scope is validated.
+- **`federation.contributeReputation` and `federation.getAgentReputation` are removed**, with `ContributeReputationParams` and `FederationAgentReputation`.
+- **`CreateAgentParams` no longer has `name`.** `POST /v1/admin/agents` accepts `displayName` only (unique within the org) and refuses `name`.
+- **`ConformanceResponse.capabilities.reputationScoring` is `agentDrift`.**
+- **Types that named fields the wire never carried are corrected.** `auth.rotateKey` resolves to `RotateKeyResult`, which has no `keyId` and does have `role`, `previousKeyDeactivated`, `previousKeyDeactivatesAt` and the new `expiresAt`. `ProvisioningStatus` is the shape the route serves (`configured`, `configPath`, `dryRun`, `prune`, `lastReloadAt`, `managed`, `loadErrors`, `pruneSuppressed`). `admin.reloadLicense` resolves to `LicenseInfo` and `admin.reloadProvisioning` to `ProvisioningReloadResult`; neither route returns a `reloaded` flag. `admin.deactivateOrg` and `admin.deactivateAgent` resolve to `DeactivateResult`.
 
 ### Added
 
-- **`SignatureAlgorithmUnavailableError`**, carrying the `algorithm` that could not be computed. Distinct from `SignatureVerificationError` because the two call for opposite responses: one is your server's configuration, the other is a rejected delivery.
+- **`disputes.resolve(disputeId, { outcome, rationale? })`** (`POST /v1/disputes/{id}/resolve`), which replaces the tier ladder: the principal renders the outcome. `OVERTURNED` means the disputed verdict does not stand, so a Record that had FAILED settles at FULFILLED with the verdict re-rendered as accept (one already FULFILLED or REMEDIATED is restored to that terminal) and a RELEASE Settlement Signal follows carrying `reasonCode: DISPUTE_OVERTURNED`. `UPHELD` returns the Record to the status it held before the dispute and emits no signal. Accepted while the dispute is in `EVIDENCE_WINDOW` or `PENDING_RESOLUTION`; one already `RESOLVED` or `WITHDRAWN` is refused with 422. `DisputeOutcome` and `ResolveDisputeParams` are new. The path parameter is the dispute id, unlike every other dispute method on this resource, which takes the Record id: read it from `disputes.list()` or from `RecordRow.disputeId`.
+- **`CreateRecordParams.maxRevisions`** (1-20): the rework cap for this Record. Omit it to inherit the org default `enforcement.defaultMaxRevisions` (3 unless the org set it). Immutable once the Record is created. Reaching the cap refuses the next resubmit with 422 and leaves the Record where it was. Bulk create takes it too.
+- **`agents.list` and `agents.listAll` take `includeDeactivated`** via the new `ListAgentsParams`, and `AgentProfile` and `AgentDirectoryEntry` carry `deactivatedAt`. The default drops deactivated agents. The flag is bound into `nextCursor`, so set it before a walk starts.
+- **Org config is typed.** `OrgConfig` has `config` (the overrides an operator stored, as `OrgConfigDocument`), `enforcement` (the values in force, as `EnforcementSettings`), `enforcementDefaults` and `enforcementSource` (per field, `org` or `default`). `SetOrgConfigParams` types the PATCH the same way, with every enforcement key nullable (`null` drops an override), plus the new `disputes.autoReadjudicate` (`toleranceExpansion`, `deadlineGraceSeconds`) and `enforcement.defaultMaxRevisions`. `approvedSuppliers` is a string array.
+- **`CoSignStatus` is a named, exported union, and it knows `partial`**: some co-signers answered and some did not. `RecordRow.coSignStatus` and `settlementSignal.coSignStatus` both use it.
+- **`EventType` gains `system.cascading_gate_enqueue_failed` and `system.verification_enqueue_failed`**, both queryable and neither subscribable.
+- **`FederationDlqEntry.firstFailedAt`**: when the message first failed, as distinct from when the row was written.
+- **`AgentHistoryEntry.status` is the `RecordStatus` union.**
+- **`DisputeResponse` carries `nextSteps`.**
+- **`admin.reactivateOrg` and `admin.reactivateAgent`** (`POST /v1/admin/{orgs,agents}/{id}/reactivate`). Idempotent: an already-active account returns `wasDeactivated: false`. Reactivation does not restore the keys deactivation revoked. `AdminOrg` and `AdminAgent` rows carry `deactivatedAt` and `managedBy`, and a provisioning-managed row refuses both verbs with a 409.
+- **Agents can be bound to an external identity.** `CreateAgentParams` and `UpdateAgentParams` take `oidcIss` and `oidcSub` together (a half-set pair is refused), and `AgentProfile` reports them. With both set, `POST /v1/auth/oidc/cert` resolves the agent from a token carrying that issuer and subject. `UpdateAgentParams` also gains `agentCardUrl`, and `agentClass` is typed as the `AgentClass` union.
+- **Trusted issuers can auto-provision agents.** `TrustedIssuer`, `CreateTrustedIssuerParams` and `UpdateTrustedIssuerParams` carry `autoProvisionAgents`, `autoProvisionScopeProfile` (an `AutoProvisionScopeProfile`, also the scope ceiling for every cert the issuer mints) and `autoProvisionMaxAgents`.
+- **`ListApiKeysParams.expiresBefore` and `neverExpires`**: the rotation queue and the no-expiry inventory.
+- **`RotateKeyResult.expiresAt`**: when the replacement key expires under an install-wide key lifetime cap. Rotation is not a way around the cap.
+- **`LicenseInfo.source` knows `compact`**, the key form a Helm values file carries.
+- **`ProvisioningReloadResult.apiKeys.generated[].keyId` and `.source`**: which key rows the reconcile created and whether the Server minted the material (`generated`, with a one-shot `apiKey` readout) or the YAML supplied it.
+- **`AuditChainIntegrityReason` names `audit_vault_empty`**: the record exists but its chain holds no entries.
 
-### Changed (behavior)
+### Fixed
 
-- **`verifyRfc9421` can now throw**, where before it only ever returned a boolean. It throws only where the old code returned a wrong answer, so no correct caller changes behavior on a host that can compute the algorithm. On a host that cannot, the standard `if (!ok) return 401` becomes an unhandled rejection, which is the right outcome for a server misconfiguration but is worth catching explicitly: on Express 4 or plain `http`, an unhandled rejection terminates the process under Node's default `--unhandled-rejections=throw`. The README and JSDoc examples now show the `catch`. A receiver in that state cannot verify anything, so the choice is between failing loudly and rejecting all legitimate traffic silently.
+- **`ScopeProfiles` matches what the Server grants.** The three agent profiles gain `audit:read` and `compliance:read`, `agent-full` gains `drift:read`, `admin-standard` drops `admin:backfill` and `schemas:admin`, and `admin-iac` carries `schemas:write` in place of `schemas:admin`. The live source is `GET /v1/scope-profiles`.
+- **`disputes.create` says what the create envelope carries.** The 201 is `{ dispute, autoReadjudication, nextSteps }` and the method returns the dispute; `autoReadjudication` (renamed from `tier1Result` on the wire) says whether the automatic re-check already resolved the dispute and, when it did not, why. Reach it with `client.request()` when that matters.
+- **`federationAdmin.revokePeer` resolves to `{ revoked: true; nextSteps? }`.** The `remoteAgentsDeleted` count it used to carry is gone.
 
-### Packaging
+## [1.10.0] - 2026-08-30
 
-- **The build no longer emits source maps.** `files` has excluded `dist/**/*.map` since 0.8.14, but the build kept writing them, so every `.js` published since then carried a `//# sourceMappingURL=` comment pointing at a map the tarball does not contain. The maps were dead in the tarball either way: `sources` pointed at `../src/*.ts` with no `sourcesContent`, and `src/` does not ship. A test now fails if the emit is turned back on while `files` still excludes the output.
+Reconciled against API 1.6.0.
+
+### Fixed
+
+- **`compliance.streamAll` no longer drops audit events at a page boundary.** It used to rebuild `since` from the stream cursor, so a page boundary landing inside a group of rows written together skipped the rest of the group. Those events were never delivered and nothing reported a gap. The walk now sends the cursor back verbatim. Anyone forwarding audit events with `streamAll` should re-pull the window they care about: the rows are still on the Server.
+- **A page yielding rows with no cursor to resume from raises `PaginationLimitError` rather than returning quietly.** A bound you set with `maxPages` still ends the walk quietly.
+- **`WebhookEventType` is the set a subscription can fire on.** It named `record.settled`, `record.released` and `dispute.evidence_window_closed`, which `POST /v1/webhooks` has never accepted (a 400). Settlement outcomes reach subscribers as `signal.emitted` and `signal.received`. Removing them is a breaking type change for anyone who named one.
+- **`EventType` is new, and carries the wider set** queryable on `GET /v1/events`, including the three removed above. Use it when filtering the event listing. It has no `*` member.
+- **`audit.orgReadsCheckpoints.proof()` takes the leaf index as a number**, matching `OrgAdminRead.leafIndex`.
+- **`compliance.stream` rejects a call that sends neither `since` nor `cursor`** with `ConfigurationError`, where it was a guaranteed 400.
+- **A fractional `X-AGLedger-Stream-Holdback-Seconds` reads as null.**
+
+### Changed
+
+- **`AuditStreamParams.since` is optional and `cursor` is new.** Send one or the other: `since` opens a walk, `cursor` continues one. Passing both throws `ConfigurationError`.
+- **`AuditStreamResult.hasMore` means "this page produced rows".** A short page is not the end of the stream, because the Server holds back rows from open transactions.
+- **`AuditStreamResult.holdbackSeconds` is new.** Whole seconds by which the page stops short of now. `0` means the page runs up to the present; a large value means an empty page is not evidence that nothing has happened, so hold the cursor and keep polling. Null when the Server sends no header.
+- **`FederationPeer` is the row the endpoint serves**: `peerId`, `peerHubId`, `peerUrl`, `status` and `createdAt`, plus optional `agentDirectoryHash`, `consecutiveDeliveryFailures`, `lastDeliveryAt`, `lastDeliveryError` and `lastSyncAt`. The previous `hubId`, `name`, `endpoint`, `publicKey` and `registeredAt` were never served.
+- **`PeerHandshakeResult` is declared.** The 201 carries `peered` (always `true`), `peerId`, `peerHubId`, `status`, `serverSigningPublicKey`, `serverEncryptionPublicKey` and optional `nextSteps`. `peerHubId` is the identifier every `/federation/v1/admin/peers/{peerHubId}` path takes.
+- **The federation peer methods name their parameter `peerHubId`.** `getPeer`, `revokePeer`, `resyncPeer` and `deletePeer` take it positionally, so no call site has to move.
+- **`audit.orgReadsCheckpoints.list` returns the whole envelope**, including the `checkpointing` sweep schedule, `hasMore`, `nextCursor` and `total`, and takes `offset` and `cursor`.
+
+### Added
+
+- **`audit.orgReadsCheckpoints.listReads()`** for `GET /v1/audit/org-reads`, the read-transparency log entries the checkpoints cover, oldest first. Verify one against a checkpoint with `proof()`.
+- **`events.list` and `events.listAll` take `until`**, returning events created strictly before that instant, plus `recordId` and `eventType`, via the named `ListEventsParams`.
+- **`FederationPeerStatus` and `OrgReadsCheckpointingSource` are named types.**
+- **`OpsSummary.vault.orgReadsCheckpoints`**: `cron`, `lastCheckpointAt` across all orgs, and `workerScheduled`.
+
+## [1.9.0] - 2026-08-21
+
+### Fixed
+
+- **Enum members that named values the API has never had** (each a 400 when sent). `DisputeStatus` drops `OPENED` and `TIER_1_REVIEW`. `SchemaCompatibilityMode` is lowercase (`none`, `backward`, `forward`, `full`). `SchemaVersionStatus` is `ACTIVE | DISABLED`. `UpdateSchemaVersionParams` takes only `compatibilityMode`, and requires it; disabling a Type is `schemas.disable()`. `SubmitDisputeProtocolParams.action` is `DisputeProtocolAction` (exported) and `disputeStatus` is a dispute status.
+- **Object query params are expanded into the API's bracket notation.** `search({ metadata: { state: 'blocked' } })` used to go out as `metadata=[object Object]` and fail with a 400, so metadata-filtered search never worked from this SDK.
+- **A `Date` passed to a date-time query param** (`from`, `to`, `updatedAfter`, `updatedBefore`) serializes as ISO-8601.
+- **`SearchRecordsParams.principalAgentId` is removed.** No record endpoint accepts it. On an agent key, `role: 'principal'` narrows the caller's own auto-scope to the Records it is principal on. On an admin or platform key `role` is a 400, so narrow with `performerAgentId` instead.
+- **`AuditVaultExportParams.since` / `.until` are replaced by the `from` / `to`** the route takes. The type gains `recordId` and `agentId`, and `format` drops `'csv'`.
+- **Pagination params match each route.** Methods take `LimitParams`, `CursorListParams`, or `ListParams` as appropriate, starting with `agents.list`/`listAll` (cursor only).
+- **`CreateApiKeyParams.ownerType` and `AdminApiKey.ownerType` are `KeyOwnerType`** (`org | agent | platform`), not `ApiKeyRole`. `RateLimitExemption.ownerType` moves too, and `AccountProfile.ownerType` narrows from `string`.
+- **`records.getChain` walks every page**, where it returned only the first (up to 1000 rows). `maxPages` caps the walk.
+- **`records.getSubRecords` and `records.listProposals` take paging params**, and `records.listAllSubRecords` walks the listing.
+- **`cursor` on every listing that accepts it**: `admin.getWebhookHealth`, `reputation.getHistory` and `ListTrustedIssuersParams`. `OffsetListParams` is deprecated.
+- **`RateLimitError.retryAfter` reads the 429 body** (`retryAfterSeconds`) when the header is absent. The header still wins where both are present.
+- **`Page` carries `nextSteps` and `recordRead`.**
+- **`HealthResponse.uptime` and `.database` are deprecated**: `GET /health` has never sent them. Process uptime and database state are on `SystemHealth`.
+- **`SystemHealth` matches the payload.** `database` is an object (`status`, `latencyMs`, `pool`); `cache` and `activeConnections` are gone; `status`, `degradedReasons`, `queues`, `webhookDeadLetters` and `process` are new. `status` reads `degraded` when the database cannot serve or anything is dead-lettered.
+- **`OpsSummary` gains three blocks.** `system.degradedReasons`; `federation.peers.delivering`, `failing` and `neverDelivered`, which partition `active`; and `vault.anchoring`, the external-anchoring posture. `queues` is `Record<string, QueueCounts>`.
+- **Nine types a caller can reach are now exported**: `QueueCounts`, `AuditChainFailure`, `AuditChainIntegrityDetail`, `AuditChainIntegrityReason`, `AuditSignatureCoverage`, `BackfillImportedRecord`, `FederationSchemaRef`, `SchemaKeywordWarning` and `WebhookSigningAlg`.
+
+### Changed
+
+- **An auto-paginating walk that hits the page ceiling throws `PaginationLimitError` instead of returning a prefix.** `paginate` used to stop at 100 pages and return, so a truncated walk looked complete. `compliance.streamAll` is treated the same. To walk a large listing, raise `limit` or pass a `maxPages` that fits it. A bound you set yourself (`maxPages`, `maxItems`) still ends the walk quietly.
+- **`ListRecordsParams.role` and `SearchRecordsParams.role` are agent-key only**, and narrow to `'performer' | 'principal'` on the list params.
+- **`npm run parity:refresh` regenerates the parity snapshots** from an OpenAPI spec (`--url` or `--spec`), and `parity:check` reports drift without writing.
+
+### Added
+
+- **Supersession.** `RecordRow.supersedesRecordId` (create-only, immutable, inside the create-time signature) and `supersededByCount` (above 1 is a fork, not an error), and `CreateRecordParams.supersedesRecordId` (and the bulk item). Pair it with `parentRecordId` for checkpoint-style patterns.
+- **`SearchRecordsParams` gains `superseded`, `supersedesRecordId` and `criteria`**, plus `role`, `category`, `projectRef`, `hasDispute`, `disputeStatus`, `imported`, `source`, and `ref.system` / `ref.type` / `ref.id`. `criteria` filters on signed bytes; `metadata` filters on an unsigned annotation an offline verifier cannot see.
+- **`CreateRecordParams.references` and `.share`**, typed by the new `EntityReferenceInput`, which `references.addRecordReferences` and `addAgentReferences` now take.
+- **`ConformanceResponse.limits`**: the numeric caps this install enforces, including `cursorMaxLength`, `paginationLimitMax` and `searchCursorMaxLength`.
+- **`recoveryHint` on bulk per-item results**, and **`AgledgerApiError.registryVersion`** for the `CONFLICTING_VERSION` 409.
+- **`ListApiKeysParams`, and `admin.listAllApiKeys`.** `admin.listApiKeys` now takes the six filters the route accepts (`ownerId`, `orgId`, `ownerType`, `role`, `isActive`, `createdBefore`) and pages; an install with more than 200 keys used to report exactly 200 and call itself complete. `listAllApiKeys` walks the whole listing and resends the filters with each cursor.
+- **`ListSchemasParams` and `ListPeersParams`**, with the `cursor` their routes declare, alongside `compliance.listRecords`.
+
+### Removed
+
+- **`EuAiActReport`.** No API route produces that shape.
+
+## [1.8.0] - 2026-08-08
+
+### Added
+
+- **Multi-publisher schemas.** Two publishers offering the same `record_type` in one org is a supported state. Record creation then refuses a bare `type` with `422 /problems/ambiguous-publisher`, listing the candidates.
+  - `CreateRecordParams.publisher` pins which registration of `type` a Record binds to; each item of a bulk create can pin its own. `BackfillRecord.publisher` is the import-side counterpart.
+  - `RecordRow.publisher` reports the binding actually used. `null` means a federation-received Record that was judged by the originator against its own registration: ask the originator.
+  - `AgledgerApiError.publishers` carries the candidate labels, and `AgledgerApiError.type` carries the RFC 9457 problem URI. Branch on `type`, not on message text. Per-item bulk failures carry `problemType` and `context`.
+  - Schema methods take a `publisher` option: `get`, `delete`, `getRules`, `getTemplate`, `getVersions`, `getVersion`, `updateVersion`, `disable`, `enable`, `validateCompletion`, `diff` and `exportSchema`. `schemas.list()` returns one row per (publisher, type).
+  - **`schemas.getManifest()`** for `GET /v1/schemas/{type}/manifest`, returning the canonical manifest plus its `manifestDigest`.
+  - `schemaUrl` on a Record and on `completionHint` carries `?publisher=` whenever the publisher is known; single-publisher orgs get `?publisher=local` where they used to get a bare path. Follow it verbatim rather than rebuilding it from `type`.
+  - Pinning `publisher` against a Server older than API 1.8.0 is rejected as an unknown body field.
+- **`WebhookSigningAlg`** replaces the inline `'hmac' | 'ed25519'` union and adds `ecdsa-p256-sha256`. Read `capabilities.signingAlgorithms` from `getConformance()` rather than assuming a Server offers `ed25519`.
+- **`unsupported_algorithm`** on `AuditChainIntegrityReason` and `AuditChainFailure`: an entry signed under a COSE algorithm the Server cannot verify. Not a tamper signal. Check `minVerifierVersion` on the key.
+- **`VaultCheckpointingSchedule`**, returned by `audit.vaultCheckpoints.list()` and on `VaultScanResult.checkpointing`. An empty checkpoint list on a fresh install means the first sweep has not run yet.
+- **`SchemaKeywordWarning`** on `SchemaPreviewResult` and `SchemaVersionDetail`: keywords in a submitted schema that are ignored, usually a misspelling such as `maxLenght`.
+- **`ProvisioningStatus.loadErrors`**: provisioning files that cannot be loaded. This list is the only signal that config-as-code is partially applied.
+- **`VerificationKeysResponse.coseAlgorithm`**, and `signatureAlgorithm` is nullable. Both describe the active key only.
+- Twenty-three error-body fields now modelled, including the dispute-cap set (`disputeCount`, `maxDisputes`, `openDisputeId`, `disputeableWhen`, `currentStatus`), the schema-conflict digests (`existingDigest`, `incomingDigest`, `localDigest`, `peerDigest`), and `jobId`, `terminalReason`, `migratedTo`, `signInputTemplate`.
+- **`SignatureAlgorithmUnavailableError`**, carrying the `algorithm` that could not be computed.
+
+### Fixed
+
+- **A FIPS-locked receiver no longer rejects every legitimate webhook as forged.** The FIPS provider carries no EdDSA, so verifying an ed25519 delivery threw inside `verifyRfc9421`, was caught and returned as `false`, and every documented caller turned that into a 401. `verifyRfc9421` and `constructEventRfc9421` now throw `SignatureAlgorithmUnavailableError` when the host cannot compute the key's algorithm. On such a host no ed25519 delivery can be classified, valid or forged, so do not read the exception as evidence a delivery was legitimate. On every other host, bad deliveries still return `false`.
+- **Four methods claimed to return a bare array and returned a `Page` envelope**: `discovery.getScopeProfiles()`, `admin.vault.anchors.list()`, `admin.vault.signingKeys.list()` and `admin.listRateLimitExemptions()`. All four now return `Page<T>`.
+- **`admin.vault.anchors.list()` requires `recordId`**: `list(params: { recordId: string })`.
+- **`admin.records.import()` returns the real shape**: `AdminImportRecordsResult` is `{ source, count, imported[] }`, each entry `{ index, recordId, chainPosition }` aligned with the request. Its doc now names the correct role: the route is platform-tier and answers an org admin key with a 403.
+- **`AccountProfile.agentId` is removed**; `GET /v1/auth/me` has never returned it. The agent id is `ownerId` when `ownerType === 'agent'`. `AccountProfile` gains `expiresAt` and `allowedIps`.
+- **`schemas.delete()` returns `SchemaDeleteResult`** (`type`, `publisher`, `versionsDeleted`) instead of `void`. On an ambiguous type, rows under the other publisher survive.
+- **`AgledgerApiError` carries `pinnedRecords` and `unattributableRecords`**, the two counts that say why a schema delete was refused.
+- `ApiErrorResponse.docUrl` is deprecated: no route emits it.
+- `AuditChainFailure` gains `signature_invalid`, `signing_key_unknown` and `signing_key_drift`.
+- `VaultScanState` no longer claims `expired`, adds `cancelled` and `retry`, and is open-ended. Branch on `completed` and `failed`, and treat anything else as still running.
+- `RecordRow.schemaUrl` is `string | null`: null on a federation-received Record whose schema this Server does not hold.
+- `TypeSchema` carries the full row the Server sends, including `publisher`, `manifestDigest`, `trustClass`, `federatable`, `defaultShare`, `coSignRequired`, `flipRecordStatusOnDispute` and `federateDisputes`; `displayName`, `description`, `category` and `defaultGateMode` are nullable; `quickStart` is nullable.
+- `schemas.getRules()`, `disable()` and `enable()` return `SchemaRulesResult` and `SchemaLifecycleResult`, which carry `publisher` and the other fields the Server sends. `SchemaExportResult.publisher` reports what was exported.
+- Public types that a method returned but a caller could not name are now exported from the package entry point, including `SchemaDeleteResult`, `SchemaScopeOptions`, `SchemaManifestExport`, `VaultCheckpointPage` and `VaultCheckpointingSchedule`.
+
+### Changed
+
+- **`verifyRfc9421` can now throw**, where before it only returned a boolean. The standard `if (!ok) return 401` becomes an unhandled rejection on a host that cannot compute the algorithm, which can terminate the process on Express 4 or plain `http` under Node's default. The README and JSDoc examples now show the `catch`.
+- The build no longer emits source maps, which pointed at files the tarball does not ship.
+- Documentation: the resource table named `client.discovery.conformance()`; the method is `getConformance()`.
 
 ## [1.7.0] - 2026-08-07
 
 ### Changed
 
-- **`baseUrl` is now required.** The client used to fall back to `https://agledger.example.com`, a placeholder that resolves nowhere, so `new AgledgerClient({ apiKey })` constructed fine and then failed every call with `ConnectionError: Network error: fetch failed` against a host the caller never named and could only discover by reading `dist/http.js`. Omitting it now throws `ConfigurationError` at construction, where the mistake actually is. Every AGLedger deployment is self-hosted, so there was never a sensible default. The option stays optional in the type (so the thrown message can explain itself rather than the compiler saying nothing), and no working integration can be affected: a client without a base URL could never reach a Server.
-- **`ConnectionError` names the request and the underlying cause.** `fetch failed` is undici's generic text for DNS failure, connection refused, and TLS problems alike; the message now carries the method, the full URL, and the cause code (`ENOTFOUND`, `ECONNREFUSED`, …) or the cause message when there is no code.
-
-### Changed (via `@agledger/verify-core` 1.3.0)
-
-- **`CHAIN_KEY_NOT_YET_ACTIVE`** is reported by the `/verify` subpath for an entry written BEFORE its signing key activation; `CHAIN_KEY_EXPIRED` now means the retirement side only. Both directions previously reported "expired", sending a consumer to investigate rotation when the real condition is a backdated entry or clock skew. `FailureCode` gains a member, so exhaustive switches need the new case. Verdicts are unchanged.
+- **`baseUrl` is now required.** The client used to fall back to a placeholder host that resolves nowhere, so every call failed with a generic network error. Omitting it now throws `ConfigurationError` at construction.
+- **`ConnectionError` names the request and the underlying cause**: the method, the full URL, and the cause code (`ENOTFOUND`, `ECONNREFUSED`, and so on) or message.
+- **`CHAIN_KEY_NOT_YET_ACTIVE`** is reported by the `/verify` subpath for an entry written before its signing key's activation; `CHAIN_KEY_EXPIRED` now means the retirement side only. `FailureCode` gains a member, so exhaustive switches need the new case. Verdicts are unchanged. (Via `@agledger/verify-core` 1.3.0.)
 
 ### Added
 
-- **`ConfigurationError`**, exported. Raised when the client is constructed with unusable options. Distinct from `ValidationError`, which reports what the Server rejected: a `ConfigurationError` never left the process.
+- **`ConfigurationError`**, raised when the client is constructed with unusable options.
 
 ### Fixed
 
-- **The README Quick Start could not run.** `performerAgentId: 'agt-123'` failed request validation (agent ids are uuids of agents you provisioned, and there is no id a reader can invent), and the `criteria` shape failed the seeded `principal-gate-generic-v1` schema, which requires `summary`. The completion evidence had the same gap. The example now reads the performer id from the environment and uses shapes that validate against the shipped seed contracts.
+- The README Quick Start now runs: it reads the performer id from the environment and uses `criteria` and evidence shapes that validate against the seeded `principal-gate-generic-v1` contract.
 
 ## [1.6.0] - 2026-08-05
 
-Signing-agility release 2: ES256 verification across the SDK's offline and webhook surfaces. Ed25519 paths are byte-identical to 1.5.0.
+ES256 verification across the SDK's offline and webhook surfaces. Ed25519 paths are unchanged.
 
 ### Added
 
-- **`/verify` subpath verifies ES256 chains** via `@agledger/verify-core` 1.2.0. Dispatch binds to the trusted key's SPKI; algorithms past this build still fail closed as `CHAIN_UNSUPPORTED_ALGORITHM`.
-- **`verifyRfc9421` / `constructEventRfc9421` accept `ecdsa-p256-sha256` deliveries** (RFC 9421 raw `r||s` signatures, SHA-256), emitted by Servers signing with a P-256 vault key. The verification algorithm is dispatched from the resolved key's type; the delivery's `alg` parameter is asserted against it, never trusted. An unsupported key type fails closed.
-- **`VerificationKey` carries the per-key discovery fields** from the api R1 reshape: `coseAlgorithm` and `minVerifierVersion`; `publicKeyRaw` is now optional (present only on Ed25519 keys, which are the only keys with a raw 32-byte form worth publishing).
-- **`ConformanceResponse.capabilities.signingAlgorithms`** (api R1), the algorithms the Server can sign chain envelopes with, e.g. `['Ed25519']`. The capabilities index signature widens from `boolean | undefined` to `boolean | string[] | undefined` to admit it: this is the first non-boolean capability, and without the widening a consumer reading `capabilities.signingAlgorithms` got `boolean | undefined` and could not call an array method on it. Narrow the type when reading unknown capabilities through the index signature.
+- **`/verify` subpath verifies ES256 chains** via `@agledger/verify-core` 1.2.0. Algorithms past this build still fail closed as `CHAIN_UNSUPPORTED_ALGORITHM`.
+- **`verifyRfc9421` / `constructEventRfc9421` accept `ecdsa-p256-sha256` deliveries** from Servers signing with a P-256 vault key. The algorithm is dispatched from the resolved key's type; the delivery's `alg` parameter is asserted against it, never trusted.
+- **`VerificationKey` carries `coseAlgorithm` and `minVerifierVersion`**; `publicKeyRaw` is optional (present only on Ed25519 keys).
+- **`ConformanceResponse.capabilities.signingAlgorithms`**, the algorithms the Server can sign chain envelopes with. The capabilities index signature widens to `boolean | string[] | undefined` to admit it.
 
 ### Fixed
 
-- **`verifyRfc9421` rejected every delivery older than the same second.** The replay-window parameters passed to `http-message-signatures` (`maxAge` = `tolerance`) made the effective past window zero: the library rejects when `age > maxAge - tolerance`, so any genuine delivery with >1s of network or queue latency failed verification, while future-dated signatures up to 300s passed. The window is now the symmetric `[-t, +t]` the HMAC path enforces (default t = 300s). Present since the RFC 9421 path shipped in 0.8.14; fail-closed, so no forgery risk, but the asymmetric tier was unusable behind any real latency.
-
-### Changed
-
-- **Conformance corpus regenerated from API 1.3.4** (export slice, including the ES256 vectors: `valid-es256`, `es256-signature-invalid`, `es256-header-alg-mismatch`).
+- **`verifyRfc9421` rejected every delivery older than about a second.** The replay window is now the symmetric `[-t, +t]` the HMAC path enforces (default 300 seconds). The old behaviour failed closed, but was unusable behind any real latency.
 
 ## [1.5.0] - 2026-08-05
 
 ### Changed
 
-- **`/verify` takes `@agledger/verify-core` `^1.1.0`, the verifier forward-compatibility floor.** Algorithm dispatch now binds to the trusted verification key rather than the (unverified) protected header; a tampered or missing header `alg` fails as `CHAIN_ALG_MISMATCH` (tamper class), a key algorithm beyond the build fails closed as `CHAIN_UNSUPPORTED_ALGORITHM`, the signature-covered kid is cross-checked against `signingKeyId` (`CHAIN_SIGNING_KEY_DRIFT`), untagged COSE_Sign1 is rejected, and an all-zero signature on a key-claiming entry fails under `requireKeyId` / `requireOutOfBandKeys`. Legitimate Ed25519 exports verify identically. `FailureCode` and the per-entry `signature` state are correspondingly wider; exhaustive switches over them need the new members.
-- Conformance vectors refreshed from engine 1.3.4.
+- **`/verify` takes `@agledger/verify-core` `^1.1.0`.** Algorithm dispatch binds to the trusted verification key rather than the unverified protected header: a tampered or missing header `alg` fails as `CHAIN_ALG_MISMATCH`, a key algorithm beyond the build fails closed as `CHAIN_UNSUPPORTED_ALGORITHM`, the signature-covered kid is cross-checked against `signingKeyId` (`CHAIN_SIGNING_KEY_DRIFT`), untagged COSE_Sign1 is rejected, and an all-zero signature on a key-claiming entry fails under `requireKeyId` / `requireOutOfBandKeys`. Legitimate Ed25519 exports verify identically. `FailureCode` and the per-entry `signature` state are wider; exhaustive switches need the new members.
 
 ## [1.4.0] - 2026-08-01
 
-Tracks API v1.3.4. Type-only; no wire or runtime change. Minor rather than patch because two of the corrections can break a consumer's compile, both in cases where the old type did not describe what the server sends.
+Tracks API 1.3.4. Type-only; no wire or runtime change.
 
 ### Added
 
-- `ComplianceExport.truncated` and `.totalRecords`. The org-wide export is capped at 10000 rows, newest first. Before this the response carried only `recordCount`, so a truncated export was indistinguishable from a complete one and a compliance packet could silently omit most of the trail. Window with `filters.from` / `filters.to` to cover the rest. On a download the same answer rides the `X-AGLedger-Export-Truncated` and `X-AGLedger-Export-Total-Records` response headers, which are the only carriers for a `csv` download, since the body is raw rows and a notice line would corrupt the parse.
-- `ComplianceExport.nextSteps`, which the status re-read now returns alongside the create response.
-- `VaultCheckpoint.chain` plus the `VaultCheckpointChain` union (`'record' | 'schema' | 'admin'`). Three chains are checkpointed by the same signed construction, and **only `chain: 'record'` is keyed by a real record id**. On `'schema'` and `'admin'` the `recordId` is a derived key that resolves to no record, so fetching it 404s by design. Optional, so a pre-1.3.4 server's rows still parse.
+- `ComplianceExport.truncated` and `.totalRecords`. The org-wide export is capped at 10000 rows, newest first; before this a truncated export looked complete. On a download the same answer rides the `X-AGLedger-Export-Truncated` and `X-AGLedger-Export-Total-Records` headers, the only carriers for a `csv` download.
+- `ComplianceExport.nextSteps`.
+- `VaultCheckpoint.chain` plus the `VaultCheckpointChain` union (`'record' | 'schema' | 'admin'`). Only `chain: 'record'` is keyed by a real record id; on the other two, `recordId` is a derived key that resolves to no record.
 - `ExpressionHelperDoc`, exported from the package root along with `VaultCheckpointChain`.
 
 ### Changed
 
-- **`MetaSchema.expressionHelpers` is now `Record<string, ExpressionHelperDoc>`, was `string[]`**. The server replaced the bare list of helper names with per-helper `signature` + `semantics`, so the edge behavior travels with the helper instead of living only in prose. Worth reading before relying on one in a gate rule: `daysBetween` counts whole elapsed 24h periods between UTC instants (floored, order-independent) rather than calendar days, and returns 0 on an unparseable date. Code that iterated the old array needs `Object.keys(...)`.
+- **`MetaSchema.expressionHelpers` is `Record<string, ExpressionHelperDoc>`, was `string[]`**, with a `signature` and `semantics` per helper. `daysBetween` counts whole elapsed 24-hour periods between UTC instants (floored, order-independent) rather than calendar days. Code that iterated the old array needs `Object.keys(...)`.
 
 ### Fixed
 
-- **`VaultCheckpoint` was declared twice and the two declarations merged**, so the type demanded `signature` and `signatureAlg` on top of `coseSign1`. The endpoint has never returned those two fields, so a real checkpoint row did not typecheck without a cast. The stale declaration is gone. `ListVaultCheckpointsParams` had the same duplication, where the second declaration extended `ListParams` and advertised an `offset` the route does not implement; the surviving declaration is `recordId` / `cursor` / `limit`, which is what the endpoint accepts.
-
-### Notes
-
-- Route surface is unchanged: 193 routes, no additions, no removals, no request-field drift against the live v1.3.4 spec. All 11 `components.schemas` models are unchanged. Every delta above is in a response body or an inline schema, which is the surface neither parity snapshot pins, so `src/__tests__/v1_3_4-types.test.ts` was added to guard it.
-- Verified against a live API v1.3.4, not only mocks: the full suite including the live integration cases passes (492 tests, no skips), and the export fields were read off a real response (`truncated: false`, `totalRecords: 6`, all three `X-AGLedger-Export-*` headers present).
+- **`VaultCheckpoint` no longer demands `signature` and `signatureAlg`**, which the endpoint never returned, so a real checkpoint row typechecks without a cast. `ListVaultCheckpointsParams` is `recordId` / `cursor` / `limit`; it no longer advertises an `offset` the route does not implement.
 
 ## [1.3.3] - 2026-07-20
 
-Tracks API v1.3.3. Type-only; no wire or runtime change.
+Tracks API 1.3.3. Type-only; no wire or runtime change.
 
 ### Added
 
-- **`VaultScanResult.globalChains`**. A full vault scan now walks the record-less chains (the single platform-ops `admin` chain and each org's `schema`-registration chain) and reports them under `result.globalChains` (`total`, `verified`, `broken`, `signatureErrors`, `brokenChains`, `brokenChainsTruncated`). These chains have no `records` row, so the per-record scan cannot see them; a break there now folds into `result.healthy`. The field is optional: a `recordIds`-scoped scan and the list-view summaries omit it. New exported types `VaultScanGlobalChains` and `VaultScanBrokenChain`, whose `reason` stays an open `string` (matching `VaultScanBrokenRecord.reason`) so a server-added failure code is not a compile break.
+- **`VaultScanResult.globalChains`**. A full vault scan walks the record-less chains (the platform-ops `admin` chain and each org's `schema`-registration chain) and reports them (`total`, `verified`, `broken`, `signatureErrors`, `brokenChains`, `brokenChainsTruncated`). A break there folds into `result.healthy`. New types `VaultScanGlobalChains` and `VaultScanBrokenChain`.
 
 ## [1.3.2] - 2026-07-16
 
-Docs and tooling. No wire, type, or runtime change.
+Documentation only.
 
 ### Fixed
 
-- README Quick Start no longer fails at runtime. It created a `notarize-generic-v1` record, which terminalizes at RECORDED with no completion phase, then called transition, completion, and gate on it. The flagship example now uses `principal-gate-generic-v1`, which has the completion and verdict phases the walkthrough exercises.
-- Corrected the licensing description: the database is the license line. Every feature and topology, federation and multi-node included, is free on the bundled database; only an external or managed database requires an Enterprise license. The prior text wrongly listed federation and multi-node as gated.
-
-### Changed
-
-- Removed dead vocabulary and naming history from the README and the npm package description.
-- Refreshed the lockfile to in-range latest (`@agledger/verify-core` 1.0.2, plus dev tooling).
-- Upgraded the TypeScript devDependency to `^7.0.2`. Build, typecheck, tests, and publint/attw all pass under 7.0.2.
+- The README Quick Start no longer fails at runtime: it now uses `principal-gate-generic-v1`, which has the completion and verdict phases the walkthrough exercises, instead of the notarize-only `notarize-generic-v1`.
+- The licensing description is corrected: the database is the license line. Every feature and topology, federation and multi-node included, is free on the bundled database; only an external or managed database requires an Enterprise license.
 
 ## [1.3.1] - 2026-07-13
 
-Patch: robustness and consistency follow-ups from a self-review of 1.3.0. No wire changes.
-
 ### Changed
 
-- **`SignedStatement.signedAt` is now optional** (`signedAt?: string | null`). It is always present on a v1.3.2 server, but typing it optional matches `VerdictResult.recordStatus` and the Python SDK, and removes a type hole when a 1.3.x SDK is pointed at an older server that does not return the field.
-- Restored the literal trademark glyph in the package `description` (a 1.3.0 version-bump tooling artifact had ASCII-escaped it; JSON-equivalent, no behavior change).
+- **`SignedStatement.signedAt` is optional** (`signedAt?: string | null`), so a 1.3.x SDK pointed at an older Server that does not return the field still typechecks.
 
 ## [1.3.0] - 2026-07-13
 
-Tracks AGLedger API **v1.3.2** (was v1.2.0). Route surface is unchanged (193 routes); the API delta is additive response fields, a new event type, and a new audit-export option. Live-validated end-to-end against a local API v1.3.2 (record create, principal-gate verdict, `?evidence=true` export, and an offline `verifyExport` pass on the real export).
+Tracks AGLedger API 1.3.2. The route surface is unchanged; the delta is additive response fields, a new event type, and a new audit-export option.
 
 ### Added
 
-- **`SignedStatement.signedAt`**: the signed instant of the head Signed Statement (the CWT `iat` claim sealed in the COSE_Sign1 protected header, second precision). The authoritative timestamp for time-anchored contracts (statutory wait windows, notice clocks); the record's millisecond `createdAt` only approximates it. Nullable.
-- **`VerdictResult.recordStatus`**: the settled record status (`FULFILLED` on accept, `FAILED` on reject) returned inline on `records.submitVerdict()`, so the outcome is known without a follow-up `records.get()`.
-- **`record.gate_held` webhook event**: a principal-mode record held at PROCESSING awaiting the verdict emits this event; the payload carries the `completionId` to verdict against plus the engine/rollup advisory. Added to `WebhookEventType`.
-- **`records.getAuditExport(id, { evidence: true })`**: inlines the completion evidence body at each COMPLETION_SUBMITTED entry (`AuditExportEntry.evidence`); an UNSIGNED projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON only.
-- **`ApiErrorResponse.deadline`** (API v1.3.2): the passed record deadline surfaced on the system TIME_OUT 422, alongside `terminalReason`/`previousStatus`.
-- **`AuditChainIntegrityReason`** gains `signature_invalid`, `signing_key_unknown`, `signing_key_drift`: the vault now fails closed on per-entry signature verification and surfaces the specific failing invariant.
+- **`SignedStatement.signedAt`**: the signed instant of the head Signed Statement (the CWT `iat` claim, second precision), the authoritative timestamp for time-anchored contracts. Nullable.
+- **`VerdictResult.recordStatus`**: the settled record status (`FULFILLED` on accept, `FAILED` on reject) returned inline on `records.submitVerdict()`.
+- **`record.gate_held` webhook event**: a principal-mode record held at PROCESSING awaiting the verdict emits this event, with the `completionId` to verdict against. Added to `WebhookEventType`.
+- **`records.getAuditExport(id, { evidence: true })`** inlines the completion evidence body at each COMPLETION_SUBMITTED entry (`AuditExportEntry.evidence`). It is an unsigned projection the chain binds by hash via `payload.evidenceHash`. JSON/NDJSON only.
+- **`ApiErrorResponse.deadline`**: the passed record deadline on the system TIME_OUT 422.
+- **`AuditChainIntegrityReason`** gains `signature_invalid`, `signing_key_unknown`, `signing_key_drift`.
 
 ## [1.2.0] - 2026-07-06
 
-Tracks AGLedger API **v1.2.0** (was v1.1.0). Route surface is identical (193 routes); the API delta is additive, and this release also replaces a schema-import surface that had drifted so far from the shipped API that it could not work. Live-validated against a local API v1.2.0.
-
-Version note: 1.1.0 is skipped because the retired pre-GA release line already published a 1.1.0 to npm (now deprecated); npm never allows a version number to be reused.
+Tracks AGLedger API 1.2.0. The route surface is identical; the delta is additive, and this release replaces a schema-import surface that could not work against any shipped API.
 
 ### Added
 
-- **Webhook `recordTypes` filter**: `webhooks.create()` and `webhooks.update()` accept `recordTypes`, and the `Webhook` row carries it back. `["*"]` means all record types (wildcard sentinel); any other array means record-scoped events are delivered ONLY for the listed types (fail-closed). Omit for no filter.
-- **`records.accept(id, message?)`**: optional acceptance rationale, symmetric with `reject()`. The API stores one rationale field; `reason`/`notes` are wire-level aliases of `message` on all four handshake endpoints.
-- **`SchemaFieldMapping.maxTolerance`**: per-rule cap on the per-record tolerance. `0` forbids any tolerance (undodgeable threshold gate); a positive value pins the widest band a record may declare; omitted = uncapped. Accepted on `schemas.register()` and `schemas.preview()` mappings and echoed back in `rulesConfig`.
-- **`rulesConfig` echoed on schema writes**: `schemas.register()`, `schemas.import_()`, `schemas.updateVersion()` and `getVersions()` rows now carry the compiled `rulesConfig`. New exported type `SchemaRulesConfig`; `TypeSchema.rulesConfig` and `SchemaVersionDetail.rulesConfig` are now fully typed (`fieldMappings` was `Record<string, unknown>[]`).
+- **Webhook `recordTypes` filter**: `webhooks.create()` and `webhooks.update()` accept `recordTypes`, and the `Webhook` row carries it back. `["*"]` means all record types; any other array means record-scoped events are delivered only for the listed types. Omit for no filter.
+- **`records.accept(id, message?)`**: optional acceptance rationale, symmetric with `reject()`. `reason` and `notes` are wire-level aliases of `message` on all four handshake endpoints.
+- **`SchemaFieldMapping.maxTolerance`**: per-rule cap on the per-record tolerance. `0` forbids any tolerance; a positive value pins the widest band a record may declare; omitted means uncapped.
+- **`rulesConfig` echoed on schema writes**: `schemas.register()`, `schemas.import_()`, `schemas.updateVersion()` and `getVersions()` rows carry the compiled `rulesConfig`. New type `SchemaRulesConfig`.
 
 ### Fixed
 
-- **`schemas.import_()` now works.** It previously sent a schema *export bundle* (`exportVersion`/`versions[]`) with `orgId` in the query string; the shipped API has required a `manifest` body since the Schema Catalog redesign, so every call failed with 400. The method now takes a `SchemaManifest` plus row-only options (`SchemaImportParams`: `orgId`, `federatable`, `defaultShare`, `defaultGateMode`, `coSignRequired`, `flipRecordStatusOnDispute`, `federateDisputes`) in the body, and returns the created/existing `SchemaVersionDetail` row (HTTP 200 on an idempotent re-post, 201 on create).
-- **`SchemaVersionDetail` matches the wire.** The old shape carried a fictional `isBuiltin` and missed roughly half the row (`publisher`, `manifestDigest`, `trustClass`, `federatable`, `defaultShare`, `defaultGateMode`, `coSignRequired`, `flipRecordStatusOnDispute`, `federateDisputes`, `rulesConfig`, `quickStart`, `nextSteps`). It now models the subject row across all five endpoints that return it, with the `getVersion()` projection differences documented on the type.
-- `SchemaExportResult.nextSteps` added; README now names `exportSchema()` correctly.
+- **`schemas.import_()` now works.** It used to send a schema export bundle, which the API rejected with 400 on every call. It takes a `SchemaManifest` plus row-only options (`SchemaImportParams`: `orgId`, `federatable`, `defaultShare`, `defaultGateMode`, `coSignRequired`, `flipRecordStatusOnDispute`, `federateDisputes`) and returns the created or existing `SchemaVersionDetail` row (200 on an idempotent re-post, 201 on create).
+- **`SchemaVersionDetail` matches the wire**, including `publisher`, `manifestDigest`, `trustClass`, `federatable`, `defaultShare`, `defaultGateMode`, `coSignRequired`, `flipRecordStatusOnDispute`, `federateDisputes`, `rulesConfig`, `quickStart` and `nextSteps`. The fictional `isBuiltin` is gone.
+- `SchemaExportResult.nextSteps` added; the README names `exportSchema()` correctly.
 
 ### Removed
 
-- **`schemas.previewImport()` and the `dryRun` option.** The API has no dry-run on `/v1/schemas/import`; the flag was silently ignored, so a "preview" would have performed a real import had the body ever validated. Use `schemas.preview()` for pre-registration validation of locally authored schemas.
+- **`schemas.previewImport()` and the `dryRun` option.** The API has no dry-run on `/v1/schemas/import`. Use `schemas.preview()` to validate locally authored schemas.
 - Types `SchemaImportPayload`, `SchemaImportResult`, `SchemaImportDryRunResult`, `ImportSchemaOptions` (replaced by `SchemaManifest` + `SchemaImportParams`).
-
-### Changed
-
-- Parity snapshots regenerated to `apiVersion 1.2.0`.
-
-Semver note: this is a minor, not a major, because the removed/reshaped import surface was inoperable against every shipped v1.x API (each call 400d), so no working integration can regress.
 
 ## [1.0.6] - 2026-06-29
 
@@ -762,667 +521,62 @@ Semver note: this is a minor, not a major, because the removed/reshaped import s
 
 ## [1.0.5] - 2026-06-29
 
-Tracks AGLedger API **v1.1.0** (was pinned to v1.0.3). Route surface is identical (193 routes); this is a field- and doc-level sync. All changes are backward-compatible.
+Tracks AGLedger API 1.1.0. Field- and doc-level changes only; all backward-compatible.
 
 ### Added
 
-- **`Completion.settlementSignal`**: the auto-gate's settle/hold/reject decision, surfaced inline on a submitted Completion so the caller learns the outcome without a follow-up `records.get`. Typed `CompletionSettlementSignal` (`recommendation`, `outcome`, `reasonCode`); null when the gate did not render inline (encrypted Records, principal-mode held at PENDING_VERDICT, or skipped).
-- **`schemas.list()` now returns typed catalog rows** (`Page<SchemaListItem>`, was `Page<RecordType>`). The API has always returned row objects (`type`, `version`, `status`, `displayName`, `category`, `description`, `templateUrl`, `publisher`, `orgId`), now including **`defaultGateMode`**: the lifecycle discriminator that distinguishes a gated type from a notarize-only one from the list row alone.
-- New exported types: `SchemaListItem`, `CompletionSettlementSignal`.
+- **`Completion.settlementSignal`**: the auto-gate's settle, hold or reject decision on a submitted Completion (`CompletionSettlementSignal`: `recommendation`, `outcome`, `reasonCode`). Null when the gate did not render inline (encrypted Records, principal mode held awaiting a verdict, or skipped).
+- **`schemas.list()` returns typed catalog rows** (`Page<SchemaListItem>`), including **`defaultGateMode`**, which tells a gated type from a notarize-only one.
 
 ### Changed
 
-- `reasonCode` docs note the new `AUTO_SETTLE_WITHIN_TOLERANCE` value: an auto-settle that cleared only via a non-zero tolerance band rather than the base criteria threshold. The field stays `string | null`, so no type change.
-- Gate-mode docs no longer say "the rules engine renders the verdict": auto mode auto-settles against the principal's pre-configured predicates; the verdict is always the principal's and AGLedger only holds the signed decision.
-- Licensing section drops the stale dollar figure and points at the pricing page for current terms.
-- Parity snapshot regenerated to `apiVersion 1.1.0`.
+- `reasonCode` docs note the new `AUTO_SETTLE_WITHIN_TOLERANCE` value: an auto-settle that cleared only via a non-zero tolerance band.
+- Gate-mode docs say that in auto mode the principal's pre-configured predicates settle the record; AGLedger holds the signed decision.
+- The licensing section points at the pricing page for current terms.
 
 ## [1.0.4] - 2026-06-22
 
-Tracks AGLedger API **v1.0.3** (was pinned to v1.0.0). A full route + field-level drift sweep against the live v1.0.3 OpenAPI surfaced four additive gaps and one spec removal; parity snapshots regenerated to `apiVersion 1.0.3` (193 routes). All additions are backward-compatible.
+Tracks AGLedger API 1.0.3. All additions are backward-compatible.
 
 ### Added
 
-- **`records.get(id, { integrity: true })`**: re-verify the Record's audit chain and cross-check the served row against it. The result is exposed on the new `RecordRow.integrity` field (typed `RecordIntegrity`: `verified`, `integrityLevel`, `reason`, `entries`, `projectionChecked`, `driftFields`).
-- **`records.list({ actionable: true })`**: the agent-recovery query, returning every Record whose next action awaits the caller's structural side, across all statuses. Agent keys only.
-- **`auth.rotateKey({ gracePeriodSeconds })`**: keep the old key valid for an overlap window instead of an immediate hard cutover.
+- **`records.get(id, { integrity: true })`** re-verifies the Record's audit chain and cross-checks the served row against it. The result is on `RecordRow.integrity` (`RecordIntegrity`: `verified`, `integrityLevel`, `reason`, `entries`, `projectionChecked`, `driftFields`).
+- **`records.list({ actionable: true })`**: every Record whose next action awaits the caller's structural side, across all statuses. Agent keys only.
+- **`auth.rotateKey({ gracePeriodSeconds })`**: keep the old key valid for an overlap window.
 - **`compliance.export({ embed })`**: inline cryptographic evidence (currently `signed-statements`) into the export packet so a regulator can verify each claim offline.
-- New exported types: `RecordIntegrity`, `GetRecordParams`, `RotateKeyParams`.
+- New types: `RecordIntegrity`, `GetRecordParams`, `RotateKeyParams`.
 
 ### Changed
 
-- `records.get` signature is now `get(id, params?, options?)` (was `get(id, options?)`) to carry the `integrity` query param. Source-compatible for all existing single-argument call sites.
-- `admin.createOrg()` is documented as **dev/test-only**: `POST /v1/admin/orgs` was dropped from the canonical API spec in v1.0.1 (never registered in production; provision prod orgs via operator `provisioning/` YAML). The route-parity test no longer asserts it as a canonical route.
-- Refreshed runtime-dependency lockfile pins in range: `cborg` 5.1.1 → 5.1.3, `http-message-signatures` 1.0.5 → 1.0.6. No behavior change. `npm audit`: 0 vulnerabilities.
+- `records.get` is now `get(id, params?, options?)`. Source-compatible for single-argument call sites.
+- `admin.createOrg()` is documented as dev/test-only: `POST /v1/admin/orgs` is not registered in production. Provision production orgs from operator `provisioning/` YAML.
 
 ## [1.0.3] - 2026-06-20
 
 ### Changed
 
-- Bumped `@agledger/verify-core` to `^1.0.0` (now GA at 1.0.0 alongside the API and this SDK). No SDK-surface or behavior changes; the verification core is byte-for-byte identical to the previous 0.1.x line.
+- Bumped `@agledger/verify-core` to `^1.0.0`. No SDK-surface or behavior changes.
 
 ## [1.0.2] - 2026-06-18
 
 ### Fixed
 
-- **CodeQL `js/polynomial-redos`.** Replaced a regex-based trailing-slash strip with a linear scan, removing the polynomial-backtracking vector flagged by CodeQL. No public-API or behavior change.
+- Replaced a regex-based trailing-slash strip with a linear scan, removing a polynomial-backtracking vector. No public-API or behavior change.
 
 ## [1.0.1] - 2026-06-10
 
 ### Changed
 
-- **License re-sync.** `LICENSE` is now a verbatim copy of the canonical AGLedger SDK license template **v1.5**: §7 trademarks trimmed to **AGLedger + Settlement Signal (pending)** (removed the retired "Agentic Ledger" / AOAP claims), §6 export language modernized to ENC §740.17(b)(1) mass-market self-classification, and §1 carries the no-inspection / no-training / no-usage-data representation. README: dropped the retired AOAP protocol link and trimmed the trademark footer to match LICENSE §7.
-- No code changes; republished so the distributed tarball carries the corrected license text.
+- `LICENSE` and README trademark text updated to the current license template. No code changes.
 
 ## [1.0.0] - 2026-06-08
 
-General-availability release, tracking AGLedger API **v1.0.0 GA**. No breaking changes from the 0.8.x line; the `agentId`→`performerAgentId` rename and the COSE_Sign1 chain envelope landed earlier in the 0.8.x series and are unchanged here. Route surface and the field-level parity snapshots are verified identical to API v1.0.0 (194/194 routes, zero drift across tracked models); parity snapshots bumped to `apiVersion 1.0.0`.
+General availability, tracking AGLedger API 1.0.0. No breaking changes from the 0.8.x line.
 
 ### Added
 
-- `WebhookEventType`: `record.proposal_counter_proposed`, `record.ai_impact_assessment_filed`, `record.compliance_attestation_filed`; now advertised in the API's subscribable event enum.
+- `WebhookEventType`: `record.proposal_counter_proposed`, `record.ai_impact_assessment_filed`, `record.compliance_attestation_filed`.
 - `DisputeGrounds`: `verdict_disagreement`.
-- `defaultGateMode?: GateMode` on `TypeSchema`, `RegisterSchemaParams`, and `SchemaPreviewInput`: the per-contract-type default gate mode. Live-validated: registering a type with `defaultGateMode: 'principal'` propagates to a created record's `gateMode`.
+- `defaultGateMode?: GateMode` on `TypeSchema`, `RegisterSchemaParams`, and `SchemaPreviewInput`: the per-contract-type default gate mode. Registering a type with `defaultGateMode: 'principal'` propagates to a created record's `gateMode`.
 
-## [0.8.16] - 2026-06-04
-
-### Fixed
-
-- The SDK version string (`User-Agent` / `X-SDK-Version` telemetry headers) is now derived from `package.json` at runtime instead of a hardcoded literal; it had drifted to a stale value and can no longer fall out of sync. A guard test asserts the emitted header equals the package version.
-
-### Changed
-
-- Parity-test comments (`parity.test.ts`, `schema-parity.test.ts`) corrected to reflect that `routes.json` / `schema-fields.json` are regenerated **manually** from the production OpenAPI and committed; removed dead references to a regeneration workflow/script that do not exist in this repo.
-
-### Build
-
-- `declarationMap` disabled for the published build so shipped `.d.ts` files no longer carry `sourceMappingURL` comments pointing at unshipped `.d.ts.map` sources.
-
-## [0.8.15] - 2026-06-04
-
-No functional change. First release published from CI with **build provenance** via npm trusted publishing (OIDC). npm attaches a Sigstore provenance attestation automatically; verify with `npm audit signatures`. A CycloneDX SBOM is attached to the release. This package now lives in its own source-of-truth repo `agledger-ai/sdk` and resolves `@agledger/verify-core@0.1.4`.
-
-## [0.8.14] - 2026-06-02
-
-### Changed: EU AI Act sync to API v0.27.0/v0.27.1 (validated live)
-
-- `RiskClassification` gains `unacceptable` (Article 5 prohibited tier); the AI-impact-assessment `domain` enum is reconciled to the API's Annex III high-risk set. `AiImpactAssessment` / `CreateAiImpactAssessmentParams` typed against the canonical `EuAiActRiskTier` + `EuAiActDomain` taxonomy.
-- `WebhookEventType` reconciled to the API set (37 event types + the `*` wildcard; open literal).
-- Backfilled three federation request-body fields that had drifted out of the typed surface.
-- Dropped the retired ACH-* built-in contract-type model (the API deleted the built-ins; orgs own their entire type namespace, with four editable samples auto-seeded).
-
-### Fixed
-
-- `X-SDK-Version` / `User-Agent` headers reported a stale `0.8.11`; now track the package version.
-
-### Build
-
-- Added a pre-publish package-correctness gate (`publint --strict` + `@arethetypeswrong/cli --pack`, run in `prepublishOnly`); catches exports-map / dual-resolution defects a `tsc` build can't.
-
-## [0.8.13] - 2026-06-02
-
-### Fixed: 0.26.x response/field drift sweep (validated live against API v0.26.5)
-
-A full minor of API field-shape drift had accumulated while the route surface stayed 194/194 in sync. Swept every drifted response/request field across the typed surface:
-
-- **`RecordRow`**: renamed `vaultCompletion` → `signedStatement` (the create-record chain head: previously resolved to `undefined` against a live ≥0.26 Server) and `selfCommitment` → `selfPrincipal`; dropped `noOp` (removed API-side). Added 17 fields the API returns: `settlementSignal`, `counterSignature`, `coSignRequired`, `coSignStatus`, `federationStatus`, `disputeId`, `disputeStatus`, `hasDispute`, `hasChildren`, `latestCompletionId`, `terminalReason`, `expiredAt`, `awaitingActor`, `share`, `sharedToPeers`, `source`, `imported`.
-- **Type rename** `VaultCompletion` → `SignedStatement` (drops `signature`, adds `url`). New `SettlementSignalSummary` type for the Record-projected signal.
-- **`Completion`**: added `verdict`, `lastVerdictReason`.
-- **`NextStep`**: added `afterThis`, `workflowLabel`, `workflowStep`, `workflowTotal` (the workflow-progress hints, embedded in nearly every response).
-- **`Webhook`**: added `lastFailureAt`. **`WebhookDelivery`**: renamed `eventType` → `type`.
-- **`WebhookEventType`**: added `dispute.escalated`, `dispute.evidence_window_closed`, `record.released`, `record.settled` (35 → 39).
-- **`EntityReference`**: full shape (`id`, `uri`, `displayName`, `attributes`, `createdBy`, `createdAt`; `metadata` → `attributes`); `RecordRow.references` now reuses it. New `DisputeEvidence` type backing `DisputeResponse.evidence`.
-- **`ListRecordsParams`**: added `type`, `performerAgentId`, `role`, `from`, `to`, `hasDispute`, `disputeStatus`, `imported`, `source` filters.
-
-### Added
-
-- **Schema-field parity guard** (`schema-fields.json` + `schema-parity.test.ts`): the field-level analogue of the route manifest. Route-only parity was 194/194 clean while 20+ fields had drifted; this test fails CI the moment the API adds/renames/removes a field a mapped SDK model carries. Regenerated weekly by the `update-route-manifest` workflow.
-
-## [0.8.12] - 2026-05-29
-
-Inherits the export-path binding fix via `@agledger/verify-core@^0.1.3`.
-
-### Fixed
-
-- **`records.getChain()` returned the paginated envelope, not the row array.** The `/chain` endpoint returns `{ data, total, hasMore }`; the SDK cast it as `RecordRow[]` with no runtime validation, so callers got the envelope object instead of the chain. It now unwraps `data` (tolerant of a bare-array shape too). The Python SDK crashed on the identical bug; TS was silently wrong.
-
-### Changed
-
-- `/verify` (re-export of `@agledger/verify-core@^0.1.3`) now runs export-path binding-integrity (a denormalised `payload` rewritten while `coseSign1` stays intact fails `CHAIN_PAYLOAD_BINDING_MISMATCH`) and reports the `not-checked` signature state when a chain break short-circuits before the signature.
-
-## [0.8.11] - 2026-05-28
-
-Parity follow-on to the Python SDK 0.8.9 fixes. The Python SDK *crashed* on these (Pydantic validates at runtime); the TS types were silently wrong (structural typing erases at runtime) but yielded `undefined` for renamed fields. Both are now corrected to the live API contract. Verified against the API schemas.
-
-### Fixed
-
-- **Response-type drift**: interfaces corrected to the actual wire shape:
-  - `AuditExportEntry`: `description` → optional `humanReadableLabel`; added the actor-display fields (`actorOwnerId`, `actorDisplayName`, `actorOwnerType`); `timestamp` is now the deprecated alias and `createdAt` the canonical.
-  - `AgledgerEvent`: `eventType` → `type`, `payload` → `data`.
-  - `AgentProfile` / `AgentDirectoryEntry`: dropped non-existent `name`/`slug`/`updatedAt`/`isActive`; the engine emits `displayName`.
-  - `OrgReadsCheckpoint`: `createdAt` → `checkpointAt`, `sthBytes`/`signature` → `coseSign1Base64` + witness fields. `OrgReadsInclusionProof`: `proof` → `path`, dropped `checkpointId`.
-  - `ReputationScore`: scores are `number | null`; `confidenceLevel` is `number | null`; `formulaVersion` is `number`; lifetime counters (`lifetimeRecords`/`lifetimeVerdicts`/`lifetimeAccepted`/`lifetimeCompletions`/`reversals`) replace the old `total*` names.
-- **Request-param drift**: params the API rejects (`additionalProperties: false`) removed:
-  - `CreateRecordParams`: dropped `category` and `proposalMessage`.
-  - `records.reject(id, message?)`: sends `message` (the reject route's only accepted key), not `reason`.
-  - `webhooks.update()` now takes a dedicated `UpdateWebhookParams` (`url` / `eventTypes` / `isPaused`) instead of `Partial<CreateWebhookParams>`, which leaked the create-only `format` / `signingAlg`.
-  - `UpdateApiKeyParams`: trimmed to `{ isActive?, reason?, scopes?, scopeProfile? }`; dropped the create-only `label` / `expiresAt` / `allowedIps`.
-
-## [0.8.10] - 2026-05-28
-
-### Fixed
-
-- **Audit independence**: `verifyExport({ publicKeys })` now accepts both the compact `Record<keyId, base64SpkiDer>` map AND the natural `VerificationKey[]` shape returned by `client.verificationKeys.list().data`. Previously, passing the array form silently fell through to the export's embedded keys (`keyProvenance.outOfBand === 0` with `valid: true`); a false independence claim. The fix is in the shared `@agledger/verify-core` 0.1.2; wrong shapes now throw `TypeError` at the boundary (fail-closed). Closes the temporal axis too: `signingKeyWindows` from the export's own (untrusted) metadata no longer overrides activation/retirement windows the auditor supplied on OOB entries.
-- `VerificationKeysResponse.hashAlgorithm` is now optional: the Server does not emit it on every build. Previously, the `agledger-python` model crashed Pydantic on `c.verificationKeys.list()`; for consistency the TS type also widens.
-
-### Changed
-
-- Republished against `@agledger/verify-core` 0.1.2. `@agledger/sdk/verify` re-exports the new `OutOfBandKeyEntry` type for callers that want to type their OOB key catalogue explicitly.
-
-## [0.8.9] - 2026-05-28
-
-Wire-parity follow-on to the verifier consolidation: the offline export verifier now exercises OIDC-actor and temporal key-validity checks when the API supplies their inputs.
-
-### Changed
-
-- `verifyExport` now flips `optionalChecks.oidc_actor` and `optionalChecks.key_temporal` from `skipped_no_input` to `applied` when the export wire carries the new fields (engine ≥ v0.26.x: per-entry `actorOidcIss/Sub/Synthesized` + `createdAt`, `exportMetadata.signingKeyWindows`). This exercises `CHAIN_OIDC_ACTOR_MISMATCH` and `CHAIN_KEY_EXPIRED` on the per-record export path, not just on the full-vault dump path. `payload_binding` stays dump-only by design (the export re-projects payload from the signed bytes).
-- `AuditExportEntry` gained the new wire fields (`actorOidcIss`, `actorOidcSub`, `actorOidcSynthesized`) and `RecordAuditExport.exportMetadata` gained `signingKeyWindows: Record<string, { activatedAt, retiredAt }>`. Older exports without these fields still verify cleanly; the optional checks stay `skipped_no_input`.
-
-## [0.8.8] - 2026-05-27
-
-Verifier consolidation (Pass 1). The `@agledger/sdk/verify` subpath is now a thin re-export of the new shared verification core, `@agledger/verify-core`; the same hash-chain + COSE_Sign1 + Ed25519 body of logic the CLI, the MCP server, and `@agledger/verify` all run. This removes the SDK's private copy of `verify-export.ts` and the duplicated failure taxonomy.
-
-### Changed (BREAKING: `@agledger/sdk/verify` result shape, pre-1.0)
-
-- Failure reasons are now canonical SCREAMING_SNAKE `FailureCode` values from `@agledger/verify-core`. `brokenAt.reason` is renamed to **`brokenAt.code`**.
-- The result now surfaces **`keyProvenance`** (whether each verified entry's public key came from out-of-band (caller-supplied) keys or was embedded in the export) so auditors can distinguish a self-attesting export from an independently keyed one.
-- The result now surfaces **`optionalChecks`**: the input-gated checks that ran versus were skipped (e.g. OIDC-actor cross-check, temporal key validity).
-- New **`requireOutOfBandKeys`** option: when set, the verifier fails closed unless every signature is checked against a caller-supplied (out-of-band) key, rejecting export-embedded keys. For high-assurance audits that must not trust keys carried by the artifact under inspection.
-
-### Changed
-
-- Now depends on `@agledger/verify-core`. The SDK remains otherwise dependency-light; `cborg` is pulled transitively by the core for COSE_Sign1 decoding.
-
-## [0.8.7] - 2026-05-27
-
-### Fixed
-
-- **Build hygiene: removed an orphaned compiled file from the published tarball.** The build script was a bare `tsc` with no clean step, so a stale `dist/resources/verification.js` + `.d.ts` (the pre-rename `VerificationResource`, renamed to `GateResource` in 0.8.5) lingered in `dist/` and shipped in the 0.8.5 and 0.8.6 tarballs. It was dead weight (not exposed by the `exports` map and not importable) but present. Added `prebuild: rm -rf dist` (matching `@agledger/cli` and `@agledger/mcp-server`) so renamed/removed source can never leave orphans in a published tarball again. No API or behavior change.
-
-## [0.8.6] - 2026-05-27
-
-### Fixed
-
-- **Offline audit verifier rejected valid exports.** `@agledger/sdk/verify` read the legacy `position` field on each export entry, but current exports (v0.25+) emit `chainPosition`. With `position` absent, every valid export failed with a false `position_gap` on the first entry. The verifier now reads `chainPosition`, falling back to `position` for pre-v0.25 exports. `AuditExportEntry.chainPosition` is now the canonical field; `position` is retained as a deprecated optional alias. Verified end-to-end against a live export. (Same root cause was present in `@agledger/cli` and `@agledger/mcp-server`, fixed in lockstep.)
-
-## [0.8.5] - 2026-05-27
-
-Tracks AGLedger API v0.25.5. The API renamed its second pillar **Verify → Gate** and now reserves "verify" exclusively for cryptographic verification. This release renames the gate/verdict surface to match. Cryptographic verify surfaces (`@agledger/sdk/verify`, webhook signature verification (`verifySignature`/`verifyRfc9421`), and `client.verificationKeys`) are **unchanged**.
-
-### Breaking: Verify → Gate
-
-- `client.verification` → **`client.gate`**. `verification.verify()` → **`gate.evaluate()`** (`POST /v1/records/{id}/verify` → `/evaluate`). `verification.getStatus()` now hits `/gate-status` (was `/verification-status`); response field `lastVerifiedAt` → `lastEvaluatedAt`.
-- `records.reportOutcome()` → **`records.submitVerdict()`** (`POST /v1/records/{id}/outcome` → `/verdict`); body field `outcome` → `verdict`; values `PASS`/`FAIL` → `accept`/`reject`; adds optional `notes` / `reason`.
-- Type `VerificationMode` → **`GateMode`** (`'auto' | 'principal'`; `'gated'` removed: `principal` subsumes it). Record field `verificationMode` → `gateMode` on create, search, and `RecordRow`.
-- `RecordRow.verificationChecks` → `verdictChecks`; `RecordRow.verificationOutcome` (PASS/FAIL) → `verdict` (accept/reject).
-- Renamed types: `VerificationResult` → `GateEvaluationResult`; `VerificationStatus` → `GateStatus`; `ReportOutcomeParams` → `SubmitVerdictParams`; `OutcomeResult` → `VerdictResult`; `VerificationOutcome` → `Verdict`; `FederationVerificationOutcome` → `FederationVerdict` (PASS/FAIL → accept/reject).
-- `VerdictStatistics` reshaped to `{ agentId, asPrincipal: { data, total }, asPerformer: { data, total } }` carrying `verdictAcceptCount` / `verdictRejectCount` per pair (was a flat `data[]` with `verdictPassCount` / `verdictFailCount`); adds `VerdictStatisticsRow`.
-- Webhook event types `record.verification_complete` → `record.gate_complete`, `cascading.verification.complete` → `cascading.gate.complete`.
-
-### Fixed
-
-- `gate.evaluate()` now always sends a JSON body: the `/evaluate` route requires one, so calling without completion IDs previously returned a 400.
-- `VerdictResult` (was `OutcomeResult`) exposes the API's actual `recommendation` field (it was incorrectly typed as `signal`).
-- `User-Agent` / `X-SDK-Version` now report the real package version (was pinned at a stale `0.8.3`).
-
-## [0.8.4] - 2026-05-25
-
-Tracks AGLedger API v0.25.4. Adds RFC 9421 ed25519 webhook verification (the asymmetric, non-repudiable signing tier for Settlement Signals) and catches the typed surface up with the v0.25.3/v0.25.4 additive changes.
-
-### Added
-
-- **`verifyRfc9421()` + `constructEventRfc9421()`** in `@agledger/sdk/webhooks`: verify opt-in ed25519 webhook deliveries (RFC 9421 HTTP Message Signatures signed with the Server vault key) against the published `/v1/verification-keys`, matched by `keyid`. Recomputes the RFC 9530 Content-Digest, reconstructs the signature base, verifies Ed25519, and enforces the `created` replay window (default/max 300s). Closes the gap where only the HMAC path had an SDK helper. New exports: `Rfc9421PublicKey`, `Rfc9421VerifyOptions`.
-- **`Webhook.signingAlg` / `CreateWebhookParams.signingAlg`** (`'hmac' | 'ed25519'`): select the delivery signing scheme. Settlement-event subscriptions default to `ed25519` when the Server has a vault signing key; requesting `ed25519` without one returns 422.
-- **`VerificationKey.publicKeyRaw`**: base64 of the raw 32-byte Ed25519 key (what RFC 9421 / Standard-Webhooks-style verifiers consume), alongside the SPKI-DER `publicKey`.
-- **`OpsSummary.partitions`**: audit-log partition runway (`table`, `runwayDays`, `defaultRows`) for capacity planning.
-- **`AccountProfile.authType` / `cert` / `oidc`**: introspection for OIDC ephemeral-cert (Mode 2) and OIDC bearer sessions, distinguishing them from long-lived `agl_` keys.
-- **9 webhook event types** reconciled to the API's authoritative set (now 35): added `signal.received`, `federation.dispute`, and the eight `record.federation_*` projected-lifecycle events; removed two values the API never emits (`record.settled`, `record.remediated`).
-
-### Changed
-
-- Adds a second runtime dependency, `http-message-signatures` (one transitive dep, `structured-headers`), used **only** by the `@agledger/sdk/webhooks` entry point for the RFC 9421 canonical serialization. The core client and other entry points are unaffected.
-
-## [0.8.3] - 2026-05-25
-
-Follow-up to 0.8.2 from a full response-schema diff of every route shared between API v0.24.0 and v0.25.2.
-
-### Fixed
-
-- **Audit-export chain-integrity enums were missing values.** `chainIntegrityReason` and `chainIntegrityDetail.failure` (on both `RecordAuditExport` and `exportMetadata`) were missing `oidc_actor_drift` (since v0.24.0) and the v0.25.x cert/signature modes `cert_actor_drift`, `cert_expired`, `cert_missing`, `agent_signature_invalid`. The three duplicated inline unions are now the shared `AuditChainIntegrityReason` and `AuditChainFailure` types, so they can't drift independently again.
-
-### Added
-
-- `ConformanceResponse.capabilities`: feature flags including `oidcWorkloadIdentity`, `ephemeralCerts`, `trustedIssuers`, `agentSignatureCoSign` (open-ended).
-- `VerificationKeysResponse.signatureInputTemplate`: canonical signature-input template (v0.25.x).
-
-## [0.8.2] - 2026-05-25
-
-Tracks AGLedger API v0.25.2. Catches the SDK up with the v0.25.x route surface (OIDC ephemeral-cert auth + trusted issuers + ops surfaces) and the dead-code audit that removed the string-override admin feature. Validated end-to-end against a live v0.25.2 instance.
-
-### Added
-
-- `auth.issueEphemeralCert()`: exchange an OIDC token for a short-lived ephemeral signing cert (`POST /v1/auth/oidc/cert`).
-- `admin.trustedIssuers` sub-resource: `list` / `create` / `get` / `update` / `delete` / `revokeCerts` over `/v1/admin/trusted-issuers` (platform-scoped). New types: `TrustedIssuer`, `TrustedIssuerAppliesTo`, `CreateTrustedIssuerParams`, `UpdateTrustedIssuerParams`, `ListTrustedIssuersParams`, `RevokeTrustedIssuerCertsResult`.
-- `admin.revokeEphemeralCert(certId)`: revoke a single ephemeral cert (`POST /v1/admin/ephemeral-certs/{id}/revoke`). New types: `EphemeralCert`, `IssueEphemeralCertParams`, `IssueEphemeralCertResult`, `RevokeEphemeralCertResult`.
-- `admin.getOpsSummary()`: consolidated ops snapshot (`GET /v1/admin/ops-summary`). New type: `OpsSummary`.
-- `admin.vault.scan.list()`: list current and recent vault scan jobs (`GET /v1/admin/vault/scan`). New types: `VaultScanList`, `VaultScanSummary`.
-- `agents.listPeers()`: federated agents synced from peers (`GET /v1/peer-agents`). New types: `PeerAgent`, `ListPeerAgentsParams`, `PeerAgentsResponse`.
-- `scitt.getConfiguration()` (`GET /.well-known/scitt-configuration`, unauthenticated) and `scitt.getCheckpoint()` (`GET /v1/scitt/checkpoint`). New types: `ScittConfiguration`, `ScittCheckpoint`.
-
-### Changed
-
-- `VaultScanJob` retyped to match the wire: `status` → `state` (`VaultScanState`: created/active/completed/failed/expired), and `entriesScanned`/`errorsFound` replaced by a structured `result` (`VaultScanResult`). Resolves a long-standing type drift.
-
-### Fixed
-
-- **API errors now surface every documented field.** `mapError` previously whitelisted error-body fields and silently dropped `recoveryHint`, `refreshUrl`, top-level `missingScopes`, and the RFC 9457 `detail`/`title` message fallbacks. The full body is now forwarded to the error classes. Found via live integration testing.
-- `User-Agent` / `X-SDK-Version` reported a stale `0.8.0`; now tracks the package version.
-
-### Removed
-
-- `admin.strings` sub-resource (`listKeys` / `listOverrides` / `getOverride` / `setOverride` / `deleteOverride` / `listDrift`) and types `StringOverride` / `SetStringOverrideParams`; the backing `/v1/admin/strings/*` routes were removed in the API's v0.25 dead-code audit.
-
-## [0.8.1] - 2026-05-21
-
-Tracks AGLedger API v0.24.0. Pre-launch rename sweep: `tenant`/`enterprise` collapsed into `org` across paths, types, and methods; record-performer alias `agentId` becomes `performerAgentId`; account-deactivation endpoint split into org + agent variants; federation surface trimmed to v0.24.0 reality (peer servers + consolidated DLQ; gateway/hub-keys/registration removed).
-
-### Changed (BREAKING: pre-launch, no compat aliases)
-
-- Admin resource: `listEnterprises` → `listOrgs`, `createEnterprise` → `createOrg`, `getEnterpriseConfig` → `getOrgConfig`, `updateEnterpriseConfig` → `updateOrgConfig`. `deactivateAccount(id, { accountType })` split into `deactivateOrg(id, params)` + `deactivateAgent(id, params)` (path determines type; `accountType` body field removed).
-- Types renamed: `AdminEnterprise` → `AdminOrg`, `CreateEnterpriseParams` → `CreateOrgParams`, `EnterpriseConfig` → `OrgConfig`, `SetEnterpriseConfigParams` → `SetOrgConfigParams`, `DeactivateAccountParams` → `DeactivateOrgParams` + `DeactivateAgentParams`. `CreateOrgParams` + `CreateAgentParams` shape matches v0.24.0; `slug`, `email`, `contactEmail` dropped.
-- Audit checkpoints resource: `TenantReadsCheckpointsResource` → `OrgReadsCheckpointsResource`, attribute `audit.tenantReadsCheckpoints` → `audit.orgReadsCheckpoints`. Paths `/v1/audit/tenant-reads/*` → `/v1/audit/org-reads/*`. Types `TenantReadsCheckpoint` / `TenantReadsInclusionProof` → `OrgReadsCheckpoint` / `OrgReadsInclusionProof`.
-- Field rename: `enterpriseId` → `orgId` everywhere it referred to the org/tenant (RecordRow, list/search filters, admin import body, schema export/import options, admin api-key scope).
-- Field rename: record-performer alias `agentId` → `performerAgentId` on RecordRow, create body, list/search filters, webhook event payloads. The `agentId` create-body alias is dropped; no back-compat. `agentId` is still valid in agent-identity contexts (`getAgent(agentId)`, reputation, references).
-- Predicate kind `tenant-read` → `org-read`.
-- LicenseInfo shape updated to match v0.24.0 (`validity` / `tier` / `customerId` / `instanceId` / `licensedThrough` / `licenseId` etc.; removed `plan` / `status` / `maxEnterprises` / `maxAgents` / `expiresAt`).
-- `parentPrincipalEnterpriseMatchesPerformer` → `parentPrincipalOrgMatchesPerformer` on RecordRow.
-
-### Removed (federation surface trimmed to v0.24.0)
-
-`FederationResource`: `register()`, `heartbeat()`, `registerAgent()`, `listAgents()`, `catchUp()`, `stream()`, `listTypes()`, `getType()`, `publishSchema()`, `confirmSchemaPublish()`, `getRecordCriteria()`, `submitRecordCriteria()`, `broadcastRevocations()`, `rotateKey()`, `revoke()`; backing endpoints retired.
-
-`FederationAdminResource`: `createRegistrationToken()`, `listGateways()`, `revokeGateway()`, `getHealth()`, `getGatewayStatus()`, `queryRecords()`, `getAuditLog()`, `resetSequence()`, `rotateHubKey()`, `listHubKeys()`, `activateHubKey()`, `expireHubKey()`, `registerPeer()`, `deleteSchemaVersion()`, `listReputationContributions()`, `resetReputation()`, `getRecordCriteriaEncryptionMetadata()`; backing endpoints retired. Old `listDlq()` (outbound-dlq) + `retryDlq()` + `deleteDlq()` replaced by the consolidated DLQ surface below.
-
-### Added
-
-- `FederationResource.peerHandshake()`: `POST /federation/v1/peer` (peer onboarding via single-use peering token).
-- `FederationResource.submitCoSignRequest()`: `POST /federation/v1/co-sign-requests`.
-- `FederationResource.submitDisputeProtocol()`: `POST /federation/v1/disputes`.
-- `FederationAdminResource.listDlq()`: `GET /federation/v1/admin/dlq` (consolidated DLQ).
-- `FederationAdminResource.recoverDlq()`: `POST /federation/v1/admin/dlq/recover`.
-- `FederationAdminResource.getInstance()`: `GET /federation/v1/admin/instance` (this server's federation identity).
-- `FederationAdminResource.deletePeer()`: `DELETE /federation/v1/admin/peers/{hubId}` (cleanup for revoked peers).
-- `FederationAdminResource.createPeeringToken({ label })` now requires `label`.
-- `FederationAdminResource.revokePeer(hubId, { reason })` now requires `reason`.
-
-### Fixed (post-review sweep)
-
-- **`RecordRow.agentId` (string|null) renamed to `RecordRow.performerAgentId`** to match the v0.24.0 wire shape: the previous field name silently returned null on every v0.24.0 record fetch.
-- **`SearchRecordsParams.agentId` removed.** The v0.24.0 search endpoint only accepts `performerAgentId`; the stale field caused a silent broken filter (API dropped the unknown query and returned unfiltered results).
-- **`CreateOrgParams.name` / `.displayName` made required** (was optional). **`CreateAgentParams.name` / `.displayName` made required.** Matches the v0.24.0 OpenAPI required-fields list; the wider types caused runtime 400s when callers passed only the previously-required fields.
-- **Federation request shapes rewritten against v0.24.0 OpenAPI**:
-  - `SubmitStateTransitionParams` now declares `recordId, state, type, idempotencyKey` (required) + `schemaRef, principalAgentId, performerAgentId, coSignRequired, correlationId, projectRef, externalTaskId, operatingMode`. Removed v0.21-era fields `gatewayId/criteriaHash/role/seq/timestamp/nonce/signature/performerGatewayId`.
-  - `RelaySignalParams` now declares `recordId, recommendation, outcomeHash, validUntil, idempotencyKey` (required) + `outcome, counterSignature, schemaRef`. Removed v0.21-era fields `signal/signalSeq/performerGatewayId/timestamp/nonce/performerSignature`.
-  - New typed `SubmitCoSignRequestParams` (`recordId, recommendation, outcomeHash, state, performerHubId, validUntil, idempotencyKey` + optional `outcome`) replacing the prior `Record<string, unknown>` placeholder on `federation.submitCoSignRequest`.
-  - New typed `SubmitDisputeProtocolParams` (`recordId, action, disputeId, disputeStatus, idempotencyKey` + optional `tier/grounds/outcome/initiatedByRole/schemaRef`) replacing `Record<string, unknown>` on `federation.submitDisputeProtocol`.
-  - New typed `PeerHandshakeParams` (`peerHubId, peerUrl, signingPublicKey, encryptionPublicKey, peeringToken, boundOrgId, agentDirectory`) replacing `Record<string, unknown>` on `federation.peerHandshake`.
-  - `ContributeReputationParams` rewritten as the aggregated-period shape: `agentId, type, period, totalRecords, totalVerified, totalPassed` (+ optional `signature`). Previous `outcome, recordId` fields were stale.
-  - `AgentDirectorySyncParams` expanded to `peerHubId, agents, directoryHash` (+ optional `since`); was previously only `{ agents }`, missing two required fields.
-- **Removed dead federation interfaces** that no longer have backing API routes: `HubState`, `GatewayStatus`, `FederationAuditEntryType`, `RegisterGatewayParams/Result`, `HeartbeatParams/Result`, `RegisterFederatedAgentParams`, `FederationAgent`, `ListFederatedAgentsParams`, `RotateGatewayKeyParams`, `RevokeGatewayParams`, `FederationCatchUpParams`, `CreateRegistrationTokenParams`, `FederationRegistrationToken`, `ListFederationGatewaysParams`, `FederationGateway`, `AdminRevokeGatewayParams`, `ResetSequenceParams`, `QueryFederationRecordsParams`, `FederationRecord`, `FederationAuditLogParams`, `FederationAuditEntry`, `FederationHealthSummary`, `ListOutboundDlqParams`, `FederationGatewayStatus`, `HubSigningKey`, `SchemaPublishParams`, `SchemaConfirmParams`, `FederationRecordCriteria`, `SubmitRecordCriteriaParams`, `RecordCriteriaStatus`, `ReputationContribution`, `RevocationBroadcastParams`, `PeerRegistrationParams`. `ListOutboundDlqParams` → `ListFederationDlqParams` (consolidated DLQ).
-- **`createFederationClient` JSDoc + @example** rewritten to use `peerHandshake` flow + `submitStateTransition` (was referencing the deleted `register()` / `heartbeat()` methods).
-- **Doc sweep**: webhook event names corrected (`verification.complete` → `record.verification_complete`, `settlement.signal` → `signal.emitted`); the verification example rewritten against v0.24.0 (it used pre-0.7.0 `mandates`/`receipts`); the self-commitment definition updated to `principalAgentId === performerAgentId` + `selfPrincipal: true`; leftover "mandate" wording removed; TS `prompt-context.ts` renders `performer=` not `agent=`.
-- **Vocab sweep finalized**: `types.ts` comments, Python `scopes.py`/`disputes.py`/`agents.py` docstrings, Python test function names (`test_audit_tenant_reads_*` → `test_audit_org_reads_*`), MCP integration test label (`submit receipt` → `submit completion`), test fixtures (verify-export.test.ts, prompt-context.test.ts, test_pagination/retry/verify.py, server.test.ts) all renamed.
-- **Verifier vectors**: `testdata/verifier/*.json` (5 fixtures) updated to use `orgId`; `scripts/generate-verifier-vectors.ts` field names aligned with v0.24.0 + stale-format note added.
-
-### Internal
-
-- Route manifest (`src/__tests__/routes.json`) regenerated from the v0.24.0 OpenAPI spec (187 routes).
-- Parity test updated: critical routes now reference `/v1/admin/orgs`, `/v1/audit/org-reads/*`, deactivate split; `POST /v1/admin/records/import` requires `orgId` (not `enterpriseId`).
-
-## [0.8.0] - 2026-05-19
-
-Tracks AGLedger API v0.23.0. Major SCITT vocabulary alignment + canonical COSE_Sign1 chain envelope + new SCITT Transparency Service (SCRAPI) surface.
-
-### Why a 0.8.0 (not a patch)
-
-Same rationale as the 0.7.0 release: a wholesale rename ("Receipt" → "Completion") plus a load-bearing crypto-format cutover. Anyone tracking between 0.7.x and 0.8.0 sees real breaking changes; patch-bump would mislead. The 0.x.y track still signals pre-launch.
-
-### Changed (BREAKING: Receipt → Completion rename, no compat aliases)
-
-"Receipt" is now reserved for the SCITT cryptographic Merkle-inclusion-proof concept (RFC 9162 in COSE_Sign1). The performer's evidence submission (the thing that used to be a Receipt) is now a **Completion**.
-
-- `client.receipts` → `client.completions`
-- `ReceiptsResource` → `CompletionsResource`
-- `Receipt` → `Completion`, `SubmitReceiptParams` → `SubmitCompletionParams`, `TypedSubmitReceiptParams` → `TypedSubmitCompletionParams`
-- Route paths: `/v1/records/{id}/receipts` → `/v1/records/{id}/completions`
-- Inline proofs on responses: `vaultReceipt` → `vaultCompletion`, `VaultReceipt` → `VaultCompletion`, `RecordReadReceipt` → `RecordReadCompletion`, `receiptHint` → `completionHint`, `minimalReceipt` → `minimalCompletion`
-- ID fields on `OutcomeResult` / `VerificationResult` / `ReportOutcomeParams`: `receiptId` → `completionId`
-- Scope strings + constants: `receipts:read`/`receipts:write` → `completions:read`/`completions:write`; `Scopes.RECEIPTS_READ`/`RECEIPTS_WRITE` → `Scopes.COMPLETIONS_READ`/`COMPLETIONS_WRITE`
-- Webhook event types: `record.receipt_submitted` → `record.completion_submitted`, `record.receipt_invalid` → `record.completion_invalid`. The full set of 27 customer-facing events is now declared on `WebhookEventType` (added `record.recorded`, `record.registered`, `record.activated`, `record.remediated`, `record.revision_requested`, `cascading.verification.complete`, `dispute.withdrawn`).
-- Schema types: `receiptSchema` → `completionSchema`, schema kind `'receipt'` → `'completion'`. `SchemaDiffResult.receipt` → `.completion`, `SchemaCompatibilityResult.receipt` → `.completion`. `MetaSchema.examples.minimalReceipt` → `.minimalCompletion`.
-- Record fields: `cancelAfterReceiptCount` → `cancelAfterCompletionCount` (on `VerdictStatistics`). Doc-comment `RESUBMIT_RECEIPT` → `RESUBMIT_COMPLETION`.
-- Dispute grounds: `fraudulent_receipt` → `fraudulent_completion`.
-- Method `schemas.validateReceipt(...)` → `schemas.validateCompletion(...)`. `verification.verify({ receiptIds })` → `verify({ completionIds })`.
-- Prompt-context helper: `receiptToContext` → `completionToContext`; mock ID prefix in tests `rct-` → `cmp-`.
-
-PRESERVED uses of "Receipt": these are the SCITT cryptographic concept:
-- `AuditExportEntry.integrity.receipt` (optional base64-encoded COSE_Sign1 Receipt carrying an RFC 9162 inclusion proof, opt-in via `?receipts=true` on `getAuditExport`)
-- `CommunicationEvidence.delivery_receipt` (real-world SMS/email delivery receipt, unrelated to AGLedger Receipt)
-
-### Changed (BREAKING: offline verifier: format 1.0 → 2.0)
-
-The audit-export verifier moved from JCS + detached-Ed25519 to canonical **COSE_Sign1** (RFC 9052, tag 18, EdDSA) over an in-toto v1 Statement payload, deterministically CBOR-encoded per RFC 8949 §4.2.1.
-
-- `RecordAuditExport.exportMetadata.exportFormatVersion` is now **`'2.0'`** (was `'1.0'`).
-- `RecordAuditExport.exportMetadata.canonicalization` is now **`'RFC8949-CDE'`** (was `'RFC8785'`).
-- Per-entry `integrity` shape on `AuditExportEntry`: dropped `signature`, `signatureAlg`, `hashAlg`; added `coseSign1` (base64-encoded canonical envelope, signature lives inside) and optional `receipt` (SCITT Receipt when `?receipts=true`).
-- `verifyExport()` decodes the COSE_Sign1 envelope, walks the hash chain over envelope bytes (sha256), cross-checks the protected-header chain claim at private label `-65537` against the row columns, and verifies the COSE signature against `Sig_structure = ["Signature1", protected_bstr, h'', payload_bstr]`.
-- New `EntryFailureReason` values: `'cose_decode_failed'`, `'cose_header_mismatch'`. Old `'signature_invalid'` retained but now refers to the COSE signature.
-- New `VerifyExportResult.signatureCoverage` discriminator, which distinguishes "hash chain valid + 0/N signed" from "chain valid + N/N signed". Auditors should not conclude "Ed25519-verified" from `chainIntegrity: true` alone; read `signatureCoverage` or the new `RecordAuditExport.integrityLevel`.
-- New `chainIntegrityReason` value: `'payload_drift'`: emitted when the visible `payload` jsonb diverges from the predicate signed in `coseSign1` (a privileged-DBA-bypass tamper of the denormalized view that hash + link checks alone would miss).
-- New `RecordAuditExport.chainIntegrityDetail`: localizes a chain break with `brokenAtPosition`, `expectedPreviousHash`, `actualPreviousHash`, `failure` sub-classification.
-- **The SDK is no longer zero-dependency.** `cborg` is a runtime dependency. The trade is intentional: COSE_Sign1 verification is fundamentally a CBOR operation, and `cborg` is the same lib the Server uses on the write side, which keeps the two implementations byte-compatible.
-
-### Added: SCITT Transparency Service surface (`client.scitt`)
-
-Implements `draft-ietf-scitt-scrapi-09`. Binary `application/cose` wire on entries; CBOR `application/cose-key-set` on keys. Errors are `application/concise-problem-details+cbor` per RFC 9290.
-
-- `client.scitt.entries.register(signedStatement)`: POST a tagged COSE_Sign1 Signed Statement, returns a Receipt (COSE_Sign1 carrying RFC 9162 inclusion proof at unprotected label 396). Per SCITT spec, posting the same bytes twice creates two distinct entries.
-- `client.scitt.entries.get(entryId)`: read a Transparent Statement (Signed Statement + Receipt(s) composed at unprotected label 394).
-- `client.scitt.keys.list()` + `client.scitt.keys.get(kid)`: fetch the Transparency Service's COSE_KeySet for offline Receipt verification. Unauthenticated.
-
-Errors are surfaced as `AgledgerApiError` with the raw CBOR body on the new `rawBody?: Uint8Array` field for caller-side `cborg`-decoding.
-
-### Added: predicate schema discovery (`client.predicates`)
-
-Each chain entry is an in-toto v1 Statement; the predicate body shape varies by entry type. The new resource publishes the canonical predicate JSON Schemas.
-
-- `client.predicates.list()`: list available predicate kinds.
-- `client.predicates.get(kind, version = 'v1')`: fetch the JSON Schema for a kind. Known kinds: `record-state`, `settlement-signal`, `vault-checkpoint`, `schema-event`, `tenant-read`, `counter-attestation`, `federation-projection`.
-
-### Added: attestation export on `client.records`
-
-- `client.records.getAttestation(recordId)`: fetch the chain as `application/cose-sequence` bytes (concatenated tagged COSE_Sign1 messages, each beginning `0xd2 0x84 …`). Cryptographically verifiable end-to-end.
-- `client.records.getAttestationBundle(recordId)`: sigstore-bundle v0.3.2 projection for Rekor / in-toto / sigstore-policy-controller ingest. NOT cryptographically verifiable end-to-end (DSSE inner signature is byte-incompatible with the canonical COSE_Sign1 signature); structural interop only. Verify cryptographically via `getAttestation` instead.
-
-### Added: vault checkpoints on `client.audit`
-
-- `client.audit.vaultCheckpoints.list({ recordId, cursor, limit })`: paginated list of per-record 6h signed Merkle anchors that survive `audit_vault TRUNCATE/DELETE`. Pair with `records.getAuditExport()` for offline checkpoint cross-check.
-
-### Added: `?receipts=true` on `records.getAuditExport`
-
-Opt-in SCITT Receipts at `integrity.receipt` on each entry. Emitted only when the engine has a `VAULT_SIGNING_KEY`.
-
-### Added: binary I/O on `HttpClient` + `client.request`
-
-- `requestBinary(method, path, opts)`: full retry / idempotency / abort semantics matching the JSON path. `body` is a `Uint8Array`, response is `Uint8Array`. SCITT errors capture the raw CBOR problem-details bytes on `AgledgerApiError.rawBody`.
-- `AgledgerApiError.rawBody?: Uint8Array` declared as a first-class field (was a monkey-patched property in early development).
-
-### Internal
-
-- Build pipeline unchanged; ESM output to `dist/`.
-- Tests use a self-contained COSE_Sign1 builder for fixtures + shared 2.0 fixtures regenerated by `scripts/generate-verifier-vectors.mjs` (in the monorepo). All 391 SDK tests pass.
-
-## [0.7.2] - 2026-05-02
-
-Patch fix for a wrong-shape annotation in `BulkCreateResult`.
-
-### Fixed
-- **`BulkCreateResult.results[].status` is now `'created' | 'replayed' | 'error'`** (was `number`). The API has always returned the string token; the TS interface had it typed as `number`, breaking strict consumers. Fixed in parallel with the Python SDK 0.7.3 regression (where the same wrong shape caused a runtime Pydantic validation error).
-
-## [0.7.0] - 2026-04-27
-
-Tracks AGLedger API v0.21.5. The single biggest change in the SDK's
-pre-launch history: the API renamed every `/v1/mandates/*` route to
-`/v1/records/*` and the data-model concept "Mandate" → "Record" / "Contract
-Type" → "Type". The SDK realigns wholesale.
-
-### Why a 0.7.0 (not a patch): deviation from "always patch pre-launch"
-
-This release is a minor bump rather than a patch because the surface change is
-too large to silently roll into a patch: every typed method, every URL, and
-~80 type names move. Anyone tracking the SDK between 0.6.x and 0.7.0 sees a
-real rename, not a touch-up. Patch-bump would mislead. Bump to 0.7.0; the
-0.x.y track itself signals pre-launch.
-
-### Changed (BREAKING: full rename, no compat aliases)
-
-- **`client.mandates` → `client.records`.** `MandatesResource` →
-  `RecordsResource`. Every method that referred to "mandate" now refers to
-  "record": `getSubMandates` → `getSubRecords`, `BatchGetMandatesResult` →
-  `BatchGetRecordsResult`, `DelegateMandateParams` → `DelegateRecordParams`,
-  etc. No deprecated `client.mandates` shim.
-- **Every `/v1/mandates/*` URL → `/v1/records/*`.** Path parameter
-  `{contractType}` → `{type}` on schema routes. Affects `records`, `receipts`,
-  `verification`, `disputes`, `compliance`, `references`, `federation`,
-  `federationAdmin`, `admin`.
-- **Resource type renames.** `Mandate` → `RecordRow` (named to avoid
-  colliding with TypeScript's built-in `Record<K, V>` utility: the API's
-  OpenAPI schema uses `RecordRow` for the same reason). `MandateStatus` →
-  `RecordStatus`, `MandateTransitionAction` → `RecordTransitionAction`,
-  `CreateMandateParams` → `CreateRecordParams`, `MandateAuditExport` →
-  `RecordAuditExport`, `FederationMandate` → `FederationRecord`,
-  `MandateLifecycleInfo` → `RecordLifecycleInfo`, etc.
-- **`contractType` → `type`** on Record bodies, responses, and search
-  parameters. `ContractType` (the type alias) → `RecordType`. `ContractSchema`
-  → `TypeSchema`. Schema body fields `mandateSchema` → `recordSchema`.
-- **Scopes renamed.** `mandates:read` → `records:read`, `mandates:write` →
-  `records:write`. `Scopes.MANDATES_READ`/`WRITE` → `Scopes.RECORDS_READ`/
-  `WRITE`. All scope-profile descriptions updated.
-- **`mandate.*` webhook event types → `record.*`.** `WebhookEventType` union
-  drops `mandate.created` etc. and adds `record.created` etc.
-- **Lifecycle module renamed.** `src/mandate-lifecycle.ts` →
-  `src/record-lifecycle.ts`. Top-level export `MANDATE_TRANSITIONS` →
-  `RECORD_TRANSITIONS`. `recordToContext()` replaces `mandateToContext()` in
-  `prompt-context`. `getValidTransitions()` / `canTransitionTo()` /
-  `isTerminalStatus()` keep their names (they take a `RecordStatus` argument).
-- **Compliance method rename.** `compliance.exportMandate()` →
-  `compliance.exportRecord()`.
-- **Reputation method rename.** `reputation.getByContractType()` →
-  `reputation.getByType()`.
-- **Federation rename.** `federation.listContractTypes()` → `listTypes()`,
-  `getContractType()` → `getType()`, `getMandateCriteria()` →
-  `getRecordCriteria()`, `submitMandateCriteria()` → `submitRecordCriteria()`.
-  `federationAdmin.queryMandates()` → `queryRecords()`.
-- **References rename.** `references.addMandateReferences()` →
-  `addRecordReferences()`, plus new `addAgentReferences()` /
-  `getAgentReferences()` for the agent-side route.
-- **Capabilities body field rename.** `SetCapabilitiesParams.contractTypes`
-  → `types` (matches the API's renamed field).
-
-### Added
-
-- **`RECORDED` status** on `RecordStatus` and `RECORD_TRANSITIONS` (terminal
-  state for notarize-only Types: Records of a Type without a receipt phase
-  land here at create).
-- **`vaultReceipt`** on every Record response (`{ chainPosition, leafHash,
-  previousHash, signature, signingKeyId, signedCheckpointRef }`). Lets a
-  notarize-only caller verify the chain head without a follow-up
-  `audit-export`. New top-level `VaultReceipt` type.
-- **`recordRead`** SCITT-style inclusion-proof receipt on Records returned
-  via cross-party tenant-admin reads. New top-level `RecordReadReceipt` type.
-- **New top-level Record fields.** `category`, `outcome`, `correlationId`,
-  `requestedBy`, `parentPrincipalEnterpriseMatchesPerformer`,
-  `commissionAmount`, `revisionCount`, `maxRevisions`, `disputeCount`,
-  `maxDisputes`, `pastDeadline`. `acceptanceRespondedAt` and `selfCommitment`
-  are now non-optional on the response.
-- **`client.disputes.list()`**: backed by the new tenant-wide
-  `GET /v1/disputes` route. Filter by `status` or `recordId`.
-- **`client.audit.tenantReadsCheckpoints.{list, get, cosign, proof}`**:
-  SCITT-style signed-tree-head surface for tenant-admin cross-party reads.
-- **`client.admin.records.{list, import}`**: `list()` on
-  `GET /v1/admin/records`, plus `import()` on `POST /v1/admin/records/import`
-  for atomic backfill of historical Records (per-batch up to 100, terminal
-  status whitelist, `BACKFILL_IMPORT` vault stamp). New types
-  `BackfillRecord`, `AdminImportRecordsParams`, `AdminImportRecordsResult`,
-  `QueryAdminRecordsParams`.
-- **`client.admin.vault.{anchors, scan, signingKeys}`**: sub-namespaces for
-  the existing vault inspection methods. Old top-level `client.admin.list…` /
-  `verify…` / `start…` calls were dropped (they pointed at the same routes;
-  the new structure mirrors the API's `/v1/admin/vault/{anchors,scan,signing-keys}`
-  layout).
-- **`client.conformance.run()`**: top-level `GET /v1/conformance` mirror
-  alongside the existing `client.discovery.getConformance()`.
-- **`client.records.myVerdictStatistics()`**: agent-only reputation primitive
-  on `GET /v1/records/me/verdict-statistics`. New `VerdictStatistics` type.
-- **Schema toolkit rename to match API endpoints.** `schemas.metaSchema()`,
-  `schemas.blank()`, `schemas.import_()` (underscore avoids the JS reserved
-  word). Old method names (`getMetaSchema`, `getBlankTemplate`,
-  `importSchema`) preserved as `@deprecated` aliases.
-- **Schema lifecycle methods.** `schemas.disable(type)` and
-  `schemas.enable(type)` for the two-state ACTIVE/DISABLED catalogue.
-- **Per-item bulk-create idempotency.** `bulkCreate` accepts
-  `BulkCreateRecordItem[]` with optional per-item `idempotencyKey` (replay-safe
-  high-volume notarize ingest; 7-day TTL scoped to caller+key).
-- **RFC 9457 problem-details support on errors.** `ApiErrorResponse` now
-  models the standard fields (`type`, `title`, `status`, `detail`, `instance`)
-  alongside AGLedger extension fields. New error properties `recoveryHint`
-  and `refreshUrl` (set by the API on `422 INVALID_ACTION` to guide the agent
-  to the correct corrective endpoint). Error `message` falls back to `detail`
-  → `title` if absent. `PermissionError.missingScopes` reads from the new
-  RFC 9457 top-level extension first, falling back to `details.missingScopes`
-  for older bodies.
-
-### Changed
-
-- `RecordAuditExport.exportMetadata` carries `recordId` + `type` (was
-  `mandateId` + `contractType`), plus new optional `expectedEntries`,
-  `chainIntegrityReason`, and `operatingMode`.
-- `MetaSchema` field renames: `examples.minimalMandate` →
-  `minimalRecord`, `limits.contractTypeMaxLength` → `typeMaxLength`.
-- `verifyExport()` (offline verifier) now returns `recordId` on
-  `VerifyExportResult` (was `mandateId`). Crypto primitives and the canonical
-  hash chain are unchanged: only field names move.
-- `ConformanceResponse.contractTypes` → `types`.
-- Federation key/payload field renames: `mandateCount` → `recordCount` on
-  heartbeat / gateway summaries; `contractTypes` → `types` on agent
-  registration; `mandateId` → `recordId` and `contractType` → `type` on
-  state-transition / signal payloads. Federation criteria types renamed
-  (`FederationMandateCriteria` → `FederationRecordCriteria`,
-  `MandateCriteriaStatus` → `RecordCriteriaStatus`).
-
-### Removed
-
-- **No backward-compat aliases.** `client.mandates`, `Mandate`,
-  `MandateAuditExport`, `MANDATE_TRANSITIONS`, `mandateToContext`,
-  `Scopes.MANDATES_READ`, etc. are gone: not deprecated, gone. Pre-launch,
-  no customers; aliases would carry forward forever.
-- **`events.getAuditChain()`.** The retired `/v1/mandates/{id}/audit` route
-  is gone from the API; use `client.records.getAuditExport()` instead (signed,
-  canonicalized export with hash chain).
-- **`schemas.getRules()` parameter** kept but the response shape now uses
-  `type` instead of `contractType`.
-
-### Parity test
-
-- `routes.json` regenerated from API v0.21.5 OpenAPI (196 routes, up from
-  188 in v0.20.0). Critical routes refreshed for the records surface.
-- New parity assertions: `POST /v1/records` body uses `type` (not
-  `contractType`); records.bulk requires `records`; admin.records.import
-  requires `enterpriseId`/`source`/`records`; tenant-reads checkpoint routes
-  exist; admin vault sub-routes exist.
-- Retired-routes regex now flags `/v1/mandates`, `/federation/v1/mandates`,
-  and `/federation/v1/admin/mandates`: any remaining mandate URL would fail
-  the resource-file scan.
-
-## [0.6.0] - 2026-04-23
-
-Tracks AGLedger API v0.20.0: the pre-launch principal-model rewrite. This
-release is a breaking realignment of the SDK to the new API surface. No
-migration shims are provided; there are no production customers yet.
-
-### Changed (BREAKING)
-- **API key role `enterprise` → `admin`.** The `ApiKeyRole` type is now
-  `'admin' | 'agent' | 'platform'`. All scopes, profiles, and type hints updated.
-- **API key prefix `ach_(ent|age|pla)_*` → `agl_(adm|agt|plt)_*`.** Old-prefix
-  keys are not valid against a v0.20.0 API; the SDK no longer accepts them as
-  examples or in docs.
-- **Scope profiles renamed and trimmed to 7.** New names: `admin-standard`
-  (default admin), `admin-observer`, `admin-iac`, `admin-schema`, `agent-full`
-  (default agent), `agent-readonly`, `agent-performer-only`. Retired:
-  `standard`, `restrictive`, `iac-pipeline`, `schema-manager`, `monitor`,
-  `dashboard`, `sidecar`. `ScopeProfile` now exposes `allowedRoles`.
-- **Scope constants `DASHBOARD_READ` and `AUDIT_ANALYZE` removed.**
-  `ADMIN_TRUST` renamed to `ADMIN_BACKFILL` (`admin:backfill`).
-- **Principal model collapsed.** `principalType` field gone from `Mandate` and
-  `CreateMandateParams`. Every mandate has a single named `principalAgentId`.
-  Agent keys default principal to themselves; admin keys must name the
-  principal (explicitly or via `agentId`/`performerAgentId` for implicit
-  self-commitment). Self-commitment (principal === performer) is valid and
-  carries a `selfCommitment: true` flag on the vault entry.
-- **Unified `POST /v1/mandates`.** `POST /v1/mandates/agent` and
-  `GET /v1/mandates/agent/principal` are gone; use the unified endpoint and
-  filter by principal.
-- **Audit route rename `/v1/audit/stream` → `/v1/siem/stream`.**
-- **Admin agent-approval flow replaces `/v1/enterprises/{id}/agents/*`.**
-  The `EnterprisesResource` is removed; admin agent provisioning moves onto
-  `AdminResource` (create/list/update/bulk-revoke agents and API keys via
-  `/v1/admin/*`).
-- **Auth surface trimmed.** Only `GET /v1/auth/me` and
-  `POST /v1/auth/keys/rotate` remain, surfaced on a new `AuthResource`.
-
-### Added
-- **`AuthResource`**: `client.auth.getMe()` and `client.auth.rotateKey()`.
-- **`DiscoveryResource`**: `client.discovery.getScopeProfiles()`,
-  `getConformance()`, `getLifecycle()`. Backs unauthenticated / onboarding
-  probes.
-- Audit-vault `_actor` envelope visibility on `MandateAuditExport` types
-  (hash-chained `actor_key_id`, `actor_role`, `actor_owner_id` per state
-  change).
-- `agent-performer-only` scope profile: performer that can deliver receipts
-  and read mandates but cannot be a principal.
-
-### Removed
-- Resources: `dashboard`, `proxy` (governance sidecar sync), `notarize`
-  (OpenClaw legacy), `projects`, `registration` (self-service signup),
-  `enterprises`.
-- Methods: `compliance.analyze()`, `mandates.getSummary()`, all
-  trust-level methods (`admin/accounts/{id}/trust-level`), all IP-specific
-  rate-limit-exemption methods, `/v1/audit/enterprise-report*`.
-- Trust-level types (`TrustLevel`, `AgentVerificationMethod`, `verifiedAt`).
-
-### Parity test
-- The hand-curated `SDK_METHODS` table is gone: replaced by a smaller set of
-  invariant checks (critical routes present, retired routes absent,
-  resource-file prose doesn't mention retired paths or the `ach_*` prefix).
-  Exhaustive per-method coverage is enforced by `resources.test.ts` and
-  `integration.test.ts`.
-- `routes.json` regenerated from API v0.20.0 OpenAPI (188 routes).
-
-## [0.1.0] - 2026-04-02
-
-### Added
-- `AgledgerClient` with 23 resource sub-clients: mandates, receipts, verification, disputes, webhooks, reputation, events, schemas, dashboard, compliance, registration, health, proxy, admin, a2a, capabilities, notarize, enterprises, projects, federation, federationAdmin, agents, references
-- `createFederationClient()` factory for gateway-only clients with bearer token auth
-- Full error hierarchy: `AgledgerApiError`, `AuthenticationError`, `PermissionError` (with `missingScopes`), `NotFoundError`, `ConflictError`, `IdempotencyError`, `ValidationError`, `UnprocessableError`, `RateLimitError`, `ConnectionError`, `TimeoutError`, `SignatureVerificationError`
-- `docUrl` and `suggestion` on all API errors for agent-friendly recovery
-- Auto-pagination via async iterators (`listAll()` methods)
-- Retry with exponential backoff + jitter for 429/5xx, respects `Retry-After`
-- Auto-generated idempotency keys on POST/PATCH/DELETE
-- Webhook signature verification via `@agledger/sdk/webhooks` subpath export
-- Forward-compatible enum types with `| (string & {})` pattern
-- Discriminated union types for webhook events
-- Typed criteria/evidence interfaces for all 11 contract types
-- Client-side mandate state machine validation (`canTransitionTo`, `getValidTransitions`)
-- `RequestOptions` with `signal` (AbortSignal), `headers`, `timeout`, `authOverride`
-- `@agledger/sdk/types` subpath export for type-only consumers
-- 31 typed interfaces for admin, federation, vault, dashboard, agent, and reference operations
-- 379 tests across 10 test files
-- SECURITY.md with CVE disclosure policy
-- Zero runtime dependencies (native `fetch` + `crypto`)
-
-### Technical
-- ES2024 target, Node.js >=22.0.0
-- TypeScript ^5.8.0 strict mode
-- `"sideEffects": false` for tree-shaking
-- ESM-only with `.js` extensions
+Releases before 1.0.0 are listed on npm (https://www.npmjs.com/package/@agledger/sdk?activeTab=versions).
