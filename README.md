@@ -411,6 +411,9 @@ const isValid =
 if (!isValid) return res.status(401).end();
 ```
 
+An empty or blank secret throws `ConfigurationError` rather than verifying, so
+a receiver started with `WEBHOOK_SECRET` set but empty fails loudly.
+
 **Asymmetric** (`signingAlg: 'ed25519'` or `'ecdsa-p256-sha256'`) is RFC 9421
 HTTP Message Signatures signed with the Server's vault key. The receiver holds
 no secret and verifies against the Server's published public key, so it can

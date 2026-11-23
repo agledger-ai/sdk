@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { createHash, generateKeyPairSync, sign as nodeSign } from 'node:crypto';
 import { HttpClient } from '../http.js';
 import { AgledgerClient } from '../client.js';
-import { ConnectionError, TimeoutError, RateLimitError, PaginationLimitError } from '../errors.js';
+import { ConfigurationError, ConnectionError, TimeoutError, RateLimitError, PaginationLimitError } from '../errors.js';
 import {
   verifySignature,
   constructEvent,
@@ -89,6 +89,14 @@ describe('webhook replay window', () => {
 
   it('a 30-day-old signature still fails with a valid tolerance', () => {
     expect(verifySignature(body, old.header, 'sec', 300)).toBe(false);
+  });
+
+  it.each([[''], [' '], [['']], [[' ']], [[]], [['sec', '']]])('a blank secret %j throws ConfigurationError rather than verifying a forgery', (secrets) => {
+    // An empty string is a valid HMAC key, so a receiver deployed with
+    // WEBHOOK_SECRET= set but empty would accept anything signed with it.
+    const forged = signPayload(body, '');
+    expect(() => verifySignature(body, forged.header, secrets as string | string[])).toThrow(ConfigurationError);
+    expect(() => constructEvent(body, forged.header, secrets as string | string[])).toThrow(ConfigurationError);
   });
 
   it('rejects a non-finite tolerance on the RFC 9421 path, not as a plain false', async () => {

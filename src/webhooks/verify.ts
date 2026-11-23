@@ -7,7 +7,7 @@ import {
   runtimeCanCompute,
 } from '@agledger/verify-core';
 import type { WebhookEventType, RecordRow, Completion, Dispute, VerificationKey } from '../types.js';
-import { SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
+import { ConfigurationError, SignatureAlgorithmUnavailableError, SignatureVerificationError } from '../errors.js';
 import { ByteSequence, parseDictionary, serializeInnerList, type InnerList } from './structured-fields.js';
 
 /**
@@ -40,6 +40,24 @@ function resolveTolerance(toleranceSeconds: number | undefined): number {
  */
 const KEY_WINDOW_SKEW_MS = 300_000;
 
+/**
+ * The signing secrets as a list, refusing any that would let a caller forge.
+ * An empty secret is a valid HMAC key, so accepting one (a receiver deployed
+ * with `WEBHOOK_SECRET=` set but empty) would let anyone compute a passing
+ * signature. An empty list, or an entry that is not a string with something
+ * besides whitespace, is a configuration mistake: thrown, never reported as a
+ * failed delivery.
+ */
+function checkedSecrets(secrets: string | readonly string[]): readonly string[] {
+  const list: readonly unknown[] = Array.isArray(secrets) ? secrets : [secrets];
+  if (list.length === 0 || list.some((s) => typeof s !== 'string' || s.trim() === '')) {
+    throw new ConfigurationError(
+      'Webhook signing secret is empty. Pass the endpoint\'s secret, or a non-empty list of secrets during rotation.',
+    );
+  }
+  return list as readonly string[];
+}
+
 /** A verified webhook event with typed payload. */
 export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
   /** Event type (e.g., 'record.created', 'record.completion_submitted'). */
@@ -60,7 +78,7 @@ export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
  *
  * @param rawBody - The raw request body string (do NOT parse JSON first)
  * @param header - The x-agledger-signature header value
- * @param secrets - One or more webhook secrets (array for key rotation)
+ * @param secrets - One or more webhook secrets (array for key rotation). An empty list, or an empty or blank secret, throws a ConfigurationError.
  * @param toleranceSeconds - Max age in seconds (default/max: 300; a value that is not a finite number, 0 or more, throws a RangeError)
  * @returns Parsed and typed webhook event
  * @throws Error if signature is invalid or body cannot be parsed
@@ -162,7 +180,7 @@ export function parseSignatureHeader(
  *
  * @param rawBody - The raw request body string
  * @param header - The x-agledger-signature header value
- * @param secrets - One or more webhook secrets (array for key rotation)
+ * @param secrets - One or more webhook secrets (array for key rotation). An empty list, or an empty or blank secret, throws a ConfigurationError.
  * @param toleranceSeconds - Max age in seconds (default/max: 300). A value that is not a finite number, 0 or more, throws a RangeError.
  * @returns true if signature is valid and within tolerance
  */
@@ -172,6 +190,7 @@ export function verifySignature(
   secrets: string | string[],
   toleranceSeconds?: number,
 ): boolean {
+  const secretList = checkedSecrets(secrets);
   const tolerance = resolveTolerance(toleranceSeconds);
   const parsed = parseSignatureHeader(header);
   if (!parsed) return false;
@@ -180,7 +199,6 @@ export function verifySignature(
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - parsed.timestamp) > tolerance) return false;
 
-  const secretList = Array.isArray(secrets) ? secrets : [secrets];
   const signedPayload = `${parsed.timestamp}.${rawBody}`;
 
   for (const secret of secretList) {

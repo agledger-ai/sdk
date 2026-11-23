@@ -52,6 +52,8 @@ Each of these routes is gone from AGLedger Server 3.0.0, so the method that call
 
 ### Fixed
 
+- **An empty or blank webhook secret throws `ConfigurationError`** from `verifySignature` and `constructEvent`, as the Python SDK raises. An empty string is a valid HMAC key, so a receiver deployed with `WEBHOOK_SECRET=` set but empty accepted any delivery signed with an empty key. An empty list, or any blank entry in a rotation list, is refused the same way.
+- **An untampered export checked against another Server's pin is `unanchored`, not `failed`**, through `@agledger/sdk/verify` (verify-core 2.2.0). When the pin reaches none of the export's keys and the export verifies without it, `verdict` is `unanchored` and `valid` stays false.
 - **Path parameters are percent-encoded.** An id such as `../admin/x?y=1` passed to `records.get()` (or any method that puts an identifier in the URL) reached a different route. Every interpolated path segment is now encoded, so it names that literal identifier.
 - **`toleranceSeconds` that is `NaN`, `Infinity` or negative throws a `RangeError`** from `verifySignature`, `constructEvent`, `verifyRfc9421` and `constructEventRfc9421`. `NaN` used to switch the replay window off, so a signature of any age verified.
 - **`verifyRfc9421` and `constructEventRfc9421` enforce the replay window themselves.** With `http-message-signatures` 1.0.10 or later, an RFC 9421 delivery was accepted up to three times `toleranceSeconds` old: 900 seconds at the default, where 300 is documented. The signature's `created` time is now compared with the clock directly, symmetric and to the second. HMAC verification (`verifySignature`, `constructEvent`) was never affected.
