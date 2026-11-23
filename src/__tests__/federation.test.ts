@@ -11,7 +11,9 @@ function mockFetch(body: unknown = {}, status = 200) {
 }
 
 function lastCall(fetch: ReturnType<typeof vi.fn>) {
-  const [url, init] = fetch.mock.calls[fetch.mock.calls.length - 1];
+  const call = fetch.mock.calls.at(-1);
+  if (!call) throw new Error('fetch was not called');
+  const [url, init] = call as [unknown, unknown];
   return { url: url as string, init: init as RequestInit };
 }
 

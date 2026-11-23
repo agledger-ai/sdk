@@ -33,10 +33,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = import.meta.dirname;
 
 interface EnumSnapshot {
   enumCount: number;
@@ -62,7 +61,7 @@ const typesSrc = readFileSync(resolve(__dirname, '../types.ts'), 'utf8');
  * it pinned, and it silently checked a fifth of the type.
  */
 function parseUnions(source: string): Record<string, string[]> {
-  const src = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+  const src = source.replaceAll(/\/\*[\s\S]*?\*\//g, '').replaceAll(/\/\/[^\n]*/g, '');
   const out: Record<string, string[]> = {};
   const aliases: Record<string, string> = {};
   for (const match of src.matchAll(/export type (\w+)\s*=/g)) {
@@ -80,7 +79,7 @@ function parseUnions(source: string): Record<string, string[]> {
     }
     // String literals, `|`, the open-union idiom, whitespace, and nothing else:
     // any residue means this is not a plain union of string literals.
-    if (body.replace(/'[^']*'|\(string & \{\}\)|\||\s/g, '')) continue;
+    if (body.replaceAll(/'[^']*'|\(string & \{\}\)|\||\s/g, '')) continue;
     const values = [...body.matchAll(/'([^']*)'/g)].map((m) => m[1]).sort();
     if (values.length) out[match[1]] = values;
   }

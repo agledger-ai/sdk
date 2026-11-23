@@ -86,7 +86,7 @@ describe('agent identity', () => {
     expectTypeOf<keyof CreateAgentParams>().toEqualTypeOf<'orgId' | 'displayName' | 'agentCardUrl' | 'oidcIss' | 'oidcSub'>();
     expectTypeOf<CreateAgentParams['displayName']>().toEqualTypeOf<string>();
     // @ts-expect-error the route refuses `name` with 400
-    const _p: CreateAgentParams = { orgId: 'o', displayName: 'd', name: 'x' };
+    ((params: CreateAgentParams) => params)({ orgId: 'o', displayName: 'd', name: 'x' });
   });
 
   it('an agent can be bound to an external identity', () => {
@@ -126,7 +126,7 @@ describe('operator surfaces', () => {
   });
 
   it('the license source knows the compact form', () => {
-    expectTypeOf<'compact'>().toMatchTypeOf<NonNullable<LicenseInfo['source']>>();
+    expectTypeOf<'compact'>().toExtend<NonNullable<LicenseInfo['source']>>();
     expectTypeOf<AdminResource['reloadLicense']>().returns.resolves.toEqualTypeOf<LicenseInfo>();
   });
 
@@ -141,6 +141,6 @@ describe('operator surfaces', () => {
   });
 
   it('an empty chain is a named reason, not a pass', () => {
-    expectTypeOf<'audit_vault_empty'>().toMatchTypeOf<AuditChainIntegrityReason>();
+    expectTypeOf<'audit_vault_empty'>().toExtend<AuditChainIntegrityReason>();
   });
 });

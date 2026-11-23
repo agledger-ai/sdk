@@ -19,8 +19,8 @@ import type {
 describe('v1.3.3: VaultScanResult.globalChains', () => {
   it('globalChains is optional on the scan result', () => {
     type G = VaultScanResult['globalChains'];
-    expectTypeOf<undefined>().toMatchTypeOf<G>();
-    expectTypeOf<VaultScanGlobalChains>().toMatchTypeOf<NonNullable<G>>();
+    expectTypeOf<undefined>().toExtend<G>();
+    expectTypeOf<VaultScanGlobalChains>().toExtend<NonNullable<G>>();
   });
 
   it('globalChains carries the record-less counters and broken-chain list', () => {
@@ -33,9 +33,9 @@ describe('v1.3.3: VaultScanResult.globalChains', () => {
 
   it('a broken chain names admin-vs-schema and a nullable org', () => {
     expectTypeOf<VaultScanBrokenChain['chain']>().toEqualTypeOf<'admin' | 'schema'>();
-    expectTypeOf<null>().toMatchTypeOf<VaultScanBrokenChain['orgId']>();
+    expectTypeOf<null>().toExtend<VaultScanBrokenChain['orgId']>();
     // reason stays open (string) so a server-added failure code is not a compile break.
-    expectTypeOf<string>().toMatchTypeOf<VaultScanBrokenChain['reason']>();
+    expectTypeOf<string>().toExtend<VaultScanBrokenChain['reason']>();
   });
 });
 

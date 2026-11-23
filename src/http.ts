@@ -22,7 +22,6 @@ import type {
   RequestOptions,
   RateLimitInfo,
   Page,
-  ListParams,
   AutoPaginateOptions,
   ApiErrorResponse,
   NextStep,
@@ -102,21 +101,30 @@ function appendQueryParam(search: URLSearchParams, key: string, value: unknown):
     // is array-typed today, so this only has to be unsurprising, not clever.
     for (const item of value) {
       if (item === undefined || item === null) continue;
-      search.append(key, item instanceof Date ? item.toISOString() : String(item));
+      search.append(key, item instanceof Date ? item.toISOString() : scalar(key, item));
     }
     return;
   }
   if (typeof value === 'object') {
     for (const [sub, subValue] of Object.entries(value as Record<string, unknown>)) {
       if (subValue === undefined || subValue === null) continue;
-      search.set(
-        `${key}[${sub}]`,
-        subValue instanceof Date ? subValue.toISOString() : String(subValue),
-      );
+      search.set(`${key}[${sub}]`, subValue instanceof Date ? subValue.toISOString() : scalar(`${key}[${sub}]`, subValue));
     }
     return;
   }
-  search.set(key, String(value));
+  search.set(key, scalar(key, value));
+}
+
+/**
+ * A query value as text. The bracket form goes one level deep
+ * (`criteriaGte[amount]=500`), so an object or array below that has no wire
+ * form; it is refused rather than sent as `[object Object]`, which the Server
+ * would read as a filter on that literal string.
+ */
+function scalar(name: string, value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  throw new ConfigurationError(`Query parameter ${name} must be a string, number or boolean; nested objects and arrays have no query-string form.`);
 }
 
 /** Where the Authorization header comes from. */
@@ -201,14 +209,14 @@ function jsonRpcErrorBody(parsed: Record<string, unknown>): Record<string, unkno
   const text = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
   const message = text(rpc.message);
   return {
-    error: reason ?? (rpc.code === undefined ? 'unknown' : String(rpc.code)),
+    error: reason ?? (typeof rpc.code === 'number' || typeof rpc.code === 'string' ? String(rpc.code) : 'unknown'),
     title: message,
     detail: text(raw.detail) ?? message,
     recoveryHint: text(raw.recoveryHint),
     requestId: text(raw.requestId),
     // ErrorInfo metadata is a string map, so a boolean arrives as "false".
     retryable: raw.retryable === 'true' ? true : raw.retryable === 'false' ? false : undefined,
-    details: err as Record<string, unknown>,
+    details: err,
   };
 }
 
@@ -240,7 +248,7 @@ async function readErrorBody(response: Response): Promise<{ body: Record<string,
  * body names the code and detail the caller needs.
  */
 function binaryErrorBody(response: Response, bytes: Uint8Array): Record<string, unknown> {
-  const type = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase();
+  const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
   if (type === 'application/json' || type.endsWith('+json')) {
     try {
       const parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
@@ -311,6 +319,9 @@ export class HttpClient {
     }
     this.baseUrl = stripTrailingSlashes(options.baseUrl);
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
+    if (!Number.isInteger(this.maxRetries) || this.maxRetries < 0) {
+      throw new ConfigurationError('maxRetries must be an integer, 0 or more.');
+    }
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
     this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.idempotencyKeyPrefix = options.idempotencyKeyPrefix ?? '';
@@ -318,7 +329,7 @@ export class HttpClient {
     this.auth = resolveAuthSource(options);
   }
 
-  get<T>(
+  async get<T>(
     path: string,
     params?: Record<string, unknown>,
     options?: RequestOptions,
@@ -327,7 +338,7 @@ export class HttpClient {
     return this.request<T>('GET', url, undefined, options);
   }
 
-  post<T>(
+  async post<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions,
@@ -337,7 +348,7 @@ export class HttpClient {
     return this.request<T>('POST', url, body, options);
   }
 
-  put<T>(
+  async put<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions,
@@ -346,7 +357,7 @@ export class HttpClient {
     return this.request<T>('PUT', url, body, options);
   }
 
-  patch<T>(
+  async patch<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions,
@@ -356,7 +367,7 @@ export class HttpClient {
     return this.request<T>('PATCH', url, body, options);
   }
 
-  delete<T>(
+  async delete<T>(
     path: string,
     body?: unknown,
     options?: RequestOptions,
@@ -472,7 +483,8 @@ export class HttpClient {
       }
     }
 
-    throw lastError!;
+    // The constructor holds maxRetries to 0 or more, so at least one attempt ran.
+    throw lastError ?? new ConfigurationError('maxRetries must be an integer, 0 or more.');
   }
 
   /**
@@ -652,7 +664,8 @@ export class HttpClient {
       }
     }
 
-    throw lastError!;
+    // The constructor holds maxRetries to 0 or more, so at least one attempt ran.
+    throw lastError ?? new ConfigurationError('maxRetries must be an integer, 0 or more.');
   }
 
 
@@ -879,7 +892,8 @@ export class HttpClient {
       }
     }
 
-    throw lastError!;
+    // The constructor holds maxRetries to 0 or more, so at least one attempt ran.
+    throw lastError ?? new ConfigurationError('maxRetries must be an integer, 0 or more.');
   }
 
   private mapError(
@@ -991,7 +1005,7 @@ export class HttpClient {
         data,
         hasMore: obj.offset + obj.limit < obj.total,
         nextCursor,
-        total: obj.total as number,
+        total: obj.total,
         ...extras,
       };
     }
@@ -1001,8 +1015,8 @@ export class HttpClient {
   }
 
   private sleep(ms: number): Promise<void> {
-    const { promise, resolve } = Promise.withResolvers<void>();
-    setTimeout(resolve, ms);
-    return promise;
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 }

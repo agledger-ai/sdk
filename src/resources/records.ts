@@ -206,7 +206,7 @@ export class RecordsResource {
     return this.create({
       ...params,
       parentRecordId: id,
-    } as CreateRecordParams, options);
+    }, options);
   }
 
   /**
@@ -244,7 +244,7 @@ export class RecordsResource {
     params?: { format?: Exclude<AuditExportFormat, 'html' | 'cose'>; receipts?: boolean; evidence?: boolean },
     options?: RequestOptions,
   ): Promise<RecordAuditExport> {
-    return this.http.get<RecordAuditExport>(`/v1/records/${recordId}/audit-export`, params as Record<string, unknown>, options);
+    return this.http.get<RecordAuditExport>(`/v1/records/${recordId}/audit-export`, params, options);
   }
 
   /**

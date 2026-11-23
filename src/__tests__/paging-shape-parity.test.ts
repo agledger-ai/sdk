@@ -23,10 +23,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 
-const here = dirname(fileURLToPath(import.meta.url));
+const here = import.meta.dirname;
 const routes: { routes: Array<{ method: string; path: string; queryFields: string[] }> } =
   JSON.parse(readFileSync(resolve(here, 'routes.json'), 'utf8'));
 const typesSrc = readFileSync(resolve(here, '../types.ts'), 'utf8');
@@ -102,8 +101,8 @@ function parseCalls(): Call[] {
       const call = body.match(/this\.http\.(?:getPage|paginate)<[^>]+>\(\s*([^,]+),\s*([^,]+),/);
       if (!call) continue;
       if (call[2].trim().startsWith('undefined')) continue;
-      const rawPath = call[1].trim().replace(/^[`']|[`']$/g, '');
-      const path = rawPath.replace(/\$\{[^}]+\}/g, '{}');
+      const rawPath = call[1].trim().replaceAll(/^[`']|[`']$/g, '');
+      const path = rawPath.replaceAll(/\$\{[^}]+\}/g, '{}');
       const params = signature.match(/params\??:\s*([\w]+)/);
       if (!params) continue;
       out.push({ file, method, path, paramsType: params[1] });

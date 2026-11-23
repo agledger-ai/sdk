@@ -33,7 +33,6 @@ import type {
   FleetCapabilityEntry,
   LicenseInfo,
   LicenseInstanceInfo,
-  LimitParams,
   ListApiKeysParams,
   ListTrustedIssuersParams,
   NextStep,
@@ -70,7 +69,6 @@ import type {
   VaultRewindStatus,
   VaultScanJob,
   VaultScanList,
-  VaultSigningKey,
   VaultSigningKeyList,
   VaultSigningKeyRetirement,
   VaultSigningKeyRotation,
@@ -136,7 +134,7 @@ export class AdminVaultResource {
       // querystring), not optional. Typing it optional let `anchors.list()`
       // typecheck and then 400 at runtime.
       list: (params: { recordId: string }, options?: RequestOptions) =>
-        http.get<Listing<VaultAnchor>>('/v1/admin/vault/anchors', params as unknown as Record<string, unknown>, options),
+        http.get<Listing<VaultAnchor>>('/v1/admin/vault/anchors', params, options),
       verify: (params: VerifyVaultAnchorsParams, options?: RequestOptions) =>
         http.post<VaultAnchorVerifyResult>('/v1/admin/vault/anchors/verify', params, options),
       reconcile: (params?: ReconcileVaultAnchorsParams, options?: RequestOptions) =>

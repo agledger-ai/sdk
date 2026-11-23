@@ -1,7 +1,6 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import type {
   AuditStreamParams,
   AuditStreamResult,
@@ -40,9 +39,9 @@ import type { OrgReadsCheckpointsResource } from '../resources/audit.js';
  */
 describe('v1.6.0: SIEM stream is a cursor walk', () => {
   it('takes since or cursor, both optional', () => {
-    expectTypeOf<undefined>().toMatchTypeOf<AuditStreamParams['since']>();
-    expectTypeOf<undefined>().toMatchTypeOf<AuditStreamParams['cursor']>();
-    expectTypeOf<string>().toMatchTypeOf<NonNullable<AuditStreamParams['cursor']>>();
+    expectTypeOf<undefined>().toExtend<AuditStreamParams['since']>();
+    expectTypeOf<undefined>().toExtend<AuditStreamParams['cursor']>();
+    expectTypeOf<string>().toExtend<NonNullable<AuditStreamParams['cursor']>>();
   });
 
   it('reports the holdback window alongside the page', () => {
@@ -56,9 +55,9 @@ describe('v1.6.0: org-reads', () => {
     expectTypeOf<
       OrgReadsCheckpointPage['checkpointing']
     >().toEqualTypeOf<OrgReadsCheckpointingSchedule>();
-    expectTypeOf<boolean>().toMatchTypeOf<OrgReadsCheckpointPage['hasMore']>();
-    expectTypeOf<null>().toMatchTypeOf<OrgReadsCheckpointPage['nextCursor']>();
-    expectTypeOf<number>().toMatchTypeOf<NonNullable<OrgReadsCheckpointPage['total']>>();
+    expectTypeOf<boolean>().toExtend<OrgReadsCheckpointPage['hasMore']>();
+    expectTypeOf<null>().toExtend<OrgReadsCheckpointPage['nextCursor']>();
+    expectTypeOf<number>().toExtend<NonNullable<OrgReadsCheckpointPage['total']>>();
   });
 
   it('the schedule is not the vault schedule: no anchoring posture on it', () => {
@@ -66,8 +65,8 @@ describe('v1.6.0: org-reads', () => {
     // which this endpoint does not serve.
     expectTypeOf<VaultCheckpointingSchedule>().toHaveProperty('anchoringEnabled');
     expectTypeOf<OrgReadsCheckpointingSchedule>().not.toHaveProperty('anchoringEnabled');
-    expectTypeOf<'worker'>().toMatchTypeOf<OrgReadsCheckpointingSchedule['source']>();
-    expectTypeOf<'config'>().toMatchTypeOf<OrgReadsCheckpointingSchedule['source']>();
+    expectTypeOf<'worker'>().toExtend<OrgReadsCheckpointingSchedule['source']>();
+    expectTypeOf<'config'>().toExtend<OrgReadsCheckpointingSchedule['source']>();
   });
 
   it('a leaf names its Merkle position and the key that read it', () => {
@@ -102,7 +101,7 @@ describe('v1.6.0: federation peers', () => {
     expectTypeOf<FederationPeer['peerHubId']>().toEqualTypeOf<string>();
     expectTypeOf<FederationPeer['peerUrl']>().toEqualTypeOf<string>();
     expectTypeOf<FederationPeer['createdAt']>().toEqualTypeOf<string>();
-    expectTypeOf<number>().toMatchTypeOf<
+    expectTypeOf<number>().toExtend<
       NonNullable<FederationPeer['consecutiveDeliveryFailures']>
     >();
     // The five fields no version of this endpoint ever served.
@@ -117,39 +116,39 @@ describe('v1.6.0: federation peers', () => {
     // API 1.7.0: the peer status response type stays open (the Server may add a
     // status), the filter does not (the querystring 400s on anything else).
     expectTypeOf<ListPeersParams['status']>().toEqualTypeOf<FederationPeerStatusFilter | undefined>();
-    expectTypeOf<'active'>().toMatchTypeOf<FederationPeer['status']>();
-    expectTypeOf<'active'>().toMatchTypeOf<FederationPeerStatusFilter>();
+    expectTypeOf<'active'>().toExtend<FederationPeer['status']>();
+    expectTypeOf<'active'>().toExtend<FederationPeerStatusFilter>();
     // An arbitrary string types as a peer status and does NOT type as a filter.
-    expectTypeOf<'suspended'>().toMatchTypeOf<FederationPeer['status']>();
-    expectTypeOf<'suspended'>().not.toMatchTypeOf<FederationPeerStatusFilter>();
+    expectTypeOf<'suspended'>().toExtend<FederationPeer['status']>();
+    expectTypeOf<'suspended'>().not.toExtend<FederationPeerStatusFilter>();
   });
 });
 
 describe('v1.6.0: events take a closing bound', () => {
   it('since is required and until is not', () => {
     expectTypeOf<ListEventsParams['since']>().toEqualTypeOf<string>();
-    expectTypeOf<undefined>().toMatchTypeOf<ListEventsParams['until']>();
-    expectTypeOf<string>().toMatchTypeOf<NonNullable<ListEventsParams['until']>>();
+    expectTypeOf<undefined>().toExtend<ListEventsParams['until']>();
+    expectTypeOf<string>().toExtend<NonNullable<ListEventsParams['until']>>();
   });
 
   it('carries every filter the route serves, so no caller needs a cast', () => {
     // Excess-property checking rejects an unknown key in an object literal, so
     // a filter missing from this type is a filter the SDK cannot express.
-    expectTypeOf<string>().toMatchTypeOf<NonNullable<ListEventsParams['recordId']>>();
-    expectTypeOf<EventType>().toMatchTypeOf<NonNullable<ListEventsParams['eventType']>>();
-    expectTypeOf<string>().toMatchTypeOf<NonNullable<ListEventsParams['cursor']>>();
+    expectTypeOf<string>().toExtend<NonNullable<ListEventsParams['recordId']>>();
+    expectTypeOf<EventType>().toExtend<NonNullable<ListEventsParams['eventType']>>();
+    expectTypeOf<string>().toExtend<NonNullable<ListEventsParams['cursor']>>();
   });
 });
 
 describe('v1.6.0: the subscribable set is not the queryable set', () => {
   it('the replay-only types are queryable and not subscribable', () => {
     // `POST /v1/webhooks` 400s on each of these. They typed clean before.
-    expectTypeOf<'record.released'>().toMatchTypeOf<EventType>();
-    expectTypeOf<'dispute.evidence_window_closed'>().toMatchTypeOf<EventType>();
+    expectTypeOf<'record.released'>().toExtend<EventType>();
+    expectTypeOf<'dispute.evidence_window_closed'>().toExtend<EventType>();
   });
 
   it('the wildcard subscribes, and is not a type an event carries', () => {
-    expectTypeOf<'*'>().toMatchTypeOf<WebhookEventType>();
+    expectTypeOf<'*'>().toExtend<WebhookEventType>();
   });
 });
 
@@ -175,11 +174,11 @@ describe('the field unions the enum guard could not see are named now', () => {
  * all of `src`, with `src/__tests__` not excluded.
  */
 describe('tsconfig.typetests.json reads every test file', () => {
-  const here = dirname(fileURLToPath(import.meta.url));
+  const here = import.meta.dirname;
 
   it('includes src and does not exclude the tests', () => {
     const config = readFileSync(resolve(here, '../../tsconfig.typetests.json'), 'utf8');
-    const parsed = JSON.parse(config.replace(/^\s*\/\/.*$/gm, ''));
+    const parsed = JSON.parse(config.replaceAll(/^\s*\/\/.*$/gm, ''));
     expect(parsed.files).toBeUndefined();
     expect(parsed.include).toContain('src');
     expect(JSON.stringify(parsed.exclude ?? [])).not.toContain('__tests__');

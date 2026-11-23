@@ -507,7 +507,7 @@ describe('AgentsResource', () => {
     // through is not the walk the caller thinks it is: it has to be set on the
     // first request.
     const { client, fetch } = createPageMockClient();
-    for await (const _row of client.agents.listAll({ includeDeactivated: true })) break;
+    await client.agents.listAll({ includeDeactivated: true })[Symbol.asyncIterator]().next();
     expect(fetch.mock.calls[0][0] as string).toContain('includeDeactivated=true');
   });
 
@@ -790,9 +790,8 @@ describe('ComplianceResource', () => {
     const { client, fetch } = createMockClient();
     await expect(client.compliance.stream({ limit: 100 })).rejects.toThrow(ConfigurationError);
     const walk = async () => {
-      for await (const _event of client.compliance.streamAll({})) {
-        // unreachable: the guard fires before the first request
-      }
+      // The guard fires before the first request.
+      await client.compliance.streamAll({})[Symbol.asyncIterator]().next();
     };
     await expect(walk()).rejects.toThrow(ConfigurationError);
     expect(fetch).not.toHaveBeenCalled();

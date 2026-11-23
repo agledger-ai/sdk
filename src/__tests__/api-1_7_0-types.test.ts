@@ -55,9 +55,9 @@ describe('v1.7.0: a Settlement Signal answers which peer did what', () => {
 
   it('narrows a leg status below the rollup: partial is not a leg outcome', () => {
     // `partial` is a fan-out outcome no single peer can hold.
-    expectTypeOf<'partial'>().toMatchTypeOf<CoSignStatus>();
-    expectTypeOf<'partial'>().not.toMatchTypeOf<CoSignPeerLeg['status']>();
-    expectTypeOf<'succeeded'>().toMatchTypeOf<CoSignPeerLeg['status']>();
+    expectTypeOf<'partial'>().toExtend<CoSignStatus>();
+    expectTypeOf<'partial'>().not.toExtend<CoSignPeerLeg['status']>();
+    expectTypeOf<'succeeded'>().toExtend<CoSignPeerLeg['status']>();
   });
 });
 
@@ -71,15 +71,15 @@ describe('v1.7.0: status filters are closed, the statuses they filter on are not
    * a build error.
    */
   it('types a removed record status as a response value and refuses it as a filter', () => {
-    expectTypeOf<'PENDING_ARBITRATION'>().toMatchTypeOf<RecordStatus>();
-    expectTypeOf<'PENDING_ARBITRATION'>().not.toMatchTypeOf<RecordStatusFilter>();
-    expectTypeOf<'FULFILLED'>().toMatchTypeOf<RecordStatusFilter>();
+    expectTypeOf<'PENDING_ARBITRATION'>().toExtend<RecordStatus>();
+    expectTypeOf<'PENDING_ARBITRATION'>().not.toExtend<RecordStatusFilter>();
+    expectTypeOf<'FULFILLED'>().toExtend<RecordStatusFilter>();
   });
 
   it('refuses a dispute tier that was never a status', () => {
-    expectTypeOf<'TIER_2_REVIEW'>().toMatchTypeOf<DisputeStatus>();
-    expectTypeOf<'TIER_2_REVIEW'>().not.toMatchTypeOf<DisputeStatusFilter>();
-    expectTypeOf<'RESOLVED'>().toMatchTypeOf<DisputeStatusFilter>();
+    expectTypeOf<'TIER_2_REVIEW'>().toExtend<DisputeStatus>();
+    expectTypeOf<'TIER_2_REVIEW'>().not.toExtend<DisputeStatusFilter>();
+    expectTypeOf<'RESOLVED'>().toExtend<DisputeStatusFilter>();
   });
 
   it('wires every status filter to the closed union', () => {
@@ -121,11 +121,11 @@ describe('v1.7.0: the completions filter does not take WARNING', () => {
    * The stored value still surfaces as WARNING on the row.
    */
   it('keeps the filter narrower than the value it filters on', () => {
-    expectTypeOf<'WARNING'>().toMatchTypeOf<StructuralValidation>();
-    expectTypeOf<'WARNING'>().not.toMatchTypeOf<
+    expectTypeOf<'WARNING'>().toExtend<StructuralValidation>();
+    expectTypeOf<'WARNING'>().not.toExtend<
       NonNullable<ListCompletionsParams['structuralValidation']>
     >();
-    expectTypeOf<'ACCEPTED'>().toMatchTypeOf<
+    expectTypeOf<'ACCEPTED'>().toExtend<
       NonNullable<ListCompletionsParams['structuralValidation']>
     >();
   });
@@ -142,16 +142,16 @@ describe('v1.7.0: gate-status carries the decision, not just the phases', () => 
     expectTypeOf<GateStatus['phase1Status']>().toEqualTypeOf<
       'pending' | 'passed' | 'failed' | 'not_applicable'
     >();
-    expectTypeOf<'superseded'>().toMatchTypeOf<GateStatus['phase2Status']>();
+    expectTypeOf<'superseded'>().toExtend<GateStatus['phase2Status']>();
     // The phase-2 vocabulary is the wider one; `in_progress` is phase 2 only.
-    expectTypeOf<'in_progress'>().not.toMatchTypeOf<GateStatus['phase1Status']>();
+    expectTypeOf<'in_progress'>().not.toExtend<GateStatus['phase1Status']>();
   });
 
   it('carries the verdict, the recommendation, the mode and the reporter', () => {
-    expectTypeOf<'RELEASE'>().toMatchTypeOf<NonNullable<GateStatus['recommendation']>>();
+    expectTypeOf<'RELEASE'>().toExtend<NonNullable<GateStatus['recommendation']>>();
     expectTypeOf<GateStatus['gateMode']>().toEqualTypeOf<'auto' | 'principal' | null | undefined>();
-    expectTypeOf<'accessor'>().toMatchTypeOf<NonNullable<GateStatus['reporterType']>>();
-    expectTypeOf<null>().toMatchTypeOf<GateStatus['verdict']>();
+    expectTypeOf<'accessor'>().toExtend<NonNullable<GateStatus['reporterType']>>();
+    expectTypeOf<null>().toExtend<GateStatus['verdict']>();
   });
 });
 
@@ -167,9 +167,9 @@ describe('v1.7.0: health reads fail open rather than erroring', () => {
    * dead-letter table. `0` there would assert that nothing is parked.
    */
   it('admits null for an unreadable queue and an uncounted dead-letter table', () => {
-    expectTypeOf<null>().toMatchTypeOf<SystemHealth['queues'][string]>();
-    expectTypeOf<null>().toMatchTypeOf<SystemHealth['webhookDeadLetters']>();
-    expectTypeOf<'outage'>().toMatchTypeOf<SystemHealth['database']['status']>();
+    expectTypeOf<null>().toExtend<SystemHealth['queues'][string]>();
+    expectTypeOf<null>().toExtend<SystemHealth['webhookDeadLetters']>();
+    expectTypeOf<'outage'>().toExtend<SystemHealth['database']['status']>();
   });
 });
 
@@ -185,14 +185,14 @@ describe('v1.7.0: the vault surfaces name what they found', () => {
     expectTypeOf<VaultAnchorVerifyResult['data']>().toEqualTypeOf<VaultAnchorVerifyRow[]>();
     expectTypeOf<VaultAnchorVerifyResult>().not.toHaveProperty('valid');
     expectTypeOf<VaultAnchorVerifyResult>().not.toHaveProperty('anchorsChecked');
-    expectTypeOf<'tamper'>().toMatchTypeOf<NonNullable<VaultAnchorVerifyRow['outcome']>>();
+    expectTypeOf<'tamper'>().toExtend<NonNullable<VaultAnchorVerifyRow['outcome']>>();
   });
 });
 
 describe('v1.7.0: webhook health is typed', () => {
   it('carries the last failure beside the breaker state', () => {
     expectTypeOf<WebhookHealthEntry['lastFailureAt']>().toEqualTypeOf<string | null>();
-    expectTypeOf<'half_open'>().toMatchTypeOf<WebhookHealthEntry['circuitState']>();
+    expectTypeOf<'half_open'>().toExtend<WebhookHealthEntry['circuitState']>();
   });
 });
 

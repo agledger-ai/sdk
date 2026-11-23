@@ -68,7 +68,7 @@ export class FederationAdminResource {
     params?: { limit?: number; cursor?: string },
     options?: RequestOptions,
   ): Promise<Page<FederationDlqEntry>> {
-    return this.http.getPage<FederationDlqEntry>('/federation/v1/admin/dlq', params as Record<string, unknown>, options);
+    return this.http.getPage<FederationDlqEntry>('/federation/v1/admin/dlq', params, options);
   }
 
   /**

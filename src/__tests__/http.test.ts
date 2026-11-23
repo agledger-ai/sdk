@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { HttpClient } from '../http.js';
 import {
   AgledgerApiError,
@@ -82,6 +82,18 @@ describe('HttpClient', () => {
     expect(url).toContain('metadata[retries]=3');
     expect(url).toContain('criteria[amount]=750');
     expect(url).not.toContain('[object Object]');
+  });
+
+  it('refuses a query value with no query-string form instead of sending [object Object]', async () => {
+    const fetch = mockFetch({ json: {} });
+    const client = createClient(fetch);
+    await expect(client.get('/v1/records/search', { criteriaGte: { amount: { min: 1 } } })).rejects.toThrow(ConfigurationError);
+    await expect(client.get('/v1/records/search', { ids: [{ id: 'a' }] })).rejects.toThrow(ConfigurationError);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('refuses a negative maxRetries at construction', () => {
+    expect(() => createClient(mockFetch({ json: {} }), { maxRetries: -1 })).toThrow(ConfigurationError);
   });
 
   it('drops null and undefined members of an object param', async () => {
@@ -318,7 +330,7 @@ describe('HttpClient', () => {
         json: { error: 'validation', detail: 'Bad request', details: [{ field: 'name', message: 'required' }] },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e: unknown) => e) as any;
+      const err = await client.get('/test').catch((e: unknown) => e) as ValidationError;
       expect(err).toBeInstanceOf(ValidationError);
       expect(err.validationErrors).toHaveLength(1);
       expect(err.validationErrors[0].field).toBe('name');
@@ -342,7 +354,7 @@ describe('HttpClient', () => {
         headers: { 'Retry-After': '5' },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e: unknown) => e) as any;
+      const err = await client.get('/test').catch((e: unknown) => e) as ValidationError;
       expect(err).toBeInstanceOf(RateLimitError);
       expect(err.retryAfter).toBe(5000);
     });
@@ -356,7 +368,7 @@ describe('HttpClient', () => {
         json: { error: 'rate_limit', detail: 'Too many requests', retryAfterSeconds: 7 },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e: unknown) => e) as any;
+      const err = await client.get('/test').catch((e: unknown) => e) as ValidationError;
       expect(err).toBeInstanceOf(RateLimitError);
       expect(err.retryAfter).toBe(7000);
     });
@@ -369,7 +381,7 @@ describe('HttpClient', () => {
         headers: { 'Retry-After': '3' },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e: unknown) => e) as any;
+      const err = await client.get('/test').catch((e: unknown) => e) as ValidationError;
       expect(err.retryAfter).toBe(3000);
     });
 
@@ -380,7 +392,7 @@ describe('HttpClient', () => {
         json: { error: 'validation', detail: 'Bad', retryable: false },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e: unknown) => e) as any;
+      const err = await client.get('/test').catch((e: unknown) => e) as ValidationError;
       expect(err.retryable).toBe(false);
     });
 
@@ -391,7 +403,7 @@ describe('HttpClient', () => {
         json: { error: 'server', detail: 'Internal error' },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e: unknown) => e) as any;
+      const err = await client.get('/test').catch((e: unknown) => e) as ValidationError;
       expect(err.retryable).toBe(true);
     });
 
@@ -402,7 +414,7 @@ describe('HttpClient', () => {
         json: { error: 'RECORD_NOT_ACTIVE', detail: 'fail' },
       });
       const client = createClient(fetch);
-      const err = await client.get('/test').catch((e: unknown) => e) as any;
+      const err = await client.get('/test').catch((e: unknown) => e) as ValidationError;
       expect(err.code).toBe('RECORD_NOT_ACTIVE');
     });
   });
@@ -839,7 +851,8 @@ describe('HttpClient', () => {
       });
 
       try {
-        for await (const _item of client.paginate<{ id: string }>('/test')) {
+        const pages = client.paginate<{ id: string }>('/test')[Symbol.asyncIterator]();
+        while (!(await pages.next()).done) {
           // drain
         }
         expect.unreachable('the ceiling should have thrown');

@@ -17,10 +17,9 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
-import { resolve, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve, join } from 'node:path';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __dirname = import.meta.dirname;
 
 interface RouteEntry {
   method: string;
@@ -339,7 +338,7 @@ describe('every route the SDK calls is in the spec', () => {
   // bootstrap (see the note on the critical-routes list).
   const OFF_SPEC = new Set(['POST /v1/admin/orgs']);
 
-  const shape = (p: string) => p.split('?')[0].replace(/\$\{[^}]+\}/g, '{}').replace(/\{[^}]+\}/g, '{}');
+  const shape = (p: string) => p.split('?')[0].replaceAll(/\$\{[^}]+\}/g, '{}').replaceAll(/\{[^}]+\}/g, '{}');
   const known = new Set(manifest.routes.map((r) => `${r.method} ${shape(r.path)}`));
 
   const resourcesDir = resolve(__dirname, '..', 'resources');

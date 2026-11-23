@@ -19,9 +19,9 @@ import type {
 describe('v1.3.4: compliance export row cap', () => {
   it('carries the truncation signal and the pre-cap total', () => {
     // Optional: a server older than v1.3.4 omits both.
-    expectTypeOf<undefined>().toMatchTypeOf<ComplianceExport['truncated']>();
-    expectTypeOf<boolean>().toMatchTypeOf<ComplianceExport['truncated']>();
-    expectTypeOf<number>().toMatchTypeOf<ComplianceExport['totalRecords']>();
+    expectTypeOf<undefined>().toExtend<ComplianceExport['truncated']>();
+    expectTypeOf<boolean>().toExtend<ComplianceExport['truncated']>();
+    expectTypeOf<number>().toExtend<ComplianceExport['totalRecords']>();
   });
 
   it('models the synchronous-ready status', () => {
@@ -38,14 +38,14 @@ describe('v1.3.4: expression helper docs', () => {
     expectTypeOf<ExpressionHelperDoc['signature']>().toEqualTypeOf<string>();
     expectTypeOf<ExpressionHelperDoc['semantics']>().toEqualTypeOf<string>();
     // The pre-1.3.4 shape must no longer satisfy the field.
-    expectTypeOf<string[]>().not.toMatchTypeOf<H>();
+    expectTypeOf<string[]>().not.toExtend<H>();
   });
 });
 
 describe('v1.3.4: vault checkpoint chain discriminator', () => {
   it('names the three chains', () => {
     expectTypeOf<VaultCheckpointChain>().toEqualTypeOf<'record' | 'schema' | 'admin'>();
-    expectTypeOf<'schema'>().toMatchTypeOf<NonNullable<VaultCheckpoint['chain']>>();
+    expectTypeOf<'schema'>().toExtend<NonNullable<VaultCheckpoint['chain']>>();
   });
 
   it('accepts a row exactly as the API returns it', () => {
@@ -62,9 +62,9 @@ describe('v1.3.4: vault checkpoint chain discriminator', () => {
       signingKeyId: null,
       createdAt: 'e',
     };
-    expectTypeOf(row).toMatchTypeOf<VaultCheckpoint>();
+    expectTypeOf(row).toExtend<VaultCheckpoint>();
     // `chain` is optional so a pre-1.3.4 server's rows still typecheck.
-    expectTypeOf<undefined>().toMatchTypeOf<VaultCheckpoint['chain']>();
+    expectTypeOf<undefined>().toExtend<VaultCheckpoint['chain']>();
   });
 
   it('offers only the query params the endpoint accepts', () => {

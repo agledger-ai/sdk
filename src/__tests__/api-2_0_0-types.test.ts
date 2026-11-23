@@ -154,17 +154,17 @@ describe('federation requests match what the receiver requires', () => {
   it('requires the fields the routes require', () => {
     expectTypeOf<RelaySignalParams['schemaRef']>().not.toEqualTypeOf<undefined>();
     expectTypeOf<RelaySignalParams>().not.toHaveProperty('reason');
-    expectTypeOf<RelaySignalParams['reasonCode']>().toMatchTypeOf<string | null>();
-    expectTypeOf<null>().toMatchTypeOf<RelaySignalParams['reasonCode']>();
+    expectTypeOf<RelaySignalParams['reasonCode']>().toExtend<string | null>();
+    expectTypeOf<null>().toExtend<RelaySignalParams['reasonCode']>();
     expectTypeOf<RelaySignalParams['failingRuleIds']>().toEqualTypeOf<string[] | null>();
     expectTypeOf<SubmitDisputeProtocolParams>().not.toHaveProperty('tier');
     expectTypeOf<SubmitStateTransitionParams['principalAgentId']>().toEqualTypeOf<string>();
     expectTypeOf<SubmitStateTransitionParams['operatingMode']>().toEqualTypeOf<'cleartext' | 'encrypted'>();
-    expectTypeOf<{ recordId: string }>().not.toMatchTypeOf<SubmitCoSignRequestParams>();
+    expectTypeOf<{ recordId: string }>().not.toExtend<SubmitCoSignRequestParams>();
   });
 
   it('drops the retired dispute action and state-transition reason', () => {
-    expectTypeOf<'escalated'>().not.toMatchTypeOf<DisputeProtocolAction>();
+    expectTypeOf<'escalated'>().not.toExtend<DisputeProtocolAction>();
     expectTypeOf<DisputeProtocolResult['ack']>().toEqualTypeOf<true>();
   });
 
@@ -175,8 +175,8 @@ describe('federation requests match what the receiver requires', () => {
 
 describe('the 2.0 event and chain vocabularies', () => {
   it('EventType names the two replay-only types and not the removed ones', () => {
-    expectTypeOf<'record.released'>().toMatchTypeOf<EventType>();
-    expectTypeOf<'dispute.evidence_window_closed'>().toMatchTypeOf<EventType>();
+    expectTypeOf<'record.released'>().toExtend<EventType>();
+    expectTypeOf<'dispute.evidence_window_closed'>().toExtend<EventType>();
   });
 });
 
@@ -189,7 +189,7 @@ describe('vault key trust and anchors', () => {
   });
 
   it('a registry row says whether the trust walk reaches it', () => {
-    expectTypeOf<'unanchored'>().toMatchTypeOf<NonNullable<VaultSigningKey['trust']>>();
+    expectTypeOf<'unanchored'>().toExtend<NonNullable<VaultSigningKey['trust']>>();
     expectTypeOf<VaultSigningKey['admittedBy']>().toEqualTypeOf<string | null | undefined>();
   });
 
@@ -206,12 +206,12 @@ describe('vault key trust and anchors', () => {
   });
 
   it('verify, reconcile and rewind name the outcomes 2.0 serves', () => {
-    expectTypeOf<'missing_or_hidden'>().toMatchTypeOf<NonNullable<VaultAnchorVerifyRow['outcome']>>();
+    expectTypeOf<'missing_or_hidden'>().toExtend<NonNullable<VaultAnchorVerifyRow['outcome']>>();
     expectTypeOf<VaultAnchorReconcileFinding['finding']>().toEqualTypeOf<'rewound' | 'missing_locally' | 'fork'>();
     expectTypeOf<VaultAnchorReconcileResult['status']>().toEqualTypeOf<
       'disabled' | 'ok' | 'incomplete' | 'acknowledged' | 'findings'
     >();
-    expectTypeOf<'acknowledgement_check'>().toMatchTypeOf<VaultRewindState['source']>();
+    expectTypeOf<'acknowledgement_check'>().toExtend<VaultRewindState['source']>();
     expectTypeOf<VaultRewindStatus['openFindings']>().not.toEqualTypeOf<undefined>();
     expectTypeOf<VaultRewindAcknowledgement['coveredFindings']>().toEqualTypeOf<number | undefined>();
   });
@@ -258,15 +258,15 @@ describe('records, verdicts, certs and webhook pings', () => {
 
 describe('admin, auth, health, schemas and events', () => {
   it('a key row and a rotation name the scope profile', () => {
-    expectTypeOf<AdminApiKey['scopeProfile']>().toMatchTypeOf<string | null | undefined>();
+    expectTypeOf<AdminApiKey['scopeProfile']>().toExtend<string | null | undefined>();
     expectTypeOf<RotateKeyResult['keyId']>().toEqualTypeOf<string | undefined>();
   });
 
   it('health names the signing gate, and status the probe failure', () => {
-    expectTypeOf<'unanchored'>().toMatchTypeOf<NonNullable<NonNullable<HealthResponse['signingKey']>['gate']>>();
-    expectTypeOf<'degraded'>().toMatchTypeOf<HealthResponse['status']>();
+    expectTypeOf<'unanchored'>().toExtend<NonNullable<NonNullable<HealthResponse['signingKey']>['gate']>>();
+    expectTypeOf<'degraded'>().toExtend<HealthResponse['status']>();
     expectTypeOf<StatusComponent['latencyMs']>().toEqualTypeOf<number | null | undefined>();
-    expectTypeOf<'chain_rewind_detected'>().toMatchTypeOf<NonNullable<StatusComponent['reason']>>();
+    expectTypeOf<'chain_rewind_detected'>().toExtend<NonNullable<StatusComponent['reason']>>();
     expectTypeOf<SystemHealth['backgroundMigrations']>().toEqualTypeOf<
       { pending: number; inProgress: number; completed: number; failed: number } | null
     >();
@@ -274,7 +274,7 @@ describe('admin, auth, health, schemas and events', () => {
     expectTypeOf<BulkCreateResult['results'][number]['examplePayload']>().toEqualTypeOf<Record<string, unknown> | undefined>();
     expectTypeOf<BulkCreateResult['results'][number]['requiredFields']>().toEqualTypeOf<string[] | undefined>();
     expectTypeOf<BulkCreateResult['results'][number]['schemaUrl']>().toEqualTypeOf<string | undefined>();
-    expectTypeOf<VaultSigningKeyList['signer']['backend']>().toMatchTypeOf<string>();
+    expectTypeOf<VaultSigningKeyList['signer']['backend']>().toExtend<string>();
     expectTypeOf<VaultSigningKeyList>().not.toHaveProperty('hasMore');
     expectTypeOf<Listing<string>>().not.toHaveProperty('hasMore');
     expectTypeOf<Awaited<ReturnType<AgledgerClient['discovery']['getScopeProfiles']>>>().toEqualTypeOf<Listing<ScopeProfileInfo>>();
@@ -378,7 +378,7 @@ describe('trusted issuers can be single-use and subject-bound', () => {
 
 describe('an unlicensed install says so', () => {
   it('names the unlicensed tier', () => {
-    expectTypeOf<'unlicensed'>().toMatchTypeOf<LicenseTier>();
+    expectTypeOf<'unlicensed'>().toExtend<LicenseTier>();
   });
 
   it('carries the notice on every license surface', () => {
@@ -393,9 +393,9 @@ describe('an unlicensed install says so', () => {
 
 describe('a cert window that moved under an entry is a chain failure', () => {
   it('names cert_window_drift in both reason unions', () => {
-    expectTypeOf<'cert_window_drift'>().toMatchTypeOf<AuditChainIntegrityReason>();
-    expectTypeOf<'cert_window_drift'>().toMatchTypeOf<AuditChainFailure>();
-    expectTypeOf<null>().toMatchTypeOf<AuditChainIntegrityReason>();
+    expectTypeOf<'cert_window_drift'>().toExtend<AuditChainIntegrityReason>();
+    expectTypeOf<'cert_window_drift'>().toExtend<AuditChainFailure>();
+    expectTypeOf<null>().toExtend<AuditChainIntegrityReason>();
   });
 });
 
@@ -472,10 +472,10 @@ describe('the vault signing-key registry is typed as the engine sends it', () =>
 
 describe('the final 2.0 RC: distrusted keys, key material, workers that hold a scan', () => {
   it('names the distrusted-key and key-material reasons', () => {
-    expectTypeOf<'signing_key_distrusted'>().toMatchTypeOf<AuditChainIntegrityReason>();
-    expectTypeOf<'signing_key_material_invalid'>().toMatchTypeOf<AuditChainIntegrityReason>();
-    expectTypeOf<'signing_key_distrusted'>().toMatchTypeOf<AuditChainFailure>();
-    expectTypeOf<'signing_key_distrusted'>().toMatchTypeOf<VaultScanFirstFindingReason>();
+    expectTypeOf<'signing_key_distrusted'>().toExtend<AuditChainIntegrityReason>();
+    expectTypeOf<'signing_key_material_invalid'>().toExtend<AuditChainIntegrityReason>();
+    expectTypeOf<'signing_key_distrusted'>().toExtend<AuditChainFailure>();
+    expectTypeOf<'signing_key_distrusted'>().toExtend<VaultScanFirstFindingReason>();
     // VaultScanBreakReason and StatusComponentReason are open unions, so a
     // member check here passes for any string; schema-fields.json pins them.
   });

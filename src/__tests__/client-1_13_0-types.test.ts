@@ -57,8 +57,8 @@ describe('record reads under view=compact', () => {
     expectTypeOf<RecordRowCompact['submissionCount']>().toEqualTypeOf<number>();
     expectTypeOf<RecordRowCompact['performerAgentId']>().toEqualTypeOf<string | undefined>();
     expectTypeOf<RecordRowCompact['maxSubmissions']>().toEqualTypeOf<number | undefined>();
-    expectTypeOf<null>().not.toMatchTypeOf<RecordRowCompact['deadline']>();
-    expectTypeOf<null>().not.toMatchTypeOf<RecordRowCompact['settlementSignal']>();
+    expectTypeOf<null>().not.toExtend<RecordRowCompact['deadline']>();
+    expectTypeOf<null>().not.toExtend<RecordRowCompact['settlementSignal']>();
   });
 
   it('trims each step to the call', () => {
@@ -70,7 +70,7 @@ describe('record reads under view=compact', () => {
 
 describe('a record received from a federation peer', () => {
   it('names inbound on the full row and on the compact row', () => {
-    expectTypeOf<'inbound'>().toMatchTypeOf<RecordFederationStatus>();
+    expectTypeOf<'inbound'>().toExtend<RecordFederationStatus>();
     expectTypeOf<RecordRow['federationStatus']>().toEqualTypeOf<RecordFederationStatus | null | undefined>();
     expectTypeOf<RecordRowCompact['federationStatus']>().toEqualTypeOf<RecordFederationStatus | undefined>();
     const row: Pick<RecordRow, 'federationStatus'> = { federationStatus: 'inbound' };
@@ -83,7 +83,7 @@ describe('a trusted issuer reports its JWKS fetches', () => {
     expectTypeOf<TrustedIssuer['jwksLastFetchAt']>().toEqualTypeOf<string | null>();
     expectTypeOf<TrustedIssuer['jwksLastFetchError']>().toEqualTypeOf<string | null>();
     expectTypeOf<TrustedIssuer['jwksLastSuccessAt']>().toEqualTypeOf<string | null>();
-    expectTypeOf<'jwks_fetch_blocked'>().toMatchTypeOf<NonNullable<TrustedIssuer['jwksLastFetchOutcome']>>();
+    expectTypeOf<'jwks_fetch_blocked'>().toExtend<NonNullable<TrustedIssuer['jwksLastFetchOutcome']>>();
   });
 });
 
@@ -102,9 +102,9 @@ describe('federation peering is bound at mint', () => {
 
 describe('unsigned entries and checkpoints are breaks', () => {
   it('names the new chain codes', () => {
-    expectTypeOf<'signature_missing'>().toMatchTypeOf<AuditChainFailureCode>();
-    expectTypeOf<'signature_missing'>().toMatchTypeOf<AuditChainIntegrityReasonCode>();
-    expectTypeOf<'checkpoint_unsigned'>().toMatchTypeOf<AuditChainIntegrityReasonCode>();
+    expectTypeOf<'signature_missing'>().toExtend<AuditChainFailureCode>();
+    expectTypeOf<'signature_missing'>().toExtend<AuditChainIntegrityReasonCode>();
+    expectTypeOf<'checkpoint_unsigned'>().toExtend<AuditChainIntegrityReasonCode>();
   });
 
   it('carries the scan first finding and the read-log walk', () => {

@@ -11,7 +11,7 @@ function normalizeValidationError(e: Record<string, unknown>): ValidationErrorDe
     : typeof e.dataPath === 'string' ? e.dataPath
     : '';
   const message = typeof e.message === 'string' ? e.message : '';
-  return { ...e, field, message } as ValidationErrorDetail;
+  return { ...e, field, message };
 }
 
 /**
@@ -411,7 +411,7 @@ export class AgledgerApiError extends AgledgerError {
     if (!this.details) return [];
     if (Array.isArray(this.details)) return this.details as ValidationErrorDetail[];
     // Handle Ajv-style errors nested under .errors
-    const rec = this.details as Record<string, unknown>;
+    const rec = this.details;
     if (Array.isArray(rec.errors)) {
       return (rec.errors as Record<string, string>[]).map((e) => ({
         field: e.instancePath || e.dataPath || '',

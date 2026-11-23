@@ -13,11 +13,11 @@ import type {
 
 describe('a Server later than 2.2.0: checkpoint key windows and accounted checkpoints', () => {
   it('names the checkpoint key-window and accounted-run reasons on an audit export', () => {
-    expectTypeOf<'checkpoint_key_expired'>().toMatchTypeOf<AuditChainIntegrityReasonCode>();
-    expectTypeOf<'checkpoint_key_not_yet_active'>().toMatchTypeOf<AuditChainIntegrityReasonCode>();
-    expectTypeOf<'checkpoint_accounted_run_exceeded'>().toMatchTypeOf<AuditChainIntegrityReasonCode>();
+    expectTypeOf<'checkpoint_key_expired'>().toExtend<AuditChainIntegrityReasonCode>();
+    expectTypeOf<'checkpoint_key_not_yet_active'>().toExtend<AuditChainIntegrityReasonCode>();
+    expectTypeOf<'checkpoint_accounted_run_exceeded'>().toExtend<AuditChainIntegrityReasonCode>();
     // A closed union: the scan-only reason is not an export reason.
-    expectTypeOf<'accounted_checkpoint_only'>().not.toMatchTypeOf<AuditChainIntegrityReasonCode>();
+    expectTypeOf<'accounted_checkpoint_only'>().not.toExtend<AuditChainIntegrityReasonCode>();
     // VaultScanBreakReason and OrgReadsBreakReason are open unions, so a member
     // check here passes for any string; schema-fields.json pins them.
   });
@@ -61,7 +61,7 @@ describe('a Server later than 2.2.0: ops summary, compliance export, federation 
       | 'PRINCIPAL_REJECT'
       | null
     >();
-    expectTypeOf<'TIMED_OUT'>().not.toMatchTypeOf<RelaySignalParams['reasonCode']>();
+    expectTypeOf<'TIMED_OUT'>().not.toExtend<RelaySignalParams['reasonCode']>();
   });
 
   it('scopes a compliance export by reference, record ids or delegation tree', () => {

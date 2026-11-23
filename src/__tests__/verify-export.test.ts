@@ -9,7 +9,6 @@ import type { RecordAuditExport, AuditExportEntry, FederationKeyHistory } from '
  * Minimal COSE_Sign1 envelope builder. Mirrors the engine-side encoder's
  * Sig_structure construction (RFC 9052 §4.4) deterministically.
  */
-const COSE_SIGN1_TAG = 18n; // tagged via raw header byte 0xd2
 
 interface Keypair {
   publicKeyBase64: string;
@@ -430,7 +429,7 @@ describe('verifyExport with a peer federation key history', () => {
   ) as RecordAuditExport;
 
   it('takes discovery.getFederationKeys() output as the history, unchanged', () => {
-    expectTypeOf<FederationKeyHistory>().toMatchTypeOf<FederationKeyHistoryDocument>();
+    expectTypeOf<FederationKeyHistory>().toExtend<FederationKeyHistoryDocument>();
     const r = verifyExport(exported, { federationKeys: [{ hubId: history.hubId!, publicKey: newest, history }] });
     expect(r.federationWire).toEqual({ present: 0, verified: 0, failed: 0, afterRetirement: 0 });
   });

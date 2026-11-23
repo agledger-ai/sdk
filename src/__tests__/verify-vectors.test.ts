@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { verifyExport } from '../verify/verify-export.js';
 import type { VerifyExportOptions, FailureCode } from '../verify/verify-export.js';
 import type { RecordAuditExport } from '../types.js';
@@ -16,7 +15,7 @@ import type { RecordAuditExport } from '../types.js';
  * the through-the-SDK mirror.
  */
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+const HERE = import.meta.dirname;
 // src/__tests__ -> repo root is two levels up (standalone source-of-truth repo).
 const CONFORMANCE_DIR = join(HERE, '..', '..', 'testdata', 'conformance');
 
