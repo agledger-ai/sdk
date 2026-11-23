@@ -64,8 +64,10 @@ export type {
  * entry's `history` (the peer's `discovery.getFederationKeys()`, read from the
  * peer) beside the key you pinned, and every key the history links to it
  * through successions both keys signed is trusted inside its window, each
- * message placed by its signed `wire.timestamp`. `federationWire.afterRetirement`
- * counts messages the peer signed under a key it had already retired.
+ * message placed by its signed `wire.timestamp`. A message the peer signed
+ * more than 300 seconds after its key's retirement fails
+ * `CHAIN_FEDERATION_WIRE_INVALID` unless `allowAfterRetirement: true`, which
+ * accepts it and counts it in `federationWire.afterRetirement`.
  *
  * On an export taken with `?evidence=true` (`records.getAuditExport(id, { evidence: true })`),
  * each inlined evidence body is re-bound to the `payload.evidenceHash` or
@@ -77,7 +79,10 @@ export type {
  * entries than `exportMetadata.expectedEntries` (the record's latest
  * checkpoint position) fails `CHECKPOINT_ROW_MISSING`, and fewer than
  * `exportMetadata.totalEntries` fails `CHAIN_POSITION_GAP`.
- * `result.entryCount` reports both.
+ * `result.entryCount` reports both. Both counts are unsigned, so an export
+ * cut from the end with them deleted still passes on its own:
+ * `expectedEntryCount` holds it to a count taken out of band, and a different
+ * number of entries fails `CHAIN_POSITION_GAP`.
  *
  * Without `trustAnchors`, `result.keyTrust.status` is `'no_anchor'` and
  * `result.optionalChecks.key_anchoring` is `'skipped_no_input'`. `valid` can

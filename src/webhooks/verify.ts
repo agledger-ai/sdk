@@ -159,15 +159,20 @@ export function parseSignatureHeader(
   let timestamp: number | undefined;
   const signatures: string[] = [];
 
+  // Each part splits at its first '=' (split('=', 2) would drop whatever
+  // follows a second one), as the Python SDK reads it. An empty v1 is passed
+  // over, so a rotation header with a blank slot still verifies on the other.
   for (const part of parts) {
-    const [key, value] = part.split('=', 2);
-    if (!key || !value) return null;
+    const eq = part.indexOf('=');
+    if (eq < 0) return null;
+    const key = part.slice(0, eq).trim();
+    const value = part.slice(eq + 1).trim();
 
-    if (key.trim() === 't') {
-      if (!/^\d+$/.test(value.trim())) return null;
-      timestamp = Number(value.trim());
-    } else if (key.trim() === 'v1') {
-      signatures.push(value.trim());
+    if (key === 't') {
+      if (!/^\d+$/.test(value)) return null;
+      timestamp = Number(value);
+    } else if (key === 'v1' && value !== '') {
+      signatures.push(value);
     }
   }
 
@@ -206,10 +211,12 @@ export function verifySignature(
       .update(signedPayload)
       .digest('hex');
 
+    // Compared as the exact lowercase hex the Server sends. Decoding the
+    // header as hex first would stop at the first character that is not hex,
+    // so a signature with anything appended still matched.
+    const expectedBuf = Buffer.from(expected, 'utf8');
     for (const sig of parsed.signatures) {
-      const sigBuf = Buffer.from(sig, 'hex');
-      const expectedBuf = Buffer.from(expected, 'hex');
-
+      const sigBuf = Buffer.from(sig, 'utf8');
       if (sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf)) {
         return true;
       }
@@ -282,7 +289,16 @@ function computeContentDigest(rawBody: string): string {
 }
 
 /** Build a public KeyObject from a base64 raw (32-byte Ed25519) or SPKI DER key. */
+/** Standard base64 with its padding, the form every key surface publishes. */
+const STANDARD_BASE64 = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
 function publicKeyObject(base64Key: string): KeyObject {
+  // Node's base64 decoder takes base64url, missing padding and stray
+  // characters alike; the Python SDK refuses them. A key that is not standard
+  // base64 is not one the Server published, so it verifies nothing.
+  if (typeof base64Key !== 'string' || base64Key === '' || !STANDARD_BASE64.test(base64Key)) {
+    throw new TypeError('The public key is not standard base64 (RFC 4648 section 4, padded).');
+  }
   const buf = Buffer.from(base64Key, 'base64');
   // Gate BEFORE loading, because that is where a FIPS-locked host refuses:
   // `createPublicKey` throws "Failed to read asymmetric key" for a perfectly

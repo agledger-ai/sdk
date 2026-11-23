@@ -6,10 +6,37 @@ import { createRequire } from 'node:module';
  * else null. An HTTP-date, which nothing in front of the Server sends, reads
  * as null rather than as a wait of NaN.
  */
+/**
+ * The longest timeout a timer can hold (2^31 - 1 ms); past it Node fires at
+ * once, so every call would time out.
+ */
+const MAX_TIMEOUT_MS = 2_147_483_647;
+
+/** A request timeout in ms, refused unless it is a finite number above 0 that a timer can hold. */
+function checkedTimeout(timeout: unknown): number {
+  if (typeof timeout !== 'number' || !Number.isFinite(timeout) || timeout <= 0 || timeout > MAX_TIMEOUT_MS) {
+    throw new ConfigurationError(`timeout must be a number of milliseconds above 0 and at most ${MAX_TIMEOUT_MS} (got ${String(timeout)}).`);
+  }
+  return timeout;
+}
+
+/**
+ * JSON.stringify replacer: a number that JSON cannot carry (NaN, Infinity) is
+ * refused rather than sent as null, as the Python SDK refuses it.
+ */
+function refuseNonFinite(this: unknown, key: string, value: unknown): unknown {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new ConfigurationError(`The request body holds ${String(value)}${key ? ` at "${key}"` : ''}, which JSON cannot carry.`);
+  }
+  return value;
+}
+
 function retryAfterMs(header: string | null, bodySeconds: unknown): number | null {
-  if (header !== null) {
-    const seconds = Number(header.trim());
-    if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  // delay-seconds is 1*DIGIT (RFC 9110 section 10.2.3); a decimal fraction
+  // from a proxy is taken too. Number() alone would also read '0x10' as 16 and
+  // '' as 0. The same rule as the Python SDK.
+  if (header !== null && /^\d+(?:\.\d+)?$/.test(header.trim())) {
+    return Math.round(Number(header.trim()) * 1000);
   }
   if (typeof bodySeconds === 'number' && Number.isFinite(bodySeconds) && bodySeconds >= 0) {
     return Math.round(bodySeconds * 1000);
@@ -111,7 +138,13 @@ function appendQueryParam(search: URLSearchParams, key: string, value: unknown):
     }
     return;
   }
-  if (typeof value === 'object') {
+  if (typeof value === 'object' && value !== null) {
+    // Only a plain object has the bracket form; a Set or Map has no own
+    // entries and used to send nothing at all.
+    const proto: unknown = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) {
+      throw new ConfigurationError(`Query parameter ${key} must be a string, number, boolean, Date, array or plain object; a ${value.constructor.name} has no query-string form.`);
+    }
     for (const [sub, subValue] of Object.entries(value as Record<string, unknown>)) {
       if (subValue === undefined || subValue === null) continue;
       search.set(`${key}[${sub}]`, subValue instanceof Date ? subValue.toISOString() : scalar(`${key}[${sub}]`, subValue));
@@ -350,7 +383,7 @@ export class HttpClient {
     if (!Number.isInteger(this.maxRetries) || this.maxRetries < 0) {
       throw new ConfigurationError('maxRetries must be an integer, 0 or more.');
     }
-    this.timeout = options.timeout ?? DEFAULT_TIMEOUT;
+    this.timeout = checkedTimeout(options.timeout ?? DEFAULT_TIMEOUT);
     this.fetchFn = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.idempotencyKeyPrefix = options.idempotencyKeyPrefix ?? '';
     // After baseUrl, so a client missing both reports the base URL first.
@@ -428,7 +461,7 @@ export class HttpClient {
     const url = this.buildUrl(path, opts.params);
     const idempotencyKey =
       method === 'POST'
-        ? opts.idempotencyKey ?? `${this.idempotencyKeyPrefix}${crypto.randomUUID()}`
+        ? opts.idempotencyKey || `${this.idempotencyKeyPrefix}${crypto.randomUUID()}`
         : undefined;
     const headers: Record<string, string> = {};
     if (opts.body) headers['Content-Type'] = opts.contentType ?? 'application/octet-stream';
@@ -501,6 +534,9 @@ export class HttpClient {
   ): AsyncGenerator<T, void, undefined> {
     const ceilingIsDefault = options?.maxPages === undefined;
     const maxPages = options?.maxPages ?? DEFAULT_MAX_PAGES;
+    if (!Number.isInteger(maxPages) || maxPages < 1) {
+      throw new RangeError('maxPages must be an integer, 1 or more.');
+    }
     const maxItems = options?.maxItems;
     if (maxItems !== undefined && (!Number.isInteger(maxItems) || maxItems < 1)) {
       throw new RangeError('maxItems must be an integer, 1 or more.');
@@ -694,15 +730,16 @@ export class HttpClient {
   ): Promise<T> {
     // Idempotency keys for all mutating methods
     const needsIdempotencyKey = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
+    // An empty key is no key: it used to send no Idempotency-Key at all.
     const idempotencyKey =
-      options?.idempotencyKey ??
+      options?.idempotencyKey ||
       (needsIdempotencyKey
         ? `${this.idempotencyKeyPrefix}${crypto.randomUUID()}`
         : undefined);
 
     // Serialize once: a body signature covers these exact bytes, so every
     // attempt sends the same string.
-    const payload = body !== undefined ? JSON.stringify(body) : undefined;
+    const payload = body !== undefined ? JSON.stringify(body, refuseNonFinite) : undefined;
     const signature = await this.signatureHeaders(
       options,
       payload !== undefined ? new TextEncoder().encode(payload) : undefined,
@@ -734,7 +771,7 @@ export class HttpClient {
   private async send<T>(spec: SendSpec<T>): Promise<T> {
     const { method, url, options, idempotencyKey } = spec;
     const signal = options?.signal;
-    const timeout = options?.timeout ?? this.timeout;
+    const timeout = options?.timeout === undefined ? this.timeout : checkedTimeout(options.timeout);
     const authState: AuthRetryState = { forceRefresh: false, reauthenticated: false };
     let lastError: Error | undefined;
     let skipBackoff = false;

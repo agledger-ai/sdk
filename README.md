@@ -623,6 +623,18 @@ and to its entry; pass the peer's federation key as `federationKeys`
 re-verify the peer's signature over what it asserted, from this
 export alone. `checked.federationWire` counts `present`, `verified` and `failed`, and a
 sealed message that does not hold fails `CHAIN_FEDERATION_WIRE_INVALID`.
+After a peer changes its federation key, give the list form
+(`[{ hubId, publicKey, history }]`) the peer's key history
+(`discovery.getFederationKeys()`, read from the peer) so entries sealed under
+its earlier keys verify. A message signed more than 300 seconds after its key's
+retirement fails unless `allowAfterRetirement: true`, which accepts it and
+counts it in `federationWire.afterRetirement`.
+
+The counts an export states about its own length are unsigned, so an export
+cut from the end with them deleted passes on its own. Pass
+`expectedEntryCount` with a count taken out of band (the record's entry count
+from the Server, or an earlier export) and a different number of entries fails
+`CHAIN_POSITION_GAP`.
 
 ## SCITT / SCRAPI
 

@@ -52,6 +52,15 @@ Each of these routes is gone from AGLedger Server 3.0.0, so the method that call
 
 ### Fixed
 
+- **An empty `idempotencyKey` no longer drops the `Idempotency-Key` header.** It is treated as unset, so the POST carries a generated key. A caller's own key is still sent as given; `idempotencyKeyPrefix` applies to generated keys only, now in both SDKs.
+- **`timeout` is checked.** A value that is not a finite number of milliseconds above 0 and at most 2147483647 (what a timer can hold) throws `ConfigurationError`, on the client and per request. 0, `NaN`, `Infinity` and larger values used to fire at once and fail every call as a `TimeoutError`.
+- **`maxPages` that is not an integer, 1 or more, throws `RangeError`**, as `maxItems` does. 0 and `NaN` used to end the walk with nothing.
+- **A request body holding `NaN` or `Infinity` throws `ConfigurationError`** instead of sending `null`.
+- **A `Set`, `Map` or other non-plain object as a query value throws `ConfigurationError`**; it used to send nothing.
+- **`Retry-After` is read as ASCII decimal seconds only.** `0x10` was read as 16 seconds and an empty header as 0.
+- **An HMAC webhook signature is compared as the exact lowercase hex the Server sends.** The header was hex-decoded first, which stops at the first character that is not hex, so a signature with anything appended still verified. A header part now splits at its first `=`, and an empty `v1` slot is passed over.
+- **`verifyRfc9421` takes a public key only as standard padded base64**, as the key surfaces publish it; base64url or unpadded keys verify nothing.
+- **`oidcCertCredential` refuses a `refreshFraction` that is not a number**, and a token from `getOidcToken` must have exactly three segments.
 - **An empty or blank webhook secret throws `ConfigurationError`** from `verifySignature` and `constructEvent`, as the Python SDK raises. An empty string is a valid HMAC key, so a receiver deployed with `WEBHOOK_SECRET=` set but empty accepted any delivery signed with an empty key. An empty list, or any blank entry in a rotation list, is refused the same way.
 - **An untampered export checked against another Server's pin is `unanchored`, not `failed`**, through `@agledger/sdk/verify` (verify-core 2.2.0). When the pin reaches none of the export's keys and the export verifies without it, `verdict` is `unanchored` and `valid` stays false.
 - **Path parameters are percent-encoded.** An id such as `../admin/x?y=1` passed to `records.get()` (or any method that puts an identifier in the URL) reached a different route. Every interpolated path segment is now encoded, so it names that literal identifier.

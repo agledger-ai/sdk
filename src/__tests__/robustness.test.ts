@@ -276,3 +276,93 @@ describe('paginate', () => {
     expect(fetchFn).not.toHaveBeenCalled();
   });
 });
+
+// The same refusals as the Python SDK, input by input.
+describe('inputs refused as the Python SDK refuses them', () => {
+  it('an empty idempotencyKey is no key: a POST still carries a generated one', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(ok({}));
+    await client(fetchFn, { idempotencyKeyPrefix: 'app-' }).post('/v1/records', { a: 1 }, { idempotencyKey: '' });
+    const sent = (fetchFn.mock.calls[0]![1] as RequestInit).headers as Record<string, string>;
+    expect(sent['Idempotency-Key']).toMatch(/^app-[0-9a-f-]{36}$/);
+  });
+
+  it('a caller key is sent as given, without the prefix', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(ok({}));
+    await client(fetchFn, { idempotencyKeyPrefix: 'app-' }).post('/v1/records', { a: 1 }, { idempotencyKey: 'mine' });
+    expect(((fetchFn.mock.calls[0]![1] as RequestInit).headers as Record<string, string>)['Idempotency-Key']).toBe('mine');
+  });
+
+  it.each([0, -1, NaN, Infinity, 2_147_483_648, '5'])('timeout %s is refused at construction and per request', async (t) => {
+    expect(() => client(vi.fn(), { timeout: t })).toThrow(ConfigurationError);
+    const fetchFn = vi.fn().mockResolvedValue(ok({}));
+    await expect(client(fetchFn).get('/v1/records', undefined, { timeout: t as number })).rejects.toBeInstanceOf(ConfigurationError);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, NaN, 1.5])('maxPages %s is refused', async (n) => {
+    const walk = client(vi.fn().mockResolvedValue(ok({ data: [] }))).paginate('/v1/records', undefined, { maxPages: n });
+    await expect(walk.next()).rejects.toBeInstanceOf(RangeError);
+  });
+
+  it.each(['0x10', '', '1e3', '1_0'])('Retry-After %j is not a wait', async (value) => {
+    const fetchFn = vi.fn().mockResolvedValue(refused(429, { 'Retry-After': value }));
+    const err = await client(fetchFn).get('/v1/records').catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RateLimitError);
+    expect((err as RateLimitError).retryAfter ?? null).toBeNull();
+  });
+
+  it('a request body holding NaN or Infinity is refused, not sent as null', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(ok({}));
+    await expect(client(fetchFn).post('/v1/records', { n: NaN })).rejects.toBeInstanceOf(ConfigurationError);
+    await expect(client(fetchFn).post('/v1/records', { a: [Infinity] })).rejects.toBeInstanceOf(ConfigurationError);
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('a Set or Map query value is refused rather than sent as nothing', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(ok({}));
+    await expect(client(fetchFn).get('/v1/records', { s: new Set(['a']) })).rejects.toBeInstanceOf(ConfigurationError);
+    await expect(client(fetchFn).get('/v1/records', { m: new Map([['a', 1]]) })).rejects.toBeInstanceOf(ConfigurationError);
+  });
+});
+
+describe('webhook header and key forms read as the Python SDK reads them', () => {
+  const body = '{"type":"record.created","data":{}}';
+  const signed = () => signPayload(body, 'sec');
+
+  it('a signature with anything appended, or in upper case, does not verify', () => {
+    const { timestamp, signature } = signed();
+    expect(verifySignature(body, `t=${timestamp},v1=${signature}`, 'sec')).toBe(true);
+    expect(verifySignature(body, `t=${timestamp},v1=${signature}zz`, 'sec')).toBe(false);
+    expect(verifySignature(body, `t=${timestamp},v1=${signature.toUpperCase()}`, 'sec')).toBe(false);
+  });
+
+  it('a part splits at its first =, and an empty v1 slot is passed over', () => {
+    const { timestamp, signature } = signed();
+    expect(verifySignature(body, `t=${timestamp}=zz,v1=${signature}`, 'sec')).toBe(false);
+    expect(verifySignature(body, `t=${timestamp},v1=,v1=${signature}`, 'sec')).toBe(true);
+    expect(parseSignatureHeader(`t=+${timestamp},v1=${signature}`)).toBeNull();
+  });
+
+  it('an RFC 9421 key that is not standard padded base64 verifies nothing', async () => {
+    const { publicKey } = generateKeyPairSync('ed25519');
+    const spki = publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
+    for (const key of [spki.replace(/=+$/, ''), Buffer.from(spki, 'base64').toString('base64url')]) {
+      expect(await verifyRfc9421({}, body, key)).toBe(false);
+    }
+  });
+});
+
+describe('oidcCertCredential inputs, as the Python SDK refuses them', () => {
+  it('refuses a refreshFraction that is not a number', async () => {
+    const { oidcCertCredential } = await import('../auth/oidc-cert.js');
+    expect(() => oidcCertCredential({ getOidcToken: () => 'a.b.c', refreshFraction: '0.5' as unknown as number })).toThrow(ConfigurationError);
+  });
+
+  it.each(['h.p', 'h.p.s.x'])('a token with other than three segments (%s) is not a JWT', async (shape) => {
+    const { oidcCertCredential } = await import('../auth/oidc-cert.js');
+    const payload = Buffer.from(JSON.stringify({ sub: 'agent' })).toString('base64url');
+    const token = shape.replace('p', payload);
+    const credential = oidcCertCredential({ getOidcToken: () => token });
+    await expect(credential.getToken({ baseUrl: BASE, fetch: vi.fn() } as never)).rejects.toBeInstanceOf(ConfigurationError);
+  });
+});

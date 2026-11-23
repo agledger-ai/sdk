@@ -109,7 +109,7 @@ export function oidcCertCredential(options: OidcCertCredentialOptions): OidcCert
     throw new ConfigurationError('oidcCertCredential needs getOidcToken, a function returning a fresh OIDC token.');
   }
   const refreshFraction = options.refreshFraction ?? DEFAULT_REFRESH_FRACTION;
-  if (!(refreshFraction > 0 && refreshFraction <= 1)) {
+  if (typeof refreshFraction !== 'number' || !(refreshFraction > 0 && refreshFraction <= 1)) {
     throw new ConfigurationError(
       `refreshFraction must be greater than 0 and at most 1; got ${String(options.refreshFraction)}.`,
     );
@@ -233,10 +233,13 @@ function publicJwk(publicKey: KeyObject): { kty: 'OKP'; crv: 'Ed25519'; x: strin
 
 /** The token's `sub`, read without verifying: the Server verifies the token. */
 function subjectOf(token: string): string {
-  const payload = token.split('.')[1];
+  // A compact JWS has exactly three segments, as the Python SDK requires.
+  const segments = token.split('.');
   let sub: unknown;
   try {
-    sub = (JSON.parse(Buffer.from(payload ?? '', 'base64url').toString('utf8')) as { sub?: unknown }).sub;
+    sub = segments.length === 3
+      ? (JSON.parse(Buffer.from(segments[1] ?? '', 'base64url').toString('utf8')) as { sub?: unknown }).sub
+      : undefined;
   } catch {
     sub = undefined;
   }
