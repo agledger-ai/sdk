@@ -197,3 +197,23 @@ describe('records.getAuditExportHtml()', () => {
     expect(init.headers.Accept).toBe('text/html');
   });
 });
+
+describe('compliance.downloadExportText()', () => {
+  it('returns a csv or html export as the text the Server sent', async () => {
+    const csv = 'recordId,status\nrec-1,FULFILLED\n';
+    const bytes = new TextEncoder().encode(csv);
+    const { client, fetch } = mockClient(null, {
+      arrayBuffer: vi.fn().mockResolvedValue(bytes.buffer),
+      headers: new Headers({ 'content-type': 'text/csv' }),
+    });
+
+    const text = await client.compliance.downloadExportText('exp-1');
+
+    expect(text).toBe(csv);
+    const [url, init] = fetch.mock.calls[0];
+    expect(new URL(String(url)).pathname).toBe('/v1/compliance/export/exp-1/download');
+    expect(init.method).toBe('GET');
+    expect(init.headers.Accept).toContain('text/csv');
+    expect(init.headers.Accept).toContain('text/html');
+  });
+});

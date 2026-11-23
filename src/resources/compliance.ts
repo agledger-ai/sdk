@@ -34,9 +34,26 @@ export class ComplianceResource {
     return this.http.get<ComplianceExport>(`/v1/compliance/export/${exportId}`, undefined, options);
   }
 
-  /** Download a completed compliance export. */
+  /**
+   * Download a completed compliance export created with `format: 'json'`.
+   * An export created as `csv` or `html` is served in that format:
+   * `downloadExportText()` returns it.
+   */
   downloadExport(exportId: string, options?: RequestOptions): Promise<Record<string, unknown>> {
     return this.http.get(`/v1/compliance/export/${exportId}/download`, undefined, options);
+  }
+
+  /**
+   * Download a completed compliance export as the text the Server sent: the
+   * CSV file or the HTML report for an export created with `format: 'csv'`
+   * or `'html'` (a `json` export comes back as its JSON text).
+   */
+  async downloadExportText(exportId: string, options?: RequestOptions): Promise<string> {
+    const bytes = await this.http.requestBinary('GET', `/v1/compliance/export/${exportId}/download`, {
+      ...options,
+      accept: 'text/csv, text/html, application/json',
+    });
+    return new TextDecoder().decode(bytes);
   }
 
   /** Create an AI impact assessment for a Record (EU AI Act). */
