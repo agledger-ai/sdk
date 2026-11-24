@@ -1,14 +1,10 @@
 /**
  * Regenerate the SDK↔API parity snapshots from an OpenAPI spec.
  *
- * Both snapshots used to be hand-maintained with no generator, which made the
- * parity tests unable to detect API drift: they compare the SDK against files
- * that only change when someone edits them, so an API release that adds a field
- * leaves the suite green. That is exactly what happened on the v1.4.0 → RC bump,
- * where two new RecordRow fields landed and all 530 tests still passed.
- *
- * Refreshing is now one command, and `--check` surfaces the drift without
- * writing anything (wire it into CI against a known-good spec).
+ * The parity tests compare the SDK against these snapshots, so a snapshot that
+ * is not regenerated from the spec hides API drift: a release that adds a field
+ * leaves the suite green. `--check` reports drift without writing anything
+ * (wire it into CI against a known-good spec).
  *
  *   node scripts/refresh-parity.mjs --url http://localhost:3001/openapi.json
  *   node scripts/refresh-parity.mjs --spec <path-to-server>/openapi.json
@@ -107,10 +103,9 @@ function buildRoutes(spec, source) {
   routes.sort((a, b) => `${a.method} ${a.path}`.localeCompare(`${b.method} ${b.path}`));
   return {
     generatedAt: new Date().toISOString(),
-    // Derived, never free text. This file ships in the Python sdist and both
-    // repos are public, so a hand-typed note here has published internal build
-    // state before now. Record what the spec says about itself plus whether it
-    // came off the wire or a file, and keep the rest in the release notes.
+    // Derived, never free text: this file ships in the Python sdist. Record
+    // what the spec says about itself and whether it came off the wire or a
+    // file; everything else belongs in the release notes.
     sourceKind: /^https?:/i.test(source) ? 'remote' : 'local',
     apiVersion: spec.info?.version ?? null,
     count: routes.length,
