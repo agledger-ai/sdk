@@ -50,12 +50,32 @@ const KEY_WINDOW_SKEW_MS = 300_000;
  */
 function checkedSecrets(secrets: string | readonly string[]): readonly string[] {
   const list: readonly unknown[] = Array.isArray(secrets) ? secrets : [secrets];
-  if (list.length === 0 || list.some((s) => typeof s !== 'string' || s.trim() === '')) {
+  if (list.length === 0) {
     throw new ConfigurationError(
-      'Webhook signing secret is empty. Pass the endpoint\'s secret, or a non-empty list of secrets during rotation.',
+      'The list of webhook signing secrets is empty. Pass the endpoint\'s secret, or a non-empty list of secrets during rotation.',
     );
   }
+  for (const s of list) {
+    if (typeof s !== 'string') {
+      throw new ConfigurationError(
+        `A webhook signing secret must be a string, not ${typeName(s)}. Pass the endpoint's secret as text, or a list of them during rotation.`,
+      );
+    }
+    if (s.trim() === '') {
+      throw new ConfigurationError(
+        'Webhook signing secret is empty. Pass the endpoint\'s secret, or a non-empty list of secrets during rotation.',
+      );
+    }
+  }
   return list as readonly string[];
+}
+
+/** What a value is, for an error message: `null`, `number`, `Buffer`, `Object`. */
+function typeName(value: unknown): string {
+  if (value === null) return 'null';
+  if (typeof value !== 'object') return typeof value;
+  const ctor = (value as { constructor?: { name?: unknown } }).constructor;
+  return typeof ctor?.name === 'string' && ctor.name !== '' ? ctor.name : 'object';
 }
 
 /** A verified webhook event with typed payload. */
@@ -78,7 +98,7 @@ export interface WebhookEvent<T extends WebhookEventType = WebhookEventType> {
  *
  * @param rawBody - The raw request body string (do NOT parse JSON first)
  * @param header - The x-agledger-signature header value
- * @param secrets - One or more webhook secrets (array for key rotation). An empty list, or an empty or blank secret, throws a ConfigurationError.
+ * @param secrets - One or more webhook secrets (array for key rotation). An empty list, a secret that is not a string, or an empty or blank secret throws a ConfigurationError.
  * @param toleranceSeconds - Max age in seconds (default/max: 300; a value that is not a finite number, 0 or more, throws a RangeError)
  * @returns Parsed and typed webhook event
  * @throws Error if signature is invalid or body cannot be parsed
@@ -185,7 +205,7 @@ export function parseSignatureHeader(
  *
  * @param rawBody - The raw request body string
  * @param header - The x-agledger-signature header value
- * @param secrets - One or more webhook secrets (array for key rotation). An empty list, or an empty or blank secret, throws a ConfigurationError.
+ * @param secrets - One or more webhook secrets (array for key rotation). An empty list, a secret that is not a string, or an empty or blank secret throws a ConfigurationError.
  * @param toleranceSeconds - Max age in seconds (default/max: 300). A value that is not a finite number, 0 or more, throws a RangeError.
  * @returns true if signature is valid and within tolerance
  */

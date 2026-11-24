@@ -99,6 +99,25 @@ describe('webhook replay window', () => {
     expect(() => constructEvent(body, forged.header, secrets as string | string[])).toThrow(ConfigurationError);
   });
 
+  it.each([
+    [null, 'null'],
+    [5, 'number'],
+    [Buffer.from('s'), 'Buffer'],
+    [['s', 5], 'number'],
+    [[null], 'null'],
+  ])('a secret that is not a string (%j) throws ConfigurationError naming its type, not "empty"', (secrets, type) => {
+    const header = signPayload(body, 's').header;
+    for (const call of [() => verifySignature(body, header, secrets as unknown as string), () => constructEvent(body, header, secrets as unknown as string)]) {
+      expect(call).toThrow(ConfigurationError);
+      expect(call).toThrow(`must be a string, not ${type}`);
+      expect(call).not.toThrow(/empty/);
+    }
+  });
+
+  it('names an empty list as an empty list', () => {
+    expect(() => verifySignature(body, 't=1,v1=ab', [])).toThrow('list of webhook signing secrets is empty');
+  });
+
   it('rejects a non-finite tolerance on the RFC 9421 path, not as a plain false', async () => {
     for (const t of [NaN, Infinity, -1]) {
       await expect(verifyRfc9421({}, body, 'x', { toleranceSeconds: t })).rejects.toBeInstanceOf(RangeError);
